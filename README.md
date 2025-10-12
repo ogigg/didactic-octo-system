@@ -1,135 +1,128 @@
-# Turborepo starter
+## Workout – AI Trainer (MVP)
 
-This Turborepo starter is maintained by the Turborepo core team.
+[![node](https://img.shields.io/badge/node-%E2%89%A518-%23339933)](https://nodejs.org) [![typescript](https://img.shields.io/badge/TypeScript-5.x-%233178C6)](https://www.typescriptlang.org/) [![build](https://img.shields.io/badge/Monorepo-Turborepo-%23000000)](https://turbo.build/repo) ![status](https://img.shields.io/badge/status-WIP-orange)
 
-## Using this example
+AI Trainer helps gym newcomers start training without confusion. It generates a single, adaptive workout session at a time and validates every AI suggestion against a known exercise database and available equipment.
 
-Run the following command:
+Links: [Product Requirements (PRD)](.ai/prd.md) · [Tech Stack](.ai/tech-stack.md)
 
-```sh
-npx create-turbo@latest
+### Table of Contents
+- [Project name](#project-name)
+- [Project description](#project-description)
+- [Tech stack](#tech-stack)
+- [Getting started locally](#getting-started-locally)
+- [Available scripts](#available-scripts)
+- [Project scope](#project-scope)
+- [Project status](#project-status)
+- [License](#license)
+
+## Project name
+
+Workout – AI Trainer (MVP)
+
+## Project description
+
+AI-powered single-session workout planning and logging for iOS/Android. The system generates a complete session tailored to the user’s goal, history, level, and available equipment; validates exercises and equipment before display; and provides simple, offline-capable logging plus a motivating summary.
+
+- Platform: React Native with Expo (mobile-first)
+- AI orchestration via OpenRouter; strict JSON schema enforced and validated
+- Exercise knowledge via MCP; invalid or unavailable exercises are substituted safely
+- Offline-first logging with background sync; clear error states and retries
+
+## Tech stack
+
+### Frontend (Mobile)
+- React Native, Expo (SDK 52+), Expo Router, TypeScript
+- State: TanStack Query (server state), Zustand (local state)
+- Forms & validation: React Hook Form, Zod
+- UI: React Native Paper (optional), Expo Vector Icons
+
+### Backend
+- Supabase (PostgreSQL, Auth, RLS, Realtime, Storage)
+- Supabase Edge Functions (Deno): generation, AI orchestration, validation layer
+
+### Database
+- PostgreSQL on Supabase: user profiles, exercise library, sessions, logs
+- Client: Supabase JS; optional Drizzle ORM
+
+### AI / LLM
+- OpenRouter gateway; primary: Claude 3.5 Sonnet, fallback: GPT-4o
+- Zod for JSON output validation; optional Langchain later
+
+### Dev, CI/CD, Monitoring
+- Code quality: ESLint, Prettier, TypeScript
+- Testing: Jest, React Native Testing Library; Playwright (future)
+- Deployment: EAS Build/Submit/Update (mobile), Supabase CLI (backend), GitHub Actions
+- Monitoring & analytics: Sentry, PostHog, Expo Performance Monitoring
+
+## Getting started locally
+
+### Prerequisites
+- Node.js ≥ 18 (20+ recommended), npm (packageManager set to npm@11.4.0)
+- Git
+- For mobile development (incoming): Xcode/Android Studio, EAS CLI, Expo account
+- For backend: Supabase account and Supabase CLI; OpenRouter API key
+
+### Setup
+```bash
+git clone <your-fork-or-repo-url>
+cd workout
+npm install
 ```
 
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
+### Development
+- Monorepo tasks are orchestrated with Turborepo.
+- Start all workspace dev tasks:
+```bash
+npm run dev
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+- Build all workspaces:
+```bash
+npm run build
+```
+- Lint and format:
+```bash
+npm run lint
+npm run format
+```
+- Type-check:
+```bash
+npm run check-types
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Notes
+- This repository currently includes a Next.js scaffold in `apps/web` and `apps/docs` plus shared UI in `packages/ui`. The React Native/Expo mobile app and Supabase functions will be added per the PRD.
+- Environment variables for Supabase and OpenRouter will be documented alongside the mobile and backend packages when introduced.
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+## Available scripts
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+From repository root:
+- **build**: `turbo run build` — build all apps/packages
+- **dev**: `turbo run dev` — run dev tasks across workspaces
+- **lint**: `turbo run lint` — lint all workspaces
+- **format**: `prettier --write "**/*.{ts,tsx,md}"` — format sources
+- **check-types**: `turbo run check-types` — TypeScript checks across workspaces
 
-### Develop
+Workspaces may define additional scripts (see each package’s `package.json`).
 
-To develop all apps and packages, run the following command:
+## Project scope
 
-```
-cd my-turborepo
+MVP focuses on a safe, adaptive single-session planner and lightweight logger:
+- Onboarding: gender (optional), goal (preset or custom), weekly frequency; review and submit
+- AI session generation: single complete session; inputs include goal, history, level, equipment; strict schema; validation via MCP and availability checks; safe fallbacks; regeneration limit and cost guardrails
+- Workout logger: per-exercise tables with suggested kg/reps and previous performance; editable actuals; not-completed state; difficulty feedback (Too Easy/OK/Too Hard); duplicate prevention; auto-start rest timer with pause/resume
+- Session management: autosave active session; resume/discard on relaunch; offline logging with queued sync and backoff; conflict resolution via last-write-wins
+- Post-workout summary: duration, tonnage, fun comparison, primary muscles; local fallback on errors; encouraging tone
+- Non-functional targets: generation ≤ 3s P50/≤ 7s P95; accessibility; privacy/security baselines; analytics for activation and engagement
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
+Out of scope for MVP: monetization, social/sharing, AI chat, instructional media, post-onboarding profile editing, unit switching (kg only), web app.
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
+## Project status
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Work in progress (MVP). Monorepo scaffold is present; mobile (Expo) and backend (Supabase Edge Functions) will be added next. Success metrics and detailed user stories are defined in the PRD.
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+Track details: [PRD](.ai/prd.md) · [Tech Stack](.ai/tech-stack.md)
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+## License
 
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+License not specified yet. Until a `LICENSE` file is added, treat this repository as All Rights Reserved for private evaluation. If you intend to open-source, consider adding MIT/Apache-2.0 and updating this section accordingly.
