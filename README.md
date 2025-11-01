@@ -13,6 +13,7 @@ Links: [Product Requirements (PRD)](.ai/prd.md) · [Tech Stack](.ai/tech-stack.m
 - [Getting started locally](#getting-started-locally)
 - [Available scripts](#available-scripts)
 - [Running ESLint](#running-eslint)
+- [Running Prettier](#running-prettier)
 - [Project scope](#project-scope)
 - [Project status](#project-status)
 - [License](#license)
@@ -101,7 +102,8 @@ From repository root:
 - **build**: `turbo run build` — build all apps/packages
 - **dev**: `turbo run dev` — run dev tasks across workspaces
 - **lint**: `turbo run lint` — lint all workspaces
-- **format**: `prettier --write "**/*.{ts,tsx,md}"` — format sources
+- **format**: `prettier --write "**/*.{ts,tsx,js,jsx,json,md,yml,yaml}"` — format sources
+- **format:check**: `prettier --check "**/*.{ts,tsx,js,jsx,json,md,yml,yaml}"` — check formatting without modifying files
 - **check-types**: `turbo run check-types` — TypeScript checks across workspaces
 
 Workspaces may define additional scripts (see each package's `package.json`).
@@ -117,6 +119,88 @@ From the repository root:
 npm run lint
 ```
 This uses Turborepo to run the `lint` script across all workspaces in parallel.
+
+## Running Prettier
+
+This project uses Prettier for consistent code formatting. Prettier is integrated with ESLint via `eslint-config-prettier` to avoid conflicts.
+
+### Configuration
+
+Prettier is configured via `.prettierrc` in the repository root with the following settings:
+- **Semicolons**: Enabled
+- **Quotes**: Double quotes (single for JSX)
+- **Print Width**: 80 characters
+- **Tab Width**: 2 spaces
+- **Trailing Commas**: ES5 compatible
+- **Arrow Parens**: Always include
+- **End of Line**: LF (Unix-style)
+
+### Format all files (recommended)
+
+From the repository root:
+```bash
+npm run format
+```
+This formats all supported files (`ts`, `tsx`, `js`, `jsx`, `json`, `md`, `yml`, `yaml`) across the entire repository.
+
+### Check formatting without modifying files
+
+Useful for CI/CD pipelines to verify code is properly formatted:
+```bash
+npm run format:check
+```
+This will exit with a non-zero code if any files need formatting.
+
+### Format specific files or directories
+
+You can also run Prettier directly on specific paths:
+```bash
+# Format a specific file
+npx prettier --write apps/mobile/app/index.tsx
+
+# Format a directory
+npx prettier --write apps/mobile/components/
+
+# Check formatting for a directory
+npx prettier --check apps/mobile/
+```
+
+### Useful Prettier Options
+
+- `--write` - Format files in-place (default for `format` script)
+- `--check` - Check if files are formatted without modifying them
+- `--list-different` - List files that would be changed
+- `--log-level` - Set log level (`error`, `warn`, `info`, `debug`, `silent`)
+- `--cache` - Use Prettier cache for faster subsequent runs
+- `--cache-location` - Specify cache file location
+
+### Editor Integration
+
+For the best experience, configure your editor to format on save:
+
+**VS Code**: Add to `.vscode/settings.json`:
+```json
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}
+```
+
+### Ignored Files
+
+Files and directories in `.prettierignore` are excluded from formatting, including:
+- `node_modules`, build outputs, generated files
+- Lock files, environment files
+- IDE and OS-specific files
 
 ## Project scope
 

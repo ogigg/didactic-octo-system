@@ -9,6 +9,10 @@
     "./react-internal": "./react-internal.js",
     "./react-native": "./react-native.js"
   },
+  "scripts": {
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\""
+  },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
     "@next/eslint-plugin-next": "^15.5.0",

@@ -1,0 +1,56 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+build
+.next
+out
+.turbo
+.expo
+.expo-shared
+
+# Generated files
+*.log
+*.cache
+*.tsbuildinfo
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment files
+.env
+.env.*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage
+.nyc_output
+
+# Misc
+*.pem
+*.min.js
+*.min.css
+
+# Lock files (formatted by package managers)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated Expo files
+expo-env.d.ts
+
