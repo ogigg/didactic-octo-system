@@ -1,123 +1,179 @@
-## Workout – AI Trainer (MVP)
+## AI Trainer (MVP)
 
-[![node](https://img.shields.io/badge/node-%E2%89%A518-%23339933)](https://nodejs.org) [![typescript](https://img.shields.io/badge/TypeScript-5.x-%233178C6)](https://www.typescriptlang.org/) [![build](https://img.shields.io/badge/Monorepo-Turborepo-%23000000)](https://turbo.build/repo) ![status](https://img.shields.io/badge/status-WIP-orange)
+[![Expo SDK 54](https://img.shields.io/badge/Expo%20SDK-54-000?logo=expo&logoColor=fff)](https://docs.expo.dev)
+[![React Native 0.81](https://img.shields.io/badge/React%20Native-0.81-61DAFB?logo=react&logoColor=white)](https://reactnative.dev)
+[![Node.js ≥ 20](https://img.shields.io/badge/Node.js-%E2%89%A5%2020-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![License](https://img.shields.io/badge/License-TBD-lightgrey.svg)](#license)
 
-AI Trainer helps gym newcomers start training without confusion. It generates a single, adaptive workout session at a time and validates every AI suggestion against a known exercise database and available equipment.
+Your workout, planned by AI.
 
-Links: [Product Requirements (PRD)](.ai/prd.md) · [Tech Stack](.ai/tech-stack.md)
+## Table of Contents
 
-### Table of Contents
-
-- [Project name](#project-name)
 - [Project description](#project-description)
 - [Tech stack](#tech-stack)
 - [Getting started locally](#getting-started-locally)
 - [Available scripts](#available-scripts)
-- [Running ESLint](#running-eslint)
-- [Running Prettier](#running-prettier)
 - [Project scope](#project-scope)
 - [Project status](#project-status)
 - [License](#license)
 
-## Project name
-
-Workout – AI Trainer (MVP)
-
 ## Project description
 
-AI-powered single-session workout planning and logging for iOS/Android. The system generates a complete session tailored to the user’s goal, history, level, and available equipment; validates exercises and equipment before display; and provides simple, offline-capable logging plus a motivating summary.
+AI Trainer helps gym newcomers start training without confusion or anxiety. Instead of static plans, it generates one complete workout session at a time and adapts based on the user’s goals, history, and available equipment. The experience focuses on clear execution, simple logging, and a friendly post‑workout summary.
 
-- Platform: React Native with Expo (mobile-first)
-- AI orchestration via OpenRouter; strict JSON schema enforced and validated
-- Exercise knowledge via MCP; invalid or unavailable exercises are substituted safely
-- Offline-first logging with background sync; clear error states and retries
+- **Platform**: Mobile-first using React Native/Expo (iOS and Android)
+- **Generation**: LLM via OpenRouter with strict JSON schema validation
+- **Safety**: All exercises validated against MCP database and equipment constraints; safe local fallbacks
+- **Offline-first logging**: Local autosave with background sync and retry
+- **Performance targets**: Generation ≤ 3s P50, ≤ 7s P95; smooth scrolling on mid-tier devices
+
+Additional details:
+
+- Product Requirements: [PRD - AI Trainer (MVP)](.ai/prd.md)
+- Technology overview: [Tech Stack](.ai/tech-stack.md)
 
 ## Tech stack
 
-### Frontend (Mobile)
+### Mobile
 
-- React Native, Expo (SDK 52+), Expo Router, TypeScript
-- State: TanStack Query (server state), Zustand (local state)
-- Forms & validation: React Hook Form, Zod
-- UI: React Native Paper (optional), Expo Vector Icons
+- **React Native** (0.81) with **Expo** (SDK 54)
+- **Expo Router** (file-based navigation)
+- **TypeScript**
 
-### Backend
+### State Management
 
-- Supabase (PostgreSQL, Auth, RLS, Realtime, Storage)
-- Supabase Edge Functions (Deno): generation, AI orchestration, validation layer
+- **TanStack Query (React Query)** for server state
+- **Zustand** for local app state
 
-### Database
+### Forms & Validation
 
-- PostgreSQL on Supabase: user profiles, exercise library, sessions, logs
-- Client: Supabase JS; optional Drizzle ORM
+- **React Hook Form**
+- **Zod** for runtime validation and LLM JSON schema enforcement
+
+### UI Components
+
+- **Expo Vector Icons**
+- (Optional) **React Native Paper**
+
+### Backend & Data
+
+- **Supabase** (Auth, PostgreSQL, RLS, Realtime, Storage)
+- **Supabase Edge Functions** (Deno) for LLM orchestration and validation
 
 ### AI / LLM
 
-- OpenRouter gateway; primary: Claude 3.5 Sonnet, fallback: GPT-4o
-- Zod for JSON output validation; optional Langchain later
+- **OpenRouter** as gateway
+- Primary: **Claude 3.5 Sonnet**; Fallback: **GPT‑4o**
 
-### Dev, CI/CD, Monitoring
+### Tooling, QA, and Ops
 
-- Code quality: ESLint, Prettier, TypeScript
-- Testing: Jest, @testing-library/react-native; Playwright (future)
-- Deployment: EAS Build/Submit/Update (mobile), Supabase CLI (backend), GitHub Actions
-- Monitoring & analytics: Sentry, PostHog, Expo Performance Monitoring
+- **ESLint**, **Prettier**, **TypeScript**
+- **Jest** + **React Native Testing Library**
+- Monorepo with **Turborepo**
+- **EAS Build/Submit/Update** for mobile CI/CD
+- **GitHub Actions** for CI
+- **Sentry** (errors), **PostHog** (analytics), **Expo Performance Monitoring**
 
 ## Getting started locally
 
 ### Prerequisites
 
-- Node.js ≥ 18 (20+ recommended), npm (packageManager set to npm@11.4.0)
-- Git
-- For mobile development (incoming): Xcode/Android Studio, EAS CLI, Expo account
-- For backend: Supabase account and Supabase CLI; OpenRouter API key
+- Node.js ≥ 20 and npm ≥ 10 (or pnpm)
+- iOS: Xcode (for simulators)
+- Android: Android Studio (for emulators)
+- Expo Go app on a device (optional for quick testing)
 
-### Setup
+### Install and run (mobile app)
+
+Option A — from repo root:
 
 ```bash
-git clone <your-fork-or-repo-url>
-cd workout
+# from repository root
 npm install
-```
-
-### Development
-
-- Monorepo tasks are orchestrated with Turborepo.
-- Start all workspace dev tasks:
-
-```bash
+cd apps/mobile
 npm run dev
 ```
 
-- Build all workspaces:
+Option B — only the mobile app:
 
 ```bash
-npm run build
+cd apps/mobile
+npm install
+npm run dev
 ```
 
-- Lint and format:
+Open on a platform:
 
 ```bash
+# iOS Simulator (macOS only)
+npm run ios
+
+# Android Emulator
+npm run android
+
+# Web (Expo web)
+npm run web
+```
+
+### Testing, linting, formatting (mobile)
+
+```bash
+# unit tests
+npm test
+# watch mode
+npm run test:watch
+# coverage
+npm run test:coverage
+
+# lint
 npm run lint
+
+# format (Prettier)
 npm run format
+# format check (CI-friendly)
+npm run format:check
 ```
 
-- Type-check:
+Environment variables are not required just to run the UI locally. Backend/LLM integration will require configuration (e.g., Supabase and OpenRouter); see the PRD for expected behavior and add env files as those features land.
+
+## Available scripts
+
+### In `apps/mobile`
+
+| Script          | What it does                                           |
+| --------------- | ------------------------------------------------------ |
+| `dev` / `start` | Launches the Expo development server                   |
+| `ios`           | Starts Expo in iOS simulator                           |
+| `android`       | Starts Expo in Android emulator                        |
+| `web`           | Starts Expo for web                                    |
+| `lint`          | Runs ESLint (via Expo config)                          |
+| `format`        | Runs Prettier write over repo files                    |
+| `format:check`  | Checks formatting without writing                      |
+| `test`          | Runs Jest tests                                        |
+| `test:watch`    | Runs Jest in watch mode                                |
+| `test:coverage` | Runs Jest with coverage                                |
+| `reset-project` | Resets Expo project state (`scripts/reset-project.js`) |
+
+### Monorepo tasks (Turborepo)
+
+Defined in `turbo.json`:
+
+- `build` (depends on `^build`), caches outputs
+- `lint` (depends on `^lint`)
+- `check-types` (depends on `^check-types`)
+- `format` and `format:check` (no cache)
+- `test` (caches coverage output)
+- `dev` (persistent)
+
+Example usage from repository root:
 
 ```bash
-npm run check-types
+# run dev for the mobile app
+npx turbo run dev --filter=apps/mobile
+
+# run tests across the monorepo
+npx turbo run test
 ```
-
-- Run tests:
-
-```bash
-npm run test
-```
-
-Notes
-
-- This repository currently includes a Next.js scaffold in `apps/web` and `apps/docs` plus shared UI in `packages/ui`. The React Native/Expo mobile app and Supabase functions will be added per the PRD.
-- Environment variables for Supabase and OpenRouter will be documented alongside the mobile and backend packages when introduced.
 
 ## Available scripts
 
@@ -307,12 +363,37 @@ MVP focuses on a safe, adaptive single-session planner and lightweight logger:
 
 Out of scope for MVP: monetization, social/sharing, AI chat, instructional media, post-onboarding profile editing, unit switching (kg only), web app.
 
+## Project scope
+
+### In scope (MVP)
+
+- Minimal onboarding (gender, goal, weekly frequency) with resume on relaunch
+- AI session generation: single-session plan with strict JSON schema, validated via MCP and equipment rules; safe fallbacks and regeneration limits
+- Workout logger: sets table per exercise, prefilled targets, editable actuals, not-completed flow, duplicate-prevention
+- Rest timer: auto-start on set completion, pause/resume, correct restore after app switching
+- Session management: autosave, resume/discard unfinished sessions
+- Post-workout summary: duration, total tonnage, fun comparison, primary muscle groups
+- Offline-capable logging with queued sync and exponential backoff
+- Analytics baseline (activation and engagement events)
+- Privacy/security baseline (secure token storage, TLS, no PII in logs)
+
+### Out of scope (MVP)
+
+- Monetization, social features, AI chat, instructional media
+- Advanced analytics and historical charts
+- Post-onboarding profile editing
+- Custom modification of AI-generated plans
+- Gamification
+- Unit switching (kg only)
+
 ## Project status
 
-Work in progress (MVP). Monorepo scaffold is present; mobile (Expo) and backend (Supabase Edge Functions) will be added next. Success metrics and detailed user stories are defined in the PRD.
+- Status: **MVP in development**
+- Mobile scaffold present (Expo Router, RN/TypeScript, testing setup). Backend/LLM orchestration and MCP validation to be integrated per PRD.
+- Performance, reliability, and safety guardrails are defined in the PRD and guide implementation.
 
-Track details: [PRD](.ai/prd.md) · [Tech Stack](.ai/tech-stack.md)
+See the full requirements and acceptance criteria in the [PRD](.ai/prd.md).
 
 ## License
 
-License not specified yet. Until a `LICENSE` file is added, treat this repository as All Rights Reserved for private evaluation. If you intend to open-source, consider adding MIT/Apache-2.0 and updating this section accordingly.
+TBD. No license has been specified yet. If you are a maintainer, add a `LICENSE` file (e.g., MIT or Apache-2.0) and update this section and the badge accordingly.
