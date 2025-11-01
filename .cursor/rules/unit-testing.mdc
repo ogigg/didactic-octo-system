@@ -1,0 +1,124 @@
+---
+globs: *.test.ts,*.test.tsx,**/__tests__/**
+alwaysApply: false
+---
+  You are an expert in unit testing with Jest and @testing-library/react-native for React Native applications.
+
+  Testing Philosophy
+  - Write tests that focus on user behavior and component interactions, not implementation details.
+  - Test components from the user's perspective: what they see, what they can interact with, and how the component responds.
+  - Prioritize testing critical user flows and edge cases over achieving 100% code coverage.
+  - Write maintainable tests that will help future developers understand component behavior.
+  - Use Testing Library queries that prioritize accessibility (getByRole, getByLabelText) over implementation-specific queries (getByTestId).
+
+  Test Structure and Organization
+  - Place test files alongside the code they test with `.test.ts` or `.test.tsx` extension.
+  - Alternatively, use `__tests__` directories for organizing related tests.
+  - Use `describe` blocks to group related tests by component or feature.
+  - Use descriptive test names that explain what is being tested: `it('should display error message when API call fails')`.
+  - Keep tests focused and atomic; each test should verify one behavior or edge case.
+  - Use `beforeEach` and `afterEach` for common setup and cleanup, avoiding shared mutable state between tests.
+
+  Component Testing with @testing-library/react-native
+  - Use `render()` from `@testing-library/react-native` to render components in tests.
+  - Prefer queries that mirror how users interact with the component: `getByRole`, `getByLabelText`, `getByPlaceholderText`, `getByText`.
+  - Use `getByTestId` sparingly and only when no better query option exists; prioritize accessibility-first queries.
+  - Use `queryBy*` variants when checking for absence of elements (returns null instead of throwing).
+  - Use `findBy*` variants for asynchronous queries that wait for elements to appear.
+  - Use `screen` object from `@testing-library/react-native` for cleaner test code.
+  - Use `fireEvent` or `userEvent` from Testing Library for simulating user interactions.
+  - Test component behavior, not internal implementation details like state variables or function calls.
+
+  Assertions and Expectations
+  - Use Jest matchers from `@testing-library/jest-native` for React Native-specific assertions.
+  - Prefer semantic assertions: `expect(screen.getByText('Save')).toBeVisible()` over `expect(screen.getByText('Save')).toBeTruthy()`.
+  - Use `toBeInTheDocument()` or `toBeVisible()` from `@testing-library/jest-native` for visibility checks.
+  - Test accessibility: verify that components have proper accessibility labels and roles.
+  - Use `toHaveTextContent()` for checking text content, including nested text nodes.
+  - Test error states, loading states, and empty states explicitly.
+
+  Mocking and Test Doubles
+  - Mock external dependencies (APIs, modules, native modules) using `jest.mock()`.
+  - Use `jest.fn()` for creating mock functions and `jest.spyOn()` for spying on existing functions.
+  - Mock React Native modules and Expo modules at the module level when necessary.
+  - Use `jest.mock()` with factories to control mock behavior per test.
+  - Mock async operations appropriately, using `mockResolvedValue` and `mockRejectedValue` for promises.
+  - Avoid over-mocking; prefer real implementations when they don't introduce flakiness or dependencies.
+
+  Async Testing
+  - Use `waitFor()` from `@testing-library/react-native` to wait for asynchronous updates.
+  - Use `findBy*` queries for elements that appear asynchronously.
+  - Avoid using `act()` directly; Testing Library handles this internally.
+  - Use `fakeTimers` with `jest.useFakeTimers()` when testing time-dependent functionality.
+  - Remember to restore timers with `jest.useRealTimers()` or `jest.clearAllTimers()` in cleanup.
+
+  Hooks Testing
+  - Test custom hooks using `renderHook` from `@testing-library/react-native` when hooks are complex.
+  - For simple hooks used within components, test them through component behavior rather than in isolation.
+  - Test hook dependencies, cleanup functions, and edge cases explicitly.
+
+  Navigation Testing
+  - Mock navigation props (`navigation`, `route`) when testing components that use navigation.
+  - Test navigation actions using mocked navigation objects with `jest.fn()`.
+  - For Expo Router, mock navigation hooks and test route parameters appropriately.
+
+  Context and Providers
+  - Wrap components with necessary providers (themes, navigation, context) in tests when required.
+  - Create test utilities or helpers to provide common provider wrappers.
+  - Test context consumption through component behavior rather than context values directly.
+
+  Snapshot Testing
+  - Use snapshot testing sparingly and only for stable UI components that rarely change.
+  - Avoid snapshot testing for frequently changing components or components with dynamic content.
+  - Review snapshots carefully before committing; avoid committing snapshots with generated IDs or timestamps.
+  - Update snapshots intentionally: `jest --updateSnapshot` when component changes are expected.
+
+  Performance and Best Practices
+  - Keep tests fast; avoid unnecessary renders and async operations.
+  - Clean up after tests: unmount components, clear timers, restore mocks.
+  - Avoid testing implementation details like internal state, function call counts, or component internals.
+  - Test user-visible outcomes: what the user sees, what they can do, and what happens when they interact.
+  - Write tests that will catch regressions when behavior changes unexpectedly.
+
+  Test Coverage
+  - Aim for meaningful coverage rather than arbitrary percentages.
+  - Focus on testing critical paths, edge cases, and error handling.
+  - Use coverage reports to identify untested code paths, but don't chase 100% coverage.
+  - Ensure all error paths and edge cases are tested, especially those that could cause runtime errors.
+
+  Example Test Patterns
+
+  ```typescript
+  import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+  import { MyComponent } from '../MyComponent';
+
+  describe('MyComponent', () => {
+    it('should render correctly', () => {
+      render(<MyComponent />);
+      expect(screen.getByText('Hello')).toBeVisible();
+    });
+
+    it('should handle user interaction', async () => {
+      render(<MyComponent />);
+      const button = screen.getByRole('button', { name: 'Submit' });
+      fireEvent.press(button);
+      await waitFor(() => {
+        expect(screen.getByText('Submitted')).toBeVisible();
+      });
+    });
+
+    it('should display error message on failure', async () => {
+      render(<MyComponent />);
+      // ... test error state
+    });
+  });
+  ```
+
+  Common Pitfalls to Avoid
+  - Don't test implementation details; test behavior and outcomes.
+  - Don't overuse `getByTestId`; prefer accessibility-first queries.
+  - Don't create overly complex test setups; keep tests simple and focused.
+  - Don't test third-party library functionality; only test your usage of it.
+  - Don't write tests that are too coupled to implementation; they'll break with refactoring.
+  - Don't forget to test error states, loading states, and edge cases.
+  - Don't use `act()` unnecessarily; Testing Library handles React updates internally.

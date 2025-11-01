@@ -35,6 +35,45 @@ npm run reset-project
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
+## Testing
+
+This project uses Jest and `@testing-library/react-native` for unit testing.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Writing Tests
+
+Tests should be placed alongside the code they test with the `.test.ts` or `.test.tsx` extension, or in a `__tests__` directory.
+
+Example test structure:
+
+```typescript
+import { render, screen, fireEvent } from "@testing-library/react-native";
+import { MyComponent } from "../MyComponent";
+
+describe("MyComponent", () => {
+  it("renders correctly", () => {
+    render(<MyComponent />);
+    expect(screen.getByText("Hello")).toBeTruthy();
+  });
+});
+```
+
+### Test Configuration
+
+Jest configuration is defined in `jest.config.js`, which uses the `jest-expo` preset for React Native compatibility. Additional setup is configured in `jest.setup.js`.
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:

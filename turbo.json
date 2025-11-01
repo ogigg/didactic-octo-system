@@ -19,6 +19,10 @@
     "format:check": {
       "cache": false
     },
+    "test": {
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["coverage/**"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

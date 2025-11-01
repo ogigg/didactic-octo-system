@@ -59,7 +59,7 @@ AI-powered single-session workout planning and logging for iOS/Android. The syst
 ### Dev, CI/CD, Monitoring
 
 - Code quality: ESLint, Prettier, TypeScript
-- Testing: Jest, React Native Testing Library; Playwright (future)
+- Testing: Jest, @testing-library/react-native; Playwright (future)
 - Deployment: EAS Build/Submit/Update (mobile), Supabase CLI (backend), GitHub Actions
 - Monitoring & analytics: Sentry, PostHog, Expo Performance Monitoring
 
@@ -108,6 +108,12 @@ npm run format
 npm run check-types
 ```
 
+- Run tests:
+
+```bash
+npm run test
+```
+
 Notes
 
 - This repository currently includes a Next.js scaffold in `apps/web` and `apps/docs` plus shared UI in `packages/ui`. The React Native/Expo mobile app and Supabase functions will be added per the PRD.
@@ -123,6 +129,7 @@ From repository root:
 - **format**: `prettier --write "**/*.{ts,tsx,js,jsx,json,md,yml,yaml}"` — format sources
 - **format:check**: `prettier --check "**/*.{ts,tsx,js,jsx,json,md,yml,yaml}"` — check formatting without modifying files
 - **check-types**: `turbo run check-types` — TypeScript checks across workspaces
+- **test**: `turbo run test` — run tests across all workspaces
 
 Workspaces may define additional scripts (see each package's `package.json`).
 
@@ -139,6 +146,44 @@ npm run lint
 ```
 
 This uses Turborepo to run the `lint` script across all workspaces in parallel.
+
+## Running Tests
+
+This project uses Jest with `@testing-library/react-native` for unit testing in the mobile app.
+
+### Run tests for all workspaces (recommended)
+
+From the repository root:
+
+```bash
+npm run test
+```
+
+This uses Turborepo to run the `test` script across all workspaces in parallel.
+
+### Run tests for a specific workspace
+
+You can also run tests directly in a specific workspace:
+
+```bash
+# From the mobile app directory
+cd apps/mobile
+npm test
+
+# Or in watch mode
+npm run test:watch
+
+# Or with coverage
+npm run test:coverage
+```
+
+### Configuration
+
+The mobile app uses `jest-expo` preset, which is configured in `apps/mobile/jest.config.js`. Test files should be named `*.test.ts` or `*.test.tsx` and placed alongside the code they test, or in a `__tests__` directory.
+
+### Writing Tests
+
+See the mobile app README (`apps/mobile/README.md`) for specific guidelines on writing tests for React Native components.
 
 ## Running Prettier
 
