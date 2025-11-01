@@ -12,6 +12,7 @@ Links: [Product Requirements (PRD)](.ai/prd.md) · [Tech Stack](.ai/tech-stack.m
 - [Tech stack](#tech-stack)
 - [Getting started locally](#getting-started-locally)
 - [Available scripts](#available-scripts)
+- [Running ESLint](#running-eslint)
 - [Project scope](#project-scope)
 - [Project status](#project-status)
 - [License](#license)
@@ -103,7 +104,19 @@ From repository root:
 - **format**: `prettier --write "**/*.{ts,tsx,md}"` — format sources
 - **check-types**: `turbo run check-types` — TypeScript checks across workspaces
 
-Workspaces may define additional scripts (see each package’s `package.json`).
+Workspaces may define additional scripts (see each package's `package.json`).
+
+## Running ESLint
+
+This project uses ESLint 9 with flat config format. ESLint configurations are shared via `@repo/eslint-config` package with workspace-specific configs.
+
+###  Run lint for all workspaces (recommended)
+
+From the repository root:
+```bash
+npm run lint
+```
+This uses Turborepo to run the `lint` script across all workspaces in parallel.
 
 ## Project scope
 

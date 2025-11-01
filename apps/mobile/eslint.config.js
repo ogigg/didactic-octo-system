@@ -1,10 +1,18 @@
 // https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config');
-const expoConfig = require('eslint-config-expo/flat');
+import { reactNativeConfig } from "@repo/eslint-config/react-native";
+import { defineConfig } from "eslint/config";
 
-module.exports = defineConfig([
-  expoConfig,
+export default defineConfig([
+  ...reactNativeConfig,
   {
-    ignores: ['dist/*'],
+    ignores: [
+      "dist/**",
+      "build/**",
+      ".expo/**",
+      ".expo-shared/**",
+      "node_modules/**",
+      "**/__tests__/**",
+      "**/*.test.{js,jsx,ts,tsx}",
+    ],
   },
 ]);
