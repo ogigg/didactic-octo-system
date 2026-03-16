@@ -1,31 +1,37 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps } from "react-native";
 
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { Typography } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
+
+type TextType = keyof typeof Typography;
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  type?: TextType;
+  color?: keyof typeof import("@/constants/theme").Colors.light &
+    keyof typeof import("@/constants/theme").Colors.dark;
 };
 
 export function ThemedText({
   style,
   lightColor,
   darkColor,
-  type = 'default',
+  type = "body",
+  color = "text",
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const resolvedColor = useThemeColor(
+    { light: lightColor, dark: darkColor },
+    color
+  );
 
   return (
     <Text
       style={[
-        { color },
-        type === 'default' ? styles.default : undefined,
-        type === 'title' ? styles.title : undefined,
-        type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
-        type === 'subtitle' ? styles.subtitle : undefined,
-        type === 'link' ? styles.link : undefined,
+        { color: resolvedColor },
+        styles[type],
+        tabularTypes.has(type) && tabularNums,
         style,
       ]}
       {...rest}
@@ -33,28 +39,64 @@ export function ThemedText({
   );
 }
 
+const tabularTypes = new Set<TextType>([
+  "displayLg",
+  "displaySm",
+  "bodyMedium",
+]);
+
+const tabularNums = { fontVariant: ["tabular-nums" as const] };
+
 const styles = StyleSheet.create({
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
+  displayLg: {
+    fontSize: Typography.displayLg.fontSize,
+    fontWeight: Typography.displayLg.fontWeight,
+    letterSpacing: Typography.displayLg.letterSpacing,
   },
-  defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
+  displaySm: {
+    fontSize: Typography.displaySm.fontSize,
+    fontWeight: Typography.displaySm.fontWeight,
+    letterSpacing: Typography.displaySm.letterSpacing,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
+  titleLg: {
+    fontSize: Typography.titleLg.fontSize,
+    fontWeight: Typography.titleLg.fontWeight,
+    letterSpacing: Typography.titleLg.letterSpacing,
   },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  titleMd: {
+    fontSize: Typography.titleMd.fontSize,
+    fontWeight: Typography.titleMd.fontWeight,
+    letterSpacing: Typography.titleMd.letterSpacing,
   },
-  link: {
-    lineHeight: 30,
-    fontSize: 16,
-    color: '#0a7ea4',
+  titleSm: {
+    fontSize: Typography.titleSm.fontSize,
+    fontWeight: Typography.titleSm.fontWeight,
+    letterSpacing: Typography.titleSm.letterSpacing,
+  },
+  body: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: Typography.body.fontWeight,
+    letterSpacing: Typography.body.letterSpacing,
+  },
+  bodyMedium: {
+    fontSize: Typography.bodyMedium.fontSize,
+    fontWeight: Typography.bodyMedium.fontWeight,
+    letterSpacing: Typography.bodyMedium.letterSpacing,
+  },
+  caption: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: Typography.caption.fontWeight,
+    letterSpacing: Typography.caption.letterSpacing,
+  },
+  label: {
+    fontSize: Typography.label.fontSize,
+    fontWeight: Typography.label.fontWeight,
+    letterSpacing: Typography.label.letterSpacing,
+    textTransform: "uppercase",
+  },
+  micro: {
+    fontSize: Typography.micro.fontSize,
+    fontWeight: Typography.micro.fontWeight,
+    letterSpacing: Typography.micro.letterSpacing,
   },
 });
