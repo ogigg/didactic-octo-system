@@ -1,104 +1,183 @@
-import { Image } from "expo-image";
-import { Platform, StyleSheet } from "react-native";
+import { useOnboardingStore } from "@/stores/onboarding-store";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
+import { WorkoutPlanCard } from "@/components/workout-plan-card";
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { HelloWave } from "@/components/hello-wave";
-import ParallaxScrollView from "@/components/parallax-scroll-view";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Link } from "expo-router";
+const MOCK_COMPLETED = 1;
+
+interface MockExercise {
+  name: string;
+  muscleGroup: string;
+  sets: number;
+  reps: string;
+}
+
+const MOCK_EXERCISES: MockExercise[] = [
+  { name: "Barbell Bench Press", muscleGroup: "Chest", sets: 4, reps: "8-10" },
+  {
+    name: "Incline Dumbbell Press",
+    muscleGroup: "Chest",
+    sets: 3,
+    reps: "10-12",
+  },
+  { name: "Cable Flyes", muscleGroup: "Chest", sets: 3, reps: "12-15" },
+  {
+    name: "Overhead Tricep Extension",
+    muscleGroup: "Triceps",
+    sets: 3,
+    reps: "10-12",
+  },
+  { name: "Lateral Raises", muscleGroup: "Shoulders", sets: 3, reps: "12-15" },
+];
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
-      headerImage={
-        <Image
-          source={require("@/assets/images/partial-react-logo.png")}
-          style={styles.reactLogo}
-        />
-      }
-    >
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="titleLg">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="titleMd">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="bodyMedium">app/(tabs)/index.tsx</ThemedText>{" "}
-          to see changes. Press{" "}
-          <ThemedText type="bodyMedium">
-            {Platform.select({
-              ios: "cmd + d",
-              android: "cmd + m",
-              web: "F12",
-            })}
-          </ThemedText>{" "}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="titleMd">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction
-              title="Action"
-              icon="cube"
-              onPress={() => alert("Action pressed")}
-            />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert("Share pressed")}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert("Delete pressed")}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const frequency = useOnboardingStore((s) => s.frequency) ?? 3;
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="titleMd">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="bodyMedium">npm run reset-project</ThemedText> to
-          get a fresh <ThemedText type="bodyMedium">app</ThemedText> directory.
-          This will move the current{" "}
-          <ThemedText type="bodyMedium">app</ThemedText> to{" "}
-          <ThemedText type="bodyMedium">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const background = useThemeColor({}, "background");
+  const glow = useThemeColor({}, "glow");
+  const primary = useThemeColor({}, "primary");
+  const border = useThemeColor({}, "border");
+  const textColor = useThemeColor({}, "text");
+  const textSecondary = useThemeColor({}, "textSecondary");
+  const textMuted = useThemeColor({}, "textMuted");
+  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
+
+  return (
+    <View style={[styles.root, { backgroundColor: background }]}>
+      <View
+        pointerEvents="none"
+        style={[styles.glow, { backgroundColor: glow }]}
+      />
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {/* Greeting */}
+          <Text style={[Typography.displayLg, { color: textColor }]}>
+            Your Week
+          </Text>
+          <Text
+            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
+          >
+            Keep the momentum going — you're doing great.
+          </Text>
+
+          {/* Weekly Progress Card */}
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: backgroundSubtle },
+              Elevation.sm,
+            ]}
+          >
+            <View style={styles.progressHeader}>
+              <Text style={[Typography.titleSm, { color: textColor }]}>
+                Weekly Progress
+              </Text>
+              <Text style={[Typography.titleMd, { color: primary }]}>
+                {MOCK_COMPLETED}/{frequency}
+              </Text>
+            </View>
+            <View
+              style={styles.progressBar}
+              accessibilityRole="progressbar"
+              accessibilityValue={{
+                min: 0,
+                max: frequency,
+                now: MOCK_COMPLETED,
+              }}
+            >
+              {Array.from({ length: frequency }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.progressSegment,
+                    {
+                      backgroundColor: i < MOCK_COMPLETED ? primary : border,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+            <Text style={[Typography.caption, { color: textMuted }]}>
+              {MOCK_COMPLETED} workout{MOCK_COMPLETED !== 1 ? "s" : ""}{" "}
+              completed this week
+            </Text>
+          </View>
+
+          {/* Next Workout */}
+          <WorkoutPlanCard
+            title="Push Day"
+            exercises={MOCK_EXERCISES}
+            onStartWorkout={() => {}}
+          />
+
+          {/* History Button */}
+          <TouchableOpacity
+            style={[styles.historyButton, { borderColor: border }]}
+            accessibilityRole="button"
+            accessibilityLabel="See workout history"
+          >
+            <Text style={[Typography.titleSm, { color: primary }]}>
+              See Workout History
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  root: { flex: 1 },
+  glow: {
     position: "absolute",
+    top: -100,
+    alignSelf: "center",
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+  },
+  safe: { flex: 1 },
+  scroll: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing["2xl"],
+    paddingBottom: Spacing["3xl"],
+    gap: Spacing.xl,
+  },
+  subtitle: {
+    marginTop: Spacing.xs,
+  },
+  card: {
+    borderRadius: Radii.lg,
+    padding: Spacing.xl,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  progressBar: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 6,
+    borderRadius: Radii.full,
+  },
+  historyButton: {
+    borderWidth: 1,
+    borderRadius: Radii.lg,
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
   },
 });
