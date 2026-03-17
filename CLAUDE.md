@@ -55,6 +55,7 @@ The app uses **Expo Router** (file-based routing) with the following key directo
 - `components/` — Reusable UI components with colocated tests
 - `hooks/` — Custom React hooks
 - `constants/` — Theme, colors, configuration
+- `i18n/` — Internationalization setup (i18next + expo-localization)
 
 ### Data Flow
 
@@ -95,6 +96,14 @@ From `.cursor/rules/`:
 - Prefer accessibility-first component design
 - Animations via React Native Reanimated; gestures via Gesture Handler
 
+**Internationalization (i18next + react-i18next)**
+
+- All user-facing strings live in `i18n/locales/en/`; never hardcode strings in JSX
+- Namespace per screen/feature (kebab-case file, camelCase export): `common`, `home`, `explore`, `modal`, `designSystem`
+- Key pattern: `section.element` within namespace; cross-namespace: `t("key", { ns: "other" })`
+- Use `useTranslation("namespace")` for simple strings; `Trans` component for inline rich text
+- See `.ai/i18n.md` for full naming schema and workflow
+
 **Testing (Jest + React Native Testing Library)**
 
 - Query by accessibility roles/labels first, not test IDs or implementation details
@@ -112,3 +121,4 @@ Husky runs `lint-staged` on commit, which auto-formats `*.{ts,tsx,js,jsx,json,md
 - `.ai/architecture.md` — System architecture diagram
 - `.ai/db-plan.md` — PostgreSQL schema, indexes, RLS policies
 - `.ai/tech-stack.md` — Technology selection rationale
+- `.ai/i18n.md` — i18n library stack, key naming schema, and workflow

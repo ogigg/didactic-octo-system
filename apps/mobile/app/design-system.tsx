@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -58,6 +59,20 @@ export default function DesignSystemScreen() {
   const errorColor = useThemeColor({}, "error");
   const textDisabled = useThemeColor({}, "textDisabled");
   const inputFill = useThemeColor({}, "inputFill");
+  const { t } = useTranslation("designSystem");
+
+  const typographySamples: Record<keyof typeof Typography, string> = {
+    displayLg: t("typography.displayLg"),
+    displaySm: t("typography.displaySm"),
+    titleLg: t("typography.titleLg"),
+    titleMd: t("typography.titleMd"),
+    titleSm: t("typography.titleSm"),
+    body: t("typography.body"),
+    bodyMedium: t("typography.bodyMedium"),
+    caption: t("typography.caption"),
+    label: t("typography.label"),
+    micro: t("typography.micro"),
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -65,64 +80,44 @@ export default function DesignSystemScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <ThemedText type="titleLg">Design System</ThemedText>
+        <ThemedText type="titleLg">{t("title")}</ThemedText>
         <ThemedText type="caption" color="textSecondary">
-          Token reference for {colorScheme} mode
+          {t("tokenReference", { mode: colorScheme })}
         </ThemedText>
 
         {/* Colors */}
-        <SectionTitle>Colors</SectionTitle>
+        <SectionTitle>{t("section.colors")}</SectionTitle>
         <ColorGroup
-          title="Backgrounds"
+          title={t("colorGroup.backgrounds")}
           tokens={["background", "backgroundSubtle", "backgroundElevated"]}
           colors={colors}
         />
         <ColorGroup
-          title="Text"
+          title={t("colorGroup.text")}
           tokens={["text", "textSecondary", "textMuted", "textDisabled"]}
           colors={colors}
         />
         <ColorGroup
-          title="Primary"
+          title={t("colorGroup.primary")}
           tokens={["primary", "primarySurface", "primaryContainer"]}
           colors={colors}
         />
         <ColorGroup
-          title="Borders & Inputs"
+          title={t("colorGroup.bordersInputs")}
           tokens={["border", "borderSubtle", "inputFill", "inputFillFocused"]}
           colors={colors}
         />
         <ColorGroup
-          title="Semantic"
+          title={t("colorGroup.semantic")}
           tokens={["success", "warning", "error", "destructiveSurface", "glow"]}
           colors={colors}
         />
 
         {/* Typography */}
-        <SectionTitle>Typography</SectionTitle>
+        <SectionTitle>{t("section.typography")}</SectionTitle>
         {(Object.keys(Typography) as (keyof typeof Typography)[]).map((key) => (
           <View key={key} style={styles.typeRow}>
-            <ThemedText type={key}>
-              {key === "displayLg"
-                ? "1:30"
-                : key === "displaySm"
-                  ? "2:45"
-                  : key === "titleLg"
-                    ? "Push Day"
-                    : key === "titleMd"
-                      ? "Section Heading"
-                      : key === "titleSm"
-                        ? "Bench Press"
-                        : key === "body"
-                          ? "General content text"
-                          : key === "bodyMedium"
-                            ? "80 kg × 8"
-                            : key === "caption"
-                              ? "Previous: 75×10"
-                              : key === "label"
-                                ? "Column Header"
-                                : "10 kg"}
-            </ThemedText>
+            <ThemedText type={key}>{typographySamples[key]}</ThemedText>
             <ThemedText type="caption" color="textMuted">
               {key} — {Typography[key].fontSize}px /{" "}
               {Typography[key].fontWeight}
@@ -131,7 +126,7 @@ export default function DesignSystemScreen() {
         ))}
 
         {/* Spacing */}
-        <SectionTitle>Spacing</SectionTitle>
+        <SectionTitle>{t("section.spacing")}</SectionTitle>
         {(Object.entries(Spacing) as [string, number][]).map(
           ([name, value]) => (
             <View key={name} style={styles.spacingRow}>
@@ -152,7 +147,7 @@ export default function DesignSystemScreen() {
         )}
 
         {/* Radii */}
-        <SectionTitle>Radii</SectionTitle>
+        <SectionTitle>{t("section.radii")}</SectionTitle>
         <View style={styles.radiiRow}>
           {(Object.entries(Radii) as [string, number][]).map(
             ([name, value]) => (
@@ -176,7 +171,7 @@ export default function DesignSystemScreen() {
         </View>
 
         {/* Buttons */}
-        <SectionTitle>Buttons</SectionTitle>
+        <SectionTitle>{t("section.buttons")}</SectionTitle>
         <View style={styles.buttonGroup}>
           {/* Primary */}
           <View
@@ -192,7 +187,7 @@ export default function DesignSystemScreen() {
               type="bodyMedium"
               style={{ color: colorScheme === "light" ? "#FFFFFF" : "#1A1A1A" }}
             >
-              Primary Button
+              {t("button.primary")}
             </ThemedText>
           </View>
 
@@ -207,14 +202,14 @@ export default function DesignSystemScreen() {
             ]}
           >
             <ThemedText type="bodyMedium" color="primary">
-              Secondary Button
+              {t("button.secondary")}
             </ThemedText>
           </View>
 
           {/* Ghost */}
           <View style={[styles.button, { borderRadius: Radii.lg }]}>
             <ThemedText type="bodyMedium" color="primary">
-              Ghost Button
+              {t("button.ghost")}
             </ThemedText>
           </View>
 
@@ -229,7 +224,7 @@ export default function DesignSystemScreen() {
             ]}
           >
             <ThemedText type="bodyMedium" style={{ color: errorColor }}>
-              Destructive
+              {t("button.destructive")}
             </ThemedText>
           </View>
 
@@ -245,7 +240,7 @@ export default function DesignSystemScreen() {
             ]}
           >
             <ThemedText type="bodyMedium" style={{ color: textDisabled }}>
-              Disabled
+              {t("button.disabled")}
             </ThemedText>
           </View>
 
@@ -260,18 +255,18 @@ export default function DesignSystemScreen() {
             ]}
           >
             <ThemedText type="caption" color="primary">
-              Pill Action
+              {t("button.pill")}
             </ThemedText>
           </View>
         </View>
 
         {/* Inputs */}
-        <SectionTitle>Inputs</SectionTitle>
+        <SectionTitle>{t("section.inputs")}</SectionTitle>
         <View style={styles.inputGroup}>
           {/* Empty input */}
           <View style={styles.inputRow}>
             <ThemedText type="label" color="textMuted">
-              EMPTY
+              {t("input.empty")}
             </ThemedText>
             <View
               style={[
@@ -294,7 +289,7 @@ export default function DesignSystemScreen() {
           {/* Filled input */}
           <View style={styles.inputRow}>
             <ThemedText type="label" color="textMuted">
-              FILLED
+              {t("input.filled")}
             </ThemedText>
             <View
               style={[
@@ -314,7 +309,7 @@ export default function DesignSystemScreen() {
           {/* Focused input */}
           <View style={styles.inputRow}>
             <ThemedText type="label" color="textMuted">
-              FOCUSED
+              {t("input.focused")}
             </ThemedText>
             <View
               style={[
@@ -336,7 +331,7 @@ export default function DesignSystemScreen() {
           {/* Checkboxes */}
           <View style={styles.inputRow}>
             <ThemedText type="label" color="textMuted">
-              CHECKS
+              {t("input.checks")}
             </ThemedText>
             <View style={styles.checkboxRow}>
               {/* Empty checkbox */}

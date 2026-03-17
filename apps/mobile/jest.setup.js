@@ -6,6 +6,10 @@ jest.mock("expo-constants", () => ({
   expoConfig: {},
 }));
 
+jest.mock("expo-localization", () => ({
+  getLocales: () => [{ languageCode: "en" }],
+}));
+
 // Silence console warnings during tests (optional)
 global.console = {
   ...console,
