@@ -19,7 +19,7 @@ const mockSetFrequency = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (useOnboardingStore as jest.Mock).mockReturnValue({
+  (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
     frequency: null,
     setFrequency: mockSetFrequency,
   });
@@ -52,7 +52,7 @@ describe("FrequencyScreen", () => {
   });
 
   it("Continue is enabled after selection", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       frequency: 3,
       setFrequency: mockSetFrequency,
     });
@@ -63,7 +63,7 @@ describe("FrequencyScreen", () => {
   });
 
   it("Continue navigates to review", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       frequency: 3,
       setFrequency: mockSetFrequency,
     });
@@ -74,8 +74,10 @@ describe("FrequencyScreen", () => {
 
   it("in editMode, Continue calls router.back", () => {
     const { useLocalSearchParams } = require("expo-router");
-    (useLocalSearchParams as jest.Mock).mockReturnValue({ editMode: "1" });
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useLocalSearchParams as unknown as jest.Mock).mockReturnValue({
+      editMode: "1",
+    });
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       frequency: 4,
       setFrequency: mockSetFrequency,
     });

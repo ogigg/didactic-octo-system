@@ -29,7 +29,7 @@ const fullStore = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (useOnboardingStore as jest.Mock).mockReturnValue(fullStore);
+  (useOnboardingStore as unknown as jest.Mock).mockReturnValue(fullStore);
 });
 
 describe("ReviewScreen", () => {
@@ -41,7 +41,7 @@ describe("ReviewScreen", () => {
   });
 
   it("does not show gender card when gender is null and not skipped", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       ...fullStore,
       gender: null,
       genderSkipped: false,
@@ -51,7 +51,7 @@ describe("ReviewScreen", () => {
   });
 
   it("does not show gender card when explicitly skipped", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       ...fullStore,
       gender: null,
       genderSkipped: true,
@@ -61,7 +61,7 @@ describe("ReviewScreen", () => {
   });
 
   it("shows custom goal text when set", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       ...fullStore,
       goal: null,
       customGoal: "do a muscle-up",

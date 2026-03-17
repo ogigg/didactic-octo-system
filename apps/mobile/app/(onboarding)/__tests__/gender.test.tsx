@@ -20,7 +20,7 @@ const mockSkipGender = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (useOnboardingStore as jest.Mock).mockReturnValue({
+  (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
     gender: null,
     genderSkipped: false,
     setGender: mockSetGender,
@@ -68,7 +68,9 @@ describe("GenderScreen", () => {
 
   it("tapping Continue in editMode calls router.back", () => {
     const { useLocalSearchParams } = require("expo-router");
-    (useLocalSearchParams as jest.Mock).mockReturnValue({ editMode: "1" });
+    (useLocalSearchParams as unknown as jest.Mock).mockReturnValue({
+      editMode: "1",
+    });
     render(<GenderScreen />);
     fireEvent.press(screen.getByRole("button", { name: /continue/i }));
     expect(router.back).toHaveBeenCalled();

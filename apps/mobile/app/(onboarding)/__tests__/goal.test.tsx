@@ -24,7 +24,7 @@ const mockSetCustomGoal = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (useOnboardingStore as jest.Mock).mockReturnValue({
+  (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
     goal: null,
     customGoal: null,
     setGoal: mockSetGoal,
@@ -47,7 +47,7 @@ describe("GoalScreen", () => {
   });
 
   it("Continue button is enabled after selecting a goal", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       goal: "build_strength",
       customGoal: null,
       setGoal: mockSetGoal,
@@ -74,7 +74,7 @@ describe("GoalScreen", () => {
   });
 
   it("Continue is disabled when custom goal is fewer than 5 chars", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       goal: null,
       customGoal: "ab",
       setGoal: mockSetGoal,
@@ -86,7 +86,7 @@ describe("GoalScreen", () => {
   });
 
   it("Continue is enabled when custom goal is 5+ chars and not profane", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       goal: null,
       customGoal: "muscle up in 6 months",
       setGoal: mockSetGoal,
@@ -98,7 +98,7 @@ describe("GoalScreen", () => {
   });
 
   it("Continue navigates to frequency", () => {
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       goal: "improve_fitness",
       customGoal: null,
       setGoal: mockSetGoal,
@@ -111,8 +111,10 @@ describe("GoalScreen", () => {
 
   it("in editMode, Continue calls router.back", () => {
     const { useLocalSearchParams } = require("expo-router");
-    (useLocalSearchParams as jest.Mock).mockReturnValue({ editMode: "1" });
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useLocalSearchParams as unknown as jest.Mock).mockReturnValue({
+      editMode: "1",
+    });
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       goal: "build_strength",
       customGoal: null,
       setGoal: mockSetGoal,

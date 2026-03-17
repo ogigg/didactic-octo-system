@@ -39,8 +39,14 @@ export default function ReviewScreen() {
   // each time this screen regains focus (e.g. returning from edit mode).
   useFocusEffect(useCallback(() => undefined, []));
 
-  const { gender, genderSkipped, goal, customGoal, frequency, complete } =
-    store;
+  const {
+    gender,
+    genderSkipped: _genderSkipped,
+    goal,
+    customGoal,
+    frequency,
+    complete,
+  } = store;
 
   const background = useThemeColor({}, "background");
   const glow = useThemeColor({}, "glow");
@@ -82,7 +88,7 @@ export default function ReviewScreen() {
           <Text
             style={[Typography.body, { color: textSecondary }, styles.subtitle]}
           >
-            Here's what we know about you.
+            {"Here's what we know about you."}
           </Text>
 
           {showGender && (
@@ -129,7 +135,9 @@ export default function ReviewScreen() {
             accessibilityRole="button"
             accessibilityLabel="Let's start working out!"
           >
-            <Text style={styles.submitBtnText}>Let's start working out!</Text>
+            <Text style={styles.submitBtnText}>
+              {"Let's start working out!"}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
