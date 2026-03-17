@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(tsx?|json\\)$\")",
+      "Bash(npm install:*)",
+      "Bash(npm audit:*)"
+    ]
+  }
+}
