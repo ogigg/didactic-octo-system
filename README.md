@@ -40,6 +40,12 @@ Additional details:
 - **Expo Router** (file-based navigation)
 - **TypeScript**
 
+#### Internationalization
+
+- **expo-localization** + **i18next** + **react-i18next** for type-safe, namespace-based translations
+- English only (MVP); structured for trivial language additions
+- See [i18n guide](.ai/i18n.md) for key naming schema and workflow
+
 ### State Management
 
 - **TanStack Query (React Query)** for server state

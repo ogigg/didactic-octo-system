@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { Platform, StyleSheet } from "react-native";
+import { useTranslation, Trans } from "react-i18next";
 
 import { HelloWave } from "@/components/hello-wave";
 import ParallaxScrollView from "@/components/parallax-scroll-view";
@@ -8,6 +9,14 @@ import { ThemedView } from "@/components/themed-view";
 import { Link } from "expo-router";
 
 export default function HomeScreen() {
+  const { t } = useTranslation("home");
+
+  const shortcut = Platform.select({
+    ios: "cmd + d",
+    android: "cmd + m",
+    web: "F12",
+  });
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
@@ -19,66 +28,57 @@ export default function HomeScreen() {
       }
     >
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="titleLg">Welcome!</ThemedText>
+        <ThemedText type="titleLg">{t("welcome")}</ThemedText>
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="titleMd">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="bodyMedium">app/(tabs)/index.tsx</ThemedText>{" "}
-          to see changes. Press{" "}
-          <ThemedText type="bodyMedium">
-            {Platform.select({
-              ios: "cmd + d",
-              android: "cmd + m",
-              web: "F12",
-            })}
-          </ThemedText>{" "}
-          to open developer tools.
-        </ThemedText>
+        <ThemedText type="titleMd">{t("step1.title")}</ThemedText>
+        <Trans
+          i18nKey="step1.description"
+          ns="home"
+          values={{ shortcut }}
+          components={{ bold: <ThemedText type="bodyMedium" /> }}
+        />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <Link href="/modal">
           <Link.Trigger>
-            <ThemedText type="titleMd">Step 2: Explore</ThemedText>
+            <ThemedText type="titleMd">{t("step2.title")}</ThemedText>
           </Link.Trigger>
           <Link.Preview />
           <Link.Menu>
             <Link.MenuAction
-              title="Action"
+              title={t("action.action", { ns: "common" })}
               icon="cube"
-              onPress={() => alert("Action pressed")}
+              onPress={() => alert(t("alert.actionPressed", { ns: "common" }))}
             />
             <Link.MenuAction
-              title="Share"
+              title={t("action.share", { ns: "common" })}
               icon="square.and.arrow.up"
-              onPress={() => alert("Share pressed")}
+              onPress={() => alert(t("alert.sharePressed", { ns: "common" }))}
             />
-            <Link.Menu title="More" icon="ellipsis">
+            <Link.Menu title={t("menu.more")} icon="ellipsis">
               <Link.MenuAction
-                title="Delete"
+                title={t("action.delete", { ns: "common" })}
                 icon="trash"
                 destructive
-                onPress={() => alert("Delete pressed")}
+                onPress={() =>
+                  alert(t("alert.deletePressed", { ns: "common" }))
+                }
               />
             </Link.Menu>
           </Link.Menu>
         </Link>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
+        <ThemedText>{t("step2.description")}</ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="titleMd">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="bodyMedium">npm run reset-project</ThemedText> to
-          get a fresh <ThemedText type="bodyMedium">app</ThemedText> directory.
-          This will move the current{" "}
-          <ThemedText type="bodyMedium">app</ThemedText> to{" "}
-          <ThemedText type="bodyMedium">app-example</ThemedText>.
-        </ThemedText>
+        <ThemedText type="titleMd">{t("step3.title")}</ThemedText>
+        <Trans
+          i18nKey="step3.description"
+          ns="home"
+          components={{ bold: <ThemedText type="bodyMedium" /> }}
+        />
       </ThemedView>
     </ParallaxScrollView>
   );

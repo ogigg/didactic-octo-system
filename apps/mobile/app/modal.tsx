@@ -1,16 +1,19 @@
 import { Link } from "expo-router";
 import { StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 
 export default function ModalScreen() {
+  const { t } = useTranslation("modal");
+
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="titleLg">This is a modal</ThemedText>
+      <ThemedText type="titleLg">{t("title")}</ThemedText>
       <Link href="/" dismissTo style={styles.link}>
         <ThemedText type="body" color="primary">
-          Go to home screen
+          {t("action.goToHome", { ns: "common" })}
         </ThemedText>
       </Link>
     </ThemedView>
