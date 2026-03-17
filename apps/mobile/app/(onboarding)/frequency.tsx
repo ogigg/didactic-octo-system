@@ -27,8 +27,6 @@ export default function FrequencyScreen() {
   const { frequency, setFrequency } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
 
-  const background = useThemeColor({}, "background");
-  const glow = useThemeColor({}, "glow");
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -52,11 +50,7 @@ export default function FrequencyScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
-      <View
-        pointerEvents="none"
-        style={[styles.glow, { backgroundColor: glow }]}
-      />
+    <View style={styles.root}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.progressRow}>
           <View style={[styles.segment, { backgroundColor: primary }]} />
@@ -139,14 +133,6 @@ export default function FrequencyScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  glow: {
-    position: "absolute",
-    top: -100,
-    alignSelf: "center",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-  },
   safe: { flex: 1 },
   progressRow: {
     flexDirection: "row",

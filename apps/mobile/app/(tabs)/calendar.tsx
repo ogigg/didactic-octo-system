@@ -1,6 +1,5 @@
 import { getEntriesForMonth } from "@/components/calendar/mock-data";
 import { MonthBlock, getMonthHeight } from "@/components/calendar/month-block";
-import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing } from "@/constants/theme";
 import { FlatList, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,11 +32,10 @@ const ITEM_OFFSETS = MONTHS.reduce<number[]>((acc, item, i) => {
 }, []);
 
 export default function CalendarScreen() {
-  const background = useThemeColor({}, "background");
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
+    <View style={styles.root}>
       <FlatList
         data={MONTHS}
         keyExtractor={(item) => `${item.year}-${item.month}`}

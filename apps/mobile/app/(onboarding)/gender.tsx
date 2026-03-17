@@ -25,8 +25,6 @@ export default function GenderScreen() {
   const { gender, setGender, skipGender } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
 
-  const background = useThemeColor({}, "background");
-  const glow = useThemeColor({}, "glow");
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -58,12 +56,7 @@ export default function GenderScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
-      {/* Ambient glow — outside SafeAreaView so it can bleed behind status bar */}
-      <View
-        pointerEvents="none"
-        style={[styles.glow, { backgroundColor: glow }]}
-      />
+    <View style={styles.root}>
       <SafeAreaView style={styles.safe}>
         {/* Progress bar */}
         <View style={styles.progressRow}>
@@ -152,14 +145,6 @@ export default function GenderScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  glow: {
-    position: "absolute",
-    top: -100,
-    alignSelf: "center",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-  },
   safe: { flex: 1 },
   progressRow: {
     flexDirection: "row",

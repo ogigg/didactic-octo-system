@@ -2,7 +2,6 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
-import { AmbientGlow } from "@/components/ambient-glow";
 import {
   SafeAreaView,
   ScrollView,
@@ -42,7 +41,6 @@ const MOCK_EXERCISES: MockExercise[] = [
 export default function HomeScreen() {
   const frequency = useOnboardingStore((s) => s.frequency) ?? 3;
 
-  const background = useThemeColor({}, "background");
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -51,8 +49,7 @@ export default function HomeScreen() {
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
-      <AmbientGlow variant="hero" />
+    <View style={styles.root}>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Greeting */}
