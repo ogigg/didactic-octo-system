@@ -2,6 +2,7 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
+import { AmbientGlow } from "@/components/ambient-glow";
 import {
   SafeAreaView,
   ScrollView,
@@ -42,7 +43,6 @@ export default function HomeScreen() {
   const frequency = useOnboardingStore((s) => s.frequency) ?? 3;
 
   const background = useThemeColor({}, "background");
-  const glow = useThemeColor({}, "glow");
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -52,10 +52,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
-      <View
-        pointerEvents="none"
-        style={[styles.glow, { backgroundColor: glow }]}
-      />
+      <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Greeting */}
@@ -136,14 +133,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  glow: {
-    position: "absolute",
-    top: -100,
-    alignSelf: "center",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-  },
   safe: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.xl,
