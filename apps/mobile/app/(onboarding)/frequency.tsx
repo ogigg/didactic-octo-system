@@ -2,7 +2,8 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 import type { Frequency } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
+import { Radii, Spacing, Typography } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   SafeAreaView,
@@ -30,11 +31,9 @@ export default function FrequencyScreen() {
   const glow = useThemeColor({}, "glow");
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
-  const borderSubtle = useThemeColor({}, "borderSubtle");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
-  const textDisabled = useThemeColor({}, "textDisabled");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   const canContinue = frequency !== null;
@@ -126,29 +125,12 @@ export default function FrequencyScreen() {
         </ScrollView>
 
         <View style={styles.actions}>
-          <TouchableOpacity
+          <Button
+            label="Continue"
             onPress={handleContinue}
             disabled={!canContinue}
-            style={[
-              styles.continueBtn,
-              {
-                backgroundColor: canContinue ? primary : borderSubtle,
-                opacity: canContinue ? 1 : Opacity.disabled,
-              },
-            ]}
-            accessibilityRole="button"
             accessibilityLabel="Continue to review"
-            accessibilityState={{ disabled: !canContinue }}
-          >
-            <Text
-              style={[
-                styles.continueBtnText,
-                { color: canContinue ? "#FFFFFF" : textDisabled },
-              ]}
-            >
-              Continue
-            </Text>
-          </TouchableOpacity>
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -202,10 +184,4 @@ const styles = StyleSheet.create({
   },
   radioInner: { width: 10, height: 10, borderRadius: Radii.full, zIndex: 1 },
   actions: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
-  continueBtn: {
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.lg,
-    alignItems: "center",
-  },
-  continueBtnText: { ...Typography.titleSm, color: "#FFFFFF" },
 });

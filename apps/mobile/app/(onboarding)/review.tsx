@@ -3,6 +3,7 @@ import type { Frequency, Gender, Goal } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import {
@@ -129,16 +130,7 @@ export default function ReviewScreen() {
         </ScrollView>
 
         <View style={styles.actions}>
-          <TouchableOpacity
-            onPress={handleSubmit}
-            style={[styles.submitBtn, { backgroundColor: primary }]}
-            accessibilityRole="button"
-            accessibilityLabel="Let's start working out!"
-          >
-            <Text style={styles.submitBtnText}>
-              {"Let's start working out!"}
-            </Text>
-          </TouchableOpacity>
+          <Button label="Let's start working out!" onPress={handleSubmit} />
         </View>
       </SafeAreaView>
     </View>
@@ -209,10 +201,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.lg,
   },
-  submitBtn: {
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.lg,
-    alignItems: "center",
-  },
-  submitBtnText: { ...Typography.titleSm, color: "#FFFFFF" },
 });

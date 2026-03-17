@@ -2,7 +2,8 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { containsProfanity, MAX_CUSTOM_GOAL_LENGTH } from "@/lib/profanity";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
+import { Radii, Spacing, Typography } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   SafeAreaView,
@@ -37,7 +38,6 @@ export default function GoalScreen() {
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
-  const textDisabled = useThemeColor({}, "textDisabled");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   const customGoalValid =
@@ -143,29 +143,12 @@ export default function GoalScreen() {
         </ScrollView>
 
         <View style={styles.actions}>
-          <TouchableOpacity
+          <Button
+            label="Continue"
             onPress={handleContinue}
             disabled={!canContinue}
-            style={[
-              styles.continueBtn,
-              {
-                backgroundColor: canContinue ? primary : borderSubtle,
-                opacity: canContinue ? 1 : Opacity.disabled,
-              },
-            ]}
-            accessibilityRole="button"
             accessibilityLabel="Continue to frequency selection"
-            accessibilityState={{ disabled: !canContinue }}
-          >
-            <Text
-              style={[
-                styles.continueBtnText,
-                { color: canContinue ? "#FFFFFF" : textDisabled },
-              ]}
-            >
-              Continue
-            </Text>
-          </TouchableOpacity>
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -229,10 +212,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.lg,
   },
-  continueBtn: {
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.lg,
-    alignItems: "center",
-  },
-  continueBtnText: { ...Typography.titleSm, color: "#FFFFFF" },
 });

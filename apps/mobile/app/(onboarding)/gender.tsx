@@ -2,6 +2,7 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   SafeAreaView,
@@ -132,25 +133,17 @@ export default function GenderScreen() {
         </ScrollView>
 
         <View style={styles.actions}>
-          <TouchableOpacity
+          <Button
+            label="Continue"
             onPress={handleContinue}
-            style={[styles.continueBtn, { backgroundColor: primary }]}
-            accessibilityRole="button"
             accessibilityLabel="Continue to goal selection"
-          >
-            <Text style={styles.continueBtnText}>Continue</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          />
+          <Button
+            label="Skip this step"
             onPress={handleSkip}
-            accessibilityRole="button"
+            variant="ghost"
             accessibilityLabel="Skip gender selection, go to goal"
-          >
-            <Text
-              style={[Typography.body, { color: textMuted }, styles.skipText]}
-            >
-              Skip this step
-            </Text>
-          </TouchableOpacity>
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -219,17 +212,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.lg,
     gap: Spacing.md,
-  },
-  continueBtn: {
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.lg,
-    alignItems: "center",
-  },
-  continueBtnText: {
-    ...Typography.titleSm,
-    color: "#FFFFFF",
-  },
-  skipText: {
-    textAlign: "center",
   },
 });
