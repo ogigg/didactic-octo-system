@@ -1,12 +1,15 @@
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useOnboardingStore } from "@/stores/onboarding-store";
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import "react-native-reanimated";
+
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -14,11 +17,22 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const { isCompleted, getNextUnfinishedStep } = useOnboardingStore();
+
+  useEffect(() => {
+    if (!isCompleted) {
+      const nextStep = getNextUnfinishedStep();
+      const target =
+        nextStep === null ? "/(tabs)" : `/(onboarding)/${nextStep}`;
+      router.replace(target as never);
+    }
+  }, [isCompleted, getNextUnfinishedStep]);
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
         <Stack.Screen
           name="modal"
           options={{ presentation: "modal", title: "Modal" }}
