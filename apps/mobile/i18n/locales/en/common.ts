@@ -1,7 +1,7 @@
 export const common = {
   nav: {
     home: "Home",
-    explore: "Explore",
+    profile: "Profile",
     modal: "Modal",
     designSystem: "Design System",
   },
