@@ -3,6 +3,7 @@ import type { Frequency, Gender, Goal } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
@@ -73,6 +74,7 @@ export default function ReviewScreen() {
 
   return (
     <View style={styles.root}>
+      <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text

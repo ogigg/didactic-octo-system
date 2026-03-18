@@ -2,6 +2,7 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -57,6 +58,7 @@ export default function GenderScreen() {
 
   return (
     <View style={styles.root}>
+      <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         {/* Progress bar */}
         <View style={styles.progressRow}>

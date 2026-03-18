@@ -3,6 +3,7 @@ import type { Frequency } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -51,6 +52,7 @@ export default function FrequencyScreen() {
 
   return (
     <View style={styles.root}>
+      <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         <View style={styles.progressRow}>
           <View style={[styles.segment, { backgroundColor: primary }]} />

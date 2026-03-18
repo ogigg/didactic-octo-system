@@ -1,6 +1,7 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
 import {
   SafeAreaView,
@@ -50,6 +51,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
+      <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Greeting */}

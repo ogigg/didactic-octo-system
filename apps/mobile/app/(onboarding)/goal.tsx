@@ -3,6 +3,7 @@ import { trackEvent } from "@/lib/track-event";
 import { containsProfanity, MAX_CUSTOM_GOAL_LENGTH } from "@/lib/profanity";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -55,6 +56,7 @@ export default function GoalScreen() {
 
   return (
     <View style={styles.root}>
+      <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         <View style={styles.progressRow}>
           <View style={[styles.segment, { backgroundColor: primary }]} />
