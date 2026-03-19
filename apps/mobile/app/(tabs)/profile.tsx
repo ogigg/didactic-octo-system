@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { useAuthStore } from "@/stores/auth-store";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
@@ -61,7 +64,20 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function ProfileScreen() {
   const { t } = useTranslation("profile");
+  const { t: tAuth } = useTranslation("auth");
   const router = useRouter();
+  const signOut = useAuthStore((s) => s.signOut);
+
+  function handleLogout() {
+    Alert.alert(tAuth("logout.confirmTitle"), tAuth("logout.confirmMessage"), [
+      { text: tAuth("logout.cancel"), style: "cancel" },
+      {
+        text: tAuth("logout.confirm"),
+        style: "destructive",
+        onPress: () => signOut(),
+      },
+    ]);
+  }
 
   const primary = useThemeColor({}, "primary");
   const textColor = useThemeColor({}, "text");
@@ -69,6 +85,7 @@ export default function ProfileScreen() {
   const textMuted = useThemeColor({}, "textMuted");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const border = useThemeColor({}, "border");
+  const errorColor = useThemeColor({}, "error");
 
   const maxMinutes = Math.max(...MOCK_WEEKLY_DURATIONS.map((d) => d.minutes));
 
@@ -196,6 +213,21 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          {/* Logout */}
+          <TouchableOpacity
+            style={[
+              styles.logoutButton,
+              { backgroundColor: backgroundSubtle },
+              Elevation.sm,
+            ]}
+            onPress={handleLogout}
+            accessibilityRole="button"
+            accessibilityLabel={tAuth("logout.button")}
+          >
+            <Text style={[Typography.titleSm, { color: errorColor }]}>
+              {tAuth("logout.button")}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -264,5 +296,10 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     marginTop: Spacing.sm,
+  },
+  logoutButton: {
+    borderRadius: Radii.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
   },
 });
