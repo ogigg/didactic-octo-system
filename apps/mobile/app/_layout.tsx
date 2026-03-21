@@ -9,7 +9,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { AppState, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import "react-native-reanimated";
 
@@ -18,6 +18,10 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useAuthStore } from "@/stores/auth-store";
 import { queryClient } from "@/lib/query-client";
+import { syncQueue } from "@/lib/sync-queue";
+import { upsertProfile } from "@/lib/api/profiles";
+import type { OnboardingData } from "@/lib/api/profiles";
+import NetInfo from "@react-native-community/netinfo";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,6 +46,30 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [isInitialized]);
+
+  useEffect(() => {
+    syncQueue.registerHandler("upsert_profile", (payload) =>
+      upsertProfile(payload as OnboardingData)
+    );
+    syncQueue.processQueue();
+
+    const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
+      if (state.isConnected) {
+        syncQueue.processQueue();
+      }
+    });
+
+    const appStateSub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        syncQueue.processQueue();
+      }
+    });
+
+    return () => {
+      unsubscribeNetInfo();
+      appStateSub.remove();
+    };
+  }, []);
 
   const theme = useMemo(() => {
     const base = colorScheme === "dark" ? DarkTheme : DefaultTheme;
