@@ -26,6 +26,8 @@ export default function WorkoutScreen() {
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
   const background = useThemeColor({}, "background");
+  const primary = useThemeColor({}, "primary");
+  const progressTrack = useThemeColor({}, "inputFill");
   const scrollRef = useRef<ScrollView>(null);
   const exerciseLayouts = useRef<Record<string, number>>({});
 
@@ -40,6 +42,9 @@ export default function WorkoutScreen() {
     }
     return { completedSets: completed, totalSets: total };
   }, [exercises]);
+  const progressRatio = totalSets > 0 ? completedSets / totalSets : 0;
+  const progressWidth =
+    `${Math.min(Math.max(progressRatio, 0), 1) * 100}%` as const;
 
   // Scroll to first exercise with incomplete sets on mount
   useEffect(() => {
@@ -104,6 +109,24 @@ export default function WorkoutScreen() {
             onDismiss={handleDismiss}
             onFinish={handleFinish}
           />
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[styles.progressTrack, { backgroundColor: progressTrack }]}
+              accessibilityRole="progressbar"
+              accessibilityValue={{
+                min: 0,
+                max: totalSets,
+                now: completedSets,
+              }}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  { backgroundColor: primary, width: progressWidth },
+                ]}
+              />
+            </View>
+          </View>
           <WorkoutTimer />
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <ScrollView
@@ -138,5 +161,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing["5xl"],
     gap: Spacing["2xl"],
+  },
+  progressBarContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
+  },
+  progressTrack: {
+    height: 5,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
   },
 });
