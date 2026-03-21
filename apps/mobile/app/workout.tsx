@@ -9,6 +9,8 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Alert,
+  Animated,
+  Easing,
   Keyboard,
   ScrollView,
   SafeAreaView,
@@ -43,8 +45,16 @@ export default function WorkoutScreen() {
     return { completedSets: completed, totalSets: total };
   }, [exercises]);
   const progressRatio = totalSets > 0 ? completedSets / totalSets : 0;
-  const progressWidth =
-    `${Math.min(Math.max(progressRatio, 0), 1) * 100}%` as const;
+  const animatedProgress = useRef(new Animated.Value(progressRatio)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedProgress, {
+      toValue: progressRatio,
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [completedSets, totalSets]);
 
   // Scroll to first exercise with incomplete sets on mount
   useEffect(() => {
@@ -119,10 +129,16 @@ export default function WorkoutScreen() {
                 now: completedSets,
               }}
             >
-              <View
+              <Animated.View
                 style={[
                   styles.progressFill,
-                  { backgroundColor: primary, width: progressWidth },
+                  {
+                    backgroundColor: primary,
+                    width: animatedProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ["0%", "100%"],
+                    }),
+                  },
                 ]}
               />
             </View>
@@ -163,8 +179,6 @@ const styles = StyleSheet.create({
     gap: Spacing["2xl"],
   },
   progressBarContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xs,
     paddingBottom: Spacing.sm,
   },
   progressTrack: {
