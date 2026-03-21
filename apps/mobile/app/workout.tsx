@@ -183,11 +183,9 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 5,
-    borderRadius: 999,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    borderRadius: 999,
   },
 });

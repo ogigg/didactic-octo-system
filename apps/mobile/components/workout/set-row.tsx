@@ -4,28 +4,24 @@ import { RpePicker } from "@/components/workout/rpe-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { WorkoutSet } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Easing,
-  LayoutAnimation,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  UIManager,
   View,
 } from "react-native";
-import { Swipeable } from "react-native-gesture-handler";
+import {
+  PanGestureHandler,
+  NativeViewGestureHandler,
+  State,
+} from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
-
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface SetRowProps {
   set: WorkoutSet;
@@ -49,11 +45,24 @@ export function SetRow({
   const [rpePickerVisible, setRpePickerVisible] = useState(false);
   const [kgFocused, setKgFocused] = useState(false);
   const [repsFocused, setRepsFocused] = useState(false);
-  const swipeableRef = useRef<Swipeable>(null);
   const kgRef = useRef<TextInput>(null);
   const repsRef = useRef<TextInput>(null);
   const completeScale = useRef(new Animated.Value(1)).current;
   const completeRing = useRef(new Animated.Value(0)).current;
+
+  const screenWidth = Dimensions.get("window").width;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const rowHeight = useRef(new Animated.Value(64)).current;
+  const rowOpacity = useRef(new Animated.Value(1)).current;
+  const isDeleting = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      translateX.stopAnimation();
+      rowHeight.stopAnimation();
+      rowOpacity.stopAnimation();
+    };
+  }, []);
 
   const inputFill = useThemeColor({}, "inputFill");
   const inputFillFocused = useThemeColor({}, "inputFillFocused");
@@ -152,22 +161,69 @@ export function SetRow({
     }
   }, [set.previousDisplay, onUpdateField]);
 
-  const handleDelete = useCallback(() => {
+  const springBack = useCallback(() => {
+    Animated.spring(translateX, {
+      toValue: 0,
+      tension: 180,
+      friction: 14,
+      useNativeDriver: true,
+    }).start();
+  }, [translateX]);
+
+  const triggerDelete = useCallback(() => {
+    if (isDeleting.current) return;
+    isDeleting.current = true;
+
     if (Platform.OS === "ios") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    swipeableRef.current?.close();
-    onRemove();
-  }, [onRemove]);
 
-  const handleSwipeableOpen = useCallback(
-    (direction: "left" | "right") => {
-      if (direction === "right") {
-        handleDelete();
+    Animated.timing(translateX, {
+      toValue: -screenWidth,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.parallel([
+      Animated.timing(rowHeight, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+      Animated.timing(rowOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: false,
+      }),
+    ]).start(() => onRemove());
+  }, [translateX, rowHeight, rowOpacity, screenWidth, onRemove]);
+
+  const onGestureEvent = useCallback(
+    (e: { nativeEvent: { translationX: number } }) => {
+      if (isDeleting.current) return;
+      const clamped = Math.min(
+        Math.max(e.nativeEvent.translationX, -screenWidth),
+        0
+      );
+      translateX.setValue(clamped);
+    },
+    [translateX, screenWidth]
+  );
+
+  const onHandlerStateChange = useCallback(
+    (e: { nativeEvent: { state: number; translationX: number } }) => {
+      const { state, translationX: tx } = e.nativeEvent;
+      if (state === State.END) {
+        if (tx <= -80) {
+          triggerDelete();
+        } else {
+          springBack();
+        }
+      } else if (state === State.CANCELLED || state === State.FAILED) {
+        springBack();
       }
     },
-    [handleDelete]
+    [triggerDelete, springBack]
   );
 
   const handleKgSubmit = useCallback(() => {
@@ -185,191 +241,192 @@ export function SetRow({
     extrapolate: "clamp",
   });
 
-  const renderRightActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    const scale = dragX.interpolate({
-      inputRange: [-96, -24, 0],
-      outputRange: [1.08, 0.92, 0.84],
-      extrapolate: "clamp",
-    });
-    const opacity = dragX.interpolate({
-      inputRange: [-96, -64, -28, 0],
-      outputRange: [1, 0.9, 0.45, 0.25],
-      extrapolate: "clamp",
-    });
-    const translateX = dragX.interpolate({
-      inputRange: [-96, 0],
-      outputRange: [0, 18],
-      extrapolate: "clamp",
-    });
-    const actionScaleX = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.78, 1],
-      extrapolate: "clamp",
-    });
+  const errorColorTransparent = errorColor + "00";
 
-    return (
-      <Animated.View
-        style={[
-          styles.deleteAction,
-          {
-            backgroundColor: errorColor,
-            transform: [{ translateX }, { scaleX: actionScaleX }],
-          },
-        ]}
-      >
-        <View style={styles.deleteActionContent}>
-          <Pressable
-            onPress={handleDelete}
-            accessibilityRole="button"
-            accessibilityLabel={t("exercise.removeSet")}
-            style={styles.deletePressable}
-          >
-            <Animated.View style={{ transform: [{ scale }], opacity }}>
-              <IconSymbol name="trash" size={20} color="#FFFFFF" />
-            </Animated.View>
-          </Pressable>
-        </View>
-      </Animated.View>
-    );
-  };
+  const swipeBackgroundColor = translateX.interpolate({
+    inputRange: [-120, 0],
+    outputRange: [errorColor, errorColorTransparent],
+    extrapolate: "clamp",
+  });
+
+  const binIconScale = translateX.interpolate({
+    inputRange: [-80, 0],
+    outputRange: [1.15, 1.0],
+    extrapolate: "clamp",
+  });
 
   return (
-    <Swipeable
-      ref={swipeableRef}
-      renderRightActions={renderRightActions}
-      rightThreshold={56}
-      overshootRight={false}
-      friction={1.8}
-      onSwipeableOpen={handleSwipeableOpen}
+    <Animated.View
+      style={{ height: rowHeight, opacity: rowOpacity, overflow: "hidden" }}
+      onLayout={(e) => {
+        if (!isDeleting.current) {
+          rowHeight.setValue(e.nativeEvent.layout.height);
+        }
+      }}
     >
-      <View style={[styles.row, set.isCompleted && styles.completedRow]}>
-        <Text
-          style={[Typography.caption, styles.setCol, { color: setLabelColor }]}
-        >
-          {setLabel}
-        </Text>
-
-        <Pressable
-          onPress={handleFillFromPrevious}
-          style={styles.prevCol}
-          accessibilityRole="button"
-          accessibilityLabel={
-            set.previousDisplay
-              ? `Previous: ${set.previousDisplay}. Tap to fill.`
-              : "No previous data"
-          }
-        >
-          <Text style={[Typography.caption, { color: textMuted }]}>
-            {set.previousDisplay ?? "-"}
-          </Text>
-        </Pressable>
-
-        <TextInput
-          ref={kgRef}
-          style={[
-            styles.input,
-            {
-              backgroundColor: kgFocused ? inputFillFocused : inputFill,
-              color: textColor,
-              borderColor: kgFocused ? primary : "transparent",
-            },
-          ]}
-          value={set.kg}
-          onChangeText={handleKgChange}
-          onFocus={() => setKgFocused(true)}
-          onBlur={() => setKgFocused(false)}
-          onSubmitEditing={handleKgSubmit}
-          returnKeyType="next"
-          keyboardType="numeric"
-          placeholder="0"
-          placeholderTextColor={textDisabled}
-          accessibilityLabel={`Weight in kg for set ${setLabel}`}
-          selectTextOnFocus
-        />
-
-        <TextInput
-          ref={repsRef}
-          style={[
-            styles.input,
-            {
-              backgroundColor: repsFocused ? inputFillFocused : inputFill,
-              color: textColor,
-              borderColor: repsFocused ? primary : "transparent",
-            },
-          ]}
-          value={set.reps}
-          onChangeText={handleRepsChange}
-          onFocus={() => setRepsFocused(true)}
-          onBlur={() => setRepsFocused(false)}
-          returnKeyType="done"
-          keyboardType="numeric"
-          placeholder="0"
-          placeholderTextColor={textDisabled}
-          accessibilityLabel={`Reps for set ${setLabel}`}
-          selectTextOnFocus
-        />
-
-        <Pressable
-          onPress={() => setRpePickerVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`RPE for set ${setLabel}: ${set.rpe ?? "not set"}`}
-          style={[styles.rpeButton, { backgroundColor: inputFill }]}
-        >
-          <Text
+      <PanGestureHandler
+        onGestureEvent={onGestureEvent}
+        onHandlerStateChange={onHandlerStateChange}
+        activeOffsetX={[-8, 8]}
+        failOffsetY={[-12, 12]}
+      >
+        <Animated.View style={{ transform: [{ translateX }] }}>
+          {/* Red delete background */}
+          <Animated.View
             style={[
-              Typography.caption,
-              { color: set.rpe ? textColor : textDisabled },
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: swipeBackgroundColor },
             ]}
           >
-            {set.rpe ?? "--"}
-          </Text>
-        </Pressable>
+            <NativeViewGestureHandler>
+              <Pressable
+                onPress={triggerDelete}
+                accessibilityRole="button"
+                accessibilityLabel={t("exercise.removeSet")}
+                style={styles.deletePressable}
+              >
+                <Animated.View style={{ transform: [{ scale: binIconScale }] }}>
+                  <IconSymbol name="trash" size={20} color="#FFFFFF" />
+                </Animated.View>
+              </Pressable>
+            </NativeViewGestureHandler>
+          </Animated.View>
 
-        <View style={styles.checkboxWrapper}>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.completeRing,
-              {
-                borderColor: success,
-                opacity: completeRingOpacity,
-                transform: [{ scale: completeRingScale }],
-              },
-            ]}
-          />
-          <Animated.View style={{ transform: [{ scale: completeScale }] }}>
-            <Pressable
-              onPress={handleToggleComplete}
-              onPressIn={handleCompletePressIn}
-              onPressOut={handleCompletePressOut}
-              accessibilityRole="checkbox"
-              accessibilityLabel={`Set ${setLabel}: ${set.isCompleted ? "completed" : "not completed"}`}
-              accessibilityState={{ checked: set.isCompleted }}
+          {/* Row content */}
+          <View style={[styles.row, set.isCompleted && styles.completedRow]}>
+            <Text
               style={[
-                styles.checkbox,
-                {
-                  backgroundColor: set.isCompleted ? success : "transparent",
-                  borderColor: set.isCompleted ? success : textDisabled,
-                },
+                Typography.caption,
+                styles.setCol,
+                { color: setLabelColor },
               ]}
             >
-              {set.isCompleted && (
-                <IconSymbol name="checkmark" size={14} color="#FFFFFF" />
-              )}
+              {setLabel}
+            </Text>
+
+            <Pressable
+              onPress={handleFillFromPrevious}
+              style={styles.prevCol}
+              accessibilityRole="button"
+              accessibilityLabel={
+                set.previousDisplay
+                  ? `Previous: ${set.previousDisplay}. Tap to fill.`
+                  : "No previous data"
+              }
+            >
+              <Text style={[Typography.caption, { color: textMuted }]}>
+                {set.previousDisplay ?? "-"}
+              </Text>
             </Pressable>
-          </Animated.View>
-        </View>
-        <RpePicker
-          visible={rpePickerVisible}
-          currentValue={set.rpe}
-          onSelect={onUpdateRpe}
-          onClose={() => setRpePickerVisible(false)}
-        />
-      </View>
-    </Swipeable>
+
+            <TextInput
+              ref={kgRef}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: kgFocused ? inputFillFocused : inputFill,
+                  color: textColor,
+                  borderColor: kgFocused ? primary : "transparent",
+                },
+              ]}
+              value={set.kg}
+              onChangeText={handleKgChange}
+              onFocus={() => setKgFocused(true)}
+              onBlur={() => setKgFocused(false)}
+              onSubmitEditing={handleKgSubmit}
+              returnKeyType="next"
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={textDisabled}
+              accessibilityLabel={`Weight in kg for set ${setLabel}`}
+              selectTextOnFocus
+            />
+
+            <TextInput
+              ref={repsRef}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: repsFocused ? inputFillFocused : inputFill,
+                  color: textColor,
+                  borderColor: repsFocused ? primary : "transparent",
+                },
+              ]}
+              value={set.reps}
+              onChangeText={handleRepsChange}
+              onFocus={() => setRepsFocused(true)}
+              onBlur={() => setRepsFocused(false)}
+              returnKeyType="done"
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={textDisabled}
+              accessibilityLabel={`Reps for set ${setLabel}`}
+              selectTextOnFocus
+            />
+
+            <Pressable
+              onPress={() => setRpePickerVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`RPE for set ${setLabel}: ${set.rpe ?? "not set"}`}
+              style={[styles.rpeButton, { backgroundColor: inputFill }]}
+            >
+              <Text
+                style={[
+                  Typography.caption,
+                  { color: set.rpe ? textColor : textDisabled },
+                ]}
+              >
+                {set.rpe ?? "--"}
+              </Text>
+            </Pressable>
+
+            <View style={styles.checkboxWrapper}>
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.completeRing,
+                  {
+                    borderColor: success,
+                    opacity: completeRingOpacity,
+                    transform: [{ scale: completeRingScale }],
+                  },
+                ]}
+              />
+              <Animated.View style={{ transform: [{ scale: completeScale }] }}>
+                <Pressable
+                  onPress={handleToggleComplete}
+                  onPressIn={handleCompletePressIn}
+                  onPressOut={handleCompletePressOut}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`Set ${setLabel}: ${set.isCompleted ? "completed" : "not completed"}`}
+                  accessibilityState={{ checked: set.isCompleted }}
+                  style={[
+                    styles.checkbox,
+                    {
+                      backgroundColor: set.isCompleted
+                        ? success
+                        : "transparent",
+                      borderColor: set.isCompleted ? success : textDisabled,
+                    },
+                  ]}
+                >
+                  {set.isCompleted && (
+                    <IconSymbol name="checkmark" size={14} color="#FFFFFF" />
+                  )}
+                </Pressable>
+              </Animated.View>
+            </View>
+
+            <RpePicker
+              visible={rpePickerVisible}
+              currentValue={set.rpe}
+              onSelect={onUpdateRpe}
+              onClose={() => setRpePickerVisible(false)}
+            />
+          </View>
+        </Animated.View>
+      </PanGestureHandler>
+    </Animated.View>
   );
 }
 
@@ -434,17 +491,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 2,
   },
-  deleteAction: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  deleteActionContent: {
-    width: 72,
-    height: "100%",
-  },
   deletePressable: {
-    width: "100%",
-    height: "100%",
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 60,
     alignItems: "center",
     justifyContent: "center",
   },
