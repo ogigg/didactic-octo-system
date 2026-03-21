@@ -11,6 +11,20 @@ jest.mock("@/lib/supabase", () => ({
   },
 }));
 
+jest.mock("@/lib/sync-queue", () => ({
+  syncQueue: {
+    flush: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock("@/stores/onboarding-store", () => ({
+  useOnboardingStore: {
+    getState: jest.fn().mockReturnValue({
+      reset: jest.fn(),
+    }),
+  },
+}));
+
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "../auth-store";
 
@@ -132,6 +146,20 @@ describe("useAuthStore", () => {
       });
 
       expect(useAuthStore.getState().isLoading).toBe(false);
+    });
+
+    it("flushes sync queue and resets onboarding store on sign out", async () => {
+      const { syncQueue } = require("@/lib/sync-queue");
+      const { useOnboardingStore } = require("@/stores/onboarding-store");
+
+      (mockSupabase.auth.signOut as jest.Mock).mockResolvedValue({});
+
+      await act(async () => {
+        await useAuthStore.getState().signOut();
+      });
+
+      expect(syncQueue.flush).toHaveBeenCalledTimes(1);
+      expect(useOnboardingStore.getState().reset).toHaveBeenCalledTimes(1);
     });
   });
 });
