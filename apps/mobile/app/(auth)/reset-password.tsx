@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
   View,
 } from "react-native";
 
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
@@ -66,116 +68,119 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.root}>
+      <AmbientGlow variant="hero" />
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <Text
-          style={[Typography.displayLg, { color: textColor }]}
-          accessibilityRole="header"
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
         >
-          {t("resetPassword.title")}
-        </Text>
-        <Text
-          style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-        >
-          {t("resetPassword.subtitle")}
-        </Text>
-
-        {authError && (
-          <View
-            style={[styles.errorBanner, { backgroundColor: primarySurface }]}
-            accessibilityRole="alert"
+          <Text
+            style={[Typography.displayLg, { color: textColor }]}
+            accessibilityRole="header"
           >
-            <Text style={[Typography.body, { color: errorColor }]}>
-              {authError}
+            {t("resetPassword.title")}
+          </Text>
+          <Text
+            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
+          >
+            {t("resetPassword.subtitle")}
+          </Text>
+
+          {authError && (
+            <View
+              style={[styles.errorBanner, { backgroundColor: primarySurface }]}
+              accessibilityRole="alert"
+            >
+              <Text style={[Typography.body, { color: errorColor }]}>
+                {authError}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.field}>
+            <Text style={[Typography.label, { color: textSecondary }]}>
+              {t("resetPassword.passwordLabel")}
             </Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: inputFill, color: textColor },
+                    errors.password && {
+                      borderColor: errorColor,
+                      borderWidth: 1,
+                    },
+                  ]}
+                  placeholder={t("resetPassword.passwordPlaceholder")}
+                  placeholderTextColor={textMuted}
+                  secureTextEntry
+                  returnKeyType="next"
+                  accessibilityLabel={t("resetPassword.passwordLabel")}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  value={value}
+                />
+              )}
+            />
+            {errors.password && (
+              <Text style={[Typography.caption, { color: errorColor }]}>
+                {t(errors.password.message as string)}
+              </Text>
+            )}
           </View>
-        )}
 
-        <View style={styles.field}>
-          <Text style={[Typography.label, { color: textSecondary }]}>
-            {t("resetPassword.passwordLabel")}
-          </Text>
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: inputFill, color: textColor },
-                  errors.password && {
-                    borderColor: errorColor,
-                    borderWidth: 1,
-                  },
-                ]}
-                placeholder={t("resetPassword.passwordPlaceholder")}
-                placeholderTextColor={textMuted}
-                secureTextEntry
-                returnKeyType="next"
-                accessibilityLabel={t("resetPassword.passwordLabel")}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                value={value}
-              />
-            )}
-          />
-          {errors.password && (
-            <Text style={[Typography.caption, { color: errorColor }]}>
-              {t(errors.password.message as string)}
+          <View style={styles.field}>
+            <Text style={[Typography.label, { color: textSecondary }]}>
+              {t("resetPassword.confirmPasswordLabel")}
             </Text>
-          )}
-        </View>
-
-        <View style={styles.field}>
-          <Text style={[Typography.label, { color: textSecondary }]}>
-            {t("resetPassword.confirmPasswordLabel")}
-          </Text>
-          <Controller
-            control={control}
-            name="confirmPassword"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: inputFill, color: textColor },
-                  errors.confirmPassword && {
-                    borderColor: errorColor,
-                    borderWidth: 1,
-                  },
-                ]}
-                placeholder={t("resetPassword.confirmPasswordPlaceholder")}
-                placeholderTextColor={textMuted}
-                secureTextEntry
-                returnKeyType="done"
-                accessibilityLabel={t("resetPassword.confirmPasswordLabel")}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                value={value}
-                onSubmitEditing={handleSubmit(onSubmit)}
-              />
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: inputFill, color: textColor },
+                    errors.confirmPassword && {
+                      borderColor: errorColor,
+                      borderWidth: 1,
+                    },
+                  ]}
+                  placeholder={t("resetPassword.confirmPasswordPlaceholder")}
+                  placeholderTextColor={textMuted}
+                  secureTextEntry
+                  returnKeyType="done"
+                  accessibilityLabel={t("resetPassword.confirmPasswordLabel")}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  value={value}
+                  onSubmitEditing={handleSubmit(onSubmit)}
+                />
+              )}
+            />
+            {errors.confirmPassword && (
+              <Text style={[Typography.caption, { color: errorColor }]}>
+                {t(errors.confirmPassword.message as string)}
+              </Text>
             )}
-          />
-          {errors.confirmPassword && (
-            <Text style={[Typography.caption, { color: errorColor }]}>
-              {t(errors.confirmPassword.message as string)}
-            </Text>
-          )}
-        </View>
+          </View>
 
-        <Button
-          label={t("resetPassword.submitButton")}
-          onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
-          accessibilityLabel={t("resetPassword.submitButton")}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <Button
+            label={t("resetPassword.submitButton")}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+            accessibilityLabel={t("resetPassword.submitButton")}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

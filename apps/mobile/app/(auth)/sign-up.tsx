@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +15,7 @@ import {
   View,
 } from "react-native";
 
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -66,7 +68,8 @@ export default function SignUpScreen() {
 
   if (successEmail) {
     return (
-      <View style={styles.successContainer}>
+      <SafeAreaView style={styles.successContainer}>
+        <AmbientGlow variant="hero" />
         <Text
           style={[Typography.displayLg, { color: textColor }]}
           accessibilityRole="header"
@@ -78,172 +81,175 @@ export default function SignUpScreen() {
         >
           {t("signUp.checkEmailBody", { email: successEmail })}
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.root}>
+      <AmbientGlow variant="hero" />
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <Text
-          style={[Typography.displayLg, { color: textColor }]}
-          accessibilityRole="header"
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
         >
-          {t("signUp.title")}
-        </Text>
-        <Text
-          style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-        >
-          {t("signUp.subtitle")}
-        </Text>
-
-        {authError && (
-          <View
-            style={[styles.errorBanner, { backgroundColor: primarySurface }]}
-            accessibilityRole="alert"
+          <Text
+            style={[Typography.displayLg, { color: textColor }]}
+            accessibilityRole="header"
           >
-            <Text style={[Typography.body, { color: errorColor }]}>
-              {authError}
-            </Text>
-          </View>
-        )}
-
-        {/* Email */}
-        <View style={styles.field}>
-          <Text style={[Typography.label, { color: textSecondary }]}>
-            {t("signUp.emailLabel")}
+            {t("signUp.title")}
           </Text>
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: inputFill, color: textColor },
-                  errors.email && { borderColor: errorColor, borderWidth: 1 },
-                ]}
-                placeholder={t("signUp.emailPlaceholder")}
-                placeholderTextColor={textMuted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                returnKeyType="next"
-                accessibilityLabel={t("signUp.emailLabel")}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                value={value}
-              />
-            )}
-          />
-          {errors.email && (
-            <Text style={[Typography.caption, { color: errorColor }]}>
-              {t(errors.email.message as string)}
-            </Text>
-          )}
-        </View>
-
-        {/* Password */}
-        <View style={styles.field}>
-          <Text style={[Typography.label, { color: textSecondary }]}>
-            {t("signUp.passwordLabel")}
+          <Text
+            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
+          >
+            {t("signUp.subtitle")}
           </Text>
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: inputFill, color: textColor },
-                  errors.password && {
-                    borderColor: errorColor,
-                    borderWidth: 1,
-                  },
-                ]}
-                placeholder={t("signUp.passwordPlaceholder")}
-                placeholderTextColor={textMuted}
-                secureTextEntry
-                returnKeyType="next"
-                accessibilityLabel={t("signUp.passwordLabel")}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                value={value}
-              />
-            )}
-          />
-          {errors.password && (
-            <Text style={[Typography.caption, { color: errorColor }]}>
-              {t(errors.password.message as string)}
-            </Text>
-          )}
-        </View>
 
-        {/* Confirm Password */}
-        <View style={styles.field}>
-          <Text style={[Typography.label, { color: textSecondary }]}>
-            {t("signUp.confirmPasswordLabel")}
-          </Text>
-          <Controller
-            control={control}
-            name="confirmPassword"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: inputFill, color: textColor },
-                  errors.confirmPassword && {
-                    borderColor: errorColor,
-                    borderWidth: 1,
-                  },
-                ]}
-                placeholder={t("signUp.confirmPasswordPlaceholder")}
-                placeholderTextColor={textMuted}
-                secureTextEntry
-                returnKeyType="done"
-                accessibilityLabel={t("signUp.confirmPasswordLabel")}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                value={value}
-                onSubmitEditing={handleSubmit(onSubmit)}
-              />
-            )}
-          />
-          {errors.confirmPassword && (
-            <Text style={[Typography.caption, { color: errorColor }]}>
-              {t(errors.confirmPassword.message as string)}
-            </Text>
-          )}
-        </View>
-
-        <Button
-          label={t("signUp.submitButton")}
-          onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
-          accessibilityLabel={t("signUp.submitButton")}
-        />
-
-        <View style={styles.footer}>
-          <Text style={[Typography.body, { color: textSecondary }]}>
-            {t("signUp.hasAccount")}
-          </Text>
-          <Link href="/(auth)/sign-in" asChild>
-            <Pressable accessibilityRole="link">
-              <Text style={[Typography.body, { color: primary }]}>
-                {" "}
-                {t("signUp.signInLink")}
+          {authError && (
+            <View
+              style={[styles.errorBanner, { backgroundColor: primarySurface }]}
+              accessibilityRole="alert"
+            >
+              <Text style={[Typography.body, { color: errorColor }]}>
+                {authError}
               </Text>
-            </Pressable>
-          </Link>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            </View>
+          )}
+
+          {/* Email */}
+          <View style={styles.field}>
+            <Text style={[Typography.label, { color: textSecondary }]}>
+              {t("signUp.emailLabel")}
+            </Text>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: inputFill, color: textColor },
+                    errors.email && { borderColor: errorColor, borderWidth: 1 },
+                  ]}
+                  placeholder={t("signUp.emailPlaceholder")}
+                  placeholderTextColor={textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  accessibilityLabel={t("signUp.emailLabel")}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  value={value}
+                />
+              )}
+            />
+            {errors.email && (
+              <Text style={[Typography.caption, { color: errorColor }]}>
+                {t(errors.email.message as string)}
+              </Text>
+            )}
+          </View>
+
+          {/* Password */}
+          <View style={styles.field}>
+            <Text style={[Typography.label, { color: textSecondary }]}>
+              {t("signUp.passwordLabel")}
+            </Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: inputFill, color: textColor },
+                    errors.password && {
+                      borderColor: errorColor,
+                      borderWidth: 1,
+                    },
+                  ]}
+                  placeholder={t("signUp.passwordPlaceholder")}
+                  placeholderTextColor={textMuted}
+                  secureTextEntry
+                  returnKeyType="next"
+                  accessibilityLabel={t("signUp.passwordLabel")}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  value={value}
+                />
+              )}
+            />
+            {errors.password && (
+              <Text style={[Typography.caption, { color: errorColor }]}>
+                {t(errors.password.message as string)}
+              </Text>
+            )}
+          </View>
+
+          {/* Confirm Password */}
+          <View style={styles.field}>
+            <Text style={[Typography.label, { color: textSecondary }]}>
+              {t("signUp.confirmPasswordLabel")}
+            </Text>
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: inputFill, color: textColor },
+                    errors.confirmPassword && {
+                      borderColor: errorColor,
+                      borderWidth: 1,
+                    },
+                  ]}
+                  placeholder={t("signUp.confirmPasswordPlaceholder")}
+                  placeholderTextColor={textMuted}
+                  secureTextEntry
+                  returnKeyType="done"
+                  accessibilityLabel={t("signUp.confirmPasswordLabel")}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  value={value}
+                  onSubmitEditing={handleSubmit(onSubmit)}
+                />
+              )}
+            />
+            {errors.confirmPassword && (
+              <Text style={[Typography.caption, { color: errorColor }]}>
+                {t(errors.confirmPassword.message as string)}
+              </Text>
+            )}
+          </View>
+
+          <Button
+            label={t("signUp.submitButton")}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+            accessibilityLabel={t("signUp.submitButton")}
+          />
+
+          <View style={styles.footer}>
+            <Text style={[Typography.body, { color: textSecondary }]}>
+              {t("signUp.hasAccount")}
+            </Text>
+            <Link href="/(auth)/sign-in" asChild>
+              <Pressable accessibilityRole="link">
+                <Text style={[Typography.body, { color: primary }]}>
+                  {" "}
+                  {t("signUp.signInLink")}
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

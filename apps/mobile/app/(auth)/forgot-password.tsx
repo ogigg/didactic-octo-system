@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +15,7 @@ import {
   View,
 } from "react-native";
 
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -60,7 +62,8 @@ export default function ForgotPasswordScreen() {
 
   if (successEmail) {
     return (
-      <View style={styles.successContainer}>
+      <SafeAreaView style={styles.successContainer}>
+        <AmbientGlow variant="hero" />
         <Text
           style={[Typography.displayLg, { color: textColor }]}
           accessibilityRole="header"
@@ -79,93 +82,96 @@ export default function ForgotPasswordScreen() {
             </Text>
           </Pressable>
         </Link>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.root}>
+      <AmbientGlow variant="hero" />
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <Text
-          style={[Typography.displayLg, { color: textColor }]}
-          accessibilityRole="header"
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
         >
-          {t("forgotPassword.title")}
-        </Text>
-        <Text
-          style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-        >
-          {t("forgotPassword.subtitle")}
-        </Text>
-
-        {authError && (
-          <View
-            style={[styles.errorBanner, { backgroundColor: primarySurface }]}
-            accessibilityRole="alert"
+          <Text
+            style={[Typography.displayLg, { color: textColor }]}
+            accessibilityRole="header"
           >
-            <Text style={[Typography.body, { color: errorColor }]}>
-              {authError}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.field}>
-          <Text style={[Typography.label, { color: textSecondary }]}>
-            {t("forgotPassword.emailLabel")}
+            {t("forgotPassword.title")}
           </Text>
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: inputFill, color: textColor },
-                  errors.email && { borderColor: errorColor, borderWidth: 1 },
-                ]}
-                placeholder={t("forgotPassword.emailPlaceholder")}
-                placeholderTextColor={textMuted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                returnKeyType="done"
-                accessibilityLabel={t("forgotPassword.emailLabel")}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                value={value}
-                onSubmitEditing={handleSubmit(onSubmit)}
-              />
-            )}
-          />
-          {errors.email && (
-            <Text style={[Typography.caption, { color: errorColor }]}>
-              {t(errors.email.message as string)}
-            </Text>
+          <Text
+            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
+          >
+            {t("forgotPassword.subtitle")}
+          </Text>
+
+          {authError && (
+            <View
+              style={[styles.errorBanner, { backgroundColor: primarySurface }]}
+              accessibilityRole="alert"
+            >
+              <Text style={[Typography.body, { color: errorColor }]}>
+                {authError}
+              </Text>
+            </View>
           )}
-        </View>
 
-        <Button
-          label={t("forgotPassword.submitButton")}
-          onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
-          accessibilityLabel={t("forgotPassword.submitButton")}
-        />
-
-        <Link href="/(auth)/sign-in" asChild>
-          <Pressable accessibilityRole="link" style={styles.backLink}>
-            <Text style={[Typography.body, { color: primary }]}>
-              {t("forgotPassword.backToSignIn")}
+          <View style={styles.field}>
+            <Text style={[Typography.label, { color: textSecondary }]}>
+              {t("forgotPassword.emailLabel")}
             </Text>
-          </Pressable>
-        </Link>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: inputFill, color: textColor },
+                    errors.email && { borderColor: errorColor, borderWidth: 1 },
+                  ]}
+                  placeholder={t("forgotPassword.emailPlaceholder")}
+                  placeholderTextColor={textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  returnKeyType="done"
+                  accessibilityLabel={t("forgotPassword.emailLabel")}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  value={value}
+                  onSubmitEditing={handleSubmit(onSubmit)}
+                />
+              )}
+            />
+            {errors.email && (
+              <Text style={[Typography.caption, { color: errorColor }]}>
+                {t(errors.email.message as string)}
+              </Text>
+            )}
+          </View>
+
+          <Button
+            label={t("forgotPassword.submitButton")}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+            accessibilityLabel={t("forgotPassword.submitButton")}
+          />
+
+          <Link href="/(auth)/sign-in" asChild>
+            <Pressable accessibilityRole="link" style={styles.backLink}>
+              <Text style={[Typography.body, { color: primary }]}>
+                {t("forgotPassword.backToSignIn")}
+              </Text>
+            </Pressable>
+          </Link>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
