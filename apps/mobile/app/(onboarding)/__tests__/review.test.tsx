@@ -4,6 +4,9 @@ jest.mock("@/hooks/use-theme-color", () => ({
 jest.mock("@/stores/onboarding-store", () => ({
   useOnboardingStore: jest.fn(),
 }));
+jest.mock("@/hooks/use-profile-mutations", () => ({
+  useUpsertProfile: jest.fn(() => ({ mutate: jest.fn() })),
+}));
 jest.mock("@/lib/track-event", () => ({ trackEvent: jest.fn() }));
 jest.mock("expo-router", () => ({
   router: { replace: jest.fn(), push: jest.fn() },
