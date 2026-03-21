@@ -1,5 +1,12 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
+import {
+  Elevation,
+  Fonts,
+  Radii,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface Exercise {
@@ -13,19 +20,41 @@ interface WorkoutPlanCardProps {
   title: string;
   exercises: Exercise[];
   onStartWorkout: () => void;
+  isActive?: boolean;
+  startedAtMs?: number | null;
+}
+
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 export function WorkoutPlanCard({
   title,
   exercises,
   onStartWorkout,
+  isActive = false,
+  startedAtMs,
 }: WorkoutPlanCardProps) {
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const primary = useThemeColor({}, "primary");
+  const success = useThemeColor({}, "success");
   const borderSubtle = useThemeColor({}, "borderSubtle");
+
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!isActive) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [isActive]);
+
+  const elapsed = isActive && startedAtMs ? now - startedAtMs : 0;
 
   return (
     <View
@@ -35,9 +64,23 @@ export function WorkoutPlanCard({
         Elevation.sm,
       ]}
     >
-      <Text style={[Typography.label, { color: textMuted }, styles.label]}>
-        NEXT WORKOUT
-      </Text>
+      {/* Header row: label + live timer */}
+      <View style={styles.headerRow}>
+        <Text
+          style={[Typography.label, { color: isActive ? success : textMuted }]}
+        >
+          {isActive ? "IN PROGRESS" : "NEXT WORKOUT"}
+        </Text>
+        {isActive && (
+          <View style={styles.liveIndicator}>
+            <View style={[styles.liveDot, { backgroundColor: success }]} />
+            <Text style={[styles.timerText, { color: success }]}>
+              {formatElapsed(elapsed)}
+            </Text>
+          </View>
+        )}
+      </View>
+
       <Text style={[Typography.titleMd, { color: textColor }, styles.title]}>
         {title}
       </Text>
@@ -68,12 +111,15 @@ export function WorkoutPlanCard({
 
       <TouchableOpacity
         onPress={onStartWorkout}
-        style={[styles.startButton, { backgroundColor: primary }]}
+        style={[
+          styles.startButton,
+          { backgroundColor: isActive ? success : primary },
+        ]}
         accessibilityRole="button"
-        accessibilityLabel="Start workout"
+        accessibilityLabel={isActive ? "Resume workout" : "Start workout"}
       >
         <Text style={[Typography.titleSm, styles.startButtonText]}>
-          Start Workout
+          {isActive ? "Resume Workout" : "Start Workout"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -85,8 +131,27 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
     padding: Spacing.xl,
   },
-  label: {
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.xs,
+  },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  timerText: {
+    ...Typography.caption,
+    fontFamily: Fonts?.mono,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "600",
   },
   title: {
     marginBottom: Spacing.lg,

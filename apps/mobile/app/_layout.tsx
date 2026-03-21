@@ -73,6 +73,21 @@ export default function RootLayout() {
             name="design-system"
             options={{ presentation: "modal", title: t("nav.designSystem") }}
           />
+          <Stack.Screen
+            name="workout"
+            options={{
+              presentation: "fullScreenModal",
+              headerShown: false,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="workout-summary"
+            options={{
+              headerShown: false,
+              gestureEnabled: false,
+            }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

@@ -21,11 +21,21 @@ const MAPPING = {
   "paperplane.fill": "send",
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",
+  "chevron.down": "keyboard-arrow-down",
   calendar: "calendar-today",
   "person.fill": "person",
   "chart.bar.fill": "bar-chart",
   "ruler.fill": "straighten",
   "clock.arrow.circlepath": "history",
+  ellipsis: "more-horiz",
+  checkmark: "check",
+  plus: "add",
+  minus: "remove",
+  timer: "timer",
+  "arrow.up.arrow.down": "swap-vert",
+  "arrow.triangle.2.circlepath": "swap-horiz",
+  trash: "delete",
+  xmark: "close",
 } as IconMapping;
 
 /**

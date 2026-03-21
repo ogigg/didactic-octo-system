@@ -4,6 +4,7 @@ import { home } from "./locales/en/home";
 import { profile } from "./locales/en/profile";
 import { modal } from "./locales/en/modal";
 import { designSystem } from "./locales/en/design-system";
+import { workout } from "./locales/en/workout";
 
 export const resources = {
   en: {
@@ -13,6 +14,7 @@ export const resources = {
     profile,
     modal,
     designSystem,
+    workout,
   },
 } as const;
 

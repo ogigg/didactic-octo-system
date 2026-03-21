@@ -1,8 +1,12 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
+import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
+import { MOCK_EXERCISES, MOCK_WORKOUT_NAME } from "@/data/mock-workout";
+import { useRouter } from "expo-router";
+import { useCallback } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -21,7 +25,7 @@ interface MockExercise {
   reps: string;
 }
 
-const MOCK_EXERCISES: MockExercise[] = [
+const HOME_EXERCISES: MockExercise[] = [
   { name: "Barbell Bench Press", muscleGroup: "Chest", sets: 4, reps: "8-10" },
   {
     name: "Incline Dumbbell Press",
@@ -40,7 +44,18 @@ const MOCK_EXERCISES: MockExercise[] = [
 ];
 
 export default function HomeScreen() {
+  const router = useRouter();
   const frequency = useOnboardingStore((s) => s.frequency) ?? 3;
+  const startWorkout = useWorkoutStore((s) => s.startWorkout);
+  const isWorkoutActive = useWorkoutStore((s) => s.isActive);
+  const startedAtMs = useWorkoutStore((s) => s.startedAtMs);
+
+  const handleStartWorkout = useCallback(() => {
+    if (!isWorkoutActive) {
+      startWorkout(MOCK_WORKOUT_NAME, MOCK_EXERCISES);
+    }
+    router.push("/workout");
+  }, [isWorkoutActive, startWorkout, router]);
 
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
@@ -110,8 +125,10 @@ export default function HomeScreen() {
           {/* Next Workout */}
           <WorkoutPlanCard
             title="Push Day"
-            exercises={MOCK_EXERCISES}
-            onStartWorkout={() => {}}
+            exercises={HOME_EXERCISES}
+            onStartWorkout={handleStartWorkout}
+            isActive={isWorkoutActive}
+            startedAtMs={startedAtMs}
           />
 
           {/* History Button */}
