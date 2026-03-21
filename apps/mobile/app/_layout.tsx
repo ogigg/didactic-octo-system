@@ -4,6 +4,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -16,6 +17,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useAuthStore } from "@/stores/auth-store";
+import { queryClient } from "@/lib/query-client";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -56,26 +58,31 @@ export default function RootLayout() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <AmbientGlow variant="hero" />
-      <ThemeProvider value={theme}>
-        <Stack
-          screenOptions={{
-            contentStyle: styles.transparent,
-          }}
-        >
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="modal"
-            options={{ presentation: "modal", title: t("nav.modal") }}
-          />
-          <Stack.Screen
-            name="design-system"
-            options={{ presentation: "modal", title: t("nav.designSystem") }}
-          />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={theme}>
+          <Stack
+            screenOptions={{
+              contentStyle: styles.transparent,
+            }}
+          >
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="(onboarding)"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="modal"
+              options={{ presentation: "modal", title: t("nav.modal") }}
+            />
+            <Stack.Screen
+              name="design-system"
+              options={{ presentation: "modal", title: t("nav.designSystem") }}
+            />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </QueryClientProvider>
     </View>
   );
 }
