@@ -4,6 +4,10 @@
 
 Wire up TanStack Query as the server-state layer, build a generic offline sync queue, and sync onboarding data to the Supabase `profiles` table. The user experience is optimistic — the app navigates immediately after onboarding, and failed writes retry in the background.
 
+## Prerequisites
+
+- Install `@react-native-community/netinfo` — required for SyncQueue connectivity detection
+
 ## T-11: TanStack Query Provider
 
 ### `lib/query-client.ts`
@@ -19,7 +23,7 @@ Export a shared `QueryClient` instance with these defaults:
 
 ### `app/_layout.tsx`
 
-Wrap the existing component tree in `QueryClientProvider`, importing the client from `lib/query-client.ts`. Place it inside the existing providers, alongside the auth initialization.
+Wrap the `ThemeProvider` and `Stack` in `QueryClientProvider`, importing the client from `lib/query-client.ts`. The provider order from outer to inner: `QueryClientProvider` > `ThemeProvider` > `Stack`.
 
 ## T-13: Generic Offline Sync Queue
 
@@ -31,7 +35,7 @@ Wrap the existing component tree in `QueryClientProvider`, importing the client 
 
 ```typescript
 interface SyncQueueItem<T = unknown> {
-  id: string; // Unique record ID for deduplication
+  id: string; // Record ID for deduplication (e.g. auth UID for profile upserts)
   operation: string; // Handler key, e.g. "upsert_profile"
   payload: T;
   updatedAt: number; // ms timestamp — used for last-write-wins
@@ -51,6 +55,7 @@ interface SyncQueueItem<T = unknown> {
 | `registerHandler(operation, fn)`  | Map an operation name to an async function `(payload) => Promise<void>`.                                                                                                                                                     |
 | `getDeadItems()`                  | Return items with `status: "dead"` for UI notification.                                                                                                                                                                      |
 | `flush()`                         | Clear all items. Called on logout.                                                                                                                                                                                           |
+| `retryDeadItems()`                | Reset dead items back to pending with `retryCount: 0` for manual recovery.                                                                                                                                                   |
 
 ### Persistence
 
@@ -66,6 +71,8 @@ interface SyncQueueItem<T = unknown> {
 
 1. **NetInfo** — When connectivity changes from offline to online, call `processQueue()`
 2. **AppState** — When app returns to foreground, call `processQueue()`
+
+Both subscriptions are set up in a `useEffect` in `app/_layout.tsx` with proper cleanup (unsubscribe on unmount).
 
 ### Concurrency
 
@@ -84,18 +91,26 @@ interface SyncQueueItem<T = unknown> {
 
 Type mappings (client -> DB):
 
-| Field      | Client                 | DB                            |
-| ---------- | ---------------------- | ----------------------------- |
-| gender     | `"other"`              | `"prefer_not_to_say"`         |
-| gender     | `null` (skipped)       | `null`                        |
-| frequency  | `5` (number)           | `"5_plus"` (string)           |
-| frequency  | `2 \| 3 \| 4` (number) | `"2" \| "3" \| "4"` (string)  |
-| goal       | pass-through           | pass-through                  |
-| customGoal | `string \| null`       | `custom_goal: string \| null` |
+| Field      | Client                                                   | DB                                                                                |
+| ---------- | -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| gender     | `"other"`                                                | `"prefer_not_to_say"`                                                             |
+| gender     | `null` (skipped)                                         | `null`                                                                            |
+| frequency  | `5` (number)                                             | `"5_plus"` (string)                                                               |
+| frequency  | `2 \| 3 \| 4` (number)                                   | `"2" \| "3" \| "4"` (string)                                                      |
+| goal       | `"build_strength" \| "lose_weight" \| "improve_fitness"` | pass-through                                                                      |
+| goal       | `null` (when `customGoal` is set)                        | `"custom"` — DB requires NOT NULL, so infer `"custom"` when `customGoal !== null` |
+| customGoal | `string \| null`                                         | `custom_goal: string \| null`                                                     |
 
-The upsert uses the authenticated user's `auth.uid()` as the profile `id`. Sets `onboarding_completed: true`.
+Uses `supabase.from('profiles').upsert()` with the authenticated user's ID as `id`. This handles both first-time insert and subsequent updates. The user ID is obtained from the Supabase client's persisted session (`supabase.auth.getUser()`). Sets `onboarding_completed: true`.
 
-Validate the mapped payload with a Zod schema matching DB constraints before sending.
+Note: When the SyncQueue processes items later, it relies on the Supabase client's persisted session. If the session has expired, the handler will fail and retry — the auto-refresh token will restore the session on next app foreground.
+
+Validate the mapped payload with a Zod schema matching DB constraints:
+
+- `goal` is NOT NULL
+- `custom_goal` is required when `goal = "custom"` (CHECK constraint)
+- `custom_goal` max 500 chars
+- `weekly_frequency` is NOT NULL
 
 ### Mutation Hook: `hooks/use-profile-mutations.ts`
 
@@ -105,13 +120,24 @@ Validate the mapped payload with a Zod schema matching DB constraints before sen
 - `onError`: enqueue to SyncQueue with operation `"upsert_profile"` — this makes the failure invisible to the user (optimistic)
 - `onSuccess`: invalidate the profile query cache
 
+### Query Keys: `lib/query-keys.ts`
+
+Establish a query key factory pattern for consistent cache invalidation:
+
+```typescript
+export const profileKeys = {
+  all: ["profiles"] as const,
+  detail: (userId: string) => [...profileKeys.all, userId] as const,
+};
+```
+
 ### Query Hook: `hooks/use-profile-query.ts`
 
-**`useProfile()`** — Fetches the current user's profile from Supabase `profiles` table. Used by the Profile tab and anywhere downstream profile data is needed. Only enabled when user is authenticated.
+**`useProfile()`** — Fetches the current user's profile from Supabase `profiles` table using `profileKeys.detail(userId)`. Used by the Profile tab and anywhere downstream profile data is needed. Only enabled when user is authenticated.
 
 ### SyncQueue Handler Registration
 
-In `app/_layout.tsx`, register the `"upsert_profile"` handler with the SyncQueue at app startup. The handler calls `upsertProfile()` from the service layer.
+In `app/_layout.tsx`, register the `"upsert_profile"` handler with the SyncQueue inside a `useEffect`. The handler calls `upsertProfile()` from the service layer. Also call `processQueue()` once after registration to drain any items persisted from a previous session.
 
 ### Onboarding Review Screen Changes (`app/(onboarding)/review.tsx`)
 
@@ -134,12 +160,13 @@ No changes to `app/index.tsx`. Local onboarding store `isCompleted` flag continu
 - `lib/api/profiles.ts` — Profile service layer with type mapping and Zod validation
 - `hooks/use-profile-mutations.ts` — `useUpsertProfile` mutation hook
 - `hooks/use-profile-query.ts` — `useProfile` query hook
+- `lib/query-keys.ts` — Query key factory
 
 ### Modified Files
 
 - `app/_layout.tsx` — Add QueryClientProvider, register SyncQueue handler
 - `app/(onboarding)/review.tsx` — Call upsert mutation on confirm, optimistic navigation
-- `stores/auth-store.ts` — Call `syncQueue.flush()` on sign-out
+- `stores/auth-store.ts` — Call `syncQueue.flush()` and `onboardingStore.reset()` on sign-out
 
 ## Testing Strategy
 
