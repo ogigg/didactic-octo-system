@@ -7,18 +7,23 @@ import { useTranslation } from "react-i18next";
 
 interface WorkoutTopBarProps {
   workoutName: string;
+  completedSets: number;
+  totalSets: number;
   onDismiss: () => void;
   onFinish: () => void;
 }
 
 export function WorkoutTopBar({
   workoutName,
+  completedSets,
+  totalSets,
   onDismiss,
   onFinish,
 }: WorkoutTopBarProps) {
   const { t } = useTranslation("workout");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
+  const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
 
   return (
@@ -26,19 +31,24 @@ export function WorkoutTopBar({
       <Pressable
         onPress={onDismiss}
         accessibilityRole="button"
-        accessibilityLabel={t("topBar.finish")}
+        accessibilityLabel="Minimize workout"
         hitSlop={12}
         style={styles.dismissButton}
       >
         <IconSymbol name="chevron.down" size={24} color={textSecondary} />
       </Pressable>
 
-      <Text
-        style={[Typography.titleMd, { color: textColor }]}
-        numberOfLines={1}
-      >
-        {workoutName}
-      </Text>
+      <View style={styles.center}>
+        <Text
+          style={[Typography.titleMd, { color: textColor }]}
+          numberOfLines={1}
+        >
+          {workoutName}
+        </Text>
+        <Text style={[Typography.micro, { color: textMuted }]}>
+          {t("topBar.progress", { completed: completedSets, total: totalSets })}
+        </Text>
+      </View>
 
       <Button
         label={t("topBar.finish")}
@@ -64,6 +74,11 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  center: {
+    alignItems: "center",
+    gap: 2,
+    flex: 1,
   },
   finishButton: {
     paddingVertical: Spacing.sm,

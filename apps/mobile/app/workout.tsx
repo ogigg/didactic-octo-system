@@ -6,55 +6,128 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing } from "@/constants/theme";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
+  Alert,
   Keyboard,
-  SafeAreaView,
   ScrollView,
+  SafeAreaView,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useTranslation } from "react-i18next";
 
 export default function WorkoutScreen() {
+  const { t } = useTranslation("workout");
   const router = useRouter();
   const exercises = useWorkoutStore((s) => s.exercises);
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
   const background = useThemeColor({}, "background");
+  const scrollRef = useRef<ScrollView>(null);
+  const exerciseLayouts = useRef<Record<string, number>>({});
+
+  const { completedSets, totalSets } = useMemo(() => {
+    let completed = 0;
+    let total = 0;
+    for (const ex of exercises) {
+      for (const set of ex.sets) {
+        total++;
+        if (set.isCompleted) completed++;
+      }
+    }
+    return { completedSets: completed, totalSets: total };
+  }, [exercises]);
+
+  // Scroll to first exercise with incomplete sets on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const firstIncomplete = exercises.find((ex) =>
+        ex.sets.some((s) => !s.isCompleted)
+      );
+      if (firstIncomplete) {
+        const yOffset = exerciseLayouts.current[firstIncomplete.id];
+        if (yOffset !== undefined && yOffset > 0) {
+          scrollRef.current?.scrollTo({ y: yOffset, animated: true });
+        }
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleExerciseLayout = useCallback((exerciseId: string, y: number) => {
+    exerciseLayouts.current[exerciseId] = y;
+  }, []);
 
   const handleDismiss = useCallback(() => {
     router.back();
   }, [router]);
 
   const handleFinish = useCallback(() => {
-    finishWorkout();
-    router.replace("/workout-summary");
-  }, [finishWorkout, router]);
+    const incompleteSets = totalSets - completedSets;
+    if (incompleteSets > 0) {
+      Alert.alert(
+        t("finish.confirmTitle"),
+        incompleteSets === 1
+          ? t("finish.confirmMessage", { count: incompleteSets })
+          : t("finish.confirmMessage_plural", { count: incompleteSets }),
+        [
+          { text: t("finish.cancel"), style: "cancel" },
+          {
+            text: t("finish.confirmFinish"),
+            style: "destructive",
+            onPress: () => {
+              finishWorkout();
+              router.replace("/workout-summary");
+            },
+          },
+        ]
+      );
+    } else {
+      finishWorkout();
+      router.replace("/workout-summary");
+    }
+  }, [totalSets, completedSets, finishWorkout, router, t]);
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
-      <SafeAreaView style={styles.safe}>
-        <WorkoutTopBar
-          workoutName={workoutName}
-          onDismiss={handleDismiss}
-          onFinish={handleFinish}
-        />
-        <WorkoutTimer />
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {exercises.map((exercise) => (
-              <ExerciseCard key={exercise.id} exercise={exercise} />
-            ))}
-          </ScrollView>
-        </TouchableWithoutFeedback>
-        <RestTimerBar />
-      </SafeAreaView>
-    </View>
+    <GestureHandlerRootView style={styles.root}>
+      <View style={[styles.root, { backgroundColor: background }]}>
+        <SafeAreaView style={styles.safe}>
+          <WorkoutTopBar
+            workoutName={workoutName}
+            completedSets={completedSets}
+            totalSets={totalSets}
+            onDismiss={handleDismiss}
+            onFinish={handleFinish}
+          />
+          <WorkoutTimer />
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {exercises.map((exercise) => (
+                <View
+                  key={exercise.id}
+                  onLayout={(e) =>
+                    handleExerciseLayout(exercise.id, e.nativeEvent.layout.y)
+                  }
+                >
+                  <ExerciseCard exercise={exercise} />
+                </View>
+              ))}
+            </ScrollView>
+          </TouchableWithoutFeedback>
+          <RestTimerBar />
+        </SafeAreaView>
+      </View>
+    </GestureHandlerRootView>
   );
 }
 

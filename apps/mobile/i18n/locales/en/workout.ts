@@ -1,6 +1,7 @@
 export const workout = {
   topBar: {
     finish: "Finish",
+    progress: "{{completed}}/{{total}} sets",
   },
   timer: {
     elapsed: "Elapsed",
@@ -10,6 +11,7 @@ export const workout = {
     restTimer: "Rest Timer: {{time}}",
     addSet: "+ Add Set",
     removeSet: "Remove set",
+    fillFromPrevious: "Fill from previous",
   },
   setHeader: {
     set: "SET",
@@ -40,5 +42,16 @@ export const workout = {
   summary: {
     title: "Workout Complete",
     returnHome: "Return Home",
+  },
+  keyboard: {
+    next: "Next",
+    done: "Done",
+  },
+  finish: {
+    confirmTitle: "Finish Workout?",
+    confirmMessage: "You have {{count}} incomplete set remaining.",
+    confirmMessage_plural: "You have {{count}} incomplete sets remaining.",
+    confirmFinish: "Finish Anyway",
+    cancel: "Keep Going",
   },
 } as const;
