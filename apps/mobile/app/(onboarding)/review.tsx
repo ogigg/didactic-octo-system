@@ -1,3 +1,4 @@
+import { useUpsertProfile } from "@/hooks/use-profile-mutations";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import type { Frequency, Gender, Goal } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
@@ -37,6 +38,7 @@ const FREQ_LABELS: Record<Frequency, string> = {
 
 export default function ReviewScreen() {
   const store = useOnboardingStore();
+  const upsertProfile = useUpsertProfile();
   // useFocusEffect ensures the component re-renders with fresh store state
   // each time this screen regains focus (e.g. returning from edit mode).
   useFocusEffect(useCallback(() => undefined, []));
@@ -67,6 +69,15 @@ export default function ReviewScreen() {
   }
 
   function handleSubmit() {
+    if (frequency === null) return;
+
+    upsertProfile.mutate({
+      gender,
+      goal,
+      customGoal,
+      frequency,
+    });
+
     complete();
     trackEvent("onboarding_completed", {});
     router.replace("/(tabs)" as never);
