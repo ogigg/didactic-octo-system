@@ -134,6 +134,7 @@ CREATE TABLE workout_sessions (
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
 
   -- Session metadata
+  name TEXT, -- Workout title/name shown in UI
   status workout_status NOT NULL DEFAULT 'active',
   generation_source generation_source NOT NULL DEFAULT 'llm',
 
@@ -172,6 +173,7 @@ CREATE TABLE session_exercises (
 
   -- Exercise ordering within session
   order_index INTEGER NOT NULL,
+  rest_duration_seconds INTEGER NOT NULL DEFAULT 60, -- Rest timer per exercise
 
   -- Optional AI-generated notes for this exercise in this session
   notes TEXT,
@@ -188,7 +190,8 @@ CREATE TABLE session_exercises (
     UNIQUE (workout_session_id, exercise_id),
   CONSTRAINT session_exercises_unique_order_per_session
     UNIQUE (workout_session_id, order_index),
-  CONSTRAINT session_exercises_order_positive CHECK (order_index >= 0)
+  CONSTRAINT session_exercises_order_positive CHECK (order_index >= 0),
+  CONSTRAINT session_exercises_rest_positive CHECK (rest_duration_seconds >= 0)
 );
 
 COMMENT ON TABLE session_exercises IS 'Defines which exercises are included in a workout session and their order';
@@ -207,11 +210,11 @@ CREATE TABLE session_sets (
 
   -- Set identification
   set_number INTEGER NOT NULL, -- 1-based set number
+  set_type TEXT NOT NULL DEFAULT 'working', -- 'warmup' or 'working'
 
   -- Suggested/target values (AI-generated or rule-based)
   target_load_kg DECIMAL(5, 2) NOT NULL, -- kg with 2 decimal places
   target_reps INTEGER NOT NULL,
-  rest_seconds INTEGER NOT NULL,
 
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -221,9 +224,9 @@ CREATE TABLE session_sets (
   CONSTRAINT session_sets_unique_set_per_exercise
     UNIQUE (session_exercise_id, set_number),
   CONSTRAINT session_sets_set_number_positive CHECK (set_number > 0),
-  CONSTRAINT session_sets_target_load_positive CHECK (target_load_kg > 0),
-  CONSTRAINT session_sets_target_reps_positive CHECK (target_reps > 0),
-  CONSTRAINT session_sets_rest_seconds_non_negative CHECK (rest_seconds >= 0)
+  CONSTRAINT session_sets_set_type_valid CHECK (set_type IN ('warmup', 'working')),
+  CONSTRAINT session_sets_target_load_non_negative CHECK (target_load_kg >= 0),
+  CONSTRAINT session_sets_target_reps_positive CHECK (target_reps > 0)
 );
 
 COMMENT ON TABLE session_sets IS 'Planned/suggested sets for each exercise with target load, reps, and rest time';
@@ -242,6 +245,7 @@ CREATE TABLE set_logs (
   -- Actual performance
   actual_load_kg DECIMAL(5, 2),
   actual_reps INTEGER,
+  rpe DECIMAL(3, 1), -- Rate of Perceived Exertion (1-10)
 
   -- Completion status
   completed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -256,8 +260,11 @@ CREATE TABLE set_logs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   -- Constraints
-  CONSTRAINT set_logs_actual_load_positive CHECK (
-    actual_load_kg IS NULL OR actual_load_kg > 0
+  CONSTRAINT set_logs_actual_load_non_negative CHECK (
+    actual_load_kg IS NULL OR actual_load_kg >= 0
+  ),
+  CONSTRAINT set_logs_rpe_range CHECK (
+    rpe IS NULL OR (rpe >= 1 AND rpe <= 10)
   ),
   CONSTRAINT set_logs_actual_reps_positive CHECK (
     actual_reps IS NULL OR actual_reps > 0
@@ -273,6 +280,13 @@ CREATE TABLE set_logs (
 COMMENT ON TABLE set_logs IS 'Actual execution logs for each set. Highest-growth table, candidate for future partitioning.';
 COMMENT ON COLUMN set_logs.not_completed_reason IS 'Optional user-provided reason for not completing the set';
 ```
+
+### RPC Function: get_workout_session_detail
+
+Returns a full workout session with nested exercises, sets, and logs as JSONB. Uses `SECURITY DEFINER` with manual `auth.uid()` ownership check. Called from the mobile app to load complete workout history in a single round-trip.
+
+**Parameters:** `p_session_id UUID`
+**Returns:** JSONB with structure: `{ id, name, status, exercises: [{ exercise_name, sets: [{ set_type, target_load_kg, log: { actual_load_kg, rpe, completed } }] }] }`
 
 ---
 

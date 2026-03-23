@@ -17,7 +17,9 @@
       "Bash(npm test:*)",
       "Bash(npx jest:*)",
       "Bash(npx supabase:*)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(npx tsc:*)",
+      "Skill(gsd:update)"
     ]
   }
 }

@@ -19,8 +19,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useAuthStore } from "@/stores/auth-store";
 import { queryClient } from "@/lib/query-client";
 import { syncQueue } from "@/lib/sync-queue";
-import { upsertProfile } from "@/lib/api/profiles";
-import type { OnboardingData } from "@/lib/api/profiles";
+import { registerSyncHandlers } from "@/lib/sync-handlers";
 import NetInfo from "@react-native-community/netinfo";
 
 SplashScreen.preventAutoHideAsync();
@@ -48,9 +47,7 @@ export default function RootLayout() {
   }, [isInitialized]);
 
   useEffect(() => {
-    syncQueue.registerHandler("upsert_profile", (payload) =>
-      upsertProfile(payload as OnboardingData)
-    );
+    registerSyncHandlers();
     syncQueue.processQueue();
 
     const unsubscribeNetInfo = NetInfo.addEventListener((state) => {

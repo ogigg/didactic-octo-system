@@ -122,3 +122,7 @@ Husky runs `lint-staged` on commit, which auto-formats `*.{ts,tsx,js,jsx,json,md
 - `.ai/db-plan.md` — PostgreSQL schema, indexes, RLS policies
 - `.ai/tech-stack.md` — Technology selection rationale
 - `.ai/i18n.md` — i18n library stack, key naming schema, and workflow
+
+## Supabase:
+
+To push new migration to supabase use supabase db push --local, the "--local" flag is important!
