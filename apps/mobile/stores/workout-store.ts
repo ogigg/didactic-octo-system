@@ -57,6 +57,10 @@ interface WorkoutActions {
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateNotes: (exerciseId: string, notes: string) => void;
+  replaceExercise: (
+    exerciseId: string,
+    newExercise: { id: string; name: string }
+  ) => void;
   startRestTimer: (exerciseId: string) => void;
   adjustRestTimer: (deltaSeconds: number) => void;
   skipRestTimer: () => void;
@@ -180,6 +184,15 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         set((state) => ({
           exercises: state.exercises.map((ex) =>
             ex.id === exerciseId ? { ...ex, notes } : ex
+          ),
+        })),
+
+      replaceExercise: (exerciseId, newExercise) =>
+        set((state) => ({
+          exercises: state.exercises.map((ex) =>
+            ex.id === exerciseId
+              ? { ...ex, id: newExercise.id, name: newExercise.name }
+              : ex
           ),
         })),
 

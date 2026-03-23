@@ -119,6 +119,14 @@ export default function RootLayout() {
                 gestureEnabled: false,
               }}
             />
+            <Stack.Screen
+              name="exercise-picker"
+              options={{
+                presentation: "fullScreenModal",
+                headerShown: false,
+                gestureEnabled: true,
+              }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

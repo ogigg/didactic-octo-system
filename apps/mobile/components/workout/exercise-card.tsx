@@ -6,6 +6,7 @@ import { ExerciseMenu } from "@/components/workout/exercise-menu";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise } from "@/stores/workout-store";
+import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -16,6 +17,7 @@ interface ExerciseCardProps {
 
 export function ExerciseCard({ exercise }: ExerciseCardProps) {
   const { t } = useTranslation("workout");
+  const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
 
   const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
@@ -36,6 +38,13 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
   const handleAddSet = useCallback(() => {
     addSet(exercise.id);
   }, [addSet, exercise.id]);
+
+  const handleReplace = useCallback(() => {
+    router.push({
+      pathname: "/exercise-picker",
+      params: { exerciseId: exercise.id },
+    });
+  }, [router, exercise.id]);
 
   const handleNotesChange = useCallback(
     (text: string) => {
@@ -145,6 +154,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
         visible={menuVisible}
         exerciseName={exercise.name}
         onClose={() => setMenuVisible(false)}
+        onReplace={handleReplace}
       />
     </View>
   );

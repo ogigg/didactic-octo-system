@@ -8,12 +8,14 @@ interface ExerciseMenuProps {
   visible: boolean;
   exerciseName: string;
   onClose: () => void;
+  onReplace: () => void;
 }
 
 export function ExerciseMenu({
   visible,
   exerciseName,
   onClose,
+  onReplace,
 }: ExerciseMenuProps) {
   const { t } = useTranslation("workout");
   const background = useThemeColor({}, "backgroundElevated");
@@ -38,7 +40,10 @@ export function ExerciseMenu({
       label: t("menu.replace"),
       icon: "arrow.triangle.2.circlepath" as const,
       color: textSecondary,
-      onPress: handleStub,
+      onPress: () => {
+        onClose();
+        onReplace();
+      },
     },
     {
       label: t("menu.remove"),
