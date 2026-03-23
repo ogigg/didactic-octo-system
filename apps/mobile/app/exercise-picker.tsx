@@ -2,19 +2,19 @@ import { SearchBar } from "@/components/exercise-picker/search-bar";
 import { FilterPills } from "@/components/exercise-picker/filter-pills";
 import { FilterSheet } from "@/components/exercise-picker/filter-sheet";
 import { ExerciseRow } from "@/components/exercise-picker/exercise-row";
-import { useExercises } from "@/hooks/use-exercises-query";
+import { useExercise, useExercises } from "@/hooks/use-exercises-query";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
 import { MUSCLE_GROUPS, EQUIPMENT_TYPES } from "@/constants/exercise-filters";
 import type { Exercise } from "@/lib/api/exercises";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   SafeAreaView,
+  SectionList,
   StyleSheet,
   Text,
   View,
@@ -22,17 +22,31 @@ import {
 import { useTranslation } from "react-i18next";
 import { keepPreviousData } from "@tanstack/react-query";
 
-const ROW_HEIGHT = 57;
+const MAX_SUGGESTIONS = 5;
+
+// "replace" = replacing an exercise in active workout (shows suggestions)
+// "add" = adding exercise to a training plan (no suggestions)
+type PickerMode = "replace" | "add";
 
 export default function ExercisePickerScreen() {
   const { t } = useTranslation("exercisePicker");
   const router = useRouter();
-  const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
+  const { exerciseId, mode: modeParam } = useLocalSearchParams<{
+    exerciseId?: string;
+    mode?: string;
+  }>();
+  const mode: PickerMode = modeParam === "add" ? "add" : "replace";
   const replaceExercise = useWorkoutStore((s) => s.replaceExercise);
+
+  // Fetch current exercise details for suggestion ranking (replace mode only)
+  const { data: currentExercise } = useExercise(
+    mode === "replace" && exerciseId ? exerciseId : ""
+  );
 
   const background = useThemeColor({}, "background");
   const primary = useThemeColor({}, "primary");
   const textColor = useThemeColor({}, "text");
+  const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
 
   // Search state with debounce
@@ -52,6 +66,11 @@ export default function ExercisePickerScreen() {
   const [muscleSheetVisible, setMuscleSheetVisible] = useState(false);
   const [equipmentSheetVisible, setEquipmentSheetVisible] = useState(false);
 
+  const hasActiveFilters =
+    debouncedSearch.length > 0 ||
+    selectedMuscles.length > 0 ||
+    selectedEquipment.length > 0;
+
   // Query
   const { data: exercises, isLoading } = useExercises(
     {
@@ -61,6 +80,50 @@ export default function ExercisePickerScreen() {
     },
     { staleTime: 60_000, placeholderData: keepPreviousData }
   );
+
+  // Split into suggested + all sections
+  const sections = useMemo(() => {
+    if (!exercises) return [];
+
+    // Exclude the current exercise from results
+    const filtered = exerciseId
+      ? exercises.filter((ex) => ex.id !== exerciseId)
+      : exercises;
+
+    // Skip suggestions in add mode, or when filters are active
+    if (mode === "add" || hasActiveFilters || !currentExercise) {
+      return [{ title: t("sections.allExercises"), data: filtered }];
+    }
+
+    // Build suggested: exercises sharing a primary muscle, ranked by equipment overlap
+    const muscleSet = new Set(currentExercise.primary_muscles);
+    const equipmentSet = new Set(currentExercise.equipment);
+
+    const muscleMatches = filtered.filter((ex) =>
+      ex.primary_muscles.some((m) => muscleSet.has(m))
+    );
+
+    // Score by equipment overlap: more shared equipment = higher rank
+    const scored = muscleMatches.map((ex) => {
+      const equipmentScore = ex.equipment.filter((e) =>
+        equipmentSet.has(e)
+      ).length;
+      return { exercise: ex, equipmentScore };
+    });
+
+    scored.sort((a, b) => b.equipmentScore - a.equipmentScore);
+
+    const suggested = scored.slice(0, MAX_SUGGESTIONS).map((s) => s.exercise);
+    const suggestedIds = new Set(suggested.map((s) => s.id));
+    const rest = filtered.filter((ex) => !suggestedIds.has(ex.id));
+
+    const result: { title: string; data: Exercise[] }[] = [];
+    if (suggested.length > 0) {
+      result.push({ title: t("sections.suggested"), data: suggested });
+    }
+    result.push({ title: t("sections.allExercises"), data: rest });
+    return result;
+  }, [exercises, exerciseId, mode, hasActiveFilters, currentExercise, t]);
 
   // Handlers
   const handleSelect = useCallback(
@@ -92,20 +155,22 @@ export default function ExercisePickerScreen() {
     );
   }, []);
 
-  const getItemLayout = useCallback(
-    (_: unknown, index: number) => ({
-      length: ROW_HEIGHT,
-      offset: ROW_HEIGHT * index,
-      index,
-    }),
-    []
-  );
-
   const renderItem = useCallback(
     ({ item }: { item: Exercise }) => (
       <ExerciseRow exercise={item} onSelect={handleSelect} />
     ),
     [handleSelect]
+  );
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: { title: string } }) => (
+      <View style={styles.sectionHeader}>
+        <Text style={[Typography.titleSm, { color: textSecondary }]}>
+          {section.title}
+        </Text>
+      </View>
+    ),
+    [textSecondary]
   );
 
   const keyExtractor = useCallback((item: Exercise) => item.id, []);
@@ -150,7 +215,7 @@ export default function ExercisePickerScreen() {
             ]}
             numberOfLines={1}
           >
-            {t("header.title")}
+            {mode === "add" ? t("header.titleAdd") : t("header.titleReplace")}
           </Text>
           <View style={styles.headerSide} />
         </View>
@@ -171,15 +236,16 @@ export default function ExercisePickerScreen() {
         />
 
         {/* Exercise List */}
-        <FlatList
-          data={exercises}
+        <SectionList
+          sections={sections}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          getItemLayout={getItemLayout}
+          renderSectionHeader={renderSectionHeader}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           ListEmptyComponent={ListEmptyComponent}
           contentContainerStyle={styles.listContent}
+          stickySectionHeadersEnabled={false}
         />
 
         {/* Filter Sheets */}
@@ -220,8 +286,14 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
   },
+  sectionHeader: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
   listContent: {
     flexGrow: 1,
+    paddingBottom: Spacing["4xl"],
   },
   emptyContainer: {
     flex: 1,

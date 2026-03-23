@@ -1,6 +1,7 @@
 export const exercisePicker = {
   header: {
-    title: "Replace Exercise",
+    titleReplace: "Replace Exercise",
+    titleAdd: "Add Exercise",
     cancel: "Cancel",
   },
   search: {
@@ -9,6 +10,10 @@ export const exercisePicker = {
   filters: {
     allEquipment: "All Equipment",
     allMuscles: "All Muscles",
+  },
+  sections: {
+    suggested: "Suggested",
+    allExercises: "All Exercises",
   },
   list: {
     empty: "No exercises match your filters.",
