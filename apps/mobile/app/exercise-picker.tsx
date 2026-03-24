@@ -37,6 +37,7 @@ export default function ExercisePickerScreen() {
   }>();
   const mode: PickerMode = modeParam === "add" ? "add" : "replace";
   const replaceExercise = useWorkoutStore((s) => s.replaceExercise);
+  const addExercise = useWorkoutStore((s) => s.addExercise);
 
   // Fetch current exercise details for suggestion ranking (replace mode only)
   const { data: currentExercise } = useExercise(
@@ -128,7 +129,9 @@ export default function ExercisePickerScreen() {
   // Handlers
   const handleSelect = useCallback(
     (exercise: Exercise) => {
-      if (exerciseId) {
+      if (mode === "add") {
+        addExercise({ id: exercise.id, name: exercise.name });
+      } else if (exerciseId) {
         replaceExercise(exerciseId, {
           id: exercise.id,
           name: exercise.name,
@@ -136,7 +139,7 @@ export default function ExercisePickerScreen() {
       }
       router.back();
     },
-    [exerciseId, replaceExercise, router]
+    [mode, exerciseId, addExercise, replaceExercise, router]
   );
 
   const handleCancel = useCallback(() => {
@@ -157,9 +160,9 @@ export default function ExercisePickerScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Exercise }) => (
-      <ExerciseRow exercise={item} onSelect={handleSelect} />
+      <ExerciseRow exercise={item} onSelect={handleSelect} mode={mode} />
     ),
-    [handleSelect]
+    [handleSelect, mode]
   );
 
   const renderSectionHeader = useCallback(

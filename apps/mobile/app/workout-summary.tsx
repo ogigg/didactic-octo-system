@@ -1,9 +1,10 @@
 import { useWorkoutStore } from "@/stores/workout-store";
+import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Button } from "@/components/ui/button";
 import { Spacing, Typography } from "@/constants/theme";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -12,14 +13,25 @@ export default function WorkoutSummaryScreen() {
   const router = useRouter();
   const summary = useWorkoutStore((s) => s.completedWorkoutSummary);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
+  const addTemplate = useWorkoutTemplatesStore((s) => s.addTemplate);
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
+  const [saved, setSaved] = useState(false);
 
   const handleReturnHome = useCallback(() => {
     clearWorkout();
     router.replace("/(tabs)");
   }, [clearWorkout, router]);
+
+  const handleSaveTemplate = useCallback(() => {
+    if (!summary) return;
+    addTemplate({
+      name: summary.workoutName,
+      exercises: summary.exercises.map((e) => ({ id: e.id, name: e.name })),
+    });
+    setSaved(true);
+  }, [summary, addTemplate]);
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
@@ -38,6 +50,17 @@ export default function WorkoutSummaryScreen() {
           </Text>
         </ScrollView>
         <View style={styles.footer}>
+          {summary && (
+            <Button
+              label={saved ? t("saveTemplate.saved") : t("saveTemplate.save")}
+              onPress={handleSaveTemplate}
+              variant="secondary"
+              disabled={saved}
+              accessibilityLabel={
+                saved ? t("saveTemplate.saved") : t("saveTemplate.save")
+              }
+            />
+          )}
           <Button label={t("summary.returnHome")} onPress={handleReturnHome} />
         </View>
       </SafeAreaView>
@@ -60,5 +83,6 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing["3xl"],
+    gap: Spacing.md,
   },
 });

@@ -18,4 +18,12 @@ export const home = {
   menu: {
     more: "More",
   },
+  myWorkouts: {
+    title: "My Workouts",
+    create: "Create Workout",
+    exerciseCount_one: "{{count}} exercise",
+    exerciseCount_other: "{{count}} exercises",
+    empty: "Create your first custom workout",
+    newWorkoutName: "New Workout",
+  },
 } as const;

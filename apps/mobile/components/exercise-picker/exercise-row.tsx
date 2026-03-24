@@ -8,11 +8,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 interface ExerciseRowProps {
   exercise: Exercise;
   onSelect: (exercise: Exercise) => void;
+  mode?: "replace" | "add";
 }
 
 export const ExerciseRow = memo(function ExerciseRow({
   exercise,
   onSelect,
+  mode,
 }: ExerciseRowProps) {
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -49,7 +51,7 @@ export const ExerciseRow = memo(function ExerciseRow({
         ) : null}
       </View>
       <IconSymbol
-        name="arrow.triangle.2.circlepath"
+        name={mode === "add" ? "plus.circle" : "arrow.triangle.2.circlepath"}
         size={20}
         color={textMuted}
       />

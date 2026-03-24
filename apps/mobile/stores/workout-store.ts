@@ -64,6 +64,9 @@ interface WorkoutActions {
   startRestTimer: (exerciseId: string) => void;
   adjustRestTimer: (deltaSeconds: number) => void;
   skipRestTimer: () => void;
+  addExercise: (exercise: { id: string; name: string }) => void;
+  removeExercise: (exerciseId: string) => void;
+  updateWorkoutName: (name: string) => void;
 }
 
 const initialState: WorkoutState = {
@@ -223,6 +226,35 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         }),
 
       skipRestTimer: () => set({ restTimer: null }),
+
+      addExercise: (exercise) =>
+        set((state) => ({
+          exercises: [
+            ...state.exercises,
+            {
+              id: exercise.id,
+              name: exercise.name,
+              restDurationSeconds: 90,
+              notes: "",
+              sets: Array.from({ length: 3 }, () => ({
+                id: generateSetId(),
+                type: "working" as const,
+                kg: "",
+                reps: "",
+                rpe: null,
+                isCompleted: false,
+                previousDisplay: null,
+              })),
+            },
+          ],
+        })),
+
+      removeExercise: (exerciseId) =>
+        set((state) => ({
+          exercises: state.exercises.filter((ex) => ex.id !== exerciseId),
+        })),
+
+      updateWorkoutName: (name) => set({ workoutName: name }),
     }),
     {
       name: "active-workout-storage",

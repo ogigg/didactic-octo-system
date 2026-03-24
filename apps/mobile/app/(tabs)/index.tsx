@@ -1,12 +1,20 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useWorkoutStore } from "@/stores/workout-store";
+import type { WorkoutExercise } from "@/stores/workout-store";
+import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
+import type { WorkoutTemplate } from "@/stores/workout-templates-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
+import {
+  WorkoutTemplateCard,
+  CreateWorkoutCard,
+} from "@/components/workout-template-card";
 import { MOCK_EXERCISES, MOCK_WORKOUT_NAME } from "@/data/mock-workout";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   SafeAreaView,
   ScrollView,
@@ -45,10 +53,12 @@ const HOME_EXERCISES: MockExercise[] = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useTranslation("home");
   const frequency = useOnboardingStore((s) => s.frequency) ?? 3;
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const isWorkoutActive = useWorkoutStore((s) => s.isActive);
   const startedAtMs = useWorkoutStore((s) => s.startedAtMs);
+  const templates = useWorkoutTemplatesStore((s) => s.templates);
 
   const handleStartWorkout = useCallback(() => {
     if (!isWorkoutActive) {
@@ -56,6 +66,38 @@ export default function HomeScreen() {
     }
     router.push("/workout");
   }, [isWorkoutActive, startWorkout, router]);
+
+  const handleCreateWorkout = useCallback(() => {
+    if (!isWorkoutActive) {
+      startWorkout(t("myWorkouts.newWorkoutName"), []);
+    }
+    router.push("/workout");
+  }, [isWorkoutActive, startWorkout, t, router]);
+
+  const handleStartTemplate = useCallback(
+    (template: WorkoutTemplate) => {
+      if (!isWorkoutActive) {
+        const exercises: WorkoutExercise[] = template.exercises.map((ex) => ({
+          id: ex.id,
+          name: ex.name,
+          restDurationSeconds: 90,
+          notes: "",
+          sets: Array.from({ length: 3 }, (_, i) => ({
+            id: `set-${ex.id}-${i}-${Date.now()}`,
+            type: "working" as const,
+            kg: "",
+            reps: "",
+            rpe: null,
+            isCompleted: false,
+            previousDisplay: null,
+          })),
+        }));
+        startWorkout(template.name, exercises);
+      }
+      router.push("/workout");
+    },
+    [isWorkoutActive, startWorkout, router]
+  );
 
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
@@ -122,6 +164,36 @@ export default function HomeScreen() {
             </Text>
           </View>
 
+          {/* My Workouts */}
+          <View>
+            <Text
+              style={[
+                Typography.titleMd,
+                { color: textColor },
+                styles.sectionTitle,
+              ]}
+            >
+              {t("myWorkouts.title")}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.templateList}
+            >
+              {templates.map((template) => (
+                <WorkoutTemplateCard
+                  key={template.id}
+                  template={template}
+                  onPress={() => handleStartTemplate(template)}
+                />
+              ))}
+              <CreateWorkoutCard
+                label={t("myWorkouts.create")}
+                onPress={handleCreateWorkout}
+              />
+            </ScrollView>
+          </View>
+
           {/* Next Workout */}
           <WorkoutPlanCard
             title="Push Day"
@@ -184,5 +256,12 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
     paddingVertical: Spacing.lg,
     alignItems: "center",
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
+  },
+  templateList: {
+    gap: Spacing.md,
+    paddingRight: Spacing.xl,
   },
 });

@@ -4,7 +4,7 @@ import { ExerciseCard } from "@/components/workout/exercise-card";
 import { RestTimerBar } from "@/components/workout/rest-timer-bar";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Spacing } from "@/constants/theme";
+import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
@@ -15,6 +15,8 @@ import {
   ScrollView,
   SafeAreaView,
   StyleSheet,
+  Text,
+  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -27,7 +29,10 @@ export default function WorkoutScreen() {
   const exercises = useWorkoutStore((s) => s.exercises);
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
+  const updateWorkoutName = useWorkoutStore((s) => s.updateWorkoutName);
   const background = useThemeColor({}, "background");
+  const textColor = useThemeColor({}, "text");
+  const textSecondary = useThemeColor({}, "textSecondary");
   const primary = useThemeColor({}, "primary");
   const progressTrack = useThemeColor({}, "inputFill");
   const scrollRef = useRef<ScrollView>(null);
@@ -78,6 +83,10 @@ export default function WorkoutScreen() {
     exerciseLayouts.current[exerciseId] = y;
   }, []);
 
+  const handleAddExercise = useCallback(() => {
+    router.push({ pathname: "/exercise-picker", params: { mode: "add" } });
+  }, [router]);
+
   const handleDismiss = useCallback(() => {
     router.back();
   }, [router]);
@@ -118,6 +127,7 @@ export default function WorkoutScreen() {
             totalSets={totalSets}
             onDismiss={handleDismiss}
             onFinish={handleFinish}
+            onWorkoutNameChange={updateWorkoutName}
           />
           <View style={styles.progressBarContainer}>
             <View
@@ -151,16 +161,63 @@ export default function WorkoutScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {exercises.map((exercise) => (
-                <View
-                  key={exercise.id}
-                  onLayout={(e) =>
-                    handleExerciseLayout(exercise.id, e.nativeEvent.layout.y)
-                  }
-                >
-                  <ExerciseCard exercise={exercise} />
+              {exercises.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={[Typography.titleMd, { color: textColor }]}>
+                    {t("emptyState.title")}
+                  </Text>
+                  <Text
+                    style={[
+                      Typography.body,
+                      { color: textSecondary },
+                      styles.emptyStateSubtitle,
+                    ]}
+                  >
+                    {t("emptyState.subtitle")}
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.addExerciseButtonLarge,
+                      { backgroundColor: primary },
+                    ]}
+                    onPress={handleAddExercise}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("emptyState.addExercise")}
+                  >
+                    <Text
+                      style={[Typography.titleSm, styles.addExerciseButtonText]}
+                    >
+                      {t("emptyState.addExercise")}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              ))}
+              ) : (
+                <>
+                  {exercises.map((exercise) => (
+                    <View
+                      key={exercise.id}
+                      onLayout={(e) =>
+                        handleExerciseLayout(
+                          exercise.id,
+                          e.nativeEvent.layout.y
+                        )
+                      }
+                    >
+                      <ExerciseCard exercise={exercise} />
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={[styles.addExerciseButton, { borderColor: primary }]}
+                    onPress={handleAddExercise}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("addExercise")}
+                  >
+                    <Text style={[Typography.titleSm, { color: primary }]}>
+                      {t("addExercise")}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </ScrollView>
           </TouchableWithoutFeedback>
           <RestTimerBar />
@@ -187,5 +244,33 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing["5xl"],
+    gap: Spacing.md,
+  },
+  emptyStateSubtitle: {
+    textAlign: "center",
+  },
+  addExerciseButtonLarge: {
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing["3xl"],
+    paddingVertical: Spacing.lg,
+    borderRadius: Radii.lg,
+    alignItems: "center",
+  },
+  addExerciseButtonText: {
+    color: "#FFFFFF",
+  },
+  addExerciseButton: {
+    borderWidth: 1,
+    borderRadius: Radii.lg,
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
+    marginTop: Spacing.md,
   },
 });

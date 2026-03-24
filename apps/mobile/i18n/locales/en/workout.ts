@@ -54,4 +54,20 @@ export const workout = {
     confirmFinish: "Finish Anyway",
     cancel: "Keep Going",
   },
+  emptyState: {
+    title: "No exercises yet",
+    subtitle: "Add exercises to build your workout",
+    addExercise: "Add Exercise",
+  },
+  addExercise: "Add Exercise",
+  editName: {
+    placeholder: "Workout Name",
+  },
+  saveTemplate: {
+    title: "Save as Template?",
+    message: "Save this workout so you can use it again.",
+    save: "Save Template",
+    saved: "Saved",
+    skip: "Skip",
+  },
 } as const;

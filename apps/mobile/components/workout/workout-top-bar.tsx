@@ -2,7 +2,8 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface WorkoutTopBarProps {
@@ -11,6 +12,7 @@ interface WorkoutTopBarProps {
   totalSets: number;
   onDismiss: () => void;
   onFinish: () => void;
+  onWorkoutNameChange?: (name: string) => void;
 }
 
 export function WorkoutTopBar({
@@ -19,8 +21,10 @@ export function WorkoutTopBar({
   totalSets,
   onDismiss,
   onFinish,
+  onWorkoutNameChange,
 }: WorkoutTopBarProps) {
   const { t } = useTranslation("workout");
+  const [isEditing, setIsEditing] = useState(false);
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
@@ -39,12 +43,27 @@ export function WorkoutTopBar({
       </Pressable>
 
       <View style={styles.center}>
-        <Text
-          style={[Typography.titleMd, { color: textColor }]}
-          numberOfLines={1}
-        >
-          {workoutName}
-        </Text>
+        {isEditing ? (
+          <TextInput
+            autoFocus
+            value={workoutName}
+            onChangeText={(text) => onWorkoutNameChange?.(text)}
+            onBlur={() => setIsEditing(false)}
+            onSubmitEditing={() => setIsEditing(false)}
+            returnKeyType="done"
+            selectTextOnFocus
+            style={[Typography.titleMd, { color: textColor }]}
+          />
+        ) : (
+          <Pressable onPress={() => setIsEditing(true)}>
+            <Text
+              style={[Typography.titleMd, { color: textColor }]}
+              numberOfLines={1}
+            >
+              {workoutName}
+            </Text>
+          </Pressable>
+        )}
         <Text style={[Typography.micro, { color: textMuted }]}>
           {t("topBar.progress", { completed: completedSets, total: totalSets })}
         </Text>
