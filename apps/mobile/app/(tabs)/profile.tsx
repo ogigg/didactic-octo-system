@@ -59,7 +59,12 @@ const NAV_ITEMS: NavItem[] = [
     route: "/(tabs)/calendar",
   },
   { icon: "ruler.fill", labelKey: "nav.measures", disabled: true },
-  { icon: "clock.arrow.circlepath", labelKey: "nav.history", disabled: true },
+  {
+    icon: "clock.arrow.circlepath",
+    labelKey: "nav.history",
+    disabled: false,
+    route: "/history",
+  },
 ];
 
 export default function ProfileScreen() {

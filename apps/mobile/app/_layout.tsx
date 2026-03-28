@@ -127,6 +127,11 @@ export default function RootLayout() {
                 gestureEnabled: true,
               }}
             />
+            <Stack.Screen name="history" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="workout-detail"
+              options={{ headerShown: false }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

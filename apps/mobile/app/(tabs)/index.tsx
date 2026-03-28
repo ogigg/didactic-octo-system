@@ -208,6 +208,7 @@ export default function HomeScreen() {
             style={[styles.historyButton, { borderColor: border }]}
             accessibilityRole="button"
             accessibilityLabel="See workout history"
+            onPress={() => router.push("/history")}
           >
             <Text style={[Typography.titleSm, { color: primary }]}>
               See Workout History

@@ -75,12 +75,27 @@ const exerciseDetailSchema = z.object({
   id: z.string().uuid(),
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
+  primary_muscles: z.array(z.string()),
   order_index: z.number(),
   rest_duration_seconds: z.number(),
   notes: z.string().nullable(),
   difficulty_feedback: z.enum(["too_easy", "ok", "too_hard"]).nullable(),
   sets: z.array(setDetailSchema),
 });
+
+export const workoutHistoryItemSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().nullable(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  created_at: z.string(),
+  exercise_count: z.number(),
+  total_sets: z.number(),
+  total_volume_kg: z.number(),
+  exercise_names: z.array(z.string()),
+});
+
+export type WorkoutHistoryItem = z.infer<typeof workoutHistoryItemSchema>;
 
 export const workoutDetailSchema = z.object({
   id: z.string().uuid(),
@@ -179,6 +194,24 @@ export async function fetchWorkoutSessions(): Promise<WorkoutSession[]> {
   }
 
   return z.array(workoutSessionSchema).parse(data);
+}
+
+export async function fetchWorkoutHistoryPage(
+  limit: number,
+  cursor?: string
+): Promise<WorkoutHistoryItem[]> {
+  await getAuthenticatedUserId();
+
+  const { data, error } = await supabase.rpc("get_workout_history_page", {
+    p_limit: limit,
+    p_cursor: cursor ?? null,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z.array(workoutHistoryItemSchema).parse(data);
 }
 
 export async function fetchWorkoutDetail(

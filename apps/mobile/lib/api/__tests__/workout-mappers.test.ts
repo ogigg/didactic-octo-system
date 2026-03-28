@@ -65,6 +65,7 @@ const mockDetail: WorkoutDetail = {
       id: "se-1",
       exercise_id: "exercise-1",
       exercise_name: "Bench Press",
+      primary_muscles: ["chest"],
       order_index: 0,
       rest_duration_seconds: 90,
       notes: "Keep elbows tucked",

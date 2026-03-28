@@ -6,6 +6,7 @@ import { modal } from "./locales/en/modal";
 import { designSystem } from "./locales/en/design-system";
 import { workout } from "./locales/en/workout";
 import { exercisePicker } from "./locales/en/exercise-picker";
+import { history } from "./locales/en/history";
 
 export const resources = {
   en: {
@@ -17,6 +18,7 @@ export const resources = {
     designSystem,
     workout,
     exercisePicker,
+    history,
   },
 } as const;
 
