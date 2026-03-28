@@ -1,4 +1,7 @@
 export const history = {
+  header: {
+    back: "Back",
+  },
   title: "History",
   empty: {
     title: "No workouts yet",
