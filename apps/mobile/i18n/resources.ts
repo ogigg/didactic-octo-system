@@ -7,6 +7,7 @@ import { designSystem } from "./locales/en/design-system";
 import { workout } from "./locales/en/workout";
 import { exercisePicker } from "./locales/en/exercise-picker";
 import { generateWorkout } from "./locales/en/generate-workout";
+import { history } from "./locales/en/history";
 
 export const resources = {
   en: {
@@ -19,6 +20,7 @@ export const resources = {
     workout,
     exercisePicker,
     generateWorkout,
+    history,
   },
 } as const;
 
