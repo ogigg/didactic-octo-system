@@ -15,6 +15,7 @@ export const exerciseKeys = {
 export const workoutKeys = {
   all: ["workouts"] as const,
   list: () => [...workoutKeys.all, "list"] as const,
+  forDay: (dateKey: string) => [...workoutKeys.all, "forDay", dateKey] as const,
   detail: (id: string) => [...workoutKeys.all, id] as const,
 };
 

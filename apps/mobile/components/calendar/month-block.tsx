@@ -2,12 +2,13 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
 import { StyleSheet, Text, View } from "react-native";
 import { DayCell } from "./day-cell";
-import type { DayEntry } from "./types";
+import type { DayEntry, WorkoutSession } from "./types";
 
 interface MonthBlockProps {
   year: number;
   month: number;
   entries: DayEntry[];
+  onDayPress?: (dateKey: string, sessions: WorkoutSession[]) => void;
 }
 
 const DAYS_OF_WEEK = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -39,7 +40,16 @@ const MONTH_NAMES = [
   "December",
 ];
 
-export function MonthBlock({ year, month, entries }: MonthBlockProps) {
+function dateKeyForDay(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function MonthBlock({
+  year,
+  month,
+  entries,
+  onDayPress,
+}: MonthBlockProps) {
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
 
@@ -78,11 +88,18 @@ export function MonthBlock({ year, month, entries }: MonthBlockProps) {
         ))}
         {days.map((day) => {
           const entry = entryByDay.get(day);
+          const sessions = entry ? entry.sessions : [];
+          const key = dateKeyForDay(year, month, day);
           return (
             <DayCell
               key={day}
               day={day}
-              sessions={entry ? entry.sessions : []}
+              sessions={sessions}
+              onPress={
+                sessions.length > 0 && onDayPress
+                  ? () => onDayPress(key, sessions)
+                  : undefined
+              }
             />
           );
         })}

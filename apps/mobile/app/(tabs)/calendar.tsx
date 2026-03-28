@@ -1,6 +1,9 @@
+import type { WorkoutSession } from "@/components/calendar/types";
 import { MonthBlock, getMonthHeight } from "@/components/calendar/month-block";
 import { Spacing } from "@/constants/theme";
 import { useCalendarEntries } from "@/hooks/use-calendar-entries";
+import { useRouter } from "expo-router";
+import { useCallback } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -33,7 +36,22 @@ const ITEM_OFFSETS = MONTHS.reduce<number[]>((acc, item, i) => {
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { getEntriesForMonth, isLoading } = useCalendarEntries();
+
+  const handleDayPress = useCallback(
+    (dateKey: string, sessions: WorkoutSession[]) => {
+      if (sessions.length === 1) {
+        router.push({
+          pathname: "/workout-detail",
+          params: { id: sessions[0].id },
+        });
+        return;
+      }
+      router.push({ pathname: "/history", params: { date: dateKey } });
+    },
+    [router]
+  );
 
   return (
     <View style={styles.root}>
@@ -58,6 +76,7 @@ export default function CalendarScreen() {
             year={item.year}
             month={item.month}
             entries={isLoading ? [] : getEntriesForMonth(item.year, item.month)}
+            onDayPress={handleDayPress}
           />
         )}
       />

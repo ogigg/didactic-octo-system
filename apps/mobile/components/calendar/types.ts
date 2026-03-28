@@ -1,4 +1,5 @@
 export interface WorkoutSession {
+  id: string;
   title: string;
 }
 

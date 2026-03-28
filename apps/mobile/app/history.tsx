@@ -1,12 +1,16 @@
 import { WorkoutHistoryCard } from "@/components/history/workout-history-card";
 import { BackButton } from "@/components/ui/back-button";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useWorkoutHistory } from "@/hooks/use-workout-queries";
+import {
+  useWorkoutHistory,
+  useWorkoutHistoryForDay,
+} from "@/hooks/use-workout-queries";
 import { Spacing, Typography } from "@/constants/theme";
 import type { WorkoutHistoryItem } from "@/lib/api/workouts";
-import { useRouter } from "expo-router";
+import { isValidDateKey } from "@/lib/local-day-bounds";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -17,9 +21,30 @@ import {
   View,
 } from "react-native";
 
+function formatDayHeaderTitle(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(y, m - 1, d));
+}
+
 export default function HistoryScreen() {
   const { t } = useTranslation("history");
   const router = useRouter();
+  const params = useLocalSearchParams<{ date?: string | string[] }>();
+
+  const dayFilter = useMemo(() => {
+    const raw = params.date;
+    const dateParam =
+      typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
+    if (dateParam && isValidDateKey(dateParam)) return dateParam;
+    return undefined;
+  }, [params.date]);
+
+  const isDayMode = !!dayFilter;
 
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -27,23 +52,33 @@ export default function HistoryScreen() {
   const background = useThemeColor({}, "background");
   const border = useThemeColor({}, "border");
 
+  const infinite = useWorkoutHistory({ enabled: !isDayMode });
+  const dayQuery = useWorkoutHistoryForDay(dayFilter ?? "");
+
   const {
-    data,
+    data: infiniteData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isLoading,
-    isRefetching,
-    refetch,
-  } = useWorkoutHistory();
+    isLoading: infiniteLoading,
+    isRefetching: infiniteRefetching,
+    refetch: infiniteRefetch,
+  } = infinite;
 
-  const items: WorkoutHistoryItem[] = data?.pages.flat() ?? [];
+  const items: WorkoutHistoryItem[] = isDayMode
+    ? (dayQuery.data ?? [])
+    : (infiniteData?.pages.flat() ?? []);
+
+  const isLoading = isDayMode ? dayQuery.isLoading : infiniteLoading;
+  const isRefetching = isDayMode ? dayQuery.isRefetching : infiniteRefetching;
+  const refetch = isDayMode ? dayQuery.refetch : infiniteRefetch;
 
   const handleEndReached = useCallback(() => {
+    if (isDayMode) return;
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [isDayMode, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const renderItem = useCallback(
     ({ item }: { item: WorkoutHistoryItem }) => (
@@ -58,13 +93,13 @@ export default function HistoryScreen() {
   );
 
   const renderFooter = useCallback(() => {
-    if (!isFetchingNextPage) return null;
+    if (isDayMode || !isFetchingNextPage) return null;
     return (
       <View style={styles.footer}>
         <ActivityIndicator size="small" color={primary} />
       </View>
     );
-  }, [isFetchingNextPage, primary]);
+  }, [isDayMode, isFetchingNextPage, primary]);
 
   const renderEmpty = useCallback(() => {
     if (isLoading) {
@@ -77,7 +112,7 @@ export default function HistoryScreen() {
     return (
       <View style={styles.centered}>
         <Text style={[Typography.titleMd, { color: textColor }]}>
-          {t("empty.title")}
+          {isDayMode ? t("empty.dayTitle") : t("empty.title")}
         </Text>
         <Text
           style={[
@@ -86,11 +121,16 @@ export default function HistoryScreen() {
             styles.emptySubtitle,
           ]}
         >
-          {t("empty.subtitle")}
+          {isDayMode ? t("empty.daySubtitle") : t("empty.subtitle")}
         </Text>
       </View>
     );
-  }, [isLoading, primary, textColor, textSecondary, t]);
+  }, [isLoading, isDayMode, primary, textColor, textSecondary, t]);
+
+  const headerTitle =
+    isDayMode && dayFilter
+      ? t("dayTitle", { date: formatDayHeaderTitle(dayFilter) })
+      : t("title");
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
@@ -98,8 +138,15 @@ export default function HistoryScreen() {
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: border }]}>
           <BackButton accessibilityLabel={t("header.back")} />
-          <Text style={[Typography.titleLg, { color: textColor }]}>
-            {t("title")}
+          <Text
+            style={[
+              Typography.titleLg,
+              styles.headerTitle,
+              { color: textColor },
+            ]}
+            numberOfLines={isDayMode ? 2 : 1}
+          >
+            {headerTitle}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -120,7 +167,9 @@ export default function HistoryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching && !isLoading}
-              onRefresh={refetch}
+              onRefresh={() => {
+                void refetch();
+              }}
               tintColor={primary}
             />
           }
@@ -143,6 +192,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerSpacer: { width: 44 },
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    marginHorizontal: Spacing.sm,
+  },
   list: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,

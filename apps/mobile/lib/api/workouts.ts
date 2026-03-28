@@ -214,6 +214,27 @@ export async function fetchWorkoutHistoryPage(
   return z.array(workoutHistoryItemSchema).parse(data);
 }
 
+export async function fetchWorkoutHistoryForDayRange(
+  startIso: string,
+  endIso: string
+): Promise<WorkoutHistoryItem[]> {
+  await getAuthenticatedUserId();
+
+  const { data, error } = await supabase.rpc(
+    "get_workout_history_for_day_range",
+    {
+      p_start: startIso,
+      p_end: endIso,
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z.array(workoutHistoryItemSchema).parse(data);
+}
+
 export async function fetchWorkoutDetail(
   sessionId: string
 ): Promise<WorkoutDetail> {
@@ -231,6 +252,7 @@ export async function fetchWorkoutDetail(
 }
 
 export interface CalendarSessionRow {
+  id: string;
   name: string | null;
   completed_at: string;
 }
@@ -243,7 +265,7 @@ export async function fetchCalendarEntries(
 
   const { data, error } = await supabase
     .from("workout_sessions")
-    .select("name, completed_at")
+    .select("id, name, completed_at")
     .eq("status", "completed")
     .not("completed_at", "is", null)
     .gte("completed_at", fromIso)

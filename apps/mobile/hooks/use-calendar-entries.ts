@@ -22,7 +22,7 @@ function toLocalDateKey(iso: string): string {
 }
 
 function buildDayEntryMap(
-  rows: { name: string | null; completed_at: string }[],
+  rows: { id: string; name: string | null; completed_at: string }[],
   defaultTitle: string
 ): Map<string, WorkoutSession[]> {
   const map = new Map<string, WorkoutSession[]>();
@@ -30,7 +30,7 @@ function buildDayEntryMap(
     const dateKey = toLocalDateKey(row.completed_at);
     const title = row.name?.trim() || defaultTitle;
     const list = map.get(dateKey) ?? [];
-    list.push({ title });
+    list.push({ id: row.id, title });
     map.set(dateKey, list);
   }
   return map;

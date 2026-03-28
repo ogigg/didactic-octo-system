@@ -1,18 +1,19 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { WorkoutSession } from "./types";
 
 interface DayCellProps {
   day: number;
   sessions: WorkoutSession[];
+  onPress?: () => void;
 }
 
 const CIRCLE_SIZE = 32;
 const CELL_HEIGHT = 60;
 const CELL_WIDTH_PERCENT = `${100 / 7}%` as const;
 
-export function DayCell({ day, sessions }: DayCellProps) {
+export function DayCell({ day, sessions, onPress }: DayCellProps) {
   const primary = useThemeColor({}, "primary");
   const warning = useThemeColor({}, "warning");
   const textMuted = useThemeColor({}, "textMuted");
@@ -29,8 +30,8 @@ export function DayCell({ day, sessions }: DayCellProps) {
     accessibilityLabel = `${day}, ${count} workouts: ${sessions.map((s) => s.title).join(", ")}`;
   }
 
-  return (
-    <View style={styles.cell} accessibilityLabel={accessibilityLabel}>
+  const body = (
+    <>
       {hasWorkout ? (
         <View style={styles.circleWrapper}>
           <View style={[styles.circle, { backgroundColor: primary }]}>
@@ -55,6 +56,25 @@ export function DayCell({ day, sessions }: DayCellProps) {
             : sessions[0].title}
         </Text>
       )}
+    </>
+  );
+
+  if (hasWorkout && onPress) {
+    return (
+      <Pressable
+        style={styles.cell}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        onPress={onPress}
+      >
+        {body}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.cell} accessibilityLabel={accessibilityLabel}>
+      {body}
     </View>
   );
 }

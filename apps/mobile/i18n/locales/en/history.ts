@@ -3,9 +3,12 @@ export const history = {
     back: "Back",
   },
   title: "History",
+  dayTitle: "Workouts on {{date}}",
   empty: {
     title: "No workouts yet",
     subtitle: "Complete your first workout to see it here.",
+    dayTitle: "No workouts this day",
+    daySubtitle: "Pick another day on the calendar.",
   },
   card: {
     duration: "Duration",
