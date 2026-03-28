@@ -26,6 +26,12 @@ interface RestTimerState {
   durationSeconds: number;
 }
 
+export interface GenerationMeta {
+  generationSource: "llm" | "fallback_template" | "fallback_substitution";
+  goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+  customGoalSnapshot: string | null;
+}
+
 interface WorkoutState {
   isActive: boolean;
   workoutName: string;
@@ -33,6 +39,7 @@ interface WorkoutState {
   startedAtMs: number | null;
   restTimer: RestTimerState | null;
   completedWorkoutSummary: WorkoutSummary | null;
+  generationMeta: GenerationMeta | null;
 }
 
 export interface WorkoutSummary {
@@ -43,7 +50,11 @@ export interface WorkoutSummary {
 }
 
 interface WorkoutActions {
-  startWorkout: (name: string, exercises: WorkoutExercise[]) => void;
+  startWorkout: (
+    name: string,
+    exercises: WorkoutExercise[],
+    generationMeta?: GenerationMeta
+  ) => void;
   finishWorkout: () => void;
   clearWorkout: () => void;
   toggleSetComplete: (exerciseId: string, setId: string) => void;
@@ -76,6 +87,7 @@ const initialState: WorkoutState = {
   startedAtMs: null,
   restTimer: null,
   completedWorkoutSummary: null,
+  generationMeta: null,
 };
 
 let setCounter = 0;
@@ -100,7 +112,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
     (set, get) => ({
       ...initialState,
 
-      startWorkout: (name, exercises) =>
+      startWorkout: (name, exercises, generationMeta) =>
         set({
           isActive: true,
           workoutName: name,
@@ -108,6 +120,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           startedAtMs: Date.now(),
           restTimer: null,
           completedWorkoutSummary: null,
+          generationMeta: generationMeta ?? null,
         }),
 
       finishWorkout: () => {

@@ -6,14 +6,13 @@ import type { WorkoutTemplate } from "@/stores/workout-templates-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
-import { WorkoutPlanCard } from "@/components/workout-plan-card";
 import {
   WorkoutTemplateCard,
   CreateWorkoutCard,
 } from "@/components/workout-template-card";
-import { MOCK_EXERCISES, MOCK_WORKOUT_NAME } from "@/data/mock-workout";
+import { WorkoutPlanCard } from "@/components/workout-plan-card";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   SafeAreaView,
@@ -26,46 +25,20 @@ import {
 
 const MOCK_COMPLETED = 1;
 
-interface MockExercise {
-  name: string;
-  muscleGroup: string;
-  sets: number;
-  reps: string;
-}
-
-const HOME_EXERCISES: MockExercise[] = [
-  { name: "Barbell Bench Press", muscleGroup: "Chest", sets: 4, reps: "8-10" },
-  {
-    name: "Incline Dumbbell Press",
-    muscleGroup: "Chest",
-    sets: 3,
-    reps: "10-12",
-  },
-  { name: "Cable Flyes", muscleGroup: "Chest", sets: 3, reps: "12-15" },
-  {
-    name: "Overhead Tricep Extension",
-    muscleGroup: "Triceps",
-    sets: 3,
-    reps: "10-12",
-  },
-  { name: "Lateral Raises", muscleGroup: "Shoulders", sets: 3, reps: "12-15" },
-];
-
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation("home");
   const frequency = useOnboardingStore((s) => s.frequency) ?? 3;
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const isWorkoutActive = useWorkoutStore((s) => s.isActive);
+  const workoutName = useWorkoutStore((s) => s.workoutName);
+  const workoutExercises = useWorkoutStore((s) => s.exercises);
   const startedAtMs = useWorkoutStore((s) => s.startedAtMs);
   const templates = useWorkoutTemplatesStore((s) => s.templates);
 
-  const handleStartWorkout = useCallback(() => {
-    if (!isWorkoutActive) {
-      startWorkout(MOCK_WORKOUT_NAME, MOCK_EXERCISES);
-    }
-    router.push("/workout");
-  }, [isWorkoutActive, startWorkout, router]);
+  const handleGenerateWorkout = useCallback(() => {
+    router.push("/generate-workout" as "/generate-workout");
+  }, [router]);
 
   const handleCreateWorkout = useCallback(() => {
     if (!isWorkoutActive) {
@@ -97,6 +70,21 @@ export default function HomeScreen() {
       router.push("/workout");
     },
     [isWorkoutActive, startWorkout, router]
+  );
+
+  const handleResumeWorkout = useCallback(() => {
+    router.push("/workout");
+  }, [router]);
+
+  const activeExercises = useMemo(
+    () =>
+      workoutExercises.map((ex) => ({
+        name: ex.name,
+        muscleGroup: "",
+        sets: ex.sets.length,
+        reps: ex.sets[0] ? `${ex.sets[0].reps || "—"}` : "—",
+      })),
+    [workoutExercises]
   );
 
   const primary = useThemeColor({}, "primary");
@@ -194,14 +182,44 @@ export default function HomeScreen() {
             </ScrollView>
           </View>
 
-          {/* Next Workout */}
-          <WorkoutPlanCard
-            title="Push Day"
-            exercises={HOME_EXERCISES}
-            onStartWorkout={handleStartWorkout}
-            isActive={isWorkoutActive}
-            startedAtMs={startedAtMs}
-          />
+          {/* Current Workout */}
+          {isWorkoutActive && (
+            <WorkoutPlanCard
+              title={workoutName}
+              exercises={activeExercises}
+              onStartWorkout={handleResumeWorkout}
+              isActive
+              startedAtMs={startedAtMs}
+            />
+          )}
+
+          {/* Generate AI Workout */}
+          <TouchableOpacity
+            onPress={handleGenerateWorkout}
+            style={[
+              styles.generateCard,
+              { backgroundColor: backgroundSubtle },
+              Elevation.sm,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Generate AI Workout"
+          >
+            <Text style={[Typography.label, { color: primary }]}>
+              AI-POWERED
+            </Text>
+            <Text
+              style={[
+                Typography.titleMd,
+                { color: textColor },
+                styles.generateTitle,
+              ]}
+            >
+              Generate Workout
+            </Text>
+            <Text style={[Typography.body, { color: textSecondary }]}>
+              Get a personalized workout based on your goals and history
+            </Text>
+          </TouchableOpacity>
 
           {/* History Button */}
           <TouchableOpacity
@@ -250,6 +268,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: Radii.full,
+  },
+  generateCard: {
+    borderRadius: Radii.lg,
+    padding: Spacing.xl,
+  },
+  generateTitle: {
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   historyButton: {
     borderWidth: 1,

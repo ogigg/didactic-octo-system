@@ -19,7 +19,11 @@
       "Bash(npx supabase:*)",
       "Bash(npx expo:*)",
       "Bash(npx tsc:*)",
-      "Skill(gsd:update)"
+      "Skill(gsd:update)",
+      "Bash(find /Users/oskargierszewski/Documents/Projects/workout/apps/mobile -name *zustand* -o -name *store*)",
+      "Bash(find /Users/oskargierszewski/Documents/Projects/workout -name .env* -o -name *supabase* -type f)",
+      "Bash(find /Users/oskargierszewski/Documents/Projects/workout -type f -name *workout*card* -o -name *current*workout* -o -name *active*workout*)",
+      "Bash(grep -r \"next exercises\\\\|Next Exercises\\\\|NEXT_EXERCISES\" /Users/oskargierszewski/Documents/Projects/workout/apps/mobile --include=*.tsx --include=*.ts)"
     ]
   }
 }
