@@ -59,6 +59,7 @@ export const workout = {
     muscles: {
       title: "Muscles Worked",
     },
+    muscleDistribution: "Muscle Distribution",
     stats: {
       exercises: "Exercises",
       sets: "Sets",

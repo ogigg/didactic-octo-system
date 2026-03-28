@@ -1,3 +1,4 @@
+import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -5,10 +6,17 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSaveCompletedWorkout } from "@/hooks/use-workout-mutations";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
 import { useExerciseMuscles } from "@/hooks/use-exercise-muscles";
+import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { AmbientGlow } from "@/components/ambient-glow";
-import { Elevation, Fonts, Radii, Spacing, Typography } from "@/constants/theme";
+import {
+  Elevation,
+  Fonts,
+  Radii,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -19,7 +27,10 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  useReducedMotion,
+} from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -53,7 +64,10 @@ function useEntering(delayMs: number) {
 // ---------------------------------------------------------------------------
 
 interface StatItemProps {
-  icon: "figure.strengthtraining.traditional" | "number" | "checkmark.circle.fill";
+  icon:
+    | "figure.strengthtraining.traditional"
+    | "number"
+    | "checkmark.circle.fill";
   value: string | number;
   label: string;
   color: string;
@@ -62,15 +76,17 @@ interface StatItemProps {
   textMuted: string;
 }
 
-function StatItem({ icon, value, label, color, bgColor, textColor, textMuted }: StatItemProps) {
+function StatItem({
+  icon,
+  value,
+  label,
+  color,
+  bgColor,
+  textColor,
+  textMuted,
+}: StatItemProps) {
   return (
-    <View
-      style={[
-        styles.statCard,
-        { backgroundColor: bgColor },
-        Elevation.sm,
-      ]}
-    >
+    <View style={[styles.statCard, { backgroundColor: bgColor }, Elevation.sm]}>
       <IconSymbol name={icon} size={20} color={color} />
       <Text
         style={[
@@ -95,14 +111,25 @@ interface ExerciseRowProps {
   t: TFunction<any, any>;
 }
 
-function ExerciseRow({ exercise, bgColor, textColor, textSecondary, textMuted, t }: ExerciseRowProps) {
+function ExerciseRow({
+  exercise,
+  bgColor,
+  textColor,
+  textSecondary,
+  textMuted,
+  t,
+}: ExerciseRowProps) {
   const completed = exercise.sets.filter((s) => s.isCompleted).length;
   const total = exercise.sets.length;
   const topSet = getTopSet(exercise.sets);
 
   return (
-    <View style={[styles.exerciseCard, { backgroundColor: bgColor }, Elevation.sm]}>
-      <Text style={[Typography.titleSm, { color: textColor }]}>{exercise.name}</Text>
+    <View
+      style={[styles.exerciseCard, { backgroundColor: bgColor }, Elevation.sm]}
+    >
+      <Text style={[Typography.titleSm, { color: textColor }]}>
+        {exercise.name}
+      </Text>
       <View style={styles.exerciseMeta}>
         <Text style={[Typography.caption, { color: textSecondary }]}>
           {t("summary.exercises.setsCompleted", { completed, total })}
@@ -111,13 +138,17 @@ function ExerciseRow({ exercise, bgColor, textColor, textSecondary, textMuted, t
           <>
             <Text style={[Typography.caption, { color: textMuted }]}> · </Text>
             <Text style={[Typography.caption, { color: textMuted }]}>
-              {t("summary.exercises.topSet", { kg: topSet.kg, reps: topSet.reps })}
+              {t("summary.exercises.topSet", {
+                kg: topSet.kg,
+                reps: topSet.reps,
+              })}
             </Text>
           </>
         )}
         {!topSet && completed === 0 && (
           <Text style={[Typography.caption, { color: textMuted }]}>
-            {" · "}{t("summary.exercises.noSets")}
+            {" · "}
+            {t("summary.exercises.noSets")}
           </Text>
         )}
       </View>
@@ -147,7 +178,6 @@ export default function WorkoutSummaryScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const primary = useThemeColor({}, "primary");
-  const primarySurface = useThemeColor({}, "primarySurface");
   const successColor = useThemeColor({}, "success");
 
   // Computed values
@@ -155,12 +185,20 @@ export default function WorkoutSummaryScreen() {
     () => (summary ? computeTotalVolume(summary.exercises) : 0),
     [summary]
   );
-  const volumeComparison = useMemo(() => getVolumeComparison(totalVolume), [totalVolume]);
+  const volumeComparison = useMemo(
+    () => getVolumeComparison(totalVolume),
+    [totalVolume]
+  );
   const stats = useMemo(
     () =>
       summary
         ? computeSessionStats(summary.exercises)
-        : { exerciseCount: 0, totalSets: 0, completedSets: 0, completionRate: 0 },
+        : {
+            exerciseCount: 0,
+            totalSets: 0,
+            completedSets: 0,
+            completionRate: 0,
+          },
     [summary]
   );
 
@@ -169,10 +207,23 @@ export default function WorkoutSummaryScreen() {
     () => summary?.exercises.map((e) => e.id) ?? [],
     [summary]
   );
-  const { muscles, isLoading: musclesLoading } = useExerciseMuscles(exerciseIds);
-  const { totalWorkouts, streakWeeks, isLoading: statsLoading } = useWorkoutStats(
-    summary?.finishedAtMs ?? Date.now()
-  );
+  const { primaryMusclesByExerciseId, isLoading: musclesLoading } =
+    useExerciseMuscles(exerciseIds);
+  const {
+    totalWorkouts,
+    streakWeeks,
+    isLoading: statsLoading,
+  } = useWorkoutStats(summary?.finishedAtMs ?? Date.now());
+
+  const muscleSegments = useMemo(() => {
+    if (!summary) return [];
+    return aggregateMuscleDistribution(
+      summary.exercises.map((ex) => ({
+        primaryMuscles: primaryMusclesByExerciseId[ex.id] ?? [],
+        completedSetCount: ex.sets.filter((s) => s.isCompleted).length,
+      }))
+    );
+  }, [summary, primaryMusclesByExerciseId]);
 
   // Auto-save on mount
   const saveWorkout = useSaveCompletedWorkout();
@@ -182,8 +233,11 @@ export default function WorkoutSummaryScreen() {
     if (!summary || hasSavedRef.current) return;
     hasSavedRef.current = true;
 
-    const goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom" =
-      customGoal ? "custom" : goal ?? "improve_fitness";
+    const goalSnapshot:
+      | "build_strength"
+      | "lose_weight"
+      | "improve_fitness"
+      | "custom" = customGoal ? "custom" : (goal ?? "improve_fitness");
 
     saveWorkout.mutate({
       summary,
@@ -227,7 +281,10 @@ export default function WorkoutSummaryScreen() {
             </Text>
           </View>
           <View style={styles.footer}>
-            <Button label={t("summary.returnHome")} onPress={handleReturnHome} />
+            <Button
+              label={t("summary.returnHome")}
+              onPress={handleReturnHome}
+            />
           </View>
         </SafeAreaView>
       </View>
@@ -246,21 +303,40 @@ export default function WorkoutSummaryScreen() {
         >
           {/* ── 1. HERO ── */}
           <Animated.View entering={anim0} style={styles.hero}>
-            <View style={[styles.checkCircle, { backgroundColor: successColor + "1A" }]}>
-              <IconSymbol name="checkmark.circle.fill" size={44} color={successColor} />
+            <View
+              style={[
+                styles.checkCircle,
+                { backgroundColor: successColor + "1A" },
+              ]}
+            >
+              <IconSymbol
+                name="checkmark.circle.fill"
+                size={44}
+                color={successColor}
+              />
             </View>
             <Text style={[Typography.displayLg, { color: textColor }]}>
               {t("summary.title")}
             </Text>
-            <Text style={[Typography.body, { color: textSecondary }, styles.workoutName]}>
+            <Text
+              style={[
+                Typography.body,
+                { color: textSecondary },
+                styles.workoutName,
+              ]}
+            >
               {summary.workoutName}
             </Text>
             <View style={styles.heroMeta}>
               <IconSymbol name="clock" size={13} color={textMuted} />
               <Text style={[Typography.caption, { color: textMuted }]}>
-                {" "}{formatDuration(summary.durationMs)}
+                {" "}
+                {formatDuration(summary.durationMs)}
               </Text>
-              <Text style={[Typography.caption, { color: textMuted }]}> · </Text>
+              <Text style={[Typography.caption, { color: textMuted }]}>
+                {" "}
+                ·{" "}
+              </Text>
               <Text style={[Typography.caption, { color: textMuted }]}>
                 {formatFinishTime(summary.finishedAtMs)}
               </Text>
@@ -270,7 +346,11 @@ export default function WorkoutSummaryScreen() {
           {/* ── 2. VOLUME CARD ── */}
           <Animated.View
             entering={anim1}
-            style={[styles.card, { backgroundColor: backgroundSubtle }, Elevation.sm]}
+            style={[
+              styles.card,
+              { backgroundColor: backgroundSubtle },
+              Elevation.sm,
+            ]}
           >
             <Text style={[Typography.label, { color: textMuted }]}>
               {t("summary.volume.title")}
@@ -281,7 +361,10 @@ export default function WorkoutSummaryScreen() {
                   <Text
                     style={[
                       styles.volumeNumber,
-                      { color: primary, fontFamily: Fonts?.rounded ?? undefined },
+                      {
+                        color: primary,
+                        fontFamily: Fonts?.rounded ?? undefined,
+                      },
                     ]}
                   >
                     {totalVolume.toLocaleString()}
@@ -290,7 +373,13 @@ export default function WorkoutSummaryScreen() {
                     {t("summary.volume.unit")}
                   </Text>
                 </View>
-                <Text style={[Typography.body, { color: textSecondary }, styles.comparison]}>
+                <Text
+                  style={[
+                    Typography.body,
+                    { color: textSecondary },
+                    styles.comparison,
+                  ]}
+                >
                   {t("summary.volume.comparison", {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     comparison: t(volumeComparison.key as any),
@@ -309,30 +398,30 @@ export default function WorkoutSummaryScreen() {
             )}
           </Animated.View>
 
-          {/* ── 3. MUSCLES WORKED ── */}
-          {(musclesLoading || muscles.length > 0) && (
+          {/* ── 3. MUSCLE DISTRIBUTION ── */}
+          {(musclesLoading || muscleSegments.length > 0) && (
             <Animated.View entering={anim2} style={styles.section}>
-              <Text style={[Typography.titleSm, { color: textColor }]}>
-                {t("summary.muscles.title")}
-              </Text>
               {musclesLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={primary}
-                  style={styles.loader}
-                />
+                <>
+                  <Text style={[Typography.titleMd, { color: textColor }]}>
+                    {t("summary.muscleDistribution")}
+                  </Text>
+                  <ActivityIndicator
+                    size="small"
+                    color={primary}
+                    style={styles.loader}
+                  />
+                </>
               ) : (
-                <View style={styles.pillsRow}>
-                  {muscles.map((muscle) => (
-                    <View
-                      key={muscle}
-                      style={[styles.pill, { backgroundColor: primarySurface }]}
-                    >
-                      <Text style={[Typography.caption, { color: primary }]}>
-                        {muscle}
-                      </Text>
-                    </View>
-                  ))}
+                <View style={[Elevation.sm, styles.muscleCardWrap]}>
+                  <MuscleDistributionCard
+                    segments={muscleSegments}
+                    title={t("summary.muscleDistribution")}
+                    titleColor={textColor}
+                    backgroundColor={backgroundSubtle}
+                    borderColor={backgroundSubtle}
+                    showBorder={false}
+                  />
                 </View>
               )}
             </Animated.View>
@@ -386,7 +475,10 @@ export default function WorkoutSummaryScreen() {
                 <Text
                   style={[
                     styles.streakNumber,
-                    { color: successColor, fontFamily: Fonts?.rounded ?? undefined },
+                    {
+                      color: successColor,
+                      fontFamily: Fonts?.rounded ?? undefined,
+                    },
                   ]}
                 >
                   {streakWeeks ?? "—"}
@@ -453,7 +545,9 @@ export default function WorkoutSummaryScreen() {
               onPress={handleSaveTemplate}
               variant="secondary"
               disabled={saved}
-              accessibilityLabel={saved ? t("saveTemplate.saved") : t("saveTemplate.save")}
+              accessibilityLabel={
+                saved ? t("saveTemplate.saved") : t("saveTemplate.save")
+              }
             />
           )}
           <Button
@@ -535,15 +629,8 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: Spacing.sm,
   },
-  pillsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  pill: {
-    borderRadius: Radii.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+  muscleCardWrap: {
+    borderRadius: Radii.lg,
   },
 
   // Stats row

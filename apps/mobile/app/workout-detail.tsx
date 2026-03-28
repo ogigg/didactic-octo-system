@@ -1,11 +1,11 @@
-import { DonutChart } from "@/components/history/donut-chart";
-import { MuscleLegend } from "@/components/history/muscle-legend";
-import type { DonutSegment } from "@/components/history/donut-chart";
+import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import type { WorkoutDetail } from "@/lib/api/workouts";
+import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -17,44 +17,6 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-
-// ─── Colour palette for muscle segments ──────────────────────────────────────
-// Derived from the primary (#3898D8 light / #5AAEE0 dark) with progressively
-// muted and varied hues so the chart is readable without being garish.
-const MUSCLE_COLORS = [
-  "#3898D8", // primary blue
-  "#34C759", // success green
-  "#FFAC30", // warning amber
-  "#AF7BFF", // soft violet
-  "#FF6B6B", // coral
-  "#20B2AA", // teal
-  "#FF8C42", // orange
-  "#A8DADC", // ice blue
-  "#E63946", // crimson
-  "#6A994E", // olive green
-];
-
-function getMuscleSegments(detail: WorkoutDetail): DonutSegment[] {
-  const muscleCounts: Record<string, number> = {};
-
-  for (const ex of detail.exercises) {
-    const completedSets = ex.sets.filter(
-      (s) => s.log?.completed === true
-    ).length;
-    if (completedSets === 0) continue;
-    for (const muscle of ex.primary_muscles) {
-      muscleCounts[muscle] = (muscleCounts[muscle] ?? 0) + completedSets;
-    }
-  }
-
-  const sorted = Object.entries(muscleCounts).sort(([, a], [, b]) => b - a);
-
-  return sorted.map(([label, value], idx) => ({
-    label,
-    value,
-    color: MUSCLE_COLORS[idx % MUSCLE_COLORS.length] ?? "#888888",
-  }));
-}
 
 function formatDuration(
   startedAt: string | null,
@@ -129,6 +91,17 @@ export default function WorkoutDetailScreen() {
 
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
 
+  const muscleSegments = useMemo(() => {
+    if (!detail) return [];
+    return aggregateMuscleDistribution(
+      detail.exercises.map((ex) => ({
+        primaryMuscles: ex.primary_muscles,
+        completedSetCount: ex.sets.filter((s) => s.log?.completed === true)
+          .length,
+      }))
+    );
+  }, [detail]);
+
   if (!id) return null;
 
   if (isLoading || !detail) {
@@ -152,9 +125,6 @@ export default function WorkoutDetailScreen() {
       </View>
     );
   }
-
-  const muscleSegments = getMuscleSegments(detail);
-  const muscleTotal = muscleSegments.reduce((s, seg) => s + seg.value, 0);
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
@@ -325,27 +295,13 @@ export default function WorkoutDetailScreen() {
             ))}
           </View>
 
-          {/* Muscle distribution */}
-          {muscleSegments.length > 0 && (
-            <View
-              style={[
-                styles.muscleSection,
-                { backgroundColor: backgroundElevated, borderColor: border },
-              ]}
-            >
-              <Text style={[Typography.titleMd, { color: textColor }]}>
-                {t("detail.muscleDistribution")}
-              </Text>
-              <View style={styles.chartContainer}>
-                <DonutChart
-                  segments={muscleSegments}
-                  size={160}
-                  strokeWidth={22}
-                />
-              </View>
-              <MuscleLegend segments={muscleSegments} total={muscleTotal} />
-            </View>
-          )}
+          <MuscleDistributionCard
+            segments={muscleSegments}
+            title={t("detail.muscleDistribution")}
+            titleColor={textColor}
+            backgroundColor={backgroundElevated}
+            borderColor={border}
+          />
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -434,14 +390,5 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-  },
-  muscleSection: {
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    padding: Spacing.lg,
-  },
-  chartContainer: {
-    alignItems: "center",
-    paddingVertical: Spacing.lg,
   },
 });

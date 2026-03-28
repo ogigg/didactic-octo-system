@@ -4,33 +4,50 @@ import { supabase } from "@/lib/supabase";
 import { exerciseMuscleKeys } from "@/lib/query-keys";
 import { getMuscleDisplayName } from "@/lib/workout-summary-utils";
 
-async function fetchExerciseMuscles(exerciseIds: string[]): Promise<string[]> {
-  if (exerciseIds.length === 0) return [];
+interface ExerciseMusclesPayload {
+  muscles: string[];
+  primaryMusclesByExerciseId: Record<string, string[]>;
+}
+
+async function fetchExerciseMuscles(
+  exerciseIds: string[]
+): Promise<ExerciseMusclesPayload> {
+  if (exerciseIds.length === 0) {
+    return { muscles: [], primaryMusclesByExerciseId: {} };
+  }
 
   const { data, error } = await supabase
     .from("exercises")
     .select("id, primary_muscles")
     .in("id", exerciseIds);
 
-  if (error || !data) return [];
+  if (error || !data) {
+    return { muscles: [], primaryMusclesByExerciseId: {} };
+  }
 
-  const allMuscles = data.flatMap((row) =>
-    Array.isArray(row.primary_muscles) ? (row.primary_muscles as string[]) : []
-  );
+  const primaryMusclesByExerciseId: Record<string, string[]> = {};
+  const allMuscles: string[] = [];
 
-  // Map to display names and deduplicate
+  for (const row of data) {
+    const slugs = Array.isArray(row.primary_muscles)
+      ? (row.primary_muscles as string[])
+      : [];
+    primaryMusclesByExerciseId[row.id] = slugs;
+    allMuscles.push(...slugs);
+  }
+
   const seen = new Set<string>();
-  const result: string[] = [];
+  const muscles: string[] = [];
 
   for (const muscle of allMuscles) {
     const displayName = getMuscleDisplayName(muscle);
     if (!seen.has(displayName)) {
       seen.add(displayName);
-      result.push(displayName);
+      muscles.push(displayName);
     }
   }
 
-  return result;
+  return { muscles, primaryMusclesByExerciseId };
 }
 
 export function useExerciseMuscles(exerciseIds: string[]) {
@@ -44,7 +61,8 @@ export function useExerciseMuscles(exerciseIds: string[]) {
   });
 
   return {
-    muscles: data ?? [],
+    muscles: data?.muscles ?? [],
+    primaryMusclesByExerciseId: data?.primaryMusclesByExerciseId ?? {},
     isLoading,
   };
 }
