@@ -5,8 +5,17 @@ import {
   GenerateWorkoutRequest,
   GenerateWorkoutResponse,
 } from "@/lib/api/generate-workout";
+import {
+  updateTrainingPreferences,
+  TrainingPreferences,
+} from "@/lib/api/profiles";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
+
+export interface StartTrainingRequest {
+  preferences: TrainingPreferences;
+  request: GenerateWorkoutRequest;
+}
 
 function mapResponseToWorkoutExercises(
   response: GenerateWorkoutResponse
@@ -35,7 +44,10 @@ export function useGenerateWorkout() {
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
 
   return useMutation({
-    mutationFn: (request: GenerateWorkoutRequest) => generateWorkout(request),
+    mutationFn: async ({ preferences, request }: StartTrainingRequest) => {
+      await updateTrainingPreferences(preferences);
+      return generateWorkout(request);
+    },
     onSuccess: (data) => {
       const exercises = mapResponseToWorkoutExercises(data);
       startWorkout(data.workout_name, exercises);

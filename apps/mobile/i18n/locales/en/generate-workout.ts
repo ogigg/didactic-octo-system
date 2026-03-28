@@ -1,22 +1,29 @@
 export const generateWorkout = {
   header: {
-    title: "Generate Workout",
+    title: "Set Up Your Training",
     back: "Back",
   },
+  frequencyBanner: {
+    label: "You train {{frequency}}× per week",
+  },
+  trainingSplit: {
+    title: "Training Split",
+    fullBody: "Full Body",
+    upperLower: "Upper / Lower",
+    pushPullLegs: "Push / Pull / Legs",
+    recommended: "Recommended",
+  },
   prompt: {
-    title: "Describe Your Goal",
-    subtitle: "Optional — the AI will tailor your workout",
+    title: "Training Focus",
+    subtitle: "Optional — guides all your future workouts",
     placeholder: "e.g., I want to train for a muscle up...",
     charCount: "{{count}}/{{max}}",
   },
-  focusArea: {
-    title: "Focus Area",
-    push: "Push",
-    pull: "Pull",
-    legs: "Legs",
-    upper: "Upper Body",
-    lower: "Lower Body",
-    fullBody: "Full Body",
+  promptSuggestions: {
+    trainForMuscleUp: "Train for a muscle up",
+    strengthenLowerBack: "Strengthen lower back",
+    improveRunningEndurance: "Improve running endurance",
+    buildBiggerArms: "Build bigger arms",
   },
   duration: {
     title: "Duration",
@@ -47,8 +54,8 @@ export const generateWorkout = {
     advanced: "Advanced",
   },
   generate: {
-    button: "Generate Workout",
-    loading: "Generating...",
-    error: "Failed to generate workout. Please try again.",
+    button: "Start Training",
+    loading: "Setting up...",
+    error: "Failed to start training. Please try again.",
   },
 } as const;

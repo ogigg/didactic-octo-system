@@ -1,13 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { z } from "zod";
 
-export type FocusArea =
-  | "push"
-  | "pull"
-  | "legs"
-  | "upper"
-  | "lower"
-  | "full_body";
+export type TrainingSplit = "full_body" | "upper_lower" | "push_pull_legs";
 
 export type DurationMinutes = 15 | 30 | 45 | 60 | 90;
 export type Equipment = "bodyweight" | "dumbbells" | "barbell" | "full_gym";
@@ -19,7 +13,7 @@ export type TrainingStyle =
 export type Difficulty = "beginner" | "intermediate" | "advanced";
 
 export interface GenerateWorkoutRequest {
-  focus_area: FocusArea;
+  training_split: TrainingSplit;
   duration_minutes: DurationMinutes;
   equipment: Equipment;
   training_style: TrainingStyle;

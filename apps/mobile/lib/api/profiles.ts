@@ -2,6 +2,13 @@ import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
 import type { Frequency, Gender, Goal } from "@/stores/onboarding-store";
+import type {
+  DurationMinutes,
+  Equipment,
+  TrainingStyle,
+  Difficulty,
+  TrainingSplit,
+} from "@/lib/api/generate-workout";
 
 type DbGender = "male" | "female" | "prefer_not_to_say" | null;
 type DbGoal = "build_strength" | "lose_weight" | "improve_fitness" | "custom";
@@ -78,6 +85,37 @@ export function mapOnboardingToProfile(
   };
 
   return profileSchema.parse(mapped);
+}
+
+export interface TrainingPreferences {
+  training_split: TrainingSplit;
+  session_duration_minutes: DurationMinutes;
+  equipment_level: Equipment;
+  training_style: TrainingStyle;
+  difficulty_level: Difficulty;
+  training_custom_prompt: string | null;
+}
+
+export async function updateTrainingPreferences(
+  prefs: TrainingPreferences
+): Promise<void> {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error(authError?.message ?? "Not authenticated");
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ ...prefs, training_setup_completed: true })
+    .eq("id", user.id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function upsertProfile(data: OnboardingData): Promise<void> {

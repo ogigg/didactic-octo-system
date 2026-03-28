@@ -1,17 +1,3 @@
-import { BackButton } from "@/components/ui/back-button";
-import { Button } from "@/components/ui/button";
-import { OptionChips } from "@/components/generate-workout/option-chips";
-import { CustomPromptInput } from "@/components/generate-workout/custom-prompt-input";
-import { useGenerateWorkout } from "@/hooks/use-generate-workout";
-import { useThemeColor } from "@/hooks/use-theme-color";
-import { Spacing, Typography } from "@/constants/theme";
-import type {
-  Difficulty,
-  DurationMinutes,
-  Equipment,
-  FocusArea,
-  TrainingStyle,
-} from "@/lib/api/generate-workout";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -25,14 +11,38 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-const FOCUS_AREA_OPTIONS: { value: FocusArea; label: string }[] = [
-  { value: "push", label: "Push" },
-  { value: "pull", label: "Pull" },
-  { value: "legs", label: "Legs" },
-  { value: "upper", label: "Upper Body" },
-  { value: "lower", label: "Lower Body" },
-  { value: "full_body", label: "Full Body" },
-];
+import { BackButton } from "@/components/ui/back-button";
+import { Button } from "@/components/ui/button";
+import { OptionChips } from "@/components/generate-workout/option-chips";
+import { CustomPromptInput } from "@/components/generate-workout/custom-prompt-input";
+import { PromptSuggestions } from "@/components/generate-workout/prompt-suggestions";
+import { useGenerateWorkout } from "@/hooks/use-generate-workout";
+import { useProfile } from "@/hooks/use-profile-query";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { Spacing, Typography } from "@/constants/theme";
+import type {
+  Difficulty,
+  DurationMinutes,
+  Equipment,
+  TrainingStyle,
+  TrainingSplit,
+} from "@/lib/api/generate-workout";
+
+type Frequency = "2" | "3" | "4" | "5_plus";
+
+function getRecommendedSplit(
+  frequency: string | null | undefined
+): TrainingSplit {
+  if (!frequency || frequency === "2" || frequency === "3") return "full_body";
+  if (frequency === "4") return "upper_lower";
+  return "push_pull_legs";
+}
+
+function frequencyLabel(frequency: Frequency | null | undefined): string {
+  if (!frequency) return "";
+  if (frequency === "5_plus") return "5+";
+  return frequency;
+}
 
 const DURATION_OPTIONS: { value: DurationMinutes; label: string }[] = [
   { value: 15, label: "15 min" },
@@ -64,8 +74,13 @@ const DIFFICULTY_OPTIONS: { value: Difficulty; label: string }[] = [
 
 export default function GenerateWorkoutScreen() {
   const { t } = useTranslation("generateWorkout");
+  const { data: profile } = useProfile();
 
-  const [focusArea, setFocusArea] = useState<FocusArea | null>(null);
+  const frequency = profile?.weekly_frequency as Frequency | null | undefined;
+  const recommendedSplit = getRecommendedSplit(frequency);
+
+  const [trainingSplit, setTrainingSplit] =
+    useState<TrainingSplit>(recommendedSplit);
   const [duration, setDuration] = useState<DurationMinutes>(45);
   const [equipment, setEquipment] = useState<Equipment>("full_gym");
   const [trainingStyle, setTrainingStyle] =
@@ -75,21 +90,63 @@ export default function GenerateWorkoutScreen() {
 
   const textColor = useThemeColor({}, "text");
   const background = useThemeColor({}, "background");
+  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const border = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
   const primary = useThemeColor({}, "primary");
+  const textSecondary = useThemeColor({}, "textSecondary");
 
   const { mutate, isPending, error } = useGenerateWorkout();
 
-  function handleGenerate() {
-    if (!focusArea) return;
+  const trainingSplitOptions: { value: TrainingSplit; label: string }[] = [
+    {
+      value: "full_body",
+      label:
+        recommendedSplit === "full_body"
+          ? `${t("trainingSplit.fullBody")} (${t("trainingSplit.recommended")})`
+          : t("trainingSplit.fullBody"),
+    },
+    {
+      value: "upper_lower",
+      label:
+        recommendedSplit === "upper_lower"
+          ? `${t("trainingSplit.upperLower")} (${t("trainingSplit.recommended")})`
+          : t("trainingSplit.upperLower"),
+    },
+    {
+      value: "push_pull_legs",
+      label:
+        recommendedSplit === "push_pull_legs"
+          ? `${t("trainingSplit.pushPullLegs")} (${t("trainingSplit.recommended")})`
+          : t("trainingSplit.pushPullLegs"),
+    },
+  ];
+
+  const promptSuggestions = [
+    t("promptSuggestions.trainForMuscleUp"),
+    t("promptSuggestions.strengthenLowerBack"),
+    t("promptSuggestions.improveRunningEndurance"),
+    t("promptSuggestions.buildBiggerArms"),
+  ];
+
+  function handleStartTraining() {
     mutate({
-      focus_area: focusArea,
-      duration_minutes: duration,
-      equipment,
-      training_style: trainingStyle,
-      difficulty,
-      custom_prompt: customPrompt.trim() || undefined,
+      preferences: {
+        training_split: trainingSplit,
+        session_duration_minutes: duration,
+        equipment_level: equipment,
+        training_style: trainingStyle,
+        difficulty_level: difficulty,
+        training_custom_prompt: customPrompt.trim() || null,
+      },
+      request: {
+        training_split: trainingSplit,
+        duration_minutes: duration,
+        equipment,
+        training_style: trainingStyle,
+        difficulty,
+        custom_prompt: customPrompt.trim() || undefined,
+      },
     });
   }
 
@@ -114,22 +171,31 @@ export default function GenerateWorkoutScreen() {
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
-          {/* Custom prompt */}
-          <CustomPromptInput
-            value={customPrompt}
-            onChangeText={setCustomPrompt}
-            titleLabel={t("prompt.title")}
-            subtitleLabel={t("prompt.subtitle")}
-            placeholder={t("prompt.placeholder")}
-            charCountTemplate={t("prompt.charCount")}
-          />
+          {/* Frequency banner */}
+          {frequency ? (
+            <View
+              style={[
+                styles.frequencyBanner,
+                { backgroundColor: backgroundSubtle },
+              ]}
+            >
+              <Text style={[Typography.bodyMedium, { color: textSecondary }]}>
+                {t("frequencyBanner.label", {
+                  frequency: frequencyLabel(frequency),
+                })}
+              </Text>
+            </View>
+          ) : null}
 
-          {/* Focus Area */}
-          <SectionTitle title={t("focusArea.title")} textColor={textColor} />
+          {/* Training Split */}
+          <SectionTitle
+            title={t("trainingSplit.title")}
+            textColor={textColor}
+          />
           <OptionChips
-            options={FOCUS_AREA_OPTIONS}
-            selected={focusArea}
-            onSelect={setFocusArea}
+            options={trainingSplitOptions}
+            selected={trainingSplit}
+            onSelect={setTrainingSplit}
             layout="wrap"
           />
 
@@ -172,6 +238,22 @@ export default function GenerateWorkoutScreen() {
             layout="scroll"
           />
 
+          {/* Training Focus */}
+          <CustomPromptInput
+            value={customPrompt}
+            onChangeText={setCustomPrompt}
+            titleLabel={t("prompt.title")}
+            subtitleLabel={t("prompt.subtitle")}
+            placeholder={t("prompt.placeholder")}
+            charCountTemplate={t("prompt.charCount")}
+          />
+
+          {/* Prompt Suggestions */}
+          <PromptSuggestions
+            suggestions={promptSuggestions}
+            onSelect={setCustomPrompt}
+          />
+
           <View style={styles.bottomPadding} />
         </ScrollView>
 
@@ -182,7 +264,7 @@ export default function GenerateWorkoutScreen() {
           </Text>
         ) : null}
 
-        {/* Generate CTA */}
+        {/* Start Training CTA */}
         <View style={[styles.ctaContainer, { backgroundColor: background }]}>
           {isPending ? (
             <View style={[styles.loadingButton, { backgroundColor: primary }]}>
@@ -191,8 +273,7 @@ export default function GenerateWorkoutScreen() {
           ) : (
             <Button
               label={t("generate.button")}
-              onPress={handleGenerate}
-              disabled={!focusArea}
+              onPress={handleStartTraining}
               accessibilityLabel={t("generate.button")}
             />
           )}
@@ -230,6 +311,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerSpacer: { width: 44 },
+  frequencyBanner: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.xs,
+  },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.lg },
   sectionTitle: {
