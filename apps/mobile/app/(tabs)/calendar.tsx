@@ -1,6 +1,6 @@
-import { getEntriesForMonth } from "@/components/calendar/mock-data";
 import { MonthBlock, getMonthHeight } from "@/components/calendar/month-block";
 import { Spacing } from "@/constants/theme";
+import { useCalendarEntries } from "@/hooks/use-calendar-entries";
 import { FlatList, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -33,6 +33,7 @@ const ITEM_OFFSETS = MONTHS.reduce<number[]>((acc, item, i) => {
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
+  const { getEntriesForMonth, isLoading } = useCalendarEntries();
 
   return (
     <View style={styles.root}>
@@ -56,7 +57,7 @@ export default function CalendarScreen() {
           <MonthBlock
             year={item.year}
             month={item.month}
-            entries={getEntriesForMonth(item.year, item.month)}
+            entries={isLoading ? [] : getEntriesForMonth(item.year, item.month)}
           />
         )}
       />

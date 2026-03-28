@@ -1,33 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
+import { getISOWeekKey } from "@/lib/iso-week";
 import { supabase } from "@/lib/supabase";
 import { workoutStatsKeys } from "@/lib/query-keys";
 
-interface WorkoutStats {
+interface WorkoutStatsFetched {
   totalWorkouts: number | null;
-  streakWeeks: number | null;
-}
-
-function getISOWeekKey(date: Date): string {
-  // Returns "YYYY-WNN" for a given date
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  // ISO week starts on Monday; adjust to Thursday to find the week's year
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(
-    ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
-  );
-  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+  completedAtDates: string[];
 }
 
 function computeStreakWeeks(
   completedAtDates: string[],
-  currentWorkoutFinishedAtMs: number
+  currentWorkoutFinishedAtMs?: number
 ): number {
   const weekSet = new Set<string>();
 
-  // Include current (unsaved) workout
-  weekSet.add(getISOWeekKey(new Date(currentWorkoutFinishedAtMs)));
+  if (currentWorkoutFinishedAtMs !== undefined) {
+    weekSet.add(getISOWeekKey(new Date(currentWorkoutFinishedAtMs)));
+  }
 
   for (const dateStr of completedAtDates) {
     if (dateStr) {
@@ -35,23 +26,19 @@ function computeStreakWeeks(
     }
   }
 
-  // Walk backwards from current week, counting consecutive weeks in the set
   const now = new Date();
   let streak = 0;
   const cursor = new Date(now);
 
-  // Align cursor to Monday of current week
   cursor.setUTCDate(cursor.getUTCDate() - ((cursor.getUTCDay() + 6) % 7));
   cursor.setUTCHours(0, 0, 0, 0);
 
   for (let i = 0; i < 520; i++) {
-    // max ~10 years
     const weekKey = getISOWeekKey(cursor);
     if (weekSet.has(weekKey)) {
       streak++;
       cursor.setUTCDate(cursor.getUTCDate() - 7);
     } else {
-      // Allow a one-week gap at the very start (current week may not be done yet)
       if (i === 0) {
         cursor.setUTCDate(cursor.getUTCDate() - 7);
         continue;
@@ -63,7 +50,7 @@ function computeStreakWeeks(
   return streak;
 }
 
-async function fetchWorkoutStats(currentWorkoutFinishedAtMs: number): Promise<WorkoutStats> {
+async function fetchWorkoutStatsBase(): Promise<WorkoutStatsFetched> {
   const [countResult, datesResult] = await Promise.all([
     supabase
       .from("workout_sessions")
@@ -81,21 +68,27 @@ async function fetchWorkoutStats(currentWorkoutFinishedAtMs: number): Promise<Wo
   const completedAtDates =
     datesResult.data?.map((r) => r.completed_at as string) ?? [];
 
-  const streakWeeks = computeStreakWeeks(completedAtDates, currentWorkoutFinishedAtMs);
-
-  return { totalWorkouts, streakWeeks };
+  return { totalWorkouts, completedAtDates };
 }
 
-export function useWorkoutStats(currentWorkoutFinishedAtMs: number) {
+export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
   const { data, isLoading } = useQuery({
     queryKey: workoutStatsKeys.all,
-    queryFn: () => fetchWorkoutStats(currentWorkoutFinishedAtMs),
+    queryFn: fetchWorkoutStatsBase,
     staleTime: Infinity,
   });
 
+  const streakWeeks = useMemo(
+    () =>
+      data != null
+        ? computeStreakWeeks(data.completedAtDates, currentWorkoutFinishedAtMs)
+        : null,
+    [data, currentWorkoutFinishedAtMs]
+  );
+
   return {
     totalWorkouts: data?.totalWorkouts ?? null,
-    streakWeeks: data?.streakWeeks ?? null,
+    streakWeeks,
     isLoading,
   };
 }

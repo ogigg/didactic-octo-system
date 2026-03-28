@@ -2,7 +2,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
 import { StyleSheet, Text, View } from "react-native";
 import { DayCell } from "./day-cell";
-import type { DayEntry } from "./mock-data";
+import type { DayEntry } from "./types";
 
 interface MonthBlockProps {
   year: number;

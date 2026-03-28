@@ -8,6 +8,7 @@ import { workout } from "./locales/en/workout";
 import { exercisePicker } from "./locales/en/exercise-picker";
 import { generateWorkout } from "./locales/en/generate-workout";
 import { history } from "./locales/en/history";
+import { calendar } from "./locales/en/calendar";
 
 export const resources = {
   en: {
@@ -15,6 +16,7 @@ export const resources = {
     common,
     home,
     profile,
+    calendar,
     modal,
     designSystem,
     workout,

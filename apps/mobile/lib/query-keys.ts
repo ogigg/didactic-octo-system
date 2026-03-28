@@ -22,6 +22,11 @@ export const workoutStatsKeys = {
   all: ["workout-stats"] as const,
 };
 
+export const calendarKeys = {
+  all: ["calendar"] as const,
+  entries: () => [...calendarKeys.all, "entries"] as const,
+};
+
 export const exerciseMuscleKeys = {
   byIds: (ids: string[]) => ["exercise-muscles", ...ids.sort()] as const,
 };

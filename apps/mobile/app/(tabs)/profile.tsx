@@ -22,22 +22,8 @@ import {
   Typography,
 } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
-
-const MOCK_TOTAL_TRAININGS = 47;
-const MOCK_WEEKLY_DURATIONS = [
-  { week: "W1", minutes: 65 },
-  { week: "W2", minutes: 90 },
-  { week: "W3", minutes: 45 },
-  { week: "W4", minutes: 110 },
-  { week: "W5", minutes: 80 },
-  { week: "W6", minutes: 0 },
-  { week: "W7", minutes: 95 },
-  { week: "W8", minutes: 70 },
-  { week: "W9", minutes: 55 },
-  { week: "W10", minutes: 100 },
-  { week: "W11", minutes: 85 },
-  { week: "W12", minutes: 60 },
-];
+import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
+import { useWorkoutStats } from "@/hooks/use-workout-stats";
 
 const VISIBLE_WEEK_LABELS = new Set(["W1", "W4", "W7", "W10"]);
 
@@ -92,7 +78,12 @@ export default function ProfileScreen() {
   const border = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
 
-  const maxMinutes = Math.max(...MOCK_WEEKLY_DURATIONS.map((d) => d.minutes));
+  const { totalWorkouts, isLoading: statsLoading } = useWorkoutStats();
+  const { weeklyDurations, isLoading: weeklyLoading } = useWeeklyDurations(12);
+
+  const maxMinutes = weeklyLoading
+    ? 0
+    : Math.max(...weeklyDurations.map((d) => d.minutes), 0);
 
   return (
     <View style={styles.root}>
@@ -123,7 +114,7 @@ export default function ProfileScreen() {
                 { color: primary, fontFamily: Fonts?.rounded },
               ]}
             >
-              {MOCK_TOTAL_TRAININGS}
+              {statsLoading ? "--" : (totalWorkouts ?? 0)}
             </Text>
             <Text style={[Typography.label, { color: textMuted }]}>
               {t("stats.trainingsCompleted")}
@@ -151,9 +142,9 @@ export default function ProfileScreen() {
               {t("chart.subtitle")}
             </Text>
             <View style={styles.chartContainer}>
-              {MOCK_WEEKLY_DURATIONS.map((entry) => {
+              {weeklyDurations.map((entry) => {
                 const barHeight =
-                  maxMinutes > 0
+                  !weeklyLoading && maxMinutes > 0
                     ? (entry.minutes / maxMinutes) * MAX_BAR_HEIGHT
                     : 0;
                 return (
@@ -163,9 +154,11 @@ export default function ProfileScreen() {
                         style={[
                           styles.bar,
                           {
-                            height: Math.max(barHeight, 2),
+                            height: weeklyLoading ? 2 : Math.max(barHeight, 2),
                             backgroundColor:
-                              entry.minutes > 0 ? primary : border,
+                              !weeklyLoading && entry.minutes > 0
+                                ? primary
+                                : border,
                           },
                         ]}
                       />

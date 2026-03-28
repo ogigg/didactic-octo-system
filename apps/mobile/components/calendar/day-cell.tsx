@@ -1,7 +1,7 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { StyleSheet, Text, View } from "react-native";
-import type { WorkoutSession } from "./mock-data";
+import type { WorkoutSession } from "./types";
 
 interface DayCellProps {
   day: number;

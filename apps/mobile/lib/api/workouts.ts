@@ -230,6 +230,59 @@ export async function fetchWorkoutDetail(
   return workoutDetailSchema.parse(data);
 }
 
+export interface CalendarSessionRow {
+  name: string | null;
+  completed_at: string;
+}
+
+export async function fetchCalendarEntries(
+  fromIso: string,
+  toIso: string
+): Promise<CalendarSessionRow[]> {
+  await getAuthenticatedUserId();
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("name, completed_at")
+    .eq("status", "completed")
+    .not("completed_at", "is", null)
+    .gte("completed_at", fromIso)
+    .lte("completed_at", toIso)
+    .order("completed_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as CalendarSessionRow[];
+}
+
+export interface SessionDurationRow {
+  started_at: string;
+  completed_at: string;
+}
+
+export async function fetchWeeklyDurations(
+  fromIso: string
+): Promise<SessionDurationRow[]> {
+  await getAuthenticatedUserId();
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("started_at, completed_at")
+    .eq("status", "completed")
+    .not("started_at", "is", null)
+    .not("completed_at", "is", null)
+    .gte("completed_at", fromIso)
+    .order("completed_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as SessionDurationRow[];
+}
+
 // -----------------------------------------------------------------------------
 // Mutation Functions
 // -----------------------------------------------------------------------------
