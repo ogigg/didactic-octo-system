@@ -36,6 +36,13 @@ const MAPPING = {
   "arrow.triangle.2.circlepath": "swap-horiz",
   trash: "delete",
   xmark: "close",
+  "checkmark.circle.fill": "check-circle",
+  "flame.fill": "local-fire-department",
+  "trophy.fill": "emoji-events",
+  "figure.strengthtraining.traditional": "fitness-center",
+  number: "tag",
+  clock: "schedule",
+  "dumbbell.fill": "fitness-center",
 } as IconMapping;
 
 /**

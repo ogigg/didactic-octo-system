@@ -17,3 +17,11 @@ export const workoutKeys = {
   list: () => [...workoutKeys.all, "list"] as const,
   detail: (id: string) => [...workoutKeys.all, id] as const,
 };
+
+export const workoutStatsKeys = {
+  all: ["workout-stats"] as const,
+};
+
+export const exerciseMuscleKeys = {
+  byIds: (ids: string[]) => ["exercise-muscles", ...ids.sort()] as const,
+};
