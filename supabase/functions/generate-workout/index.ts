@@ -10,29 +10,12 @@ const OPENROUTER_MODEL = "anthropic/claude-3.5-sonnet";
 const LLM_TIMEOUT_MS = 15_000;
 const RATE_LIMIT_SECONDS = 30;
 
-const FOCUS_AREA_MUSCLES: Record<string, string[]> = {
-  push: ["chest", "shoulders", "triceps"],
-  pull: ["back", "biceps", "forearms"],
-  legs: ["quadriceps", "hamstrings", "glutes", "calves"],
-  upper: ["chest", "shoulders", "triceps", "back", "biceps", "forearms"],
-  lower: ["quadriceps", "hamstrings", "glutes", "calves", "hip flexors"],
-  full_body: [],
-};
-
 const EXERCISE_COUNTS: Record<number, { min: number; max: number }> = {
+  15: { min: 3, max: 4 },
   30: { min: 4, max: 6 },
   45: { min: 5, max: 7 },
   60: { min: 6, max: 9 },
-};
-
-const GOAL_SET_SCHEMES: Record<
-  string,
-  { sets: number; reps: number; loadFactor: number }
-> = {
-  build_strength: { sets: 4, reps: 5, loadFactor: 0.85 },
-  lose_weight: { sets: 3, reps: 12, loadFactor: 0.6 },
-  improve_fitness: { sets: 3, reps: 10, loadFactor: 0.7 },
-  custom: { sets: 3, reps: 10, loadFactor: 0.7 },
+  90: { min: 8, max: 12 },
 };
 
 // -----------------------------------------------------------------------------
@@ -40,8 +23,18 @@ const GOAL_SET_SCHEMES: Record<
 // -----------------------------------------------------------------------------
 
 const requestSchema = z.object({
-  focus_area: z.enum(["push", "pull", "legs", "upper", "lower", "full_body"]),
-  duration_minutes: z.union([z.literal(30), z.literal(45), z.literal(60)]),
+  training_split: z.enum(["full_body", "upper_lower", "push_pull_legs"]),
+  duration_minutes: z.union([
+    z.literal(15),
+    z.literal(30),
+    z.literal(45),
+    z.literal(60),
+    z.literal(90),
+  ]),
+  equipment: z.enum(["bodyweight", "dumbbells", "barbell", "full_gym"]),
+  training_style: z.enum(["strength", "hypertrophy", "endurance", "circuit"]),
+  difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+  custom_prompt: z.string().max(500).optional(),
 });
 
 const llmSetSchema = z.object({
@@ -187,8 +180,12 @@ function summarizeHistory(sessions: HistorySession[]): string {
 
 function buildPrompt(
   profile: ProfileData,
-  focusArea: string,
+  trainingSplit: string,
   durationMinutes: number,
+  equipment: string,
+  trainingStyle: string,
+  difficulty: string,
+  customPrompt: string | undefined,
   catalog: ExerciseCatalogEntry[],
   history: HistorySession[]
 ): { system: string; user: string } {
@@ -225,18 +222,30 @@ Response JSON schema:
   ]
 }`;
 
+  const splitLabel = trainingSplit.replace(/_/g, " ");
+  const customSection = customPrompt
+    ? `\n\n## Custom Instructions\n${customPrompt}`
+    : "";
+
   const user = `## User Profile
 - Goal: ${profile.goal}${profile.custom_goal ? ` (${profile.custom_goal})` : ""}
 - Weekly frequency: ${profile.weekly_frequency} days/week
 - Gender: ${profile.gender ?? "not specified"}
 
 ## Workout Parameters
-- Focus area: ${focusArea}
+- Training split: ${splitLabel}
+- Training style: ${trainingStyle}
+- Difficulty level: ${difficulty}
+- Available equipment: ${equipment.replace(/_/g, " ")}
 - Target duration: ${durationMinutes} minutes
 - Select ${counts.min}-${counts.max} exercises
 
 ## Constraints
 - Use ONLY exercise IDs from the catalog below
+- Match exercises to the "${equipment.replace(/_/g, " ")}" equipment level
+- Tailor set/rep schemes to "${trainingStyle}" style (strength: heavy/low reps, hypertrophy: moderate/8-12 reps, endurance: light/high reps, circuit: varied/minimal rest)
+- Adjust complexity and load for "${difficulty}" level
+- For "${splitLabel}" split, choose an appropriate muscle group focus for today's session
 - Include 1 warmup set per compound exercise (lower weight, higher reps)
 - Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg
 - If feedback was "too_hard", maintain or slightly reduce load
@@ -247,31 +256,39 @@ Response JSON schema:
 ${summarizeHistory(history)}
 
 ## Exercise Catalog
-${exerciseList}`;
+${exerciseList}${customSection}`;
 
   return { system, user };
 }
 
 function buildFallbackWorkout(
   catalog: ExerciseCatalogEntry[],
-  focusArea: string,
+  trainingSplit: string,
   durationMinutes: number,
-  goal: string
+  trainingStyle: string
 ): z.infer<typeof llmResponseSchema> {
   const counts = EXERCISE_COUNTS[durationMinutes] ?? { min: 5, max: 7 };
-  const scheme = GOAL_SET_SCHEMES[goal] ?? GOAL_SET_SCHEMES.improve_fitness;
+
+  // Map training style to set/rep scheme
+  const styleSchemes: Record<
+    string,
+    { sets: number; reps: number; rest: number }
+  > = {
+    strength: { sets: 4, reps: 5, rest: 120 },
+    hypertrophy: { sets: 3, reps: 10, rest: 90 },
+    endurance: { sets: 3, reps: 15, rest: 45 },
+    circuit: { sets: 3, reps: 12, rest: 30 },
+  };
+  const scheme = styleSchemes[trainingStyle] ?? styleSchemes.hypertrophy;
 
   // Pick exercises up to max count, shuffled
   const shuffled = [...catalog].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, counts.max);
 
-  const focusLabel =
-    focusArea === "full_body"
-      ? "Full Body"
-      : focusArea.charAt(0).toUpperCase() + focusArea.slice(1);
+  const splitLabel = trainingSplit.replace(/_/g, " ");
 
   return {
-    workout_name: `${focusLabel} Workout`,
+    workout_name: `${splitLabel.charAt(0).toUpperCase() + splitLabel.slice(1)} Workout`,
     exercises: selected.map((ex) => {
       const isCompound =
         ex.primary_muscles.length > 1 ||
@@ -301,7 +318,7 @@ function buildFallbackWorkout(
       return {
         exercise_id: ex.id,
         sets: [...warmupSets, ...workingSets],
-        rest_duration_seconds: goal === "build_strength" ? 120 : 60,
+        rest_duration_seconds: scheme.rest,
         notes: null,
       };
     }),
@@ -352,7 +369,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { focus_area, duration_minutes } = parsed.data;
+    const {
+      training_split,
+      duration_minutes,
+      equipment,
+      training_style,
+      difficulty,
+      custom_prompt,
+    } = parsed.data;
 
     // 3. Rate limiting — check last generation timestamp
     const { data: recentSession } = await supabaseClient
@@ -417,16 +441,28 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 6. Fetch exercise catalog filtered by focus area
-    const muscles = FOCUS_AREA_MUSCLES[focus_area];
+    // 6. Fetch exercise catalog filtered by equipment availability
     let exerciseQuery = supabaseClient
       .from("exercises")
       .select(
         "id, name, primary_muscles, secondary_muscles, equipment, difficulty_level"
       );
 
-    if (muscles.length > 0) {
-      exerciseQuery = exerciseQuery.overlaps("primary_muscles", muscles);
+    // Filter by equipment: users with less equipment shouldn't see exercises
+    // requiring gear they don't have. "full_gym" means no filter needed.
+    if (equipment === "bodyweight") {
+      exerciseQuery = exerciseQuery.contains("equipment", ["bodyweight"]);
+    } else if (equipment === "dumbbells") {
+      exerciseQuery = exerciseQuery.overlaps("equipment", [
+        "bodyweight",
+        "dumbbells",
+      ]);
+    } else if (equipment === "barbell") {
+      exerciseQuery = exerciseQuery.overlaps("equipment", [
+        "bodyweight",
+        "dumbbells",
+        "barbell",
+      ]);
     }
 
     const { data: exercises, error: exerciseError } = await exerciseQuery
@@ -452,8 +488,12 @@ Deno.serve(async (req: Request) => {
       try {
         const prompt = buildPrompt(
           { ...profile, goal: profileGoal } as ProfileData,
-          focus_area,
+          training_split,
           duration_minutes,
+          equipment,
+          training_style,
+          difficulty,
+          custom_prompt,
           catalog,
           history
         );
@@ -532,9 +572,9 @@ Deno.serve(async (req: Request) => {
         // LLM failed — fall back to rule-based template
         workoutData = buildFallbackWorkout(
           catalog,
-          focus_area,
+          training_split,
           duration_minutes,
-          profileGoal
+          training_style
         );
         generationSource = "fallback_template";
       }
@@ -543,9 +583,9 @@ Deno.serve(async (req: Request) => {
       // No API key — use fallback
       workoutData = buildFallbackWorkout(
         catalog,
-        focus_area,
+        training_split,
         duration_minutes,
-        profileGoal
+        training_style
       );
       generationSource = "fallback_template";
     }
