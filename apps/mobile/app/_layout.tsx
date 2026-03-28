@@ -127,6 +127,14 @@ export default function RootLayout() {
                 gestureEnabled: true,
               }}
             />
+            <Stack.Screen
+              name="generate-workout"
+              options={{
+                presentation: "fullScreenModal",
+                headerShown: false,
+                gestureEnabled: true,
+              }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

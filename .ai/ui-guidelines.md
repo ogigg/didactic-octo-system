@@ -219,6 +219,40 @@ All numeric displays use `fontVariant: ['tabular-nums']` for column alignment.
   - Active: 44px circle with `primary` fill, lightning icon, green dot indicator, timer replaces label.
 - Border top: `border` color.
 
+### Back Button
+
+All screens using a custom header (i.e. `headerShown: false`) must use the `BackButton` component from `components/ui/back-button.tsx` instead of the native Expo Router header or ad-hoc back text links.
+
+**Component:** `BackButton`
+
+```typescript
+interface BackButtonProps {
+  onPress?: () => void; // Default: router.back()
+  label?: string; // Optional text next to chevron
+  accessibilityLabel?: string;
+}
+```
+
+**Visual spec:**
+
+- `chevron.left` icon, 20px, `primary` color
+- Optional label: `Typography.body`, `primary` color, `Spacing.xs` (4px) gap
+- No background (ghost style)
+- 44×44pt minimum touch target (via `hitSlop`)
+- Pressed state: `Opacity.pressed` (0.95)
+
+**Standard header layout pattern:**
+
+```
+[BackButton (44px)] — [Title centered] — [Spacer (44px) or Action]
+```
+
+The left `BackButton` and right spacer share the same width so the title is optically centered.
+
+**Convention:** Never use the native Expo Router stack header for non-tab screens. All pushed/modal screens define `headerShown: false` in `_layout.tsx` and render their own header row.
+
+---
+
 ### Bottom Sheet (Exercise Options)
 
 - Slides up from bottom with backdrop overlay.
