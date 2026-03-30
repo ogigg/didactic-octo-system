@@ -141,3 +141,34 @@ export async function upsertProfile(data: OnboardingData): Promise<void> {
     throw new Error(error.message);
   }
 }
+
+export async function fetchProfile(): Promise<{
+  onboarding_completed: boolean;
+  gender: DbGender;
+  goal: DbGoal;
+  weekly_frequency: DbFrequency;
+} | null> {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error(authError?.message ?? "Not authenticated");
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("onboarding_completed, gender, goal, weekly_frequency")
+    .eq("id", user.id)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      return null;
+    }
+    throw new Error(error.message);
+  }
+
+  return data;
+}

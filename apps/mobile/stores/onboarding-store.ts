@@ -32,6 +32,16 @@ interface OnboardingActions {
    * Returns null when onboarding is complete.
    */
   getNextUnfinishedStep: () => OnboardingStep | null;
+  /**
+   * Syncs the onboarding state with the database profile.
+   * Used on login to restore the correct onboarding state.
+   */
+  syncWithDatabase: (params: {
+    onboarding_completed: boolean;
+    gender: "male" | "female" | "prefer_not_to_say" | null;
+    goal: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+    weekly_frequency: "2" | "3" | "4" | "5_plus";
+  }) => void;
 }
 
 const initialState: OnboardingState = {
@@ -77,6 +87,34 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
         if (goal === null && !customGoal) return "goal";
         if (frequency === null) return "frequency";
         return "review";
+      },
+
+      syncWithDatabase: (params) => {
+        const { onboarding_completed, gender, goal, weekly_frequency } = params;
+
+        // Map database values to store types
+        const mappedGender: Gender | null =
+          gender === null
+            ? null
+            : gender === "prefer_not_to_say"
+              ? "other"
+              : gender;
+
+        const mappedGoal: Goal | null = goal === "custom" ? null : goal;
+
+        const mappedFrequency: Frequency =
+          weekly_frequency === "5_plus"
+            ? 5
+            : (parseInt(weekly_frequency, 10) as Frequency);
+
+        set({
+          gender: mappedGender,
+          genderSkipped: gender === null,
+          goal: mappedGoal,
+          customGoal: null,
+          frequency: mappedFrequency,
+          isCompleted: onboarding_completed,
+        });
       },
     }),
     {

@@ -150,3 +150,75 @@ describe("getNextUnfinishedStep", () => {
     expect(result.current.getNextUnfinishedStep()).toBeNull();
   });
 });
+
+describe("syncWithDatabase", () => {
+  it("syncs completed onboarding state from database", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.syncWithDatabase({
+        onboarding_completed: true,
+        gender: "male",
+        goal: "build_strength",
+        weekly_frequency: "3",
+      });
+    });
+    expect(result.current.isCompleted).toBe(true);
+    expect(result.current.gender).toBe("male");
+    expect(result.current.goal).toBe("build_strength");
+    expect(result.current.frequency).toBe(3);
+  });
+
+  it("maps prefer_not_to_say to other", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.syncWithDatabase({
+        onboarding_completed: false,
+        gender: "prefer_not_to_say",
+        goal: "improve_fitness",
+        weekly_frequency: "2",
+      });
+    });
+    expect(result.current.gender).toBe("other");
+  });
+
+  it("maps 5_plus to 5", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.syncWithDatabase({
+        onboarding_completed: false,
+        gender: null,
+        goal: "lose_weight",
+        weekly_frequency: "5_plus",
+      });
+    });
+    expect(result.current.frequency).toBe(5);
+  });
+
+  it("sets goal to null when custom goal in database", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.syncWithDatabase({
+        onboarding_completed: false,
+        gender: "female",
+        goal: "custom",
+        weekly_frequency: "4",
+      });
+    });
+    expect(result.current.goal).toBeNull();
+    expect(result.current.customGoal).toBeNull();
+  });
+
+  it("sets genderSkipped when gender is null", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.syncWithDatabase({
+        onboarding_completed: false,
+        gender: null,
+        goal: "build_strength",
+        weekly_frequency: "3",
+      });
+    });
+    expect(result.current.gender).toBeNull();
+    expect(result.current.genderSkipped).toBe(true);
+  });
+});
