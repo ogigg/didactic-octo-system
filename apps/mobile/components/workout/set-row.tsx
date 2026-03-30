@@ -16,11 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import {
-  PanGestureHandler,
-  NativeViewGestureHandler,
-  State,
-} from "react-native-gesture-handler";
+import { PanGestureHandler, State } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 interface SetRowProps {
@@ -249,12 +245,6 @@ export function SetRow({
     extrapolate: "clamp",
   });
 
-  const binIconScale = translateX.interpolate({
-    inputRange: [-80, 0],
-    outputRange: [1.15, 1.0],
-    extrapolate: "clamp",
-  });
-
   return (
     <Animated.View
       style={{ height: rowHeight, opacity: rowOpacity, overflow: "hidden" }}
@@ -277,20 +267,7 @@ export function SetRow({
               StyleSheet.absoluteFillObject,
               { backgroundColor: swipeBackgroundColor },
             ]}
-          >
-            <NativeViewGestureHandler>
-              <Pressable
-                onPress={triggerDelete}
-                accessibilityRole="button"
-                accessibilityLabel={t("exercise.removeSet")}
-                style={styles.deletePressable}
-              >
-                <Animated.View style={{ transform: [{ scale: binIconScale }] }}>
-                  <IconSymbol name="trash" size={20} color="#FFFFFF" />
-                </Animated.View>
-              </Pressable>
-            </NativeViewGestureHandler>
-          </Animated.View>
+          />
 
           {/* Row content */}
           <View style={[styles.row, set.isCompleted && styles.completedRow]}>
@@ -490,14 +467,5 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 999,
     borderWidth: 2,
-  },
-  deletePressable: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 60,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
