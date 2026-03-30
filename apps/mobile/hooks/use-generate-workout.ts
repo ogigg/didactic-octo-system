@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/profiles";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
+import { trackEvent } from "@/lib/track-event";
 
 export interface StartTrainingRequest {
   preferences: TrainingPreferences;
@@ -48,7 +49,19 @@ export function useGenerateWorkout() {
       await updateTrainingPreferences(preferences);
       return generateWorkout(request);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      // Track workout generation event
+      trackEvent("workout_generated", {
+        generation_source: data.generation_source,
+        training_split: variables.request.training_split,
+        duration_minutes: variables.request.duration_minutes,
+        equipment: variables.request.equipment,
+        training_style: variables.request.training_style,
+        difficulty: variables.request.difficulty,
+        exercise_count: data.exercises.length,
+        has_custom_prompt: !!variables.request.custom_prompt,
+      });
+
       const exercises = mapResponseToWorkoutExercises(data);
       startWorkout(data.workout_name, exercises);
       router.push("/workout");

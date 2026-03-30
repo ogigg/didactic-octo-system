@@ -41,6 +41,7 @@ import {
   formatDuration,
 } from "@/lib/workout-summary-utils";
 import type { WorkoutExercise } from "@/stores/workout-store";
+import { trackEvent } from "@/lib/track-event";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -239,11 +240,41 @@ export default function WorkoutSummaryScreen() {
       | "improve_fitness"
       | "custom" = customGoal ? "custom" : (goal ?? "improve_fitness");
 
-    saveWorkout.mutate({
-      summary,
-      goalSnapshot,
-      customGoalSnapshot: customGoal ?? undefined,
-    });
+    saveWorkout.mutate(
+      {
+        summary,
+        goalSnapshot,
+        customGoalSnapshot: customGoal ?? undefined,
+      },
+      {
+        onSuccess: () => {
+          // Track workout completion events after successful save
+          const sessionStats = computeSessionStats(summary.exercises);
+          const totalVolume = computeTotalVolume(summary.exercises);
+
+          // Track workout completion
+          trackEvent("workout_completed", {
+            workout_name: summary.workoutName,
+            exercise_count: stats.exerciseCount,
+            total_sets: stats.totalSets,
+            completed_sets: stats.completedSets,
+            completion_rate: stats.completionRate,
+            total_volume_kg: totalVolume,
+            duration_seconds: Math.floor(summary.durationMs / 1000),
+            goal_snapshot: goalSnapshot,
+            custom_goal_snapshot: customGoal ?? null,
+          });
+
+          // Track session duration
+          trackEvent("session_duration", {
+            workout_name: summary.workoutName,
+            duration_seconds: Math.floor(summary.durationMs / 1000),
+            exercise_count: stats.exerciseCount,
+            completion_rate: stats.completionRate,
+          });
+        },
+      }
+    );
   }, [summary]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save template
