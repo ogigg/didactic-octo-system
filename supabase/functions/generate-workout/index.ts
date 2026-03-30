@@ -330,17 +330,29 @@ function buildFallbackWorkout(
 // -----------------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
+  console.log("[generate-workout] Request received", {
+    method: req.method,
+    url: req.url,
+  });
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
+    console.log("[generate-workout] CORS preflight request");
     return new Response("ok", { headers: corsHeaders() });
   }
 
   try {
+    console.log("[generate-workout] Processing request");
     // 1. Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return errorResponse("Missing authorization header", 401);
     }
+
+    console.log("[generate-workout] Creating Supabase client for auth check", {
+      supabaseUrl: Deno.env.get("SUPABASE_URL"),
+      hasAuthHeader: !!authHeader,
+    });
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -350,12 +362,18 @@ Deno.serve(async (req: Request) => {
       }
     );
 
+    console.log("[generate-workout] Calling getUser()...");
     const {
       data: { user },
       error: authError,
     } = await supabaseClient.auth.getUser();
+    console.log("[generate-workout] getUser() result", {
+      user: !!user,
+      authError: authError?.message,
+    });
 
     if (authError || !user) {
+      console.log("[generate-workout] Auth check failed, returning 401");
       return errorResponse("Unauthorized", 401);
     }
 
@@ -486,6 +504,16 @@ Deno.serve(async (req: Request) => {
 
     if (openrouterKey) {
       try {
+        console.log(
+          "[generate-workout] OpenRouter API key found, attempting LLM generation",
+          {
+            url: OPENROUTER_URL,
+            model: OPENROUTER_MODEL,
+            catalogSize: catalog.length,
+            historyLength: history.length,
+          }
+        );
+
         const prompt = buildPrompt(
           { ...profile, goal: profileGoal } as ProfileData,
           training_split,
@@ -497,6 +525,8 @@ Deno.serve(async (req: Request) => {
           catalog,
           history
         );
+
+        console.log("[generate-workout] Prompt built, calling OpenRouter API");
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
@@ -522,9 +552,15 @@ Deno.serve(async (req: Request) => {
 
         clearTimeout(timeout);
 
+        console.log("[generate-workout] OpenRouter response received", {
+          status: llmResponse.status,
+          statusText: llmResponse.statusText,
+          ok: llmResponse.ok,
+        });
+
         if (!llmResponse.ok) {
           const errorBody = await llmResponse.text();
-          console.error("OpenRouter error response:", {
+          console.error("[generate-workout] OpenRouter error response:", {
             status: llmResponse.status,
             body: errorBody.slice(0, 500),
           });
@@ -536,11 +572,21 @@ Deno.serve(async (req: Request) => {
         const llmJson = await llmResponse.json();
         const content = llmJson.choices?.[0]?.message?.content;
 
+        console.log("[generate-workout] LLM response parsed", {
+          hasContent: !!content,
+          hasChoices: !!llmJson.choices?.length,
+          contentLength: content?.length ?? 0,
+        });
+
         if (!content) {
           throw new Error("Empty LLM response");
         }
 
         const parsedContent = JSON.parse(content);
+        console.log("[generate-workout] Parsed LLM JSON", {
+          exerciseCount: parsedContent.exercises?.length ?? 0,
+          workoutName: parsedContent.workout_name,
+        });
         workoutData = llmResponseSchema.parse(parsedContent);
 
         // 8. Validate exercise IDs and substitute invalid ones
@@ -610,9 +656,14 @@ Deno.serve(async (req: Request) => {
       exercises: enrichedExercises,
     });
 
+    console.log("[generate-workout] Success! Returning response", {
+      generationSource,
+      exerciseCount: response.exercises.length,
+    });
+
     return jsonResponse(response);
   } catch (err) {
-    console.error("generate-workout error:", err);
+    console.error("[generate-workout] Unhandled error:", err);
     return errorResponse("Internal server error", 500);
   }
 });
