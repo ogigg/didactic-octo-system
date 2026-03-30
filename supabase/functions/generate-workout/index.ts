@@ -6,7 +6,7 @@ import { z } from "npm:zod@3";
 // -----------------------------------------------------------------------------
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODEL = "minimax/minimax-m2.5:free";
+const OPENROUTER_MODEL = "z-ai/glm-4.7-flash";
 const LLM_TIMEOUT_MS = 15_000;
 const RATE_LIMIT_SECONDS = 30;
 
@@ -386,6 +386,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
+      console.error("[generate-workout] Invalid request:", parsed.error);
       return errorResponse(
         `Invalid request: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
         400
@@ -415,6 +416,7 @@ Deno.serve(async (req: Request) => {
       const elapsed =
         (Date.now() - new Date(recentSession.created_at).getTime()) / 1000;
       if (elapsed < RATE_LIMIT_SECONDS) {
+        console.log("[generate-workout] Rate limited, returning 429");
         return jsonResponse(
           {
             error: "Rate limited",
