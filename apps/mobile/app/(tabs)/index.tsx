@@ -28,7 +28,9 @@ const MOCK_COMPLETED = 1;
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation("home");
-  const frequency = useOnboardingStore((s) => s.frequency) ?? 3;
+  const rawFrequency = useOnboardingStore((s) => s.frequency);
+  const frequency =
+    typeof rawFrequency === "number" && !isNaN(rawFrequency) ? rawFrequency : 3;
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const isWorkoutActive = useWorkoutStore((s) => s.isActive);
   const workoutName = useWorkoutStore((s) => s.workoutName);
