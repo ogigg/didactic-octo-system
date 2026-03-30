@@ -16,6 +16,7 @@ if (!posthogKey) {
 }
 
 // Create PostHog client instance
+// PostHog client starts immediately upon creation
 export const posthog = posthogKey
   ? new PostHog(posthogKey, {
       host: posthogHost,
@@ -28,17 +29,9 @@ export const posthog = posthogKey
     })
   : null;
 
-/**
- * Initialize PostHog analytics
- * Call this once when the app starts
- */
-export function initPostHog(): void {
-  if (posthog) {
-    posthog.start();
-    if (__DEV__) {
-      console.log("[PostHog] Initialized successfully");
-    }
-  }
+// Log successful initialization
+if (posthog && __DEV__) {
+  console.log("[PostHog] Initialized successfully");
 }
 
 /**

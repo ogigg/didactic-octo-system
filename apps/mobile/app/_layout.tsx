@@ -20,7 +20,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { queryClient } from "@/lib/query-client";
 import { syncQueue } from "@/lib/sync-queue";
 import { registerSyncHandlers } from "@/lib/sync-handlers";
-import { initPostHog, flushPostHog } from "@/lib/posthog";
+import { flushPostHog } from "@/lib/posthog";
 import NetInfo from "@react-native-community/netinfo";
 
 SplashScreen.preventAutoHideAsync();
@@ -78,11 +78,6 @@ export default function RootLayout() {
       appStateSub.remove();
       appStateSubFlush?.remove();
     };
-  }, []);
-
-  // Initialize PostHog analytics
-  useEffect(() => {
-    initPostHog();
   }, []);
 
   const theme = useMemo(() => {

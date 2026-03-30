@@ -10,7 +10,7 @@ export type EventName =
   | "workout_completed"
   | "session_duration"
   | "feedback_given";
-  // Future events can be added here
+// Future events can be added here
 
 export type EventPayload = Record<string, unknown>;
 
@@ -54,7 +54,8 @@ export function trackEvent(name: EventName, payload: EventPayload = {}): void {
 export function setUserProperties(properties: Record<string, unknown>): void {
   if (posthog) {
     try {
-      posthog.identify(properties);
+      // PostHog identify sets user ID and properties
+      posthog.identify(undefined, properties);
     } catch (error) {
       console.error("[analytics] Failed to set user properties:", error);
     }
