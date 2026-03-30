@@ -10,7 +10,12 @@ import {
   upsertSessionSets,
   upsertSetLog,
 } from "@/lib/api/workouts";
-import { calendarKeys, workoutKeys, workoutStatsKeys } from "@/lib/query-keys";
+import {
+  calendarKeys,
+  statsKeys,
+  workoutKeys,
+  workoutStatsKeys,
+} from "@/lib/query-keys";
 import { syncQueue } from "@/lib/sync-queue";
 import type { WorkoutSummary } from "@/stores/workout-store";
 
@@ -56,6 +61,7 @@ export function useSaveCompletedWorkout() {
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
       queryClient.invalidateQueries({ queryKey: calendarKeys.all });
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: statsKeys.all });
     },
     onError: (_error: unknown, variables: SaveWorkoutInput) => {
       if (user) {

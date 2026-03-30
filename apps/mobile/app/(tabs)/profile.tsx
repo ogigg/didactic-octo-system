@@ -37,7 +37,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { icon: "chart.bar.fill", labelKey: "nav.statistics", disabled: true },
+  {
+    icon: "chart.bar.fill",
+    labelKey: "nav.statistics",
+    disabled: false,
+    route: "/statistics",
+  },
   {
     icon: "calendar",
     labelKey: "nav.calendar",

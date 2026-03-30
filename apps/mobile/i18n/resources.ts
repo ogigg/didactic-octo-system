@@ -9,6 +9,7 @@ import { exercisePicker } from "./locales/en/exercise-picker";
 import { generateWorkout } from "./locales/en/generate-workout";
 import { history } from "./locales/en/history";
 import { calendar } from "./locales/en/calendar";
+import { stats } from "./locales/en/stats";
 
 export const resources = {
   en: {
@@ -23,6 +24,7 @@ export const resources = {
     exercisePicker,
     generateWorkout,
     history,
+    stats,
   },
 } as const;
 

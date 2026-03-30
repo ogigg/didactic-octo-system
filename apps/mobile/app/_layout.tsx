@@ -140,6 +140,7 @@ export default function RootLayout() {
               name="workout-detail"
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="statistics" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

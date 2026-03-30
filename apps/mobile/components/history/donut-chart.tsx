@@ -48,7 +48,27 @@ export function DonutChart({
   const total = segments.reduce((sum, s) => sum + s.value, 0);
   if (total === 0) return null;
 
-  const GAP_DEG = segments.length > 1 ? 2 : 0;
+  // A single 360° arc is degenerate in SVG (start and end are the same point), so only
+  // round caps render — use a full stroke ring instead.
+  if (segments.length === 1) {
+    const only = segments[0];
+    return (
+      <View style={[styles.container, { width: size, height: size }]}>
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <Circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={only.color}
+            strokeWidth={strokeWidth}
+          />
+        </Svg>
+      </View>
+    );
+  }
+
+  const GAP_DEG = 2;
 
   let currentAngle = 0;
   const arcs = segments.map((seg) => {

@@ -31,3 +31,12 @@ export const calendarKeys = {
 export const exerciseMuscleKeys = {
   byIds: (ids: string[]) => ["exercise-muscles", ...ids.sort()] as const,
 };
+
+export const statsKeys = {
+  all: ["stats"] as const,
+  heatmap: () => [...statsKeys.all, "heatmap"] as const,
+  volume: (period: string) => [...statsKeys.all, "volume", period] as const,
+  prs: () => [...statsKeys.all, "prs"] as const,
+  muscleDistribution: (period: string) =>
+    [...statsKeys.all, "muscle-distribution", period] as const,
+};
