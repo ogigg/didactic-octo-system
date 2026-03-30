@@ -6,7 +6,7 @@ import { z } from "npm:zod@3";
 // -----------------------------------------------------------------------------
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODEL = "anthropic/claude-3.5-sonnet";
+const OPENROUTER_MODEL = "minimax/minimax-m2.5:free";
 const LLM_TIMEOUT_MS = 15_000;
 const RATE_LIMIT_SECONDS = 30;
 
@@ -356,17 +356,16 @@ Deno.serve(async (req: Request) => {
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: { headers: { Authorization: authHeader } },
-      }
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
     );
 
+    const token = authHeader.replace("Bearer ", "");
     console.log("[generate-workout] Calling getUser()...");
     const {
       data: { user },
       error: authError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseClient.auth.getUser(token);
     console.log("[generate-workout] getUser() result", {
       user: !!user,
       authError: authError?.message,
@@ -376,6 +375,12 @@ Deno.serve(async (req: Request) => {
       console.log("[generate-workout] Auth check failed, returning 401");
       return errorResponse("Unauthorized", 401);
     }
+
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
     // 2. Parse and validate request
     const body = await req.json();
@@ -397,7 +402,7 @@ Deno.serve(async (req: Request) => {
     } = parsed.data;
 
     // 3. Rate limiting — check last generation timestamp
-    const { data: recentSession } = await supabaseClient
+    const { data: recentSession } = await userClient
       .from("workout_sessions")
       .select("created_at")
       .eq("user_id", user.id)
@@ -421,7 +426,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // 4. Fetch profile
-    const { data: profile, error: profileError } = await supabaseClient
+    const { data: profile, error: profileError } = await userClient
       .from("profiles")
       .select("goal, custom_goal, weekly_frequency, gender")
       .eq("id", user.id)
@@ -438,7 +443,7 @@ Deno.serve(async (req: Request) => {
     const profileGoal: string = profile.goal ?? "improve_fitness";
 
     // 5. Fetch recent workout history (last 4 completed sessions)
-    const { data: recentSessions } = await supabaseClient
+    const { data: recentSessions } = await userClient
       .from("workout_sessions")
       .select("id")
       .eq("user_id", user.id)
@@ -449,7 +454,7 @@ Deno.serve(async (req: Request) => {
     const history: HistorySession[] = [];
     if (recentSessions?.length) {
       for (const session of recentSessions) {
-        const { data: detail } = await supabaseClient.rpc(
+        const { data: detail } = await userClient.rpc(
           "get_workout_session_detail",
           { p_session_id: session.id }
         );
@@ -460,7 +465,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // 6. Fetch exercise catalog filtered by equipment availability
-    let exerciseQuery = supabaseClient
+    let exerciseQuery = userClient
       .from("exercises")
       .select(
         "id, name, primary_muscles, secondary_muscles, equipment, difficulty_level"
