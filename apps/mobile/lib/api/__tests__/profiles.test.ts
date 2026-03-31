@@ -13,6 +13,12 @@ import type { Frequency } from "@/stores/onboarding-store";
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
+const baseOnboardingData = {
+  equipment: "full_gym" as const,
+  experience: "intermediate" as const,
+  strengthBaselines: [],
+};
+
 describe("mapOnboardingToProfile", () => {
   it("maps standard goal and gender", () => {
     const result = mapOnboardingToProfile({
@@ -20,9 +26,10 @@ describe("mapOnboardingToProfile", () => {
       goal: "build_strength",
       customGoal: null,
       frequency: 3,
+      ...baseOnboardingData,
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       gender: "male",
       goal: "build_strength",
       custom_goal: null,
@@ -37,6 +44,7 @@ describe("mapOnboardingToProfile", () => {
       goal: "lose_weight",
       customGoal: null,
       frequency: 2,
+      ...baseOnboardingData,
     });
 
     expect(result.gender).toBe("prefer_not_to_say");
@@ -48,6 +56,7 @@ describe("mapOnboardingToProfile", () => {
       goal: "improve_fitness",
       customGoal: null,
       frequency: 4,
+      ...baseOnboardingData,
     });
 
     expect(result.gender).toBeNull();
@@ -59,6 +68,7 @@ describe("mapOnboardingToProfile", () => {
       goal: "build_strength",
       customGoal: null,
       frequency: 5,
+      ...baseOnboardingData,
     });
 
     expect(result.weekly_frequency).toBe("5_plus");
@@ -71,6 +81,7 @@ describe("mapOnboardingToProfile", () => {
         goal: "build_strength",
         customGoal: null,
         frequency: freq,
+        ...baseOnboardingData,
       });
       expect(result.weekly_frequency).toBe(String(freq));
     }
@@ -82,6 +93,7 @@ describe("mapOnboardingToProfile", () => {
       goal: null,
       customGoal: "Run a marathon",
       frequency: 3,
+      ...baseOnboardingData,
     });
 
     expect(result.goal).toBe("custom");
@@ -95,6 +107,7 @@ describe("mapOnboardingToProfile", () => {
         goal: null,
         customGoal: null,
         frequency: 3,
+        ...baseOnboardingData,
       })
     ).toThrow();
   });
@@ -106,8 +119,28 @@ describe("mapOnboardingToProfile", () => {
         goal: null,
         customGoal: "a".repeat(501),
         frequency: 3,
+        ...baseOnboardingData,
       })
     ).toThrow();
+  });
+
+  it("derives training preferences from onboarding data", () => {
+    const result = mapOnboardingToProfile({
+      gender: "male",
+      goal: "build_strength",
+      customGoal: null,
+      frequency: 4,
+      equipment: "full_gym",
+      experience: "intermediate",
+      strengthBaselines: [],
+    });
+
+    expect(result.training_split).toBe("upper_lower");
+    expect(result.training_style).toBe("strength");
+    expect(result.session_duration_minutes).toBe(45);
+    expect(result.equipment_level).toBe("full_gym");
+    expect(result.difficulty_level).toBe("intermediate");
+    expect(result.training_setup_completed).toBe(true);
   });
 });
 
@@ -130,6 +163,7 @@ describe("upsertProfile", () => {
       goal: "build_strength",
       customGoal: null,
       frequency: 3,
+      ...baseOnboardingData,
     });
 
     expect(mockSupabase.from).toHaveBeenCalledWith("profiles");
@@ -156,6 +190,7 @@ describe("upsertProfile", () => {
         goal: "build_strength",
         customGoal: null,
         frequency: 2,
+        ...baseOnboardingData,
       })
     ).rejects.toThrow("not authenticated");
   });
@@ -182,6 +217,7 @@ describe("upsertProfile", () => {
         goal: "build_strength",
         customGoal: null,
         frequency: 2,
+        ...baseOnboardingData,
       })
     ).rejects.toThrow("RLS violation");
   });

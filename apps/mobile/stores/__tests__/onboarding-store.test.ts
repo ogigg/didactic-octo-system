@@ -98,11 +98,15 @@ describe("reset", () => {
     act(() => {
       result.current.setGender("female");
       result.current.setFrequency(3);
+      result.current.setEquipment("full_gym");
+      result.current.setExperience("intermediate");
       result.current.complete();
     });
     act(() => result.current.reset());
     expect(result.current.gender).toBeNull();
     expect(result.current.frequency).toBeNull();
+    expect(result.current.equipment).toBeNull();
+    expect(result.current.experience).toBeNull();
     expect(result.current.isCompleted).toBe(false);
   });
 });
@@ -134,12 +138,35 @@ describe("getNextUnfinishedStep", () => {
     expect(result.current.getNextUnfinishedStep()).toBe("frequency");
   });
 
-  it("returns review after all steps are answered", () => {
+  it("returns equipment after frequency is answered", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.skipGender();
+      result.current.setGoal("lose_weight");
+      result.current.setFrequency(3);
+    });
+    expect(result.current.getNextUnfinishedStep()).toBe("equipment");
+  });
+
+  it("returns experience after equipment is answered", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.skipGender();
+      result.current.setGoal("lose_weight");
+      result.current.setFrequency(3);
+      result.current.setEquipment("full_gym");
+    });
+    expect(result.current.getNextUnfinishedStep()).toBe("experience");
+  });
+
+  it("returns review after all required steps are answered", () => {
     const { result } = renderHook(() => useOnboardingStore());
     act(() => {
       result.current.skipGender();
       result.current.setGoal("build_strength");
       result.current.setFrequency(3);
+      result.current.setEquipment("full_gym");
+      result.current.setExperience("intermediate");
     });
     expect(result.current.getNextUnfinishedStep()).toBe("review");
   });
@@ -160,6 +187,8 @@ describe("syncWithDatabase", () => {
         gender: "male",
         goal: "build_strength",
         weekly_frequency: "3",
+        equipment_level: "full_gym",
+        difficulty_level: "intermediate",
       });
     });
     expect(result.current.isCompleted).toBe(true);
@@ -176,6 +205,8 @@ describe("syncWithDatabase", () => {
         gender: "prefer_not_to_say",
         goal: "improve_fitness",
         weekly_frequency: "2",
+        equipment_level: null,
+        difficulty_level: null,
       });
     });
     expect(result.current.gender).toBe("other");
@@ -189,6 +220,8 @@ describe("syncWithDatabase", () => {
         gender: null,
         goal: "lose_weight",
         weekly_frequency: "5_plus",
+        equipment_level: null,
+        difficulty_level: null,
       });
     });
     expect(result.current.frequency).toBe(5);
@@ -202,6 +235,8 @@ describe("syncWithDatabase", () => {
         gender: "female",
         goal: "custom",
         weekly_frequency: "4",
+        equipment_level: null,
+        difficulty_level: null,
       });
     });
     expect(result.current.goal).toBeNull();
@@ -216,6 +251,8 @@ describe("syncWithDatabase", () => {
         gender: null,
         goal: "build_strength",
         weekly_frequency: "3",
+        equipment_level: null,
+        difficulty_level: null,
       });
     });
     expect(result.current.gender).toBeNull();

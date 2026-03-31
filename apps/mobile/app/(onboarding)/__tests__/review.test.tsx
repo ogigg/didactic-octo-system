@@ -24,9 +24,16 @@ const mockComplete = jest.fn();
 const fullStore = {
   gender: "male" as const,
   genderSkipped: false,
-  goal: "lose_weight" as const,
+  goal: "build_strength" as const,
   customGoal: null,
   frequency: 4 as const,
+  equipment: "full_gym" as const,
+  experience: "intermediate" as const,
+  strengthBaselines: [] as Array<{
+    exercise_key: string;
+    load_kg: number | null;
+    reps: number;
+  }>,
   complete: mockComplete,
 };
 
@@ -39,7 +46,7 @@ describe("ReviewScreen", () => {
   it("displays all answered values", () => {
     render(<ReviewScreen />);
     expect(screen.getByText("Male")).toBeTruthy();
-    expect(screen.getByText("Lose Weight")).toBeTruthy();
+    expect(screen.getByText("Build Strength")).toBeTruthy();
     expect(screen.getByText("4 days per week")).toBeTruthy();
   });
 

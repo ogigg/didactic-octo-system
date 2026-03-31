@@ -5,7 +5,22 @@ import { createJSONStorage, persist } from "zustand/middleware";
 export type Gender = "male" | "female" | "other";
 export type Goal = "build_strength" | "lose_weight" | "improve_fitness";
 export type Frequency = 2 | 3 | 4 | 5; // 5 represents "5+" — downstream uses "5 or more days per week"
-export type OnboardingStep = "gender" | "goal" | "frequency" | "review";
+export type Equipment = "bodyweight" | "dumbbells" | "full_gym";
+export type Experience = "beginner" | "intermediate" | "advanced";
+export type OnboardingStep =
+  | "gender"
+  | "goal"
+  | "frequency"
+  | "equipment"
+  | "experience"
+  | "strength"
+  | "review";
+
+export interface StrengthBaseline {
+  exercise_key: string;
+  load_kg: number | null;
+  reps: number;
+}
 
 interface OnboardingState {
   gender: Gender | null;
@@ -15,6 +30,9 @@ interface OnboardingState {
   /** Overrides goal when non-empty. Clearing via setGoal() resets this to null. */
   customGoal: string | null;
   frequency: Frequency | null;
+  equipment: Equipment | null;
+  experience: Experience | null;
+  strengthBaselines: StrengthBaseline[];
   isCompleted: boolean;
 }
 
@@ -25,6 +43,9 @@ interface OnboardingActions {
   /** Empty string clears the custom goal back to null. */
   setCustomGoal: (text: string) => void;
   setFrequency: (freq: Frequency) => void;
+  setEquipment: (equipment: Equipment) => void;
+  setExperience: (experience: Experience) => void;
+  setStrengthBaselines: (baselines: StrengthBaseline[]) => void;
   complete: () => void;
   reset: () => void;
   /**
@@ -41,6 +62,8 @@ interface OnboardingActions {
     gender: "male" | "female" | "prefer_not_to_say" | null;
     goal: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
     weekly_frequency: "2" | "3" | "4" | "5_plus";
+    equipment_level: string | null;
+    difficulty_level: string | null;
   }) => void;
 }
 
@@ -50,6 +73,9 @@ const initialState: OnboardingState = {
   goal: null,
   customGoal: null,
   frequency: null,
+  equipment: null,
+  experience: null,
+  strengthBaselines: [],
   isCompleted: false,
 };
 
@@ -69,6 +95,12 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
 
       setFrequency: (frequency) => set({ frequency }),
 
+      setEquipment: (equipment) => set({ equipment }),
+
+      setExperience: (experience) => set({ experience }),
+
+      setStrengthBaselines: (strengthBaselines) => set({ strengthBaselines }),
+
       complete: () => set({ isCompleted: true }),
 
       reset: () => set(initialState),
@@ -76,21 +108,33 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
       getNextUnfinishedStep: () => {
         const {
           isCompleted,
-          frequency,
-          goal,
-          customGoal,
           gender,
           genderSkipped,
+          goal,
+          customGoal,
+          frequency,
+          equipment,
+          experience,
         } = get();
         if (isCompleted) return null;
         if (gender === null && !genderSkipped) return "gender";
         if (goal === null && !customGoal) return "goal";
         if (frequency === null) return "frequency";
+        if (equipment === null) return "equipment";
+        if (experience === null) return "experience";
+        // strength is optional — skip to review if not filled
         return "review";
       },
 
       syncWithDatabase: (params) => {
-        const { onboarding_completed, gender, goal, weekly_frequency } = params;
+        const {
+          onboarding_completed,
+          gender,
+          goal,
+          weekly_frequency,
+          equipment_level,
+          difficulty_level,
+        } = params;
 
         // Map database values to store types
         const mappedGender: Gender | null =
@@ -107,12 +151,23 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
             ? 5
             : (parseInt(weekly_frequency, 10) as Frequency);
 
+        const mappedEquipment: Equipment | null = equipment_level
+          ? (equipment_level as Equipment)
+          : null;
+
+        const mappedExperience: Experience | null = difficulty_level
+          ? (difficulty_level as Experience)
+          : null;
+
         set({
           gender: mappedGender,
           genderSkipped: gender === null,
           goal: mappedGoal,
           customGoal: null,
           frequency: mappedFrequency,
+          equipment: mappedEquipment,
+          experience: mappedExperience,
+          strengthBaselines: [],
           isCompleted: onboarding_completed,
         });
       },

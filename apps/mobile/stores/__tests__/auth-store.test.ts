@@ -138,10 +138,12 @@ describe("useAuthStore", () => {
     it("syncs onboarding state when session exists on init", async () => {
       const mockSession = { user: { id: "123" } } as never;
       const mockProfile = {
-        onboarding_completed: true,
-        gender: "male",
-        goal: "build_strength",
-        weekly_frequency: "3",
+        onboarding_completed: true as const,
+        gender: "male" as const,
+        goal: "build_strength" as const,
+        weekly_frequency: "3" as const,
+        equipment_level: "full_gym" as const,
+        difficulty_level: "intermediate" as const,
       };
 
       (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
@@ -201,10 +203,12 @@ describe("useAuthStore", () => {
     it("syncs onboarding state on auth state change to signed in", async () => {
       const mockSession = { user: { id: "456" } } as never;
       const mockProfile = {
-        onboarding_completed: false,
-        gender: "female",
-        goal: "lose_weight",
-        weekly_frequency: "4",
+        onboarding_completed: false as const,
+        gender: "female" as const,
+        goal: "lose_weight" as const,
+        weekly_frequency: "4" as const,
+        equipment_level: null as string | null,
+        difficulty_level: null as string | null,
       };
       let capturedCallback: (event: string, session: unknown) => void;
 

@@ -1,10 +1,12 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
+import type { Equipment } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import {
   SafeAreaView,
   ScrollView,
@@ -14,45 +16,58 @@ import {
   View,
 } from "react-native";
 
-type GenderOption = { label: string; value: "male" | "female" | "other" };
+type EquipmentOption = {
+  label: string;
+  description: string;
+  value: Equipment;
+  icon: keyof typeof Ionicons.glyphMap;
+};
 
-const OPTIONS: GenderOption[] = [
-  { label: "Male", value: "male" },
-  { label: "Female", value: "female" },
-  { label: "Other", value: "other" },
+const OPTIONS: EquipmentOption[] = [
+  {
+    label: "Home",
+    description: "Bodyweight exercises only",
+    value: "bodyweight",
+    icon: "home-outline",
+  },
+  {
+    label: "Home Gym",
+    description: "Dumbbells & basic equipment",
+    value: "dumbbells",
+    icon: "barbell-outline",
+  },
+  {
+    label: "Full Gym",
+    description: "Barbells, machines, cables",
+    value: "full_gym",
+    icon: "fitness-outline",
+  },
 ];
 
-export default function GenderScreen() {
-  const { gender, setGender, skipGender } = useOnboardingStore();
+export default function EquipmentScreen() {
+  const { equipment, setEquipment } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
 
   const primary = useThemeColor({}, "primary");
+  const primarySurface = useThemeColor({}, "primarySurface");
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
-  function handleSelect(value: "male" | "female" | "other") {
-    setGender(value);
-  }
+  const canContinue = equipment !== null;
 
   function handleContinue() {
-    trackEvent("onboarding_step_completed", { step: "gender", skipped: false });
+    if (!canContinue) return;
+    trackEvent("onboarding_step_completed", {
+      step: "equipment",
+      skipped: false,
+    });
     if (editMode === "1") {
       router.back();
     } else {
-      router.push("/(onboarding)/goal");
-    }
-  }
-
-  function handleSkip() {
-    skipGender();
-    trackEvent("onboarding_step_completed", { step: "gender", skipped: true });
-    if (editMode === "1") {
-      router.back();
-    } else {
-      router.push("/(onboarding)/goal");
+      router.push("/(onboarding)/experience");
     }
   }
 
@@ -60,12 +75,11 @@ export default function GenderScreen() {
     <View style={styles.root}>
       <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
-        {/* Progress bar */}
         <View style={styles.progressRow}>
           <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
+          <View style={[styles.segment, { backgroundColor: primary }]} />
+          <View style={[styles.segment, { backgroundColor: primary }]} />
+          <View style={[styles.segment, { backgroundColor: primary }]} />
           <View style={[styles.segment, { backgroundColor: border }]} />
           <View style={[styles.segment, { backgroundColor: border }]} />
         </View>
@@ -77,33 +91,71 @@ export default function GenderScreen() {
           <Text
             style={[Typography.label, { color: textMuted }, styles.stepLabel]}
           >
-            STEP 1 OF 6
+            STEP 4 OF 6
           </Text>
           <Text
             style={[Typography.titleLg, { color: textColor }, styles.title]}
           >
-            About you
+            Where do you work out?
           </Text>
           <Text
             style={[Typography.body, { color: textSecondary }, styles.subtitle]}
           >
-            How should we address you? This is optional.
+            This helps us pick the right exercises for you.
           </Text>
 
           {OPTIONS.map((opt) => {
-            const selected = gender === opt.value;
+            const selected = equipment === opt.value;
             return (
               <TouchableOpacity
                 key={opt.value}
-                onPress={() => handleSelect(opt.value)}
+                onPress={() => setEquipment(opt.value)}
                 style={[
-                  styles.row,
-                  selected && { backgroundColor: backgroundSubtle },
+                  styles.card,
+                  {
+                    backgroundColor: selected
+                      ? primarySurface
+                      : backgroundSubtle,
+                    borderColor: selected ? primary : border,
+                  },
                 ]}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
-                accessibilityLabel={opt.label}
+                accessibilityLabel={`${opt.label} — ${opt.description}`}
+                activeOpacity={0.7}
               >
+                <View
+                  style={[
+                    styles.iconCircle,
+                    {
+                      backgroundColor: selected ? primary : backgroundSubtle,
+                      borderColor: selected ? primary : border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={22}
+                    color={selected ? "#FFFFFF" : textSecondary}
+                  />
+                </View>
+
+                <View style={styles.cardText}>
+                  <Text
+                    style={[
+                      Typography.titleSm,
+                      {
+                        color: selected ? textColor : textSecondary,
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  <Text style={[Typography.caption, { color: textMuted }]}>
+                    {opt.description}
+                  </Text>
+                </View>
+
                 <View style={styles.radioOuter}>
                   {selected && (
                     <View
@@ -117,14 +169,6 @@ export default function GenderScreen() {
                     ]}
                   />
                 </View>
-                <Text
-                  style={[
-                    Typography.titleSm,
-                    { color: selected ? textColor : textSecondary },
-                  ]}
-                >
-                  {opt.label}
-                </Text>
               </TouchableOpacity>
             );
           })}
@@ -134,13 +178,8 @@ export default function GenderScreen() {
           <Button
             label="Continue"
             onPress={handleContinue}
-            accessibilityLabel="Continue to goal selection"
-          />
-          <Button
-            label="Skip this step"
-            onPress={handleSkip}
-            variant="ghost"
-            accessibilityLabel="Skip gender selection, go to goal"
+            disabled={!canContinue}
+            accessibilityLabel="Continue to experience level"
           />
         </View>
       </SafeAreaView>
@@ -158,27 +197,30 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     marginBottom: Spacing["2xl"],
   },
-  segment: {
-    flex: 1,
-    height: 3,
-    borderRadius: Radii.full,
-  },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: Spacing.xl,
-  },
+  segment: { flex: 1, height: 3, borderRadius: Radii.full },
+  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xl },
   stepLabel: { marginBottom: Spacing.sm },
   title: { marginBottom: Spacing.sm },
   subtitle: { marginBottom: Spacing["3xl"] },
-  row: {
+  card: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    minHeight: 48,
     paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radii.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radii.md,
+    borderWidth: 1.5,
+    marginBottom: Spacing.md,
   },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: Radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  cardText: { flex: 1 },
   radioOuter: {
     width: 20,
     height: 20,
@@ -192,15 +234,6 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
     borderWidth: 2,
   },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: Radii.full,
-    zIndex: 1,
-  },
-  actions: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.lg,
-    gap: Spacing.md,
-  },
+  radioInner: { width: 10, height: 10, borderRadius: Radii.full, zIndex: 1 },
+  actions: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.lg },
 });

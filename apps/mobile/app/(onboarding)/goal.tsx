@@ -62,6 +62,9 @@ export default function GoalScreen() {
           <View style={[styles.segment, { backgroundColor: primary }]} />
           <View style={[styles.segment, { backgroundColor: primary }]} />
           <View style={[styles.segment, { backgroundColor: border }]} />
+          <View style={[styles.segment, { backgroundColor: border }]} />
+          <View style={[styles.segment, { backgroundColor: border }]} />
+          <View style={[styles.segment, { backgroundColor: border }]} />
         </View>
 
         <ScrollView
@@ -71,7 +74,7 @@ export default function GoalScreen() {
           <Text
             style={[Typography.label, { color: textMuted }, styles.stepLabel]}
           >
-            STEP 2 OF 3
+            STEP 2 OF 6
           </Text>
           <Text
             style={[Typography.titleLg, { color: textColor }, styles.title]}

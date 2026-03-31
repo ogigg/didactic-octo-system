@@ -1,11 +1,12 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
-import type { Frequency } from "@/stores/onboarding-store";
+import type { Experience } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import {
   SafeAreaView,
   ScrollView,
@@ -15,38 +16,58 @@ import {
   View,
 } from "react-native";
 
-type FreqOption = { label: string; value: Frequency };
+type ExperienceOption = {
+  label: string;
+  description: string;
+  value: Experience;
+  icon: keyof typeof Ionicons.glyphMap;
+};
 
-const OPTIONS: FreqOption[] = [
-  { label: "2 days per week", value: 2 },
-  { label: "3 days per week", value: 3 },
-  { label: "4 days per week", value: 4 },
-  { label: "5+ days per week", value: 5 },
+const OPTIONS: ExperienceOption[] = [
+  {
+    label: "Just Starting",
+    description: "Never trained or less than a month",
+    value: "beginner",
+    icon: "leaf-outline",
+  },
+  {
+    label: "A Few Months",
+    description: "Been training 1–6 months",
+    value: "intermediate",
+    icon: "trending-up-outline",
+  },
+  {
+    label: "Over a Year",
+    description: "Consistent training 1+ years",
+    value: "advanced",
+    icon: "trophy-outline",
+  },
 ];
 
-export default function FrequencyScreen() {
-  const { frequency, setFrequency } = useOnboardingStore();
+export default function ExperienceScreen() {
+  const { experience, setExperience } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
 
   const primary = useThemeColor({}, "primary");
+  const primarySurface = useThemeColor({}, "primarySurface");
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
-  const canContinue = frequency !== null;
+  const canContinue = experience !== null;
 
   function handleContinue() {
     if (!canContinue) return;
     trackEvent("onboarding_step_completed", {
-      step: "frequency",
+      step: "experience",
       skipped: false,
     });
     if (editMode === "1") {
       router.back();
     } else {
-      router.push("/(onboarding)/equipment");
+      router.push("/(onboarding)/strength");
     }
   }
 
@@ -58,8 +79,8 @@ export default function FrequencyScreen() {
           <View style={[styles.segment, { backgroundColor: primary }]} />
           <View style={[styles.segment, { backgroundColor: primary }]} />
           <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
+          <View style={[styles.segment, { backgroundColor: primary }]} />
+          <View style={[styles.segment, { backgroundColor: primary }]} />
           <View style={[styles.segment, { backgroundColor: border }]} />
         </View>
 
@@ -70,33 +91,71 @@ export default function FrequencyScreen() {
           <Text
             style={[Typography.label, { color: textMuted }, styles.stepLabel]}
           >
-            STEP 3 OF 6
+            STEP 5 OF 6
           </Text>
           <Text
             style={[Typography.titleLg, { color: textColor }, styles.title]}
           >
-            How often?
+            How long have you been training?
           </Text>
           <Text
             style={[Typography.body, { color: textSecondary }, styles.subtitle]}
           >
-            How many days per week do you want to train?
+            We'll adjust difficulty and volume to match.
           </Text>
 
           {OPTIONS.map((opt) => {
-            const selected = frequency === opt.value;
+            const selected = experience === opt.value;
             return (
               <TouchableOpacity
                 key={opt.value}
-                onPress={() => setFrequency(opt.value)}
+                onPress={() => setExperience(opt.value)}
                 style={[
-                  styles.row,
-                  selected && { backgroundColor: backgroundSubtle },
+                  styles.card,
+                  {
+                    backgroundColor: selected
+                      ? primarySurface
+                      : backgroundSubtle,
+                    borderColor: selected ? primary : border,
+                  },
                 ]}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
-                accessibilityLabel={opt.label}
+                accessibilityLabel={`${opt.label} — ${opt.description}`}
+                activeOpacity={0.7}
               >
+                <View
+                  style={[
+                    styles.iconCircle,
+                    {
+                      backgroundColor: selected ? primary : backgroundSubtle,
+                      borderColor: selected ? primary : border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={22}
+                    color={selected ? "#FFFFFF" : textSecondary}
+                  />
+                </View>
+
+                <View style={styles.cardText}>
+                  <Text
+                    style={[
+                      Typography.titleSm,
+                      {
+                        color: selected ? textColor : textSecondary,
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  <Text style={[Typography.caption, { color: textMuted }]}>
+                    {opt.description}
+                  </Text>
+                </View>
+
                 <View style={styles.radioOuter}>
                   {selected && (
                     <View
@@ -110,14 +169,6 @@ export default function FrequencyScreen() {
                     ]}
                   />
                 </View>
-                <Text
-                  style={[
-                    Typography.titleSm,
-                    { color: selected ? textColor : textSecondary },
-                  ]}
-                >
-                  {opt.label}
-                </Text>
               </TouchableOpacity>
             );
           })}
@@ -128,7 +179,7 @@ export default function FrequencyScreen() {
             label="Continue"
             onPress={handleContinue}
             disabled={!canContinue}
-            accessibilityLabel="Continue to review"
+            accessibilityLabel="Continue to strength baseline"
           />
         </View>
       </SafeAreaView>
@@ -151,15 +202,25 @@ const styles = StyleSheet.create({
   stepLabel: { marginBottom: Spacing.sm },
   title: { marginBottom: Spacing.sm },
   subtitle: { marginBottom: Spacing["3xl"] },
-  row: {
+  card: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    minHeight: 48,
     paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radii.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radii.md,
+    borderWidth: 1.5,
+    marginBottom: Spacing.md,
   },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: Radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  cardText: { flex: 1 },
   radioOuter: {
     width: 20,
     height: 20,

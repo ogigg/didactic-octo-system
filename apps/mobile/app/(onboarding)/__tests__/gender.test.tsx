@@ -38,7 +38,7 @@ describe("GenderScreen", () => {
 
   it("renders step label and title", () => {
     render(<GenderScreen />);
-    expect(screen.getByText("STEP 1 OF 3")).toBeTruthy();
+    expect(screen.getByText("STEP 1 OF 6")).toBeTruthy();
     expect(screen.getByText("About you")).toBeTruthy();
   });
 

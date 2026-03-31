@@ -69,7 +69,7 @@ describe("FrequencyScreen", () => {
     });
     render(<FrequencyScreen />);
     fireEvent.press(screen.getByRole("button", { name: /continue/i }));
-    expect(router.push).toHaveBeenCalledWith("/(onboarding)/review");
+    expect(router.push).toHaveBeenCalledWith("/(onboarding)/equipment");
   });
 
   it("in editMode, Continue calls router.back", () => {

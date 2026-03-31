@@ -1,10 +1,17 @@
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
-import type { Frequency, Gender, Goal } from "@/stores/onboarding-store";
+import type {
+  Frequency,
+  Gender,
+  Goal,
+  Equipment,
+  Experience,
+  StrengthBaseline,
+} from "@/stores/onboarding-store";
 import type {
   DurationMinutes,
-  Equipment,
+  Equipment as TrainingEquipment,
   TrainingStyle,
   Difficulty,
   TrainingSplit,
@@ -21,6 +28,12 @@ interface ProfilePayload {
   custom_goal: string | null;
   weekly_frequency: DbFrequency;
   onboarding_completed: boolean;
+  training_split: TrainingSplit;
+  session_duration_minutes: DurationMinutes;
+  equipment_level: TrainingEquipment;
+  training_style: TrainingStyle;
+  difficulty_level: Difficulty;
+  training_setup_completed: boolean;
 }
 
 export interface OnboardingData {
@@ -28,6 +41,9 @@ export interface OnboardingData {
   goal: Goal | null;
   customGoal: string | null;
   frequency: Frequency;
+  equipment: Equipment;
+  experience: Experience;
+  strengthBaselines: StrengthBaseline[];
 }
 
 const profileSchema = z
@@ -42,6 +58,12 @@ const profileSchema = z
     custom_goal: z.string().max(500).nullable(),
     weekly_frequency: z.enum(["2", "3", "4", "5_plus"]),
     onboarding_completed: z.literal(true),
+    training_split: z.enum(["full_body", "upper_lower", "push_pull_legs"]),
+    session_duration_minutes: z.number(),
+    equipment_level: z.enum(["bodyweight", "dumbbells", "barbell", "full_gym"]),
+    training_style: z.enum(["strength", "hypertrophy", "endurance", "circuit"]),
+    difficulty_level: z.enum(["beginner", "intermediate", "advanced"]),
+    training_setup_completed: z.literal(true),
   })
   .refine((data) => data.goal !== "custom" || data.custom_goal !== null, {
     message: "custom_goal is required when goal is 'custom'",
@@ -71,6 +93,55 @@ function mapGoal(
   throw new Error("Either goal or customGoal must be provided");
 }
 
+/** Derive training split from weekly frequency */
+function deriveSplit(frequency: Frequency): TrainingSplit {
+  if (frequency <= 3) return "full_body";
+  if (frequency === 4) return "upper_lower";
+  return "push_pull_legs";
+}
+
+/** Derive training style from goal */
+function deriveStyle(
+  goal: Goal | null,
+  customGoal: string | null
+): TrainingStyle {
+  if (customGoal) return "hypertrophy"; // sensible default for custom goals
+  switch (goal) {
+    case "build_strength":
+      return "strength";
+    case "lose_weight":
+      return "circuit";
+    case "improve_fitness":
+      return "hypertrophy";
+    default:
+      return "hypertrophy";
+  }
+}
+
+/** Derive session duration from experience level */
+function deriveDuration(experience: Experience): DurationMinutes {
+  switch (experience) {
+    case "beginner":
+      return 30 as DurationMinutes;
+    case "intermediate":
+      return 45 as DurationMinutes;
+    case "advanced":
+      return 60 as DurationMinutes;
+  }
+}
+
+/** Map onboarding equipment to training equipment type */
+function mapEquipment(equipment: Equipment): TrainingEquipment {
+  switch (equipment) {
+    case "bodyweight":
+      return "bodyweight";
+    case "dumbbells":
+      return "dumbbells";
+    case "full_gym":
+      return "full_gym";
+  }
+}
+
 export function mapOnboardingToProfile(
   data: OnboardingData
 ): Omit<ProfilePayload, "id"> {
@@ -82,15 +153,21 @@ export function mapOnboardingToProfile(
     custom_goal,
     weekly_frequency: mapFrequency(data.frequency),
     onboarding_completed: true as const,
+    training_split: deriveSplit(data.frequency),
+    session_duration_minutes: deriveDuration(data.experience),
+    equipment_level: mapEquipment(data.equipment),
+    training_style: deriveStyle(data.goal, data.customGoal),
+    difficulty_level: data.experience,
+    training_setup_completed: true as const,
   };
 
-  return profileSchema.parse(mapped);
+  return profileSchema.parse(mapped) as Omit<ProfilePayload, "id">;
 }
 
 export interface TrainingPreferences {
   training_split: TrainingSplit;
   session_duration_minutes: DurationMinutes;
-  equipment_level: Equipment;
+  equipment_level: TrainingEquipment;
   training_style: TrainingStyle;
   difficulty_level: Difficulty;
   training_custom_prompt: string | null;
@@ -140,6 +217,31 @@ export async function upsertProfile(data: OnboardingData): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+
+  // Save strength baselines if provided
+  if (data.strengthBaselines.length > 0) {
+    await upsertStrengthBaselines(user.id, data.strengthBaselines);
+  }
+}
+
+async function upsertStrengthBaselines(
+  userId: string,
+  baselines: StrengthBaseline[]
+): Promise<void> {
+  const rows = baselines.map((b) => ({
+    user_id: userId,
+    exercise_key: b.exercise_key,
+    load_kg: b.load_kg,
+    reps: b.reps,
+  }));
+
+  const { error } = await supabase
+    .from("strength_baselines")
+    .upsert(rows, { onConflict: "user_id,exercise_key" });
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function fetchProfile(): Promise<{
@@ -147,6 +249,8 @@ export async function fetchProfile(): Promise<{
   gender: DbGender;
   goal: DbGoal;
   weekly_frequency: DbFrequency;
+  equipment_level: string | null;
+  difficulty_level: string | null;
 } | null> {
   const {
     data: { user },
@@ -159,7 +263,9 @@ export async function fetchProfile(): Promise<{
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("onboarding_completed, gender, goal, weekly_frequency")
+    .select(
+      "onboarding_completed, gender, goal, weekly_frequency, equipment_level, difficulty_level"
+    )
     .eq("id", user.id)
     .single();
 

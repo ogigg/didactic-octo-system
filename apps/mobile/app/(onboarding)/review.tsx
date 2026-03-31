@@ -1,6 +1,12 @@
 import { useUpsertProfile } from "@/hooks/use-profile-mutations";
 import { useOnboardingStore } from "@/stores/onboarding-store";
-import type { Frequency, Gender, Goal } from "@/stores/onboarding-store";
+import type {
+  Frequency,
+  Gender,
+  Goal,
+  Equipment,
+  Experience,
+} from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
@@ -36,11 +42,39 @@ const FREQ_LABELS: Record<Frequency, string> = {
   5: "5+ days per week",
 };
 
+const EQUIPMENT_LABELS: Record<Equipment, string> = {
+  bodyweight: "Home (bodyweight)",
+  dumbbells: "Home Gym (dumbbells)",
+  full_gym: "Full Gym",
+};
+
+const EXPERIENCE_LABELS: Record<Experience, string> = {
+  beginner: "Just Starting",
+  intermediate: "A Few Months",
+  advanced: "Over a Year",
+};
+
+const BASELINE_LABELS: Record<string, string> = {
+  pushups: "Push-ups",
+  pullups: "Pull-ups",
+  db_bench: "DB Bench Press",
+  db_row: "DB Row",
+  bb_bench: "BB Bench Press",
+  bb_squat: "BB Squat",
+  deadlift: "Deadlift",
+};
+
+type EditStep =
+  | "gender"
+  | "goal"
+  | "frequency"
+  | "equipment"
+  | "experience"
+  | "strength";
+
 export default function ReviewScreen() {
   const store = useOnboardingStore();
   const upsertProfile = useUpsertProfile();
-  // useFocusEffect ensures the component re-renders with fresh store state
-  // each time this screen regains focus (e.g. returning from edit mode).
   useFocusEffect(useCallback(() => undefined, []));
 
   const {
@@ -49,6 +83,9 @@ export default function ReviewScreen() {
     goal,
     customGoal,
     frequency,
+    equipment,
+    experience,
+    strengthBaselines,
     complete,
   } = store;
 
@@ -61,7 +98,20 @@ export default function ReviewScreen() {
   const goalDisplay = customGoal ?? (goal ? GOAL_LABELS[goal] : null);
   const showGender = gender !== null;
 
-  function handleEdit(step: "gender" | "goal" | "frequency") {
+  const baselineSummary =
+    strengthBaselines.length > 0
+      ? strengthBaselines
+          .map((b) => {
+            const label = BASELINE_LABELS[b.exercise_key] ?? b.exercise_key;
+            if (b.load_kg !== null) {
+              return `${label}: ${b.load_kg}kg × ${b.reps}`;
+            }
+            return `${label}: ${b.reps} reps`;
+          })
+          .join(", ")
+      : null;
+
+  function handleEdit(step: EditStep) {
     router.push({
       pathname: `/(onboarding)/${step}`,
       params: { editMode: "1" },
@@ -69,13 +119,16 @@ export default function ReviewScreen() {
   }
 
   function handleSubmit() {
-    if (frequency === null) return;
+    if (frequency === null || equipment === null || experience === null) return;
 
     upsertProfile.mutate({
       gender,
       goal,
       customGoal,
       frequency,
+      equipment,
+      experience,
+      strengthBaselines,
     });
 
     complete();
@@ -128,6 +181,42 @@ export default function ReviewScreen() {
               label="FREQUENCY"
               value={FREQ_LABELS[frequency]}
               onEdit={() => handleEdit("frequency")}
+              primary={primary}
+              textColor={textColor}
+              textMuted={textMuted}
+              backgroundSubtle={backgroundSubtle}
+            />
+          )}
+
+          {equipment !== null && (
+            <ReviewCard
+              label="EQUIPMENT"
+              value={EQUIPMENT_LABELS[equipment]}
+              onEdit={() => handleEdit("equipment")}
+              primary={primary}
+              textColor={textColor}
+              textMuted={textMuted}
+              backgroundSubtle={backgroundSubtle}
+            />
+          )}
+
+          {experience !== null && (
+            <ReviewCard
+              label="EXPERIENCE"
+              value={EXPERIENCE_LABELS[experience]}
+              onEdit={() => handleEdit("experience")}
+              primary={primary}
+              textColor={textColor}
+              textMuted={textMuted}
+              backgroundSubtle={backgroundSubtle}
+            />
+          )}
+
+          {baselineSummary && (
+            <ReviewCard
+              label="STRENGTH BASELINE"
+              value={baselineSummary}
+              onEdit={() => handleEdit("strength")}
               primary={primary}
               textColor={textColor}
               textMuted={textMuted}
@@ -194,7 +283,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
-  cardContent: { flex: 1 },
+  cardContent: { flex: 1, marginRight: Spacing.md },
   cardValue: { marginTop: Spacing.xs },
   actions: {
     paddingHorizontal: Spacing.xl,
