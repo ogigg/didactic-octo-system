@@ -32,6 +32,12 @@ export const exerciseMuscleKeys = {
   byIds: (ids: string[]) => ["exercise-muscles", ...ids.sort()] as const,
 };
 
+export const pendingWorkoutKeys = {
+  all: ["pending-workouts"] as const,
+  list: () => [...pendingWorkoutKeys.all, "list"] as const,
+  detail: (id: string) => [...pendingWorkoutKeys.all, id] as const,
+};
+
 export const statsKeys = {
   all: ["stats"] as const,
   heatmap: () => [...statsKeys.all, "heatmap"] as const,

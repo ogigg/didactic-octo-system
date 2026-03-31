@@ -35,7 +35,7 @@ const generatedExerciseSchema = z.object({
   sets: z.array(generatedSetSchema),
 });
 
-const generateWorkoutResponseSchema = z.object({
+export const generateWorkoutResponseSchema = z.object({
   workout_name: z.string(),
   generation_source: z.enum([
     "llm",
