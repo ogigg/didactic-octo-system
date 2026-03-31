@@ -18,6 +18,39 @@ export const home = {
   menu: {
     more: "More",
   },
+  greeting: {
+    morning: "Good morning",
+    afternoon: "Good afternoon",
+    evening: "Good evening",
+    subtitle: "Ready to train?",
+  },
+  weeklyProgress: {
+    title: "This Week",
+    completed_one: "{{count}} workout done",
+    completed_other: "{{count}} workouts done",
+  },
+  workoutQueue: {
+    title: "Your Plan",
+    readyCount: "{{ready}}/{{total}}",
+    empty: "No workouts queued yet",
+    emptySubtitle: "Complete onboarding to get your personalized plan",
+    emptyReady: "Your workouts will appear here",
+    emptyReadySubtitle: "Generate your first AI workout to get started",
+    generate: "Generate AI Workout",
+  },
+  queueCard: {
+    dayLabel: "Day {{position}}",
+    startWorkout: "Start Workout",
+    resumeWorkout: "Resume Workout",
+    generating: "Preparing your workout...",
+    queued: "Up next",
+    failed: "Couldn't generate",
+    tryAgain: "Try Again",
+    completed: "Done",
+    exerciseCount: "+{{count}} more",
+    duration: "{{minutes}} min",
+    setsAndReps: "{{sets}}×{{reps}}",
+  },
   myWorkouts: {
     title: "My Workouts",
     create: "Create Workout",
@@ -25,5 +58,8 @@ export const home = {
     exerciseCount_other: "{{count}} exercises",
     empty: "Create your first custom workout",
     newWorkoutName: "New Workout",
+  },
+  history: {
+    seeAll: "See Workout History",
   },
 } as const;

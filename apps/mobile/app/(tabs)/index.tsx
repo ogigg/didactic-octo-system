@@ -1,20 +1,7 @@
-import { useOnboardingStore } from "@/stores/onboarding-store";
-import { useWorkoutStore } from "@/stores/workout-store";
-import type { WorkoutExercise } from "@/stores/workout-store";
-import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
-import type { WorkoutTemplate } from "@/stores/workout-templates-store";
-import { useThemeColor } from "@/hooks/use-theme-color";
-import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
-import { AmbientGlow } from "@/components/ambient-glow";
-import {
-  WorkoutTemplateCard,
-  CreateWorkoutCard,
-} from "@/components/workout-template-card";
-import { WorkoutPlanCard } from "@/components/workout-plan-card";
-import { useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -22,26 +9,82 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 
-const MOCK_COMPLETED = 1;
+import { AmbientGlow } from "@/components/ambient-glow";
+import { WorkoutQueue } from "@/components/workout-queue";
+import {
+  CreateWorkoutCard,
+  WorkoutTemplateCard,
+} from "@/components/workout-template-card";
+import { WorkoutPlanCard } from "@/components/workout-plan-card";
+import { Radii, Spacing, Typography } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWorkoutQueue } from "@/hooks/use-workout-queue";
+import { useProfile } from "@/hooks/use-profile-query";
+import { usePendingWorkoutStore } from "@/stores/pending-workout-store";
+import { useWorkoutStore } from "@/stores/workout-store";
+import type { WorkoutExercise } from "@/stores/workout-store";
+import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
+import type { WorkoutTemplate } from "@/stores/workout-templates-store";
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+function getGreetingKey():
+  | "greeting.morning"
+  | "greeting.afternoon"
+  | "greeting.evening" {
+  const hour = new Date().getHours();
+  if (hour < 12) return "greeting.morning";
+  if (hour < 18) return "greeting.afternoon";
+  return "greeting.evening";
+}
+
+// -----------------------------------------------------------------------------
+// HomeScreen
+// -----------------------------------------------------------------------------
 
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation("home");
-  const rawFrequency = useOnboardingStore((s) => s.frequency);
-  const frequency =
-    typeof rawFrequency === "number" && !isNaN(rawFrequency) ? rawFrequency : 3;
-  const startWorkout = useWorkoutStore((s) => s.startWorkout);
+
+  // Data
+  const { data: profile } = useProfile();
+  const { isRefetching, refetch } = useWorkoutQueue();
+  const queue = usePendingWorkoutStore((s) => s.queue);
+  const frequency = useMemo(() => {
+    const raw = profile?.weekly_frequency;
+    if (!raw) return 3;
+    return raw === "5_plus" ? 5 : parseInt(raw, 10);
+  }, [profile?.weekly_frequency]);
+
+  // Active workout state
   const isWorkoutActive = useWorkoutStore((s) => s.isActive);
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const workoutExercises = useWorkoutStore((s) => s.exercises);
   const startedAtMs = useWorkoutStore((s) => s.startedAtMs);
+  const startWorkout = useWorkoutStore((s) => s.startWorkout);
+
+  // Templates
   const templates = useWorkoutTemplatesStore((s) => s.templates);
 
-  const handleGenerateWorkout = useCallback(() => {
-    router.push("/generate-workout" as "/generate-workout");
-  }, [router]);
+  // Weekly progress: count completed workouts this week from queue context
+  const completedThisWeek =
+    queue.filter((w) => w.status === "ready").length > 0
+      ? frequency - queue.length
+      : 0;
+  const completedCount = Math.max(0, completedThisWeek);
 
+  // Colors
+  const primary = useThemeColor({}, "primary");
+  const border = useThemeColor({}, "border");
+  const textColor = useThemeColor({}, "text");
+  const textSecondary = useThemeColor({}, "textSecondary");
+  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
+
+  // Handlers
   const handleCreateWorkout = useCallback(() => {
     if (!isWorkoutActive) {
       startWorkout(t("myWorkouts.newWorkoutName"), []);
@@ -89,42 +132,38 @@ export default function HomeScreen() {
     [workoutExercises]
   );
 
-  const primary = useThemeColor({}, "primary");
-  const border = useThemeColor({}, "border");
-  const textColor = useThemeColor({}, "text");
-  const textSecondary = useThemeColor({}, "textSecondary");
-  const textMuted = useThemeColor({}, "textMuted");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
+  const greeting = useMemo(() => t(getGreetingKey()), [t]);
 
   return (
     <View style={styles.root}>
       <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
+          }
+        >
           {/* Greeting */}
-          <Text style={[Typography.displayLg, { color: textColor }]}>
-            Your Week
-          </Text>
-          <Text
-            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-          >
-            Keep the momentum going — you're doing great.
-          </Text>
+          <View style={styles.greetingSection}>
+            <Text style={[Typography.displayLg, { color: textColor }]}>
+              {greeting}
+            </Text>
+            <Text style={[Typography.body, { color: textSecondary }]}>
+              {t("greeting.subtitle")}
+            </Text>
+          </View>
 
-          {/* Weekly Progress Card */}
+          {/* Weekly Progress — compact bar */}
           <View
-            style={[
-              styles.card,
-              { backgroundColor: backgroundSubtle },
-              Elevation.sm,
-            ]}
+            style={[styles.progressCard, { backgroundColor: backgroundSubtle }]}
           >
             <View style={styles.progressHeader}>
               <Text style={[Typography.titleSm, { color: textColor }]}>
-                Weekly Progress
+                {t("weeklyProgress.title")}
               </Text>
-              <Text style={[Typography.titleMd, { color: primary }]}>
-                {MOCK_COMPLETED}/{frequency}
+              <Text style={[Typography.titleSm, { color: primary }]}>
+                {completedCount}/{frequency}
               </Text>
             </View>
             <View
@@ -133,7 +172,7 @@ export default function HomeScreen() {
               accessibilityValue={{
                 min: 0,
                 max: frequency,
-                now: MOCK_COMPLETED,
+                now: completedCount,
               }}
             >
               {Array.from({ length: frequency }).map((_, i) => (
@@ -142,49 +181,15 @@ export default function HomeScreen() {
                   style={[
                     styles.progressSegment,
                     {
-                      backgroundColor: i < MOCK_COMPLETED ? primary : border,
+                      backgroundColor: i < completedCount ? primary : border,
                     },
                   ]}
                 />
               ))}
             </View>
-            <Text style={[Typography.caption, { color: textMuted }]}>
-              {MOCK_COMPLETED} workout{MOCK_COMPLETED !== 1 ? "s" : ""}{" "}
-              completed this week
-            </Text>
           </View>
 
-          {/* My Workouts */}
-          <View>
-            <Text
-              style={[
-                Typography.titleMd,
-                { color: textColor },
-                styles.sectionTitle,
-              ]}
-            >
-              {t("myWorkouts.title")}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.templateList}
-            >
-              {templates.map((template) => (
-                <WorkoutTemplateCard
-                  key={template.id}
-                  template={template}
-                  onPress={() => handleStartTemplate(template)}
-                />
-              ))}
-              <CreateWorkoutCard
-                label={t("myWorkouts.create")}
-                onPress={handleCreateWorkout}
-              />
-            </ScrollView>
-          </View>
-
-          {/* Current Workout */}
+          {/* Active Workout (if in-progress, show above queue) */}
           {isWorkoutActive && (
             <WorkoutPlanCard
               title={workoutName}
@@ -195,43 +200,50 @@ export default function HomeScreen() {
             />
           )}
 
-          {/* Generate AI Workout */}
-          <TouchableOpacity
-            onPress={handleGenerateWorkout}
-            style={[
-              styles.generateCard,
-              { backgroundColor: backgroundSubtle },
-              Elevation.sm,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Generate AI Workout"
-          >
-            <Text style={[Typography.label, { color: primary }]}>
-              AI-POWERED
-            </Text>
-            <Text
-              style={[
-                Typography.titleMd,
-                { color: textColor },
-                styles.generateTitle,
-              ]}
-            >
-              Generate Workout
-            </Text>
-            <Text style={[Typography.body, { color: textSecondary }]}>
-              Get a personalized workout based on your goals and history
-            </Text>
-          </TouchableOpacity>
+          {/* Workout Queue */}
+          <WorkoutQueue queue={queue} />
 
-          {/* History Button */}
+          {/* My Workouts */}
+          {(templates.length > 0 || !isWorkoutActive) && (
+            <View>
+              <Text
+                style={[
+                  Typography.titleMd,
+                  { color: textColor },
+                  styles.sectionTitle,
+                ]}
+              >
+                {t("myWorkouts.title")}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.templateList}
+              >
+                {templates.map((template) => (
+                  <WorkoutTemplateCard
+                    key={template.id}
+                    template={template}
+                    onPress={() => handleStartTemplate(template)}
+                  />
+                ))}
+                <CreateWorkoutCard
+                  label={t("myWorkouts.create")}
+                  onPress={handleCreateWorkout}
+                />
+              </ScrollView>
+            </View>
+          )}
+
+          {/* History Link */}
           <TouchableOpacity
             style={[styles.historyButton, { borderColor: border }]}
             accessibilityRole="button"
-            accessibilityLabel="See workout history"
+            accessibilityLabel={t("history.seeAll")}
             onPress={() => router.push("/history")}
           >
             <Text style={[Typography.titleSm, { color: primary }]}>
-              See Workout History
+              {t("history.seeAll")}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -239,6 +251,10 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+// -----------------------------------------------------------------------------
+// Styles
+// -----------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -249,42 +265,27 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing["3xl"],
     gap: Spacing.xl,
   },
-  subtitle: {
-    marginTop: Spacing.xs,
+  greetingSection: {
+    gap: Spacing.xs,
   },
-  card: {
+  progressCard: {
     borderRadius: Radii.lg,
-    padding: Spacing.xl,
+    padding: Spacing.lg,
   },
   progressHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   progressBar: {
     flexDirection: "row",
     gap: Spacing.xs,
-    marginBottom: Spacing.sm,
   },
   progressSegment: {
     flex: 1,
     height: 6,
     borderRadius: Radii.full,
-  },
-  generateCard: {
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-  },
-  generateTitle: {
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  historyButton: {
-    borderWidth: 1,
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.lg,
-    alignItems: "center",
   },
   sectionTitle: {
     marginBottom: Spacing.md,
@@ -292,5 +293,11 @@ const styles = StyleSheet.create({
   templateList: {
     gap: Spacing.md,
     paddingRight: Spacing.xl,
+  },
+  historyButton: {
+    borderWidth: 1,
+    borderRadius: Radii.lg,
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
   },
 });
