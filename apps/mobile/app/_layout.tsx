@@ -153,6 +153,22 @@ export default function RootLayout() {
               options={{ headerShown: false }}
             />
             <Stack.Screen name="statistics" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="workout-preview"
+              options={{
+                presentation: "fullScreenModal",
+                headerShown: false,
+                gestureEnabled: true,
+              }}
+            />
+            <Stack.Screen
+              name="training-preferences"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="strength-baselines"
+              options={{ headerShown: false }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

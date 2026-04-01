@@ -10,6 +10,9 @@ import { generateWorkout } from "./locales/en/generate-workout";
 import { history } from "./locales/en/history";
 import { calendar } from "./locales/en/calendar";
 import { stats } from "./locales/en/stats";
+import { workoutPreview } from "./locales/en/workout-preview";
+import { trainingPreferences } from "./locales/en/training-preferences";
+import { strengthBaselines } from "./locales/en/strength-baselines";
 
 export const resources = {
   en: {
@@ -25,6 +28,9 @@ export const resources = {
     generateWorkout,
     history,
     stats,
+    workoutPreview,
+    trainingPreferences,
+    strengthBaselines,
   },
 } as const;
 

@@ -4,6 +4,7 @@ import { FilterSheet } from "@/components/exercise-picker/filter-sheet";
 import { ExerciseRow } from "@/components/exercise-picker/exercise-row";
 import { useExercise, useExercises } from "@/hooks/use-exercises-query";
 import { useWorkoutStore } from "@/stores/workout-store";
+import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
 import { MUSCLE_GROUPS, EQUIPMENT_TYPES } from "@/constants/exercise-filters";
@@ -26,7 +27,8 @@ const MAX_SUGGESTIONS = 5;
 
 // "replace" = replacing an exercise in active workout (shows suggestions)
 // "add" = adding exercise to a training plan (no suggestions)
-type PickerMode = "replace" | "add";
+// "pending_swap" = swapping exercise in pending workout preview (stores result, no store mutation)
+type PickerMode = "replace" | "add" | "pending_swap";
 
 export default function ExercisePickerScreen() {
   const { t } = useTranslation("exercisePicker");
@@ -35,9 +37,15 @@ export default function ExercisePickerScreen() {
     exerciseId?: string;
     mode?: string;
   }>();
-  const mode: PickerMode = modeParam === "add" ? "add" : "replace";
+  const mode: PickerMode =
+    modeParam === "pending_swap"
+      ? "pending_swap"
+      : modeParam === "add"
+        ? "add"
+        : "replace";
   const replaceExercise = useWorkoutStore((s) => s.replaceExercise);
   const addExercise = useWorkoutStore((s) => s.addExercise);
+  const setSwapResult = usePendingSwapStore((s) => s.setResult);
 
   // Fetch current exercise details for suggestion ranking (replace mode only)
   const { data: currentExercise } = useExercise(
@@ -129,6 +137,11 @@ export default function ExercisePickerScreen() {
   // Handlers
   const handleSelect = useCallback(
     (exercise: Exercise) => {
+      if (mode === "pending_swap") {
+        setSwapResult({ id: exercise.id, name: exercise.name });
+        router.back();
+        return;
+      }
       if (mode === "add") {
         addExercise({ id: exercise.id, name: exercise.name });
       } else if (exerciseId) {
@@ -139,7 +152,7 @@ export default function ExercisePickerScreen() {
       }
       router.back();
     },
-    [mode, exerciseId, addExercise, replaceExercise, router]
+    [mode, exerciseId, addExercise, replaceExercise, router, setSwapResult]
   );
 
   const handleCancel = useCallback(() => {

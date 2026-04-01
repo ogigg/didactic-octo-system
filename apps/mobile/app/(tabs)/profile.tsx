@@ -30,7 +30,13 @@ const VISIBLE_WEEK_LABELS = new Set(["W1", "W4", "W7", "W10"]);
 const MAX_BAR_HEIGHT = 120;
 
 interface NavItem {
-  icon: "chart.bar.fill" | "calendar" | "ruler.fill" | "clock.arrow.circlepath";
+  icon:
+    | "chart.bar.fill"
+    | "calendar"
+    | "ruler.fill"
+    | "clock.arrow.circlepath"
+    | "gearshape.fill"
+    | "flame.fill";
   labelKey: string;
   disabled: boolean;
   route?: string;
@@ -55,6 +61,18 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: "nav.history",
     disabled: false,
     route: "/history",
+  },
+  {
+    icon: "gearshape.fill",
+    labelKey: "nav.trainingPreferences",
+    disabled: false,
+    route: "/training-preferences",
+  },
+  {
+    icon: "flame.fill",
+    labelKey: "nav.strengthBaselines",
+    disabled: false,
+    route: "/strength-baselines",
   },
 ];
 

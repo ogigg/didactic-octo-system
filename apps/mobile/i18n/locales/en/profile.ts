@@ -14,5 +14,7 @@ export const profile = {
     calendar: "Calendar",
     measures: "Measures",
     history: "History",
+    trainingPreferences: "Preferences",
+    strengthBaselines: "Strength",
   },
 } as const;
