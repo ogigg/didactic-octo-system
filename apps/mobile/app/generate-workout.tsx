@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -81,12 +81,21 @@ export default function GenerateWorkoutScreen() {
 
   const [trainingSplit, setTrainingSplit] =
     useState<TrainingSplit>(recommendedSplit);
-  const [duration, setDuration] = useState<DurationMinutes>(45);
-  const [equipment, setEquipment] = useState<Equipment>("full_gym");
-  const [trainingStyle, setTrainingStyle] =
-    useState<TrainingStyle>("hypertrophy");
-  const [difficulty, setDifficulty] = useState<Difficulty>("intermediate");
-  const [customPrompt, setCustomPrompt] = useState("");
+  const [duration, setDuration] = useState<DurationMinutes>(
+    (profile?.session_duration_minutes as DurationMinutes) ?? 45
+  );
+  const [equipment, setEquipment] = useState<Equipment>(
+    (profile?.equipment_level as Equipment) ?? "full_gym"
+  );
+  const [trainingStyle, setTrainingStyle] = useState<TrainingStyle>(
+    (profile?.training_style as TrainingStyle) ?? "hypertrophy"
+  );
+  const [difficulty, setDifficulty] = useState<Difficulty>(
+    (profile?.difficulty_level as Difficulty) ?? "intermediate"
+  );
+  const [customPrompt, setCustomPrompt] = useState(
+    profile?.training_custom_prompt ?? ""
+  );
 
   const textColor = useThemeColor({}, "text");
   const background = useThemeColor({}, "background");
@@ -267,8 +276,21 @@ export default function GenerateWorkoutScreen() {
         {/* Start Training CTA */}
         <View style={[styles.ctaContainer, { backgroundColor: background }]}>
           {isPending ? (
-            <View style={[styles.loadingButton, { backgroundColor: primary }]}>
-              <ActivityIndicator color="#FFFFFF" />
+            <View style={styles.loadingContainer}>
+              <View
+                style={[styles.loadingButton, { backgroundColor: primary }]}
+              >
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={[Typography.titleSm, { color: "#FFFFFF" }]}>
+                  {t("generate.loading")}
+                </Text>
+              </View>
+              <Button
+                label="Cancel"
+                onPress={() => {}}
+                variant="ghost"
+                accessibilityLabel="Cancel"
+              />
             </View>
           ) : (
             <Button
@@ -328,10 +350,16 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.lg,
   },
+  loadingContainer: {
+    gap: Spacing.sm,
+  },
   loadingButton: {
     borderRadius: 14,
     paddingVertical: Spacing.lg,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.sm,
   },
   errorText: {
     ...Typography.caption,

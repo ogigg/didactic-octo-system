@@ -9,7 +9,8 @@ export type EventName =
   | "workout_generated"
   | "workout_completed"
   | "session_duration"
-  | "feedback_given";
+  | "feedback_given"
+  | "difficulty_feedback_given";
 // Future events can be added here
 
 export type EventPayload = Record<string, unknown>;

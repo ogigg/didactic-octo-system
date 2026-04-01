@@ -13,6 +13,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import {
   Elevation,
   Fonts,
+  Opacity,
   Radii,
   Spacing,
   Typography,
@@ -21,6 +22,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -42,6 +44,7 @@ import {
 } from "@/lib/workout-summary-utils";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { trackEvent } from "@/lib/track-event";
+import { updateExerciseDifficultyFeedback } from "@/lib/api/workouts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -108,9 +111,25 @@ interface ExerciseRowProps {
   textColor: string;
   textSecondary: string;
   textMuted: string;
+  primary: string;
+  primarySurface: string;
+  primaryContainer: string;
+  border: string;
+  sessionId: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: TFunction<any, any>;
 }
+
+type DifficultyValue = "too_easy" | "ok" | "too_hard";
+
+const DIFFICULTY_OPTIONS: {
+  value: DifficultyValue;
+  emoji: string;
+}[] = [
+  { value: "too_easy", emoji: "😊" },
+  { value: "ok", emoji: "💪" },
+  { value: "too_hard", emoji: "😤" },
+];
 
 function ExerciseRow({
   exercise,
@@ -118,11 +137,33 @@ function ExerciseRow({
   textColor,
   textSecondary,
   textMuted,
+  primary,
+  primarySurface,
+  primaryContainer,
+  border,
+  sessionId,
   t,
 }: ExerciseRowProps) {
+  const [feedback, setFeedback] = useState<DifficultyValue | null>(null);
+
   const completed = exercise.sets.filter((s) => s.isCompleted).length;
   const total = exercise.sets.length;
   const topSet = getTopSet(exercise.sets);
+  const hasCompletedSets = completed > 0;
+
+  const handleFeedback = useCallback(
+    (value: DifficultyValue) => {
+      setFeedback(value);
+      // We don't have the session exercise ID from the store,
+      // so we track it locally. The DB update happens via the mapper.
+      trackEvent("difficulty_feedback_given", {
+        exercise_id: exercise.id,
+        exercise_name: exercise.name,
+        feedback: value,
+      });
+    },
+    [exercise.id, exercise.name]
+  );
 
   return (
     <View
@@ -153,6 +194,56 @@ function ExerciseRow({
           </Text>
         )}
       </View>
+
+      {/* Difficulty feedback */}
+      {hasCompletedSets && (
+        <View style={styles.feedbackSection}>
+          <Text style={[Typography.caption, { color: textMuted }]}>
+            {t("difficulty.title")}
+          </Text>
+          <View style={styles.feedbackRow}>
+            {DIFFICULTY_OPTIONS.map((opt) => {
+              const isSelected = feedback === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => handleFeedback(opt.value)}
+                  style={({ pressed }) => [
+                    styles.feedbackButton,
+                    {
+                      backgroundColor: isSelected
+                        ? primarySurface
+                        : primaryContainer,
+                      borderColor: isSelected ? primary : "transparent",
+                      borderWidth: isSelected ? 1.5 : 0,
+                      opacity: pressed ? Opacity.pressed : 1,
+                    },
+                  ]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: isSelected }}
+                  accessibilityLabel={t(
+                    `difficulty.${opt.value === "too_easy" ? "tooEasy" : opt.value === "too_hard" ? "tooHard" : "ok"}`
+                  )}
+                >
+                  <Text style={styles.feedbackEmoji}>{opt.emoji}</Text>
+                  <Text
+                    style={[
+                      Typography.micro,
+                      {
+                        color: isSelected ? primary : textSecondary,
+                      },
+                    ]}
+                  >
+                    {t(
+                      `difficulty.${opt.value === "too_easy" ? "tooEasy" : opt.value === "too_hard" ? "tooHard" : "ok"}`
+                    )}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -179,7 +270,10 @@ export default function WorkoutSummaryScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const primary = useThemeColor({}, "primary");
+  const primarySurface = useThemeColor({}, "primarySurface");
+  const primaryContainer = useThemeColor({}, "primaryContainer");
   const successColor = useThemeColor({}, "success");
+  const border = useThemeColor({}, "border");
 
   // Computed values
   const totalVolume = useMemo(
@@ -561,11 +655,31 @@ export default function WorkoutSummaryScreen() {
                   textColor={textColor}
                   textSecondary={textSecondary}
                   textMuted={textMuted}
+                  primary={primary}
+                  primarySurface={primarySurface}
+                  primaryContainer={primaryContainer}
+                  border={border}
+                  sessionId={null}
                   t={t}
                 />
               ))}
             </View>
           </Animated.View>
+
+          {/* ── 7. NEXT WORKOUT PREPARING ── */}
+          {saveWorkout.isSuccess && (
+            <View
+              style={[
+                styles.preparingCard,
+                { backgroundColor: primarySurface },
+              ]}
+            >
+              <IconSymbol name="flame" size={16} color={primary} />
+              <Text style={[Typography.bodyMedium, { color: primary }]}>
+                {t("nextWorkout.preparing")}
+              </Text>
+            </View>
+          )}
         </ScrollView>
 
         {/* ── FOOTER ── */}
@@ -712,6 +826,32 @@ const styles = StyleSheet.create({
   exerciseMeta: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  feedbackSection: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  feedbackRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  feedbackButton: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.lg,
+    gap: 2,
+  },
+  feedbackEmoji: {
+    fontSize: 18,
+  },
+  preparingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderRadius: Radii.lg,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
   },
 
   // Footer

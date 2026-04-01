@@ -120,4 +120,13 @@ export const workout = {
     saved: "Saved",
     skip: "Skip",
   },
+  difficulty: {
+    title: "How did it feel?",
+    tooEasy: "Too Easy",
+    ok: "OK",
+    tooHard: "Too Hard",
+  },
+  nextWorkout: {
+    preparing: "Your next workout is being prepared",
+  },
 } as const;

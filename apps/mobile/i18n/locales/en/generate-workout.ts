@@ -55,7 +55,8 @@ export const generateWorkout = {
   },
   generate: {
     button: "Start Training",
-    loading: "Setting up...",
+    loading: "Generating your workout...",
+    cancel: "Cancel",
     error: "Failed to start training. Please try again.",
   },
 } as const;

@@ -424,3 +424,19 @@ export async function upsertSetLog(
     throw new Error(error.message);
   }
 }
+
+export async function updateExerciseDifficultyFeedback(
+  sessionExerciseId: string,
+  feedback: "too_easy" | "ok" | "too_hard"
+): Promise<void> {
+  await getAuthenticatedUserId();
+
+  const { error } = await supabase
+    .from("session_exercises")
+    .update({ difficulty_feedback: feedback })
+    .eq("id", sessionExerciseId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
