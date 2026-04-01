@@ -142,6 +142,7 @@ export interface SessionExerciseInput {
   order_index: number;
   rest_duration_seconds: number;
   notes?: string;
+  difficulty_feedback?: "too_easy" | "ok" | "too_hard" | null;
 }
 
 export interface SessionSetInput {
@@ -367,6 +368,7 @@ export async function upsertSessionExercises(
     order_index: ex.order_index,
     rest_duration_seconds: ex.rest_duration_seconds,
     notes: ex.notes ?? null,
+    difficulty_feedback: ex.difficulty_feedback ?? null,
   }));
 
   const { error } = await supabase

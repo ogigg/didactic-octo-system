@@ -44,7 +44,6 @@ import {
 } from "@/lib/workout-summary-utils";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { trackEvent } from "@/lib/track-event";
-import { updateExerciseDifficultyFeedback } from "@/lib/api/workouts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,7 +114,7 @@ interface ExerciseRowProps {
   primarySurface: string;
   primaryContainer: string;
   border: string;
-  sessionId: string | null;
+  onFeedbackChange: (exerciseId: string, feedback: DifficultyValue) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: TFunction<any, any>;
 }
@@ -141,10 +140,12 @@ function ExerciseRow({
   primarySurface,
   primaryContainer,
   border,
-  sessionId,
+  onFeedbackChange,
   t,
 }: ExerciseRowProps) {
-  const [feedback, setFeedback] = useState<DifficultyValue | null>(null);
+  const [feedback, setFeedback] = useState<DifficultyValue | null>(
+    exercise.difficultyFeedback
+  );
 
   const completed = exercise.sets.filter((s) => s.isCompleted).length;
   const total = exercise.sets.length;
@@ -154,15 +155,14 @@ function ExerciseRow({
   const handleFeedback = useCallback(
     (value: DifficultyValue) => {
       setFeedback(value);
-      // We don't have the session exercise ID from the store,
-      // so we track it locally. The DB update happens via the mapper.
+      onFeedbackChange(exercise.id, value);
       trackEvent("difficulty_feedback_given", {
         exercise_id: exercise.id,
         exercise_name: exercise.name,
         feedback: value,
       });
     },
-    [exercise.id, exercise.name]
+    [exercise.id, exercise.name, onFeedbackChange]
   );
 
   return (
@@ -259,6 +259,9 @@ export default function WorkoutSummaryScreen() {
   // Store data
   const summary = useWorkoutStore((s) => s.completedWorkoutSummary);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
+  const setExerciseDifficultyFeedback = useWorkoutStore(
+    (s) => s.setExerciseDifficultyFeedback
+  );
   const addTemplate = useWorkoutTemplatesStore((s) => s.addTemplate);
   const goal = useOnboardingStore((s) => s.goal);
   const customGoal = useOnboardingStore((s) => s.customGoal);
@@ -659,7 +662,7 @@ export default function WorkoutSummaryScreen() {
                   primarySurface={primarySurface}
                   primaryContainer={primaryContainer}
                   border={border}
-                  sessionId={null}
+                  onFeedbackChange={setExerciseDifficultyFeedback}
                   t={t}
                 />
               ))}

@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useProfile, type Profile } from "@/hooks/use-profile-query";
 import {
+  deletePendingWorkout,
   deleteAllPendingWorkouts,
   fetchPendingWorkouts,
   replacePendingWorkoutWithFallback,
@@ -376,6 +377,7 @@ export function useEditPendingWorkout() {
 
 export function useStartPendingWorkout() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const removeWorkout = usePendingWorkoutStore((s) => s.removeWorkout);
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
 
@@ -412,6 +414,7 @@ export function useStartPendingWorkout() {
           name: ex.exercise_name,
           restDurationSeconds: ex.rest_duration_seconds,
           notes: ex.notes ?? "",
+          difficultyFeedback: null,
           sets: ex.sets.map((set, setIndex) => ({
             id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
             type: set.set_type,
@@ -430,6 +433,7 @@ export function useStartPendingWorkout() {
         customGoalSnapshot: workoutData.custom_goal_snapshot,
       };
 
+      await deletePendingWorkout(input.pendingWorkout.id);
       startWorkout(workoutData.workout_name, exercises, generationMeta);
       removeWorkout(input.pendingWorkout.id);
 
@@ -448,6 +452,7 @@ export function useStartPendingWorkout() {
       });
 
       router.navigate("/workout");
+      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
     },
   });
 }

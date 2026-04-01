@@ -60,6 +60,7 @@ export function mapWorkoutStoreToDb(
       order_index: index,
       rest_duration_seconds: exercise.restDurationSeconds,
       notes: exercise.notes || undefined,
+      difficulty_feedback: exercise.difficultyFeedback,
     };
 
     const sets = exercise.sets.map((set, setIndex) => {
@@ -100,6 +101,7 @@ export function mapDbToWorkoutStore(detail: WorkoutDetail): {
     name: ex.exercise_name,
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
+    difficultyFeedback: ex.difficulty_feedback,
     sets: ex.sets.map((s) => mapDbSetToStore(s)),
   }));
 

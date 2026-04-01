@@ -17,6 +17,7 @@ export interface WorkoutExercise {
   name: string;
   restDurationSeconds: number;
   notes: string;
+  difficultyFeedback: "too_easy" | "ok" | "too_hard" | null;
   sets: WorkoutSet[];
 }
 
@@ -68,6 +69,10 @@ interface WorkoutActions {
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateNotes: (exerciseId: string, notes: string) => void;
+  setExerciseDifficultyFeedback: (
+    exerciseId: string,
+    feedback: "too_easy" | "ok" | "too_hard" | null
+  ) => void;
   replaceExercise: (
     exerciseId: string,
     newExercise: { id: string; name: string }
@@ -203,6 +208,21 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           ),
         })),
 
+      setExerciseDifficultyFeedback: (exerciseId, difficultyFeedback) =>
+        set((state) => ({
+          exercises: state.exercises.map((ex) =>
+            ex.id === exerciseId ? { ...ex, difficultyFeedback } : ex
+          ),
+          completedWorkoutSummary: state.completedWorkoutSummary
+            ? {
+                ...state.completedWorkoutSummary,
+                exercises: state.completedWorkoutSummary.exercises.map((ex) =>
+                  ex.id === exerciseId ? { ...ex, difficultyFeedback } : ex
+                ),
+              }
+            : state.completedWorkoutSummary,
+        })),
+
       replaceExercise: (exerciseId, newExercise) =>
         set((state) => ({
           exercises: state.exercises.map((ex) =>
@@ -249,6 +269,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
               name: exercise.name,
               restDurationSeconds: 90,
               notes: "",
+              difficultyFeedback: null,
               sets: Array.from({ length: 3 }, () => ({
                 id: generateSetId(),
                 type: "working" as const,

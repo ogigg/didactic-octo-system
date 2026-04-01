@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   RefreshControl,
@@ -22,6 +23,8 @@ import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutQueue } from "@/hooks/use-workout-queue";
 import { useProfile } from "@/hooks/use-profile-query";
+import { fetchWorkoutHistoryForDayRange } from "@/lib/api/workouts";
+import { getMondayLocal } from "@/lib/iso-week";
 import { usePendingWorkoutStore } from "@/stores/pending-workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise } from "@/stores/workout-store";
@@ -60,6 +63,16 @@ export default function HomeScreen() {
     if (!raw) return 3;
     return raw === "5_plus" ? 5 : parseInt(raw, 10);
   }, [profile?.weekly_frequency]);
+  const weekStart = useMemo(() => getMondayLocal(new Date()), []);
+  const completedWorkoutsQuery = useQuery({
+    queryKey: ["workouts", "completed-week", weekStart.toISOString()],
+    queryFn: () =>
+      fetchWorkoutHistoryForDayRange(
+        weekStart.toISOString(),
+        new Date().toISOString()
+      ),
+    staleTime: 60_000,
+  });
 
   // Active workout state
   const isWorkoutActive = useWorkoutStore((s) => s.isActive);
@@ -71,12 +84,11 @@ export default function HomeScreen() {
   // Templates
   const templates = useWorkoutTemplatesStore((s) => s.templates);
 
-  // Weekly progress: count completed workouts this week from queue context
-  const completedThisWeek =
-    queue.filter((w) => w.status === "ready").length > 0
-      ? frequency - queue.length
-      : 0;
-  const completedCount = Math.max(0, completedThisWeek);
+  // Weekly progress comes from completed sessions, not queue size.
+  const completedCount = Math.min(
+    frequency,
+    completedWorkoutsQuery.data?.length ?? 0
+  );
 
   // Colors
   const primary = useThemeColor({}, "primary");
@@ -101,6 +113,7 @@ export default function HomeScreen() {
           name: ex.name,
           restDurationSeconds: 90,
           notes: "",
+          difficultyFeedback: null,
           sets: Array.from({ length: 3 }, (_, i) => ({
             id: `set-${ex.id}-${i}-${Date.now()}`,
             type: "working" as const,

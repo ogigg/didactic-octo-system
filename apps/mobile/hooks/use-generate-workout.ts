@@ -26,6 +26,7 @@ function mapResponseToWorkoutExercises(
     name: ex.exercise_name,
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
+    difficultyFeedback: null,
     sets: ex.sets.map(
       (set, i): WorkoutSet => ({
         id: `set-${ex.exercise_id}-${i}-${Date.now()}`,

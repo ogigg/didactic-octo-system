@@ -18,6 +18,7 @@ const mockSummary: WorkoutSummary = {
       name: "Bench Press",
       restDurationSeconds: 90,
       notes: "Keep elbows tucked",
+      difficultyFeedback: "ok",
       sets: [
         {
           id: "set-1",
@@ -114,6 +115,7 @@ describe("mapWorkoutStoreToDb", () => {
     expect(exercise.sessionExercise.exercise_id).toBe("exercise-1");
     expect(exercise.sessionExercise.order_index).toBe(0);
     expect(exercise.sessionExercise.rest_duration_seconds).toBe(90);
+    expect(exercise.sessionExercise.difficulty_feedback).toBe("ok");
     expect(exercise.sets).toHaveLength(3);
   });
 
@@ -221,6 +223,7 @@ describe("mapDbToWorkoutStore", () => {
     expect(result.exercises).toHaveLength(1);
     expect(result.exercises[0].name).toBe("Bench Press");
     expect(result.exercises[0].restDurationSeconds).toBe(90);
+    expect(result.exercises[0].difficultyFeedback).toBeNull();
   });
 
   it("uses actual values from log when available", () => {

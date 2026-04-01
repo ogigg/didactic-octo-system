@@ -8,6 +8,7 @@ export const MOCK_EXERCISES: WorkoutExercise[] = [
     name: "Bench Press (Barbell)",
     restDurationSeconds: 120,
     notes: "",
+    difficultyFeedback: null,
     sets: [
       {
         id: "s1-1",
@@ -61,6 +62,7 @@ export const MOCK_EXERCISES: WorkoutExercise[] = [
     name: "Incline Dumbbell Press",
     restDurationSeconds: 90,
     notes: "",
+    difficultyFeedback: null,
     sets: [
       {
         id: "s2-1",
@@ -96,6 +98,7 @@ export const MOCK_EXERCISES: WorkoutExercise[] = [
     name: "Cable Flyes",
     restDurationSeconds: 90,
     notes: "",
+    difficultyFeedback: null,
     sets: [
       {
         id: "s3-1",
@@ -131,6 +134,7 @@ export const MOCK_EXERCISES: WorkoutExercise[] = [
     name: "Overhead Press (Barbell)",
     restDurationSeconds: 120,
     notes: "",
+    difficultyFeedback: null,
     sets: [
       {
         id: "s4-1",
@@ -175,6 +179,7 @@ export const MOCK_EXERCISES: WorkoutExercise[] = [
     name: "Lateral Raises",
     restDurationSeconds: 60,
     notes: "",
+    difficultyFeedback: null,
     sets: [
       {
         id: "s5-1",
@@ -210,6 +215,7 @@ export const MOCK_EXERCISES: WorkoutExercise[] = [
     name: "Tricep Pushdown",
     restDurationSeconds: 60,
     notes: "",
+    difficultyFeedback: null,
     sets: [
       {
         id: "s6-1",
@@ -245,6 +251,7 @@ export const MOCK_EXERCISES: WorkoutExercise[] = [
     name: "Overhead Tricep Extension",
     restDurationSeconds: 60,
     notes: "",
+    difficultyFeedback: null,
     sets: [
       {
         id: "s7-1",

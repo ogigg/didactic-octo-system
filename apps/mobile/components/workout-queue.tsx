@@ -9,6 +9,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useProfile } from "@/hooks/use-profile-query";
 import type { PendingWorkout } from "@/lib/api/pending-workouts";
 import {
+  useRebuildQueue,
   useRegenerateWorkout,
   useStartPendingWorkout,
 } from "@/hooks/use-workout-queue";
@@ -22,6 +23,11 @@ import { useRouter } from "expo-router";
 
 interface WorkoutQueueProps {
   queue: PendingWorkout[];
+}
+
+function getQueueCount(weeklyFrequency: string | null | undefined): number {
+  if (!weeklyFrequency) return 3;
+  return weeklyFrequency === "5_plus" ? 5 : parseInt(weeklyFrequency, 10);
 }
 
 export function WorkoutQueue({ queue }: WorkoutQueueProps) {
@@ -44,6 +50,7 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
 
   const startMutation = useStartPendingWorkout();
   const regenerateMutation = useRegenerateWorkout();
+  const rebuildQueue = useRebuildQueue();
 
   const handleStart = useCallback(
     (workout: PendingWorkout) => {
@@ -72,6 +79,38 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
     router.push("/workout");
   }, [router]);
 
+  const handleBuildQueue = useCallback(() => {
+    if (
+      !profile?.training_split ||
+      !profile.session_duration_minutes ||
+      !profile.equipment_level ||
+      !profile.training_style ||
+      !profile.difficulty_level
+    ) {
+      router.push("/training-preferences" as never);
+      return;
+    }
+
+    rebuildQueue.mutate({
+      count: getQueueCount(profile.weekly_frequency),
+      preferences: {
+        training_split: profile.training_split,
+        session_duration_minutes: profile.session_duration_minutes as
+          | 15
+          | 30
+          | 45
+          | 60
+          | 90,
+        equipment: profile.equipment_level,
+        training_style: profile.training_style,
+        difficulty: profile.difficulty_level,
+        custom_prompt: profile.training_custom_prompt,
+      },
+      baselines: [],
+      trigger: "preference_change",
+    });
+  }, [profile, rebuildQueue, router]);
+
   if (queue.length === 0) {
     if (onboardingDone) {
       return (
@@ -83,7 +122,7 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
             {t("workoutQueue.emptyReadySubtitle")}
           </Text>
           <Pressable
-            onPress={() => router.push("/generate-workout" as never)}
+            onPress={handleBuildQueue}
             style={({ pressed }) => [
               styles.generateButton,
               {
