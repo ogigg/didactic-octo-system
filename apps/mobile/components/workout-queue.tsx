@@ -47,14 +47,14 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
 
   const handleStart = useCallback(
     (workout: PendingWorkout) => {
-      startMutation.mutate(workout);
+      startMutation.mutate({ pendingWorkout: workout });
     },
     [startMutation]
   );
 
   const handleRetry = useCallback(
-    (workoutId: string) => {
-      regenerateMutation.mutate(workoutId);
+    (workout: PendingWorkout) => {
+      regenerateMutation.mutate(workout);
     },
     [regenerateMutation]
   );
@@ -149,7 +149,7 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
               onResume={handleResume}
               onRetry={
                 workout.status === "failed"
-                  ? () => handleRetry(workout.id)
+                  ? () => handleRetry(workout)
                   : undefined
               }
             />

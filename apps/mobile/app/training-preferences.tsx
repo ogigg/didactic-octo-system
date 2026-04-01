@@ -22,6 +22,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useProfile } from "@/hooks/use-profile-query";
 import { useRebuildQueue } from "@/hooks/use-workout-queue";
 import { updateTrainingPreferences } from "@/lib/api/profiles";
+import { trackEvent } from "@/lib/track-event";
 import type {
   Difficulty,
   DurationMinutes,
@@ -121,6 +122,32 @@ export default function TrainingPreferencesScreen() {
     onSuccess: (prefs) => {
       queryClient.invalidateQueries({ queryKey: profileKeys.all });
 
+      const changedFields = [
+        profile?.training_split !== prefs.training_split
+          ? "training_split"
+          : null,
+        profile?.session_duration_minutes !== prefs.session_duration_minutes
+          ? "session_duration_minutes"
+          : null,
+        profile?.equipment_level !== prefs.equipment_level
+          ? "equipment_level"
+          : null,
+        profile?.training_style !== prefs.training_style
+          ? "training_style"
+          : null,
+        profile?.difficulty_level !== prefs.difficulty_level
+          ? "difficulty_level"
+          : null,
+        profile?.training_custom_prompt !== prefs.training_custom_prompt
+          ? "training_custom_prompt"
+          : null,
+      ].filter((value): value is string => value !== null);
+
+      trackEvent("training_preferences_changed", {
+        changed_fields: changedFields,
+        triggered_queue_rebuild: true,
+      });
+
       // Trigger queue rebuild
       const frequency = profile?.weekly_frequency;
       const count = frequency
@@ -133,7 +160,7 @@ export default function TrainingPreferencesScreen() {
         count,
         preferences: {
           training_split: prefs.training_split,
-          session_duration_minutes: prefs.session_duration_minutes as number,
+          session_duration_minutes: prefs.session_duration_minutes,
           equipment: prefs.equipment_level,
           training_style: prefs.training_style,
           difficulty: prefs.difficulty_level,

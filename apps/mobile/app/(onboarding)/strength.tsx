@@ -25,6 +25,13 @@ export default function StrengthScreen() {
       step: "strength",
       skipped: strengthBaselines.length === 0,
     });
+    strengthBaselines.forEach((baseline) => {
+      trackEvent("strength_baseline_entered", {
+        exercise_key: baseline.exercise_key,
+        has_load: baseline.load_kg !== null,
+        source: "onboarding",
+      });
+    });
     if (editMode === "1") {
       router.back();
     } else {

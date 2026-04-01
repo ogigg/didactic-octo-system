@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutQueue } from "@/components/workout-queue";
@@ -27,6 +27,7 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import type { WorkoutTemplate } from "@/stores/workout-templates-store";
+import { trackEvent } from "@/lib/track-event";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -133,6 +134,21 @@ export default function HomeScreen() {
   );
 
   const greeting = useMemo(() => t(getGreetingKey()), [t]);
+
+  useFocusEffect(
+    useCallback(() => {
+      trackEvent("queue_state_on_open", {
+        ready_count: queue.filter((workout) => workout.status === "ready")
+          .length,
+        generating_count: queue.filter(
+          (workout) =>
+            workout.status === "generating" || workout.status === "queued"
+        ).length,
+        total_count: queue.length,
+        has_active_workout: isWorkoutActive,
+      });
+    }, [isWorkoutActive, queue])
+  );
 
   return (
     <View style={styles.root}>

@@ -22,6 +22,9 @@ interface PendingWorkoutState {
   queue: PendingWorkout[];
   queueStatus: QueueStatus;
   lastFetchedAt: number | null;
+  queueGenerationStartedAt: number | null;
+  queueGenerationTrigger: "onboarding" | "preference_change" | null;
+  recoveryAttempts: Record<string, number>;
 }
 
 interface PendingWorkoutActions {
@@ -30,6 +33,12 @@ interface PendingWorkoutActions {
   updateWorkout: (id: string, updates: Partial<PendingWorkout>) => void;
   removeWorkout: (id: string) => void;
   setQueueStatus: (status: QueueStatus) => void;
+  markQueueGenerationStarted: (
+    trigger: "onboarding" | "preference_change"
+  ) => void;
+  clearQueueGenerationContext: () => void;
+  recordRecoveryAttempt: (id: string) => number;
+  clearRecoveryAttempt: (id: string) => void;
   clearQueue: () => void;
 }
 
@@ -63,6 +72,9 @@ const initialState: PendingWorkoutState = {
   queue: [],
   queueStatus: "idle",
   lastFetchedAt: null,
+  queueGenerationStartedAt: null,
+  queueGenerationTrigger: null,
+  recoveryAttempts: {},
 };
 
 // -----------------------------------------------------------------------------
@@ -73,7 +85,7 @@ export const usePendingWorkoutStore = create<
   PendingWorkoutState & PendingWorkoutActions
 >()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialState,
 
       setQueue: (workouts) =>
@@ -106,6 +118,41 @@ export const usePendingWorkoutStore = create<
         }),
 
       setQueueStatus: (queueStatus) => set({ queueStatus }),
+
+      markQueueGenerationStarted: (trigger) =>
+        set({
+          queueGenerationStartedAt: Date.now(),
+          queueGenerationTrigger: trigger,
+        }),
+
+      clearQueueGenerationContext: () =>
+        set({
+          queueGenerationStartedAt: null,
+          queueGenerationTrigger: null,
+        }),
+
+      recordRecoveryAttempt: (id) => {
+        const nextValue = (get().recoveryAttempts[id] ?? 0) + 1;
+        set((state) => ({
+          recoveryAttempts: {
+            ...state.recoveryAttempts,
+            [id]: nextValue,
+          },
+        }));
+        return nextValue;
+      },
+
+      clearRecoveryAttempt: (id) =>
+        set((state) => {
+          if (!(id in state.recoveryAttempts)) {
+            return state;
+          }
+
+          const recoveryAttempts = { ...state.recoveryAttempts };
+          delete recoveryAttempts[id];
+
+          return { recoveryAttempts };
+        }),
 
       clearQueue: () => set(initialState),
     }),

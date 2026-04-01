@@ -21,10 +21,12 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
+  useEditPendingWorkout,
   useRegenerateWorkout,
   useStartPendingWorkout,
 } from "@/hooks/use-workout-queue";
 import type { PendingWorkout } from "@/lib/api/pending-workouts";
+import { trackEvent } from "@/lib/track-event";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import {
   selectNextWorkout,
@@ -93,7 +95,6 @@ export default function WorkoutPreviewScreen() {
   const border = useThemeColor({}, "border");
   const inputFill = useThemeColor({}, "inputFill");
   const inputFillFocused = useThemeColor({}, "inputFillFocused");
-  const success = useThemeColor({}, "success");
 
   // Store
   const queue = usePendingWorkoutStore((s) => s.queue);
@@ -104,19 +105,39 @@ export default function WorkoutPreviewScreen() {
   // Mutations
   const startMutation = useStartPendingWorkout();
   const regenerateMutation = useRegenerateWorkout();
+  const editMutation = useEditPendingWorkout();
 
   // Local edit state
   const [isEditing, setIsEditing] = useState(false);
   const [localExercises, setLocalExercises] = useState<LocalExercise[]>([]);
+  const [dirtyEditTypes, setDirtyEditTypes] = useState<string[]>([]);
   const swapIndexRef = useRef<number | null>(null);
+  const openedAtRef = useRef(Date.now());
   const swapResult = usePendingSwapStore((s) => s.result);
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
+
+  const markEditType = useCallback((editType: string) => {
+    setDirtyEditTypes((prev) =>
+      prev.includes(editType) ? prev : [...prev, editType]
+    );
+  }, []);
 
   // Initialize local exercises from workout data
   useEffect(() => {
     if (workout?.workout_data) {
+      const editedExercises = Array.isArray(
+        (workout.user_edits as { exercises?: LocalExercise[] } | null)
+          ?.exercises
+      )
+        ? (
+            workout.user_edits as {
+              exercises?: LocalExercise[];
+            }
+          ).exercises
+        : null;
+
       setLocalExercises(
-        workout.workout_data.exercises.map((ex) => ({
+        (editedExercises ?? workout.workout_data.exercises).map((ex) => ({
           exercise_id: ex.exercise_id,
           exercise_name: ex.exercise_name,
           rest_duration_seconds: ex.rest_duration_seconds,
@@ -128,8 +149,34 @@ export default function WorkoutPreviewScreen() {
           })),
         }))
       );
+      setDirtyEditTypes(
+        Array.isArray(
+          (workout.user_edits as { edit_types?: string[] } | null)?.edit_types
+        )
+          ? ((
+              workout.user_edits as {
+                edit_types?: string[];
+              }
+            ).edit_types ?? [])
+          : []
+      );
     }
   }, [workout?.workout_data]);
+
+  useEffect(() => {
+    openedAtRef.current = Date.now();
+  }, [id]);
+
+  useEffect(() => {
+    return () => {
+      if (!workout) return;
+
+      trackEvent("workout_preview_viewed", {
+        queue_position: workout.queue_position,
+        time_on_screen_ms: Math.max(0, Date.now() - openedAtRef.current),
+      });
+    };
+  }, [workout]);
 
   // Handle swap result returning from exercise picker
   useFocusEffect(
@@ -146,17 +193,23 @@ export default function WorkoutPreviewScreen() {
               : ex
           )
         );
+        markEditType("swap_exercise");
         swapIndexRef.current = null;
         setSwapResult(null);
       }
-    }, [swapResult, setSwapResult])
+    }, [markEditType, swapResult, setSwapResult])
   );
 
   // Handlers
   const handleStart = useCallback(() => {
     if (!workout) return;
-    startMutation.mutate(workout);
-  }, [workout, startMutation]);
+    startMutation.mutate({
+      pendingWorkout: workout,
+      exercises: localExercises,
+      wasEdited: dirtyEditTypes.length > 0 || workout.user_edits !== null,
+      editCount: dirtyEditTypes.length,
+    });
+  }, [dirtyEditTypes.length, localExercises, startMutation, workout]);
 
   const handleRegenerate = useCallback(() => {
     if (!workout) return;
@@ -165,10 +218,24 @@ export default function WorkoutPreviewScreen() {
       {
         text: t("regenerate.confirm"),
         style: "destructive",
-        onPress: () => regenerateMutation.mutate(workout.id),
+        onPress: () => regenerateMutation.mutate(workout),
       },
     ]);
   }, [workout, regenerateMutation, t]);
+
+  const persistEdits = useCallback(() => {
+    if (!workout || dirtyEditTypes.length === 0) return;
+
+    editMutation.mutate({
+      id: workout.id,
+      edits: {
+        exercises: localExercises,
+        edit_types: dirtyEditTypes,
+        edited_at: new Date().toISOString(),
+      },
+      editType: dirtyEditTypes.length === 1 ? dirtyEditTypes[0] : "multiple",
+    });
+  }, [dirtyEditTypes, editMutation, localExercises, workout]);
 
   const handleSwap = useCallback(
     (exerciseIndex: number) => {
@@ -189,6 +256,7 @@ export default function WorkoutPreviewScreen() {
       const value = rawValue === "" ? 0 : Number(rawValue);
       if (rawValue !== "" && isNaN(value)) return;
 
+      markEditType(field === "target_load_kg" ? "change_load" : "change_sets");
       setLocalExercises((prev) =>
         prev.map((ex, i) =>
           i === exerciseIndex
@@ -202,8 +270,18 @@ export default function WorkoutPreviewScreen() {
         )
       );
     },
-    []
+    [markEditType]
   );
+
+  const handleToggleEdit = useCallback(() => {
+    setIsEditing((prev) => {
+      if (prev) {
+        persistEdits();
+      }
+
+      return !prev;
+    });
+  }, [persistEdits]);
 
   // Loading / empty states
   if (!workout || !workout.workout_data) {
@@ -244,7 +322,7 @@ export default function WorkoutPreviewScreen() {
             {workout.workout_data.workout_name}
           </Text>
           <Pressable
-            onPress={() => setIsEditing((prev) => !prev)}
+            onPress={handleToggleEdit}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel={isEditing ? t("edit.done") : t("edit.toggle")}

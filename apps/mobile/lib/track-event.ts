@@ -5,15 +5,27 @@ export type EventName =
   // Onboarding events
   | "onboarding_step_completed"
   | "onboarding_completed"
+  | "strength_baseline_entered"
   // Workout events
   | "workout_generated"
+  | "workout_queue_initialized"
+  | "workout_queue_ready"
+  | "pending_workout_generated"
+  | "pending_workout_started"
+  | "pending_workout_regenerated"
+  | "pending_workout_edited"
+  | "workout_preview_viewed"
   | "workout_completed"
   | "session_duration"
   | "feedback_given"
-  | "difficulty_feedback_given";
+  | "difficulty_feedback_given"
+  | "training_preferences_changed"
+  | "queue_state_on_open";
 // Future events can be added here
 
-export type EventPayload = Record<string, unknown>;
+type Primitive = string | number | boolean | null;
+type EventValue = Primitive | Primitive[];
+export type EventPayload = Record<string, EventValue>;
 
 /**
  * Thin analytics wrapper using PostHog.
@@ -56,7 +68,7 @@ export function setUserProperties(properties: Record<string, unknown>): void {
   if (posthog) {
     try {
       // PostHog identify sets user ID and properties
-      posthog.identify(undefined, properties);
+      posthog.identify(undefined, properties as EventPayload);
     } catch (error) {
       console.error("[analytics] Failed to set user properties:", error);
     }

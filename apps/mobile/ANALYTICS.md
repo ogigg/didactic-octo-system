@@ -79,8 +79,45 @@ resetUser();
 
 - **onboarding_step_completed**: When a user completes an onboarding step
 - **onboarding_completed**: When onboarding flow is fully completed
+- **strength_baseline_entered**: When a baseline value is submitted
+  - `exercise_key`: pushups | pullups | db_bench | db_row | bb_bench | bb_squat | deadlift
+  - `has_load`: boolean
+  - `source`: onboarding | settings
 
 ### Workout Events
+
+- **workout_queue_initialized**: Queue generation started
+  - `count`: target queue size
+  - `trigger`: onboarding | preference_change
+
+- **workout_queue_ready**: All queued workouts are ready
+  - `total_generation_time_ms`: total time from init to ready
+  - `count`: queue size
+  - `fallback_count`: number of fallback template workouts in queue
+
+- **pending_workout_generated**: A single queued workout became ready
+  - `generation_source`: llm | fallback_template | fallback_substitution
+  - `trigger`: onboarding | preference_change | unknown
+  - `generation_time_ms`: time from row creation to ready
+  - `queue_position`: queue slot
+  - `focus_area`: push | pull | legs | upper | lower | full_body
+
+- **pending_workout_started**: User started a queued workout
+  - `time_since_generated_ms`: age of workout when started
+  - `was_edited`: boolean
+  - `edit_count`: number of unique edit types applied
+
+- **pending_workout_regenerated**: User manually regenerated a queued workout
+  - `queue_position`: queue slot
+  - `focus_area`: push | pull | legs | upper | lower | full_body
+  - `previous_generation_source`: llm | fallback_template | fallback_substitution
+
+- **pending_workout_edited**: A queued workout draft was changed and persisted
+  - `edit_type`: swap_exercise | change_sets | change_load | multiple
+
+- **workout_preview_viewed**: Preview modal was opened
+  - `queue_position`: queue slot
+  - `time_on_screen_ms`: dwell time before exit
 
 - **workout_generated**: When AI generates a new workout
   - `generation_source`: llm | fallback_template | fallback_substitution
@@ -113,6 +150,16 @@ resetUser();
   - `exercise_id`: ID of the exercise
   - `difficulty`: too_easy | ok | too_hard
   - `session_id`: ID of the workout session
+
+- **training_preferences_changed**: Training preferences were saved
+  - `changed_fields`: array of changed columns
+  - `triggered_queue_rebuild`: boolean
+
+- **queue_state_on_open**: Queue snapshot when the home tab opens
+  - `ready_count`: ready workouts
+  - `generating_count`: queued + generating workouts
+  - `total_count`: total queued workouts
+  - `has_active_workout`: boolean
 
 ## Adding New Events
 
@@ -151,11 +198,9 @@ resetUser();
 - Batched to minimize network requests
 - Graceful degradation if PostHog is unavailable
 
-## Future Enhancements
+## Suggested Dashboards
 
-- [ ] Implement feedback_given event (requires UI)
-- [ ] Add screen view tracking
-- [ ] Implement user funnels
-- [ ] Add A/B testing support
-- [ ] Configure data retention policies
-- [ ] Set up dashboards and alerts
+- `Generation pipeline`: `workout_queue_initialized` -> `pending_workout_generated` -> `pending_workout_started` -> `workout_completed`
+- `Queue readiness`: `queue_state_on_open` broken down by `ready_count` and `generating_count`
+- `Latency`: percentile chart on `pending_workout_generated.generation_time_ms`
+- `Recovery + cost`: generation source mix, fallback rate, regeneration rate, and per-user weekly generation volume

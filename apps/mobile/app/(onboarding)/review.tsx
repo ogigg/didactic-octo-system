@@ -1,4 +1,6 @@
+import { useRebuildQueue } from "@/hooks/use-workout-queue";
 import { useUpsertProfile } from "@/hooks/use-profile-mutations";
+import { mapOnboardingToProfile } from "@/lib/api/profiles";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import type {
   Frequency,
@@ -75,6 +77,7 @@ type EditStep =
 export default function ReviewScreen() {
   const store = useOnboardingStore();
   const upsertProfile = useUpsertProfile();
+  const rebuildQueue = useRebuildQueue();
   useFocusEffect(useCallback(() => undefined, []));
 
   const {
@@ -121,7 +124,7 @@ export default function ReviewScreen() {
   function handleSubmit() {
     if (frequency === null || equipment === null || experience === null) return;
 
-    upsertProfile.mutate({
+    const onboardingPayload = {
       gender,
       goal,
       customGoal,
@@ -129,11 +132,30 @@ export default function ReviewScreen() {
       equipment,
       experience,
       strengthBaselines,
-    });
+    };
 
-    complete();
-    trackEvent("onboarding_completed", {});
-    router.replace("/(tabs)" as never);
+    upsertProfile.mutate(onboardingPayload, {
+      onSuccess: () => {
+        const profilePayload = mapOnboardingToProfile(onboardingPayload);
+
+        rebuildQueue.mutate({
+          count: frequency,
+          preferences: {
+            training_split: profilePayload.training_split,
+            session_duration_minutes: profilePayload.session_duration_minutes,
+            equipment: profilePayload.equipment_level,
+            training_style: profilePayload.training_style,
+            difficulty: profilePayload.difficulty_level,
+          },
+          baselines: strengthBaselines,
+          trigger: "onboarding",
+        });
+
+        complete();
+        trackEvent("onboarding_completed", {});
+        router.replace("/(tabs)" as never);
+      },
+    });
   }
 
   return (

@@ -29,6 +29,64 @@ describe("trackEvent", () => {
     ).not.toThrow();
   });
 
+  it("does not throw for queue lifecycle events", () => {
+    expect(() =>
+      trackEvent("workout_queue_initialized", {
+        count: 4,
+        trigger: "onboarding",
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("pending_workout_generated", {
+        generation_source: "llm",
+        trigger: "onboarding",
+        generation_time_ms: 1500,
+        queue_position: 1,
+        focus_area: "upper",
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("workout_queue_ready", {
+        total_generation_time_ms: 6000,
+        count: 4,
+        fallback_count: 1,
+      })
+    ).not.toThrow();
+  });
+
+  it("does not throw for preview and edit events", () => {
+    expect(() =>
+      trackEvent("workout_preview_viewed", {
+        queue_position: 2,
+        time_on_screen_ms: 3400,
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("pending_workout_started", {
+        time_since_generated_ms: 45000,
+        was_edited: true,
+        edit_count: 2,
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("pending_workout_regenerated", {
+        queue_position: 2,
+        focus_area: "lower",
+        previous_generation_source: "fallback_template",
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("pending_workout_edited", {
+        edit_type: "swap_exercise",
+      })
+    ).not.toThrow();
+  });
+
   it("does not throw for workout_completed event", () => {
     expect(() =>
       trackEvent("workout_completed", {
@@ -62,6 +120,32 @@ describe("trackEvent", () => {
         exercise_id: "exercise-123",
         difficulty: "ok",
         session_id: "session-456",
+      })
+    ).not.toThrow();
+  });
+
+  it("does not throw for settings and queue open events", () => {
+    expect(() =>
+      trackEvent("strength_baseline_entered", {
+        exercise_key: "bb_squat",
+        has_load: true,
+        source: "settings",
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("training_preferences_changed", {
+        changed_fields: ["difficulty_level", "training_style"],
+        triggered_queue_rebuild: true,
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("queue_state_on_open", {
+        ready_count: 2,
+        generating_count: 1,
+        total_count: 4,
+        has_active_workout: false,
       })
     ).not.toThrow();
   });

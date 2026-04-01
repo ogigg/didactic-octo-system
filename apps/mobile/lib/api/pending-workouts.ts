@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import type {
+  Difficulty,
+  DurationMinutes,
+  Equipment,
+  TrainingSplit,
+  TrainingStyle,
+} from "@/lib/api/generate-workout";
 import { generateWorkoutResponseSchema } from "@/lib/api/generate-workout";
 import { supabase } from "@/lib/supabase";
 
@@ -144,15 +151,18 @@ export async function deleteAllPendingWorkouts(): Promise<void> {
 
 export interface QueueGenerationRequest {
   count: number;
-  preferences: {
-    training_split: string;
-    session_duration_minutes: number;
-    equipment: string;
-    training_style: string;
-    difficulty: string;
-  };
+  preferences: WorkoutGenerationPreferences;
   baselines: { exercise_key: string; load_kg: number | null; reps: number }[];
   trigger: "onboarding" | "preference_change";
+}
+
+export interface WorkoutGenerationPreferences {
+  training_split: TrainingSplit;
+  session_duration_minutes: DurationMinutes;
+  equipment: Equipment;
+  training_style: TrainingStyle;
+  difficulty: Difficulty;
+  custom_prompt?: string | null;
 }
 
 export async function triggerQueueGeneration(
@@ -168,10 +178,19 @@ export async function triggerQueueGeneration(
 }
 
 export async function triggerRegeneration(
-  pendingWorkoutId: string
+  pendingWorkoutId: string,
+  preferences: WorkoutGenerationPreferences
 ): Promise<z.infer<typeof generateWorkoutResponseSchema>> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
-    body: { pending_workout_id: pendingWorkoutId },
+    body: {
+      pending_workout_id: pendingWorkoutId,
+      training_split: preferences.training_split,
+      duration_minutes: preferences.session_duration_minutes,
+      equipment: preferences.equipment,
+      training_style: preferences.training_style,
+      difficulty: preferences.difficulty,
+      custom_prompt: preferences.custom_prompt ?? undefined,
+    },
   });
 
   if (error) {
@@ -179,4 +198,41 @@ export async function triggerRegeneration(
   }
 
   return generateWorkoutResponseSchema.parse(data);
+}
+
+export async function setPendingWorkoutStatus(
+  id: string,
+  status: PendingWorkoutStatus
+): Promise<void> {
+  await getAuthenticatedUserId();
+
+  const { error } = await supabase
+    .from("pending_workouts")
+    .update({ status })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function replacePendingWorkoutWithFallback(
+  id: string,
+  fallbackWorkout: z.infer<typeof generateWorkoutResponseSchema>
+): Promise<void> {
+  await getAuthenticatedUserId();
+
+  const { error } = await supabase
+    .from("pending_workouts")
+    .update({
+      status: "ready",
+      generation_source: "fallback_template",
+      workout_data: fallbackWorkout,
+      generated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }

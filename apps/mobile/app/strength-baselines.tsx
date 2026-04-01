@@ -22,6 +22,7 @@ import {
   fetchStrengthBaselines,
   saveStrengthBaselines,
 } from "@/lib/api/strength-baselines";
+import { trackEvent } from "@/lib/track-event";
 import type { StrengthBaseline } from "@/stores/onboarding-store";
 
 const BASELINE_KEYS = ["strength-baselines"] as const;
@@ -64,6 +65,13 @@ export default function StrengthBaselinesScreen() {
     mutationFn: () => saveStrengthBaselines(baselines),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: strengthBaselineKeys.all });
+      baselines.forEach((baseline) => {
+        trackEvent("strength_baseline_entered", {
+          exercise_key: baseline.exercise_key,
+          has_load: baseline.load_kg !== null,
+          source: "settings",
+        });
+      });
       Alert.alert("", t("success"));
     },
   });
