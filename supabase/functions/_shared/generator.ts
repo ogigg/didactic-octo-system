@@ -574,7 +574,10 @@ export async function generateSingleWorkout(
       }
 
       const llmJson = await llmResponse.json();
-      const content = llmJson.choices?.[0]?.message?.content;
+      console.log("llmJson", llmJson);
+      console.log("llmJson.choices", llmJson.choices);
+      const msg = llmJson.choices?.[0]?.message;
+      const content = msg?.content || msg?.reasoning;
       if (!content) throw new Error("Empty LLM response");
 
       const parsedContent = JSON.parse(content);
