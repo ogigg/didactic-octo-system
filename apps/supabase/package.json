@@ -1,0 +1,7 @@
+{
+  "name": "supabase",
+  "private": true,
+  "scripts": {
+    "dev": "supabase start && supabase functions serve"
+  }
+}
