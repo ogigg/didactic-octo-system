@@ -24,14 +24,12 @@ import {
   useEditPendingWorkout,
   useRegenerateWorkout,
   useStartPendingWorkout,
+  useWorkoutQueueData,
 } from "@/hooks/use-workout-queue";
 import type { PendingWorkout } from "@/lib/api/pending-workouts";
 import { trackEvent } from "@/lib/track-event";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
-import {
-  selectNextWorkout,
-  usePendingWorkoutStore,
-} from "@/stores/pending-workout-store";
+import { selectNextWorkout } from "@/stores/pending-workout-store";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -96,8 +94,8 @@ export default function WorkoutPreviewScreen() {
   const inputFill = useThemeColor({}, "inputFill");
   const inputFillFocused = useThemeColor({}, "inputFillFocused");
 
-  // Store
-  const queue = usePendingWorkoutStore((s) => s.queue);
+  // Queue data
+  const { queue } = useWorkoutQueueData();
   const nextWorkout = selectNextWorkout(queue);
   const workout = queue.find((w) => w.id === id) ?? null;
   const isNextUp = nextWorkout?.id === id;

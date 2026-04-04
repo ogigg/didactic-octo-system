@@ -129,7 +129,27 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 6. Clear existing pending workouts for this user
+    // 6. Check for concurrent generation — skip if already in progress
+    const { data: existingQueue } = await userClient
+      .from("pending_workouts")
+      .select("id, status")
+      .eq("user_id", user.id);
+
+    const hasInFlightGeneration = (existingQueue ?? []).some(
+      (pw) => pw.status === "queued" || pw.status === "generating"
+    );
+
+    if (hasInFlightGeneration) {
+      console.log(
+        "[generate-workout-queue] Generation already in progress, skipping"
+      );
+      return jsonResponse({
+        skipped: true,
+        reason: "generation_already_in_progress",
+      });
+    }
+
+    // 7. Clear existing pending workouts for this user
     const { error: deleteError } = await userClient
       .from("pending_workouts")
       .delete()
@@ -143,7 +163,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Failed to clear existing queue", 500);
     }
 
-    // 7. Create N pending_workout rows with status 'queued'
+    // 8. Create N pending_workout rows with status 'queued'
     const queuedWorkouts = Array.from({ length: count }, (_, i) => ({
       user_id: user.id,
       queue_position: i + 1,
@@ -164,7 +184,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Failed to create workout queue", 500);
     }
 
-    // 8. Generate each workout sequentially
+    // 9. Generate each workout sequentially
     const results: {
       position: number;
       status: string;

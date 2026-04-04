@@ -134,16 +134,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // 7. Determine position and focus area for the replacement
-    const occupiedPositions = new Set(
-      currentQueue?.map((pw) => pw.queue_position) ?? []
+    const maxPosition = Math.max(
+      0,
+      ...(currentQueue?.map((pw) => pw.queue_position) ?? [])
     );
-    let targetPosition = 1;
-    for (let i = 1; i <= targetCount; i++) {
-      if (!occupiedPositions.has(i)) {
-        targetPosition = i;
-        break;
-      }
-    }
+    const targetPosition = maxPosition + 1;
 
     const readyWorkouts = (currentQueue ?? []).filter(
       (pw) => pw.status === "ready"
@@ -163,9 +158,29 @@ Deno.serve(async (req: Request) => {
         workout_data: pw.workout_data as QueueContextItem["workout_data"],
       }));
 
-    // 8. Generate replacement workout
+    // 8. Insert placeholder row so the client can show a "generating" card
     const profileGoal = profile.goal ?? "improve_fitness";
 
+    const { data: placeholder, error: placeholderError } = await supabaseClient
+      .from("pending_workouts")
+      .insert({
+        user_id,
+        queue_position: targetPosition,
+        status: "generating",
+        focus_area: focusArea,
+      })
+      .select("id")
+      .single();
+
+    if (placeholderError || !placeholder) {
+      console.error(
+        "[generate-next-workout] Error creating placeholder:",
+        placeholderError
+      );
+      return errorResponse("Failed to create placeholder", 500);
+    }
+
+    // 9. Generate replacement workout
     const genResult = await generateSingleWorkout({
       supabaseClient,
       profile: { ...profile, goal: profileGoal } as ProfileData,
@@ -186,29 +201,24 @@ Deno.serve(async (req: Request) => {
         `[generate-next-workout] Generation failed: ${genResult.error}`
       );
 
-      // Insert a failed placeholder so the client knows to retry
-      await supabaseClient.from("pending_workouts").insert({
-        user_id,
-        queue_position: targetPosition,
-        status: "failed",
-        focus_area: focusArea,
-      });
+      await supabaseClient
+        .from("pending_workouts")
+        .update({ status: "failed" })
+        .eq("id", placeholder.id);
 
       return jsonResponse({ success: false, error: genResult.error }, 500);
     }
 
-    // 9. Insert replacement pending_workout
+    // 10. Update placeholder with generated data
     const { error: insertError } = await supabaseClient
       .from("pending_workouts")
-      .insert({
-        user_id,
-        queue_position: targetPosition,
+      .update({
         status: "ready",
         workout_data: genResult.data as unknown as Record<string, unknown>,
         generation_source: genResult.generationSource,
-        focus_area: focusArea,
         generated_at: new Date().toISOString(),
-      });
+      })
+      .eq("id", placeholder.id);
 
     if (insertError) {
       console.error(

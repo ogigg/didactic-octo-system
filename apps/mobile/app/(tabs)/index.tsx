@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -26,7 +26,6 @@ import { useProfile } from "@/hooks/use-profile-query";
 import { getTargetQueueCount } from "@/lib/pending-workout-queue";
 import { fetchWorkoutHistoryForDayRange } from "@/lib/api/workouts";
 import { getMondayLocal } from "@/lib/iso-week";
-import { usePendingWorkoutStore } from "@/stores/pending-workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
@@ -57,8 +56,13 @@ export default function HomeScreen() {
 
   // Data
   const { data: profile } = useProfile();
-  const { isRefetching, refetch } = useWorkoutQueue();
-  const queue = usePendingWorkoutStore((s) => s.queue);
+  const { refetch, queue } = useWorkoutQueue();
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsManualRefreshing(true);
+    await refetch();
+    setIsManualRefreshing(false);
+  }, [refetch]);
   const frequency = useMemo(() => {
     return getTargetQueueCount(profile?.weekly_frequency);
   }, [profile?.weekly_frequency]);
@@ -169,7 +173,10 @@ export default function HomeScreen() {
         <ScrollView
           contentContainerStyle={styles.scroll}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
+            <RefreshControl
+              refreshing={isManualRefreshing}
+              onRefresh={handleRefresh}
+            />
           }
         >
           {/* Greeting */}
