@@ -14,12 +14,12 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   SectionList,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData } from "@tanstack/react-query";
 
@@ -210,78 +210,80 @@ export default function ExercisePickerScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
-      <SafeAreaView style={styles.safe}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={handleCancel}
-            accessibilityRole="button"
-            accessibilityLabel={t("header.cancel")}
-            style={styles.headerSide}
-          >
-            <Text style={[Typography.body, { color: primary }]}>
-              {t("header.cancel")}
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safe}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable
+              onPress={handleCancel}
+              accessibilityRole="button"
+              accessibilityLabel={t("header.cancel")}
+              style={styles.headerSide}
+            >
+              <Text style={[Typography.body, { color: primary }]}>
+                {t("header.cancel")}
+              </Text>
+            </Pressable>
+            <Text
+              style={[
+                Typography.titleMd,
+                { color: textColor },
+                styles.headerTitle,
+              ]}
+              numberOfLines={1}
+            >
+              {mode === "add" ? t("header.titleAdd") : t("header.titleReplace")}
             </Text>
-          </Pressable>
-          <Text
-            style={[
-              Typography.titleMd,
-              { color: textColor },
-              styles.headerTitle,
-            ]}
-            numberOfLines={1}
-          >
-            {mode === "add" ? t("header.titleAdd") : t("header.titleReplace")}
-          </Text>
-          <View style={styles.headerSide} />
-        </View>
+            <View style={styles.headerSide} />
+          </View>
 
-        {/* Search */}
-        <SearchBar
-          value={searchText}
-          onChangeText={handleSearchChange}
-          placeholder={t("search.placeholder")}
-        />
+          {/* Search */}
+          <SearchBar
+            value={searchText}
+            onChangeText={handleSearchChange}
+            placeholder={t("search.placeholder")}
+          />
 
-        {/* Filter Pills */}
-        <FilterPills
-          selectedMuscles={selectedMuscles}
-          selectedEquipment={selectedEquipment}
-          onPressMuscles={() => setMuscleSheetVisible(true)}
-          onPressEquipment={() => setEquipmentSheetVisible(true)}
-        />
+          {/* Filter Pills */}
+          <FilterPills
+            selectedMuscles={selectedMuscles}
+            selectedEquipment={selectedEquipment}
+            onPressMuscles={() => setMuscleSheetVisible(true)}
+            onPressEquipment={() => setEquipmentSheetVisible(true)}
+          />
 
-        {/* Exercise List */}
-        <SectionList
-          sections={sections}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          ListEmptyComponent={ListEmptyComponent}
-          contentContainerStyle={styles.listContent}
-          stickySectionHeadersEnabled={false}
-        />
+          {/* Exercise List */}
+          <SectionList
+            sections={sections}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            ListEmptyComponent={ListEmptyComponent}
+            contentContainerStyle={styles.listContent}
+            stickySectionHeadersEnabled={false}
+          />
 
-        {/* Filter Sheets */}
-        <FilterSheet
-          visible={muscleSheetVisible}
-          onClose={() => setMuscleSheetVisible(false)}
-          title="Muscle Group"
-          options={MUSCLE_GROUPS}
-          selected={selectedMuscles}
-          onToggle={toggleMuscle}
-        />
-        <FilterSheet
-          visible={equipmentSheetVisible}
-          onClose={() => setEquipmentSheetVisible(false)}
-          title="Equipment"
-          options={EQUIPMENT_TYPES}
-          selected={selectedEquipment}
-          onToggle={toggleEquipment}
-        />
-      </SafeAreaView>
+          {/* Filter Sheets */}
+          <FilterSheet
+            visible={muscleSheetVisible}
+            onClose={() => setMuscleSheetVisible(false)}
+            title="Muscle Group"
+            options={MUSCLE_GROUPS}
+            selected={selectedMuscles}
+            onToggle={toggleMuscle}
+          />
+          <FilterSheet
+            visible={equipmentSheetVisible}
+            onClose={() => setEquipmentSheetVisible(false)}
+            title="Equipment"
+            options={EQUIPMENT_TYPES}
+            selected={selectedEquipment}
+            onToggle={toggleEquipment}
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
     </View>
   );
 }

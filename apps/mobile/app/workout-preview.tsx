@@ -7,13 +7,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
@@ -285,21 +285,23 @@ export default function WorkoutPreviewScreen() {
   if (!workout || !workout.workout_data) {
     return (
       <View style={[styles.root, { backgroundColor: background }]}>
-        <SafeAreaView style={styles.safe}>
-          <View style={[styles.header, { borderBottomColor: border }]}>
-            <BackButton />
-            <View style={styles.headerSpacer} />
-          </View>
-          <View style={styles.emptyContainer}>
-            <IconSymbol name="flame" size={40} color={textDisabled} />
-            <Text style={[Typography.body, { color: textMuted }]}>
-              {t("empty.title")}
-            </Text>
-            <Text style={[Typography.caption, { color: textDisabled }]}>
-              {t("empty.subtitle")}
-            </Text>
-          </View>
-        </SafeAreaView>
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safe}>
+            <View style={[styles.header, { borderBottomColor: border }]}>
+              <BackButton />
+              <View style={styles.headerSpacer} />
+            </View>
+            <View style={styles.emptyContainer}>
+              <IconSymbol name="flame" size={40} color={textDisabled} />
+              <Text style={[Typography.body, { color: textMuted }]}>
+                {t("empty.title")}
+              </Text>
+              <Text style={[Typography.caption, { color: textDisabled }]}>
+                {t("empty.subtitle")}
+              </Text>
+            </View>
+          </SafeAreaView>
+        </SafeAreaProvider>
       </View>
     );
   }
@@ -312,129 +314,140 @@ export default function WorkoutPreviewScreen() {
       style={[styles.root, { backgroundColor: background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <SafeAreaView style={styles.safe}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: border }]}>
-          <BackButton />
-          <Text style={[Typography.titleMd, { color: text }]} numberOfLines={1}>
-            {workout.workout_data.workout_name}
-          </Text>
-          <Pressable
-            onPress={handleToggleEdit}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={isEditing ? t("edit.done") : t("edit.toggle")}
-          >
-            <Text style={[Typography.bodyMedium, { color: primary }]}>
-              {isEditing ? t("edit.done") : t("edit.toggle")}
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safe}>
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: border }]}>
+            <BackButton />
+            <Text
+              style={[Typography.titleMd, { color: text }]}
+              numberOfLines={1}
+            >
+              {workout.workout_data.workout_name}
             </Text>
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={handleToggleEdit}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={isEditing ? t("edit.done") : t("edit.toggle")}
+            >
+              <Text style={[Typography.bodyMedium, { color: primary }]}>
+                {isEditing ? t("edit.done") : t("edit.toggle")}
+              </Text>
+            </Pressable>
+          </View>
 
-        {/* Scrollable content */}
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Meta badges */}
-          <View style={styles.metaRow}>
-            {workout.focus_area && (
-              <View style={[styles.badge, { backgroundColor: primarySurface }]}>
+          {/* Scrollable content */}
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Meta badges */}
+            <View style={styles.metaRow}>
+              {workout.focus_area && (
+                <View
+                  style={[styles.badge, { backgroundColor: primarySurface }]}
+                >
+                  <Text style={[Typography.caption, { color: primary }]}>
+                    {workout.focus_area
+                      .replace("_", " ")
+                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </Text>
+                </View>
+              )}
+              <View
+                style={[styles.badge, { backgroundColor: primaryContainer }]}
+              >
+                <IconSymbol name="clock" size={12} color={primary} />
                 <Text style={[Typography.caption, { color: primary }]}>
-                  {workout.focus_area
-                    .replace("_", " ")
-                    .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  {t("meta.duration", { minutes: estimatedMinutes })}
+                </Text>
+              </View>
+              <View
+                style={[styles.badge, { backgroundColor: primaryContainer }]}
+              >
+                <IconSymbol name="dumbbell" size={12} color={primary} />
+                <Text style={[Typography.caption, { color: primary }]}>
+                  {t("meta.exercises", {
+                    count: localExercises.length,
+                  })}
+                </Text>
+              </View>
+            </View>
+
+            {/* Exercise list */}
+            <View style={styles.exerciseList}>
+              {localExercises.map((exercise, exIndex) => (
+                <ExerciseCard
+                  key={`${exercise.exercise_id}-${exIndex}`}
+                  exercise={exercise}
+                  exerciseIndex={exIndex}
+                  isEditing={isEditing}
+                  text={text}
+                  textSecondary={textSecondary}
+                  textMuted={textMuted}
+                  textDisabled={textDisabled}
+                  border={border}
+                  backgroundElevated={backgroundElevated}
+                  inputFill={inputFill}
+                  inputFillFocused={inputFillFocused}
+                  primary={primary}
+                  primarySurface={primarySurface}
+                  onUpdateSet={handleUpdateSet}
+                  onSwap={handleSwap}
+                  t={t}
+                />
+              ))}
+            </View>
+
+            <View style={styles.bottomPadding} />
+          </ScrollView>
+
+          {/* Footer actions */}
+          <View style={[styles.footer, { backgroundColor: background }]}>
+            {isNextUp && (
+              <Button
+                label={t("actions.startWorkout")}
+                onPress={handleStart}
+                accessibilityLabel={t("actions.startWorkout")}
+              />
+            )}
+            {!isNextUp && <View style={styles.footerSpacer} />}
+            {regenerateMutation.isPending ? (
+              <View
+                style={[
+                  styles.regenerateDisabled,
+                  { backgroundColor: primaryContainer },
+                ]}
+              >
+                <Text style={[Typography.titleSm, { color: primary }]}>
+                  {t("actions.regenerating")}
+                </Text>
+              </View>
+            ) : regenerable ? (
+              <Button
+                label={t("actions.regenerate")}
+                onPress={handleRegenerate}
+                variant="secondary"
+                accessibilityLabel={t("actions.regenerate")}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.regenerateDisabled,
+                  { backgroundColor: primaryContainer },
+                ]}
+              >
+                <Text style={[Typography.caption, { color: textMuted }]}>
+                  {t("actions.regeneratedToday")}
                 </Text>
               </View>
             )}
-            <View style={[styles.badge, { backgroundColor: primaryContainer }]}>
-              <IconSymbol name="clock" size={12} color={primary} />
-              <Text style={[Typography.caption, { color: primary }]}>
-                {t("meta.duration", { minutes: estimatedMinutes })}
-              </Text>
-            </View>
-            <View style={[styles.badge, { backgroundColor: primaryContainer }]}>
-              <IconSymbol name="dumbbell" size={12} color={primary} />
-              <Text style={[Typography.caption, { color: primary }]}>
-                {t("meta.exercises", {
-                  count: localExercises.length,
-                })}
-              </Text>
-            </View>
           </View>
-
-          {/* Exercise list */}
-          <View style={styles.exerciseList}>
-            {localExercises.map((exercise, exIndex) => (
-              <ExerciseCard
-                key={`${exercise.exercise_id}-${exIndex}`}
-                exercise={exercise}
-                exerciseIndex={exIndex}
-                isEditing={isEditing}
-                text={text}
-                textSecondary={textSecondary}
-                textMuted={textMuted}
-                textDisabled={textDisabled}
-                border={border}
-                backgroundElevated={backgroundElevated}
-                inputFill={inputFill}
-                inputFillFocused={inputFillFocused}
-                primary={primary}
-                primarySurface={primarySurface}
-                onUpdateSet={handleUpdateSet}
-                onSwap={handleSwap}
-                t={t}
-              />
-            ))}
-          </View>
-
-          <View style={styles.bottomPadding} />
-        </ScrollView>
-
-        {/* Footer actions */}
-        <View style={[styles.footer, { backgroundColor: background }]}>
-          {isNextUp && (
-            <Button
-              label={t("actions.startWorkout")}
-              onPress={handleStart}
-              accessibilityLabel={t("actions.startWorkout")}
-            />
-          )}
-          {!isNextUp && <View style={styles.footerSpacer} />}
-          {regenerateMutation.isPending ? (
-            <View
-              style={[
-                styles.regenerateDisabled,
-                { backgroundColor: primaryContainer },
-              ]}
-            >
-              <Text style={[Typography.titleSm, { color: primary }]}>
-                {t("actions.regenerating")}
-              </Text>
-            </View>
-          ) : regenerable ? (
-            <Button
-              label={t("actions.regenerate")}
-              onPress={handleRegenerate}
-              variant="secondary"
-              accessibilityLabel={t("actions.regenerate")}
-            />
-          ) : (
-            <View
-              style={[
-                styles.regenerateDisabled,
-                { backgroundColor: primaryContainer },
-              ]}
-            >
-              <Text style={[Typography.caption, { color: textMuted }]}>
-                {t("actions.regeneratedToday")}
-              </Text>
-            </View>
-          )}
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </KeyboardAvoidingView>
   );
 }

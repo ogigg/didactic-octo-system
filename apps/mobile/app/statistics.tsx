@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { HeatmapChart } from "@/components/stats/heatmap-chart";

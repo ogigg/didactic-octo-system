@@ -13,13 +13,13 @@ import {
   Easing,
   Keyboard,
   ScrollView,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
@@ -106,122 +106,133 @@ export default function WorkoutScreen() {
             style: "destructive",
             onPress: () => {
               finishWorkout();
-              router.replace("/workout-summary");
+              router.push("/workout-summary");
             },
           },
         ]
       );
     } else {
       finishWorkout();
-      router.replace("/workout-summary");
+      router.push("/workout-summary");
     }
   }, [totalSets, completedSets, finishWorkout, router, t]);
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <View style={[styles.root, { backgroundColor: background }]}>
-        <SafeAreaView style={styles.safe}>
-          <WorkoutTopBar
-            workoutName={workoutName}
-            completedSets={completedSets}
-            totalSets={totalSets}
-            onDismiss={handleDismiss}
-            onFinish={handleFinish}
-            onWorkoutNameChange={updateWorkoutName}
-          />
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[styles.progressTrack, { backgroundColor: progressTrack }]}
-              accessibilityRole="progressbar"
-              accessibilityValue={{
-                min: 0,
-                max: totalSets,
-                now: completedSets,
-              }}
-            >
-              <Animated.View
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safe}>
+            <WorkoutTopBar
+              workoutName={workoutName}
+              completedSets={completedSets}
+              totalSets={totalSets}
+              onDismiss={handleDismiss}
+              onFinish={handleFinish}
+              onWorkoutNameChange={updateWorkoutName}
+            />
+            <View style={styles.progressBarContainer}>
+              <View
                 style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: primary,
-                    width: animatedProgress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ["0%", "100%"],
-                    }),
-                  },
+                  styles.progressTrack,
+                  { backgroundColor: progressTrack },
                 ]}
-              />
+                accessibilityRole="progressbar"
+                accessibilityValue={{
+                  min: 0,
+                  max: totalSets,
+                  now: completedSets,
+                }}
+              >
+                <Animated.View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: primary,
+                      width: animatedProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ["0%", "100%"],
+                      }),
+                    },
+                  ]}
+                />
+              </View>
             </View>
-          </View>
-          <WorkoutTimer />
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <ScrollView
-              ref={scrollRef}
-              contentContainerStyle={styles.scroll}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {exercises.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={[Typography.titleMd, { color: textColor }]}>
-                    {t("emptyState.title")}
-                  </Text>
-                  <Text
-                    style={[
-                      Typography.body,
-                      { color: textSecondary },
-                      styles.emptyStateSubtitle,
-                    ]}
-                  >
-                    {t("emptyState.subtitle")}
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.addExerciseButtonLarge,
-                      { backgroundColor: primary },
-                    ]}
-                    onPress={handleAddExercise}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("emptyState.addExercise")}
-                  >
+            <WorkoutTimer />
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <ScrollView
+                ref={scrollRef}
+                contentContainerStyle={styles.scroll}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {exercises.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={[Typography.titleMd, { color: textColor }]}>
+                      {t("emptyState.title")}
+                    </Text>
                     <Text
-                      style={[Typography.titleSm, styles.addExerciseButtonText]}
+                      style={[
+                        Typography.body,
+                        { color: textSecondary },
+                        styles.emptyStateSubtitle,
+                      ]}
                     >
-                      {t("emptyState.addExercise")}
+                      {t("emptyState.subtitle")}
                     </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  {exercises.map((exercise) => (
-                    <View
-                      key={exercise.id}
-                      onLayout={(e) =>
-                        handleExerciseLayout(
-                          exercise.id,
-                          e.nativeEvent.layout.y
-                        )
-                      }
+                    <TouchableOpacity
+                      style={[
+                        styles.addExerciseButtonLarge,
+                        { backgroundColor: primary },
+                      ]}
+                      onPress={handleAddExercise}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("emptyState.addExercise")}
                     >
-                      <ExerciseCard exercise={exercise} />
-                    </View>
-                  ))}
-                  <TouchableOpacity
-                    style={[styles.addExerciseButton, { borderColor: primary }]}
-                    onPress={handleAddExercise}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("addExercise")}
-                  >
-                    <Text style={[Typography.titleSm, { color: primary }]}>
-                      {t("addExercise")}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </ScrollView>
-          </TouchableWithoutFeedback>
-          <RestTimerBar />
-        </SafeAreaView>
+                      <Text
+                        style={[
+                          Typography.titleSm,
+                          styles.addExerciseButtonText,
+                        ]}
+                      >
+                        {t("emptyState.addExercise")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    {exercises.map((exercise) => (
+                      <View
+                        key={exercise.id}
+                        onLayout={(e) =>
+                          handleExerciseLayout(
+                            exercise.id,
+                            e.nativeEvent.layout.y
+                          )
+                        }
+                      >
+                        <ExerciseCard exercise={exercise} />
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      style={[
+                        styles.addExerciseButton,
+                        { borderColor: primary },
+                      ]}
+                      onPress={handleAddExercise}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("addExercise")}
+                    >
+                      <Text style={[Typography.titleSm, { color: primary }]}>
+                        {t("addExercise")}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </ScrollView>
+            </TouchableWithoutFeedback>
+            <RestTimerBar />
+          </SafeAreaView>
+        </SafeAreaProvider>
       </View>
     </GestureHandlerRootView>
   );

@@ -6,13 +6,13 @@ import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";

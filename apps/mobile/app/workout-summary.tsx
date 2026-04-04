@@ -23,12 +23,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
   FadeInDown,
   useReducedMotion,
@@ -387,7 +387,7 @@ export default function WorkoutSummaryScreen() {
 
   const handleReturnHome = useCallback(() => {
     clearWorkout();
-    router.replace("/(tabs)");
+    router.dismiss(2);
   }, [clearWorkout, router]);
 
   // Animation helpers
@@ -402,19 +402,21 @@ export default function WorkoutSummaryScreen() {
   if (!summary) {
     return (
       <View style={[styles.root, { backgroundColor: background }]}>
-        <SafeAreaView style={styles.safe}>
-          <View style={styles.empty}>
-            <Text style={[Typography.body, { color: textMuted }]}>
-              No workout data available.
-            </Text>
-          </View>
-          <View style={styles.footer}>
-            <Button
-              label={t("summary.returnHome")}
-              onPress={handleReturnHome}
-            />
-          </View>
-        </SafeAreaView>
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.safe}>
+            <View style={styles.empty}>
+              <Text style={[Typography.body, { color: textMuted }]}>
+                No workout data available.
+              </Text>
+            </View>
+            <View style={styles.footer}>
+              <Button
+                label={t("summary.returnHome")}
+                onPress={handleReturnHome}
+              />
+            </View>
+          </SafeAreaView>
+        </SafeAreaProvider>
       </View>
     );
   }
@@ -424,287 +426,292 @@ export default function WorkoutSummaryScreen() {
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
       <AmbientGlow variant="subtle" />
-      <SafeAreaView style={styles.safe}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── 1. HERO ── */}
-          <Animated.View entering={anim0} style={styles.hero}>
-            <View
-              style={[
-                styles.checkCircle,
-                { backgroundColor: successColor + "1A" },
-              ]}
-            >
-              <IconSymbol
-                name="checkmark.circle.fill"
-                size={44}
-                color={successColor}
-              />
-            </View>
-            <Text style={[Typography.displayLg, { color: textColor }]}>
-              {t("summary.title")}
-            </Text>
-            <Text
-              style={[
-                Typography.body,
-                { color: textSecondary },
-                styles.workoutName,
-              ]}
-            >
-              {summary.workoutName}
-            </Text>
-            <View style={styles.heroMeta}>
-              <IconSymbol name="clock" size={13} color={textMuted} />
-              <Text style={[Typography.caption, { color: textMuted }]}>
-                {" "}
-                {formatDuration(summary.durationMs)}
-              </Text>
-              <Text style={[Typography.caption, { color: textMuted }]}>
-                {" "}
-                ·{" "}
-              </Text>
-              <Text style={[Typography.caption, { color: textMuted }]}>
-                {formatFinishTime(summary.finishedAtMs)}
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* ── 2. VOLUME CARD ── */}
-          <Animated.View
-            entering={anim1}
-            style={[
-              styles.card,
-              { backgroundColor: backgroundSubtle },
-              Elevation.sm,
-            ]}
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safe}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={[Typography.label, { color: textMuted }]}>
-              {t("summary.volume.title")}
-            </Text>
-            {totalVolume > 0 ? (
-              <>
-                <View style={styles.volumeRow}>
+            {/* ── 1. HERO ── */}
+            <Animated.View entering={anim0} style={styles.hero}>
+              <View
+                style={[
+                  styles.checkCircle,
+                  { backgroundColor: successColor + "1A" },
+                ]}
+              >
+                <IconSymbol
+                  name="checkmark.circle.fill"
+                  size={44}
+                  color={successColor}
+                />
+              </View>
+              <Text style={[Typography.displayLg, { color: textColor }]}>
+                {t("summary.title")}
+              </Text>
+              <Text
+                style={[
+                  Typography.body,
+                  { color: textSecondary },
+                  styles.workoutName,
+                ]}
+              >
+                {summary.workoutName}
+              </Text>
+              <View style={styles.heroMeta}>
+                <IconSymbol name="clock" size={13} color={textMuted} />
+                <Text style={[Typography.caption, { color: textMuted }]}>
+                  {" "}
+                  {formatDuration(summary.durationMs)}
+                </Text>
+                <Text style={[Typography.caption, { color: textMuted }]}>
+                  {" "}
+                  ·{" "}
+                </Text>
+                <Text style={[Typography.caption, { color: textMuted }]}>
+                  {formatFinishTime(summary.finishedAtMs)}
+                </Text>
+              </View>
+            </Animated.View>
+
+            {/* ── 2. VOLUME CARD ── */}
+            <Animated.View
+              entering={anim1}
+              style={[
+                styles.card,
+                { backgroundColor: backgroundSubtle },
+                Elevation.sm,
+              ]}
+            >
+              <Text style={[Typography.label, { color: textMuted }]}>
+                {t("summary.volume.title")}
+              </Text>
+              {totalVolume > 0 ? (
+                <>
+                  <View style={styles.volumeRow}>
+                    <Text
+                      style={[
+                        styles.volumeNumber,
+                        {
+                          color: primary,
+                          fontFamily: Fonts?.rounded ?? undefined,
+                        },
+                      ]}
+                    >
+                      {totalVolume.toLocaleString()}
+                    </Text>
+                    <Text style={[styles.volumeUnit, { color: primary }]}>
+                      {t("summary.volume.unit")}
+                    </Text>
+                  </View>
                   <Text
                     style={[
-                      styles.volumeNumber,
+                      Typography.body,
+                      { color: textSecondary },
+                      styles.comparison,
+                    ]}
+                  >
+                    {t("summary.volume.comparison", {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      comparison: t(volumeComparison.key as any),
+                    })}
+                  </Text>
+                </>
+              ) : (
+                <Text
+                  style={[
+                    styles.volumeNumber,
+                    { color: primary, fontFamily: Fonts?.rounded ?? undefined },
+                  ]}
+                >
+                  {t("summary.volume.bodyweight")}
+                </Text>
+              )}
+            </Animated.View>
+
+            {/* ── 3. MUSCLE DISTRIBUTION ── */}
+            {(musclesLoading || muscleSegments.length > 0) && (
+              <Animated.View entering={anim2} style={styles.section}>
+                {musclesLoading ? (
+                  <>
+                    <Text style={[Typography.titleMd, { color: textColor }]}>
+                      {t("summary.muscleDistribution")}
+                    </Text>
+                    <ActivityIndicator
+                      size="small"
+                      color={primary}
+                      style={styles.loader}
+                    />
+                  </>
+                ) : (
+                  <View style={[Elevation.sm, styles.muscleCardWrap]}>
+                    <MuscleDistributionCard
+                      segments={muscleSegments}
+                      title={t("summary.muscleDistribution")}
+                      titleColor={textColor}
+                      backgroundColor={backgroundSubtle}
+                      borderColor={backgroundSubtle}
+                      showBorder={false}
+                    />
+                  </View>
+                )}
+              </Animated.View>
+            )}
+
+            {/* ── 4. SESSION STATS ROW ── */}
+            <Animated.View entering={anim3} style={styles.statsRow}>
+              <StatItem
+                icon="figure.strengthtraining.traditional"
+                value={stats.exerciseCount}
+                label={t("summary.stats.exercises")}
+                color={primary}
+                bgColor={backgroundSubtle}
+                textColor={textColor}
+                textMuted={textMuted}
+              />
+              <StatItem
+                icon="number"
+                value={stats.totalSets}
+                label={t("summary.stats.sets")}
+                color={primary}
+                bgColor={backgroundSubtle}
+                textColor={textColor}
+                textMuted={textMuted}
+              />
+              <StatItem
+                icon="checkmark.circle.fill"
+                value={`${stats.completionRate}%`}
+                label={t("summary.stats.completion")}
+                color={stats.completionRate === 100 ? successColor : primary}
+                bgColor={backgroundSubtle}
+                textColor={textColor}
+                textMuted={textMuted}
+              />
+            </Animated.View>
+
+            {/* ── 5. STREAK & TOTAL ── */}
+            <Animated.View entering={anim4} style={styles.streakRow}>
+              {/* Streak */}
+              <View
+                style={[
+                  styles.streakCard,
+                  { backgroundColor: backgroundSubtle },
+                  Elevation.sm,
+                ]}
+              >
+                <IconSymbol name="flame.fill" size={24} color={successColor} />
+                {statsLoading ? (
+                  <ActivityIndicator size="small" color={successColor} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.streakNumber,
+                      {
+                        color: successColor,
+                        fontFamily: Fonts?.rounded ?? undefined,
+                      },
+                    ]}
+                  >
+                    {streakWeeks ?? "—"}
+                  </Text>
+                )}
+                <Text style={[Typography.label, { color: textMuted }]}>
+                  {t("summary.streak.title")}
+                </Text>
+              </View>
+
+              {/* Total workouts */}
+              <View
+                style={[
+                  styles.streakCard,
+                  { backgroundColor: backgroundSubtle },
+                  Elevation.sm,
+                ]}
+              >
+                <IconSymbol name="trophy.fill" size={24} color={primary} />
+                {statsLoading ? (
+                  <ActivityIndicator size="small" color={primary} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.streakNumber,
                       {
                         color: primary,
                         fontFamily: Fonts?.rounded ?? undefined,
                       },
                     ]}
                   >
-                    {totalVolume.toLocaleString()}
+                    {totalWorkoutsDisplay ?? "—"}
                   </Text>
-                  <Text style={[styles.volumeUnit, { color: primary }]}>
-                    {t("summary.volume.unit")}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    Typography.body,
-                    { color: textSecondary },
-                    styles.comparison,
-                  ]}
-                >
-                  {t("summary.volume.comparison", {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    comparison: t(volumeComparison.key as any),
-                  })}
+                )}
+                <Text style={[Typography.label, { color: textMuted }]}>
+                  {t("summary.streak.totalWorkouts")}
                 </Text>
-              </>
-            ) : (
-              <Text
+              </View>
+            </Animated.View>
+
+            {/* ── 6. EXERCISE BREAKDOWN ── */}
+            <Animated.View entering={anim5} style={styles.section}>
+              <Text style={[Typography.titleSm, { color: textColor }]}>
+                {t("summary.exercises.title")}
+              </Text>
+              <View style={styles.exerciseList}>
+                {summary.exercises.map((exercise) => (
+                  <ExerciseRow
+                    key={exercise.id}
+                    exercise={exercise}
+                    bgColor={backgroundSubtle}
+                    textColor={textColor}
+                    textSecondary={textSecondary}
+                    textMuted={textMuted}
+                    primary={primary}
+                    primarySurface={primarySurface}
+                    primaryContainer={primaryContainer}
+                    border={border}
+                    onFeedbackChange={setExerciseDifficultyFeedback}
+                    t={t}
+                  />
+                ))}
+              </View>
+            </Animated.View>
+
+            {/* ── 7. NEXT WORKOUT PREPARING ── */}
+            {saveWorkout.isSuccess && (
+              <View
                 style={[
-                  styles.volumeNumber,
-                  { color: primary, fontFamily: Fonts?.rounded ?? undefined },
+                  styles.preparingCard,
+                  { backgroundColor: primarySurface },
                 ]}
               >
-                {t("summary.volume.bodyweight")}
-              </Text>
+                <IconSymbol name="flame" size={16} color={primary} />
+                <Text style={[Typography.bodyMedium, { color: primary }]}>
+                  {t("nextWorkout.preparing")}
+                </Text>
+              </View>
             )}
-          </Animated.View>
+          </ScrollView>
 
-          {/* ── 3. MUSCLE DISTRIBUTION ── */}
-          {(musclesLoading || muscleSegments.length > 0) && (
-            <Animated.View entering={anim2} style={styles.section}>
-              {musclesLoading ? (
-                <>
-                  <Text style={[Typography.titleMd, { color: textColor }]}>
-                    {t("summary.muscleDistribution")}
-                  </Text>
-                  <ActivityIndicator
-                    size="small"
-                    color={primary}
-                    style={styles.loader}
-                  />
-                </>
-              ) : (
-                <View style={[Elevation.sm, styles.muscleCardWrap]}>
-                  <MuscleDistributionCard
-                    segments={muscleSegments}
-                    title={t("summary.muscleDistribution")}
-                    titleColor={textColor}
-                    backgroundColor={backgroundSubtle}
-                    borderColor={backgroundSubtle}
-                    showBorder={false}
-                  />
-                </View>
-              )}
-            </Animated.View>
-          )}
-
-          {/* ── 4. SESSION STATS ROW ── */}
-          <Animated.View entering={anim3} style={styles.statsRow}>
-            <StatItem
-              icon="figure.strengthtraining.traditional"
-              value={stats.exerciseCount}
-              label={t("summary.stats.exercises")}
-              color={primary}
-              bgColor={backgroundSubtle}
-              textColor={textColor}
-              textMuted={textMuted}
-            />
-            <StatItem
-              icon="number"
-              value={stats.totalSets}
-              label={t("summary.stats.sets")}
-              color={primary}
-              bgColor={backgroundSubtle}
-              textColor={textColor}
-              textMuted={textMuted}
-            />
-            <StatItem
-              icon="checkmark.circle.fill"
-              value={`${stats.completionRate}%`}
-              label={t("summary.stats.completion")}
-              color={stats.completionRate === 100 ? successColor : primary}
-              bgColor={backgroundSubtle}
-              textColor={textColor}
-              textMuted={textMuted}
-            />
-          </Animated.View>
-
-          {/* ── 5. STREAK & TOTAL ── */}
-          <Animated.View entering={anim4} style={styles.streakRow}>
-            {/* Streak */}
-            <View
-              style={[
-                styles.streakCard,
-                { backgroundColor: backgroundSubtle },
-                Elevation.sm,
-              ]}
-            >
-              <IconSymbol name="flame.fill" size={24} color={successColor} />
-              {statsLoading ? (
-                <ActivityIndicator size="small" color={successColor} />
-              ) : (
-                <Text
-                  style={[
-                    styles.streakNumber,
-                    {
-                      color: successColor,
-                      fontFamily: Fonts?.rounded ?? undefined,
-                    },
-                  ]}
-                >
-                  {streakWeeks ?? "—"}
-                </Text>
-              )}
-              <Text style={[Typography.label, { color: textMuted }]}>
-                {t("summary.streak.title")}
-              </Text>
-            </View>
-
-            {/* Total workouts */}
-            <View
-              style={[
-                styles.streakCard,
-                { backgroundColor: backgroundSubtle },
-                Elevation.sm,
-              ]}
-            >
-              <IconSymbol name="trophy.fill" size={24} color={primary} />
-              {statsLoading ? (
-                <ActivityIndicator size="small" color={primary} />
-              ) : (
-                <Text
-                  style={[
-                    styles.streakNumber,
-                    { color: primary, fontFamily: Fonts?.rounded ?? undefined },
-                  ]}
-                >
-                  {totalWorkoutsDisplay ?? "—"}
-                </Text>
-              )}
-              <Text style={[Typography.label, { color: textMuted }]}>
-                {t("summary.streak.totalWorkouts")}
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* ── 6. EXERCISE BREAKDOWN ── */}
-          <Animated.View entering={anim5} style={styles.section}>
-            <Text style={[Typography.titleSm, { color: textColor }]}>
-              {t("summary.exercises.title")}
-            </Text>
-            <View style={styles.exerciseList}>
-              {summary.exercises.map((exercise) => (
-                <ExerciseRow
-                  key={exercise.id}
-                  exercise={exercise}
-                  bgColor={backgroundSubtle}
-                  textColor={textColor}
-                  textSecondary={textSecondary}
-                  textMuted={textMuted}
-                  primary={primary}
-                  primarySurface={primarySurface}
-                  primaryContainer={primaryContainer}
-                  border={border}
-                  onFeedbackChange={setExerciseDifficultyFeedback}
-                  t={t}
-                />
-              ))}
-            </View>
-          </Animated.View>
-
-          {/* ── 7. NEXT WORKOUT PREPARING ── */}
-          {saveWorkout.isSuccess && (
-            <View
-              style={[
-                styles.preparingCard,
-                { backgroundColor: primarySurface },
-              ]}
-            >
-              <IconSymbol name="flame" size={16} color={primary} />
-              <Text style={[Typography.bodyMedium, { color: primary }]}>
-                {t("nextWorkout.preparing")}
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-
-        {/* ── FOOTER ── */}
-        <View style={styles.footer}>
-          {summary && (
+          {/* ── FOOTER ── */}
+          <View style={styles.footer}>
+            {summary && (
+              <Button
+                label={saved ? t("saveTemplate.saved") : t("saveTemplate.save")}
+                onPress={handleSaveTemplate}
+                variant="secondary"
+                disabled={saved}
+                accessibilityLabel={
+                  saved ? t("saveTemplate.saved") : t("saveTemplate.save")
+                }
+              />
+            )}
             <Button
-              label={saved ? t("saveTemplate.saved") : t("saveTemplate.save")}
-              onPress={handleSaveTemplate}
-              variant="secondary"
-              disabled={saved}
-              accessibilityLabel={
-                saved ? t("saveTemplate.saved") : t("saveTemplate.save")
-              }
+              label={t("summary.returnHome")}
+              onPress={handleReturnHome}
+              accessibilityLabel={t("summary.returnHome")}
             />
-          )}
-          <Button
-            label={t("summary.returnHome")}
-            onPress={handleReturnHome}
-            accessibilityLabel={t("summary.returnHome")}
-          />
-        </View>
-      </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </View>
   );
 }

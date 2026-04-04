@@ -17,13 +17,13 @@ import { Button } from "@/components/ui/button";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const GENDER_LABELS: Record<Gender, string> = {
   male: "Male",

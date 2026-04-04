@@ -7,7 +7,8 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { StrengthBaselineForm } from "@/components/strength-baseline-form";
 import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function StrengthScreen() {
   const { equipment, experience, strengthBaselines, setStrengthBaselines } =

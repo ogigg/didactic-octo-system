@@ -15,11 +15,11 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 function formatDayHeaderTitle(dateKey: string): string {
   const [y, m, d] = dateKey.split("-").map(Number);
