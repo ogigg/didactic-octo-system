@@ -23,6 +23,7 @@ import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutQueue } from "@/hooks/use-workout-queue";
 import { useProfile } from "@/hooks/use-profile-query";
+import { getTargetQueueCount } from "@/lib/pending-workout-queue";
 import { fetchWorkoutHistoryForDayRange } from "@/lib/api/workouts";
 import { getMondayLocal } from "@/lib/iso-week";
 import { usePendingWorkoutStore } from "@/stores/pending-workout-store";
@@ -59,9 +60,7 @@ export default function HomeScreen() {
   const { isRefetching, refetch } = useWorkoutQueue();
   const queue = usePendingWorkoutStore((s) => s.queue);
   const frequency = useMemo(() => {
-    const raw = profile?.weekly_frequency;
-    if (!raw) return 3;
-    return raw === "5_plus" ? 5 : parseInt(raw, 10);
+    return getTargetQueueCount(profile?.weekly_frequency);
   }, [profile?.weekly_frequency]);
   const weekStart = useMemo(() => getMondayLocal(new Date()), []);
   const completedWorkoutsQuery = useQuery({

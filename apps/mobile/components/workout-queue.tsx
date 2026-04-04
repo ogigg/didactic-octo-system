@@ -8,6 +8,7 @@ import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useProfile } from "@/hooks/use-profile-query";
 import type { PendingWorkout } from "@/lib/api/pending-workouts";
+import { getTargetQueueCount } from "@/lib/pending-workout-queue";
 import {
   useRebuildQueue,
   useRegenerateWorkout,
@@ -23,11 +24,6 @@ import { useRouter } from "expo-router";
 
 interface WorkoutQueueProps {
   queue: PendingWorkout[];
-}
-
-function getQueueCount(weeklyFrequency: string | null | undefined): number {
-  if (!weeklyFrequency) return 3;
-  return weeklyFrequency === "5_plus" ? 5 : parseInt(weeklyFrequency, 10);
 }
 
 export function WorkoutQueue({ queue }: WorkoutQueueProps) {
@@ -92,7 +88,7 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
     }
 
     rebuildQueue.mutate({
-      count: getQueueCount(profile.weekly_frequency),
+      count: getTargetQueueCount(profile.weekly_frequency),
       preferences: {
         training_split: profile.training_split,
         session_duration_minutes: profile.session_duration_minutes as

@@ -22,6 +22,10 @@ import {
   isPendingWorkoutStale,
   MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
 } from "@/lib/pending-workout-recovery";
+import {
+  getMissingQueueCount,
+  getTargetQueueCount,
+} from "@/lib/pending-workout-queue";
 import { pendingWorkoutKeys } from "@/lib/query-keys";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/track-event";
@@ -61,6 +65,31 @@ function getGenerationPreferencesFromProfile(
   };
 }
 
+function getQueueStatusFallback(queue: PendingWorkout[]) {
+  if (queue.length === 0) {
+    return "idle" as const;
+  }
+
+  const hasGeneratingOrQueued = queue.some(
+    (workout) => workout.status === "queued" || workout.status === "generating"
+  );
+
+  if (queue.every((workout) => workout.status === "ready")) {
+    return "all_ready" as const;
+  }
+
+  if (hasGeneratingOrQueued) {
+    const readyCount = queue.filter(
+      (workout) => workout.status === "ready"
+    ).length;
+    return readyCount > 0
+      ? ("partial_ready" as const)
+      : ("initializing" as const);
+  }
+
+  return "idle" as const;
+}
+
 // -----------------------------------------------------------------------------
 // Queue Query + Realtime
 // -----------------------------------------------------------------------------
@@ -84,6 +113,10 @@ export function useWorkoutQueue() {
   );
   const queueGenerationTrigger = usePendingWorkoutStore(
     (s) => s.queueGenerationTrigger
+  );
+  const setQueueStatus = usePendingWorkoutStore((s) => s.setQueueStatus);
+  const markQueueGenerationStarted = usePendingWorkoutStore(
+    (s) => s.markQueueGenerationStarted
   );
   const clearQueueGenerationContext = usePendingWorkoutStore(
     (s) => s.clearQueueGenerationContext
@@ -224,6 +257,63 @@ export function useWorkoutQueue() {
     queue,
     queueGenerationStartedAt,
     queueGenerationTrigger,
+  ]);
+
+  useEffect(() => {
+    const preferences = getGenerationPreferencesFromProfile(profile);
+
+    if (
+      !user ||
+      !profile?.training_setup_completed ||
+      !preferences ||
+      queueGenerationTrigger !== null
+    ) {
+      return;
+    }
+
+    const targetQueueCount = getTargetQueueCount(profile.weekly_frequency);
+    const missingQueueCount = getMissingQueueCount(
+      queue.length,
+      targetQueueCount
+    );
+    const hasPendingGeneration = queue.some(
+      (workout) =>
+        workout.status === "queued" || workout.status === "generating"
+    );
+
+    if (missingQueueCount === 0 || hasPendingGeneration) {
+      return;
+    }
+
+    markQueueGenerationStarted("replenishment");
+    setQueueStatus("replenishing");
+    trackEvent("workout_queue_initialized", {
+      count: missingQueueCount,
+      trigger: "replenishment",
+    });
+
+    void triggerQueueGeneration({
+      count: missingQueueCount,
+      preferences,
+      baselines: [],
+      trigger: "preference_change",
+    })
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() })
+      )
+      .catch(() => {
+        setQueueStatus(getQueueStatusFallback(queue));
+        clearQueueGenerationContext();
+      });
+  }, [
+    clearQueueGenerationContext,
+    markQueueGenerationStarted,
+    profile,
+    queryClient,
+    queue,
+    queueGenerationTrigger,
+    setQueueStatus,
+    user,
   ]);
 
   useEffect(() => {

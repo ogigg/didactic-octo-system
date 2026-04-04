@@ -23,7 +23,11 @@ interface PendingWorkoutState {
   queueStatus: QueueStatus;
   lastFetchedAt: number | null;
   queueGenerationStartedAt: number | null;
-  queueGenerationTrigger: "onboarding" | "preference_change" | null;
+  queueGenerationTrigger:
+    | "onboarding"
+    | "preference_change"
+    | "replenishment"
+    | null;
   recoveryAttempts: Record<string, number>;
 }
 
@@ -34,7 +38,7 @@ interface PendingWorkoutActions {
   removeWorkout: (id: string) => void;
   setQueueStatus: (status: QueueStatus) => void;
   markQueueGenerationStarted: (
-    trigger: "onboarding" | "preference_change"
+    trigger: "onboarding" | "preference_change" | "replenishment"
   ) => void;
   clearQueueGenerationContext: () => void;
   recordRecoveryAttempt: (id: string) => number;
