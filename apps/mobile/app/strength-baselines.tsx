@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
 import { StrengthBaselineForm } from "@/components/strength-baseline-form";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -144,6 +145,7 @@ export default function StrengthBaselinesScreen() {
           />
         </View>
       </SafeAreaView>
+      <NumericKeyboardAccessory />
     </KeyboardAvoidingView>
   );
 }

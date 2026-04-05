@@ -2,7 +2,9 @@ import { useState } from "react";
 import type { Equipment, StrengthBaseline } from "@/stores/onboarding-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
+
+import { NUMERIC_ACCESSORY_ID } from "@/components/numeric-keyboard-accessory";
 
 interface BaselineField {
   exercise_key: string;
@@ -295,6 +297,9 @@ function NumberInput({
       keyboardType="number-pad"
       returnKeyType="done"
       maxLength={5}
+      inputAccessoryViewID={
+        Platform.OS === "ios" ? NUMERIC_ACCESSORY_ID : undefined
+      }
       accessibilityLabel={`${placeholder} input`}
     />
   );

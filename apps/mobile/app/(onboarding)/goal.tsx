@@ -7,6 +7,8 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useLocalSearchParams } from "expo-router";
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -57,105 +59,119 @@ export default function GoalScreen() {
   return (
     <View style={styles.root}>
       <AmbientGlow variant="hero" />
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.progressRow}>
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
-          <View style={[styles.segment, { backgroundColor: border }]} />
-        </View>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.progressRow}>
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+            <View style={[styles.segment, { backgroundColor: border }]} />
+            <View style={[styles.segment, { backgroundColor: border }]} />
+            <View style={[styles.segment, { backgroundColor: border }]} />
+            <View style={[styles.segment, { backgroundColor: border }]} />
+          </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text
-            style={[Typography.label, { color: textMuted }, styles.stepLabel]}
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
-            STEP 2 OF 6
-          </Text>
-          <Text
-            style={[Typography.titleLg, { color: textColor }, styles.title]}
-          >
-            Your goal
-          </Text>
-          <Text
-            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-          >
-            What do you want to achieve?
-          </Text>
+            <Text
+              style={[Typography.label, { color: textMuted }, styles.stepLabel]}
+            >
+              STEP 2 OF 6
+            </Text>
+            <Text
+              style={[Typography.titleLg, { color: textColor }, styles.title]}
+            >
+              Your goal
+            </Text>
+            <Text
+              style={[
+                Typography.body,
+                { color: textSecondary },
+                styles.subtitle,
+              ]}
+            >
+              What do you want to achieve?
+            </Text>
 
-          {OPTIONS.map((opt) => {
-            const selected = goal === opt.value;
-            return (
-              <TouchableOpacity
-                key={opt.value}
-                onPress={() => setGoal(opt.value)}
-                style={[
-                  styles.row,
-                  selected && { backgroundColor: backgroundSubtle },
-                ]}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
-                accessibilityLabel={opt.label}
-              >
-                <View style={styles.radioOuter}>
-                  {selected && (
-                    <View
-                      style={[styles.radioInner, { backgroundColor: primary }]}
-                    />
-                  )}
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      { borderColor: selected ? primary : border },
-                    ]}
-                  />
-                </View>
-                <Text
+            {OPTIONS.map((opt) => {
+              const selected = goal === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => setGoal(opt.value)}
                   style={[
-                    Typography.titleSm,
-                    { color: selected ? textColor : textSecondary },
+                    styles.row,
+                    selected && { backgroundColor: backgroundSubtle },
                   ]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={opt.label}
                 >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                  <View style={styles.radioOuter}>
+                    {selected && (
+                      <View
+                        style={[
+                          styles.radioInner,
+                          { backgroundColor: primary },
+                        ]}
+                      />
+                    )}
+                    <View
+                      style={[
+                        styles.radioCircle,
+                        { borderColor: selected ? primary : border },
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      Typography.titleSm,
+                      { color: selected ? textColor : textSecondary },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
 
-          <TextInput
-            style={[
-              styles.customInput,
-              { backgroundColor: borderSubtle, color: textColor },
-            ]}
-            placeholder="Or type your own goal..."
-            placeholderTextColor={textMuted}
-            value={customGoal ?? ""}
-            onChangeText={setCustomGoal}
-            maxLength={MAX_CUSTOM_GOAL_LENGTH}
-            returnKeyType="done"
-            accessibilityLabel="Custom goal text input"
-          />
-        </ScrollView>
+            <TextInput
+              style={[
+                styles.customInput,
+                { backgroundColor: borderSubtle, color: textColor },
+              ]}
+              placeholder="Or type your own goal..."
+              placeholderTextColor={textMuted}
+              value={customGoal ?? ""}
+              onChangeText={setCustomGoal}
+              maxLength={MAX_CUSTOM_GOAL_LENGTH}
+              returnKeyType="done"
+              accessibilityLabel="Custom goal text input"
+            />
+          </ScrollView>
 
-        <View style={styles.actions}>
-          <Button
-            label="Continue"
-            onPress={handleContinue}
-            disabled={!canContinue}
-            accessibilityLabel="Continue to frequency selection"
-          />
-        </View>
-      </SafeAreaView>
+          <View style={styles.actions}>
+            <Button
+              label="Continue"
+              onPress={handleContinue}
+              disabled={!canContinue}
+              accessibilityLabel="Continue to frequency selection"
+            />
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  flex: { flex: 1 },
   safe: { flex: 1 },
   progressRow: {
     flexDirection: "row",

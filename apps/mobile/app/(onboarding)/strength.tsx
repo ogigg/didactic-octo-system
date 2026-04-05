@@ -7,8 +7,16 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { StrengthBaselineForm } from "@/components/strength-baseline-form";
 import { router, useLocalSearchParams } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
 
 export default function StrengthScreen() {
   const { equipment, experience, strengthBaselines, setStrengthBaselines } =
@@ -59,64 +67,76 @@ export default function StrengthScreen() {
   return (
     <View style={styles.root}>
       <AmbientGlow variant="hero" />
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.progressRow}>
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-          <View style={[styles.segment, { backgroundColor: primary }]} />
-        </View>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.progressRow}>
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+            <View style={[styles.segment, { backgroundColor: primary }]} />
+          </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text
-            style={[Typography.label, { color: textMuted }, styles.stepLabel]}
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
-            STEP 6 OF 6
-          </Text>
-          <Text
-            style={[Typography.titleLg, { color: textColor }, styles.title]}
-          >
-            Help us pick the right weights
-          </Text>
-          <Text
-            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-          >
-            Enter what you can currently do. Skip any you're unsure about.
-          </Text>
+            <Text
+              style={[Typography.label, { color: textMuted }, styles.stepLabel]}
+            >
+              STEP 6 OF 6
+            </Text>
+            <Text
+              style={[Typography.titleLg, { color: textColor }, styles.title]}
+            >
+              Help us pick the right weights
+            </Text>
+            <Text
+              style={[
+                Typography.body,
+                { color: textSecondary },
+                styles.subtitle,
+              ]}
+            >
+              Enter what you can currently do. Skip any you're unsure about.
+            </Text>
 
-          <StrengthBaselineForm
-            equipment={equipment}
-            experience={experience}
-            baselines={strengthBaselines}
-            onChange={handleBaselinesChange}
-          />
-        </ScrollView>
+            <StrengthBaselineForm
+              equipment={equipment}
+              experience={experience}
+              baselines={strengthBaselines}
+              onChange={handleBaselinesChange}
+            />
+          </ScrollView>
 
-        <View style={styles.actions}>
-          <Button
-            label="Continue"
-            onPress={handleContinue}
-            accessibilityLabel="Continue to review"
-          />
-          <Button
-            label="Skip this step"
-            onPress={handleSkip}
-            variant="ghost"
-            accessibilityLabel="Skip strength baseline"
-          />
-        </View>
-      </SafeAreaView>
+          <View style={styles.actions}>
+            <Button
+              label="Continue"
+              onPress={handleContinue}
+              accessibilityLabel="Continue to review"
+            />
+            <Button
+              label="Skip this step"
+              onPress={handleSkip}
+              variant="ghost"
+              accessibilityLabel="Skip strength baseline"
+            />
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+      <NumericKeyboardAccessory />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  flex: { flex: 1 },
   safe: { flex: 1 },
   progressRow: {
     flexDirection: "row",
