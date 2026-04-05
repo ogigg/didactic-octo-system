@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
+import { calculateProgression, type ExerciseHistory } from "./progression.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -45,12 +46,21 @@ export const generatedSetSchema = z.object({
   target_reps: z.number().int().min(1),
 });
 
+export const progressionTypeSchema = z.enum([
+  "weight_up",
+  "reps_up",
+  "maintained",
+  "new_exercise",
+]);
+
 export const generatedExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
   sets: z.array(generatedSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
+  progression_type: progressionTypeSchema.nullable().optional(),
+  previous_display: z.string().nullable().optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
@@ -130,6 +140,7 @@ export interface QueueContextItem {
 
 export interface GenerateWorkoutParams {
   supabaseClient: SupabaseClient;
+  userId: string;
   profile: ProfileData;
   trainingSplit: string;
   durationMinutes: number;
@@ -496,6 +507,7 @@ export async function generateSingleWorkout(
 }> {
   const {
     supabaseClient,
+    userId,
     profile,
     trainingSplit,
     durationMinutes,
@@ -629,8 +641,57 @@ export async function generateSingleWorkout(
       sets: ex.sets,
       rest_duration_seconds: ex.rest_duration_seconds,
       notes: ex.notes,
+      progression_type: null as string | null,
+      previous_display: null as string | null,
     };
   });
+
+  // Apply progressive overload
+  const exerciseIds = enrichedExercises.map((ex) => ex.exercise_id);
+  try {
+    const { data: progressionHistory } = await supabaseClient.rpc(
+      "get_exercise_progression_history",
+      { p_user_id: userId, p_exercise_ids: exerciseIds }
+    );
+
+    if (progressionHistory?.length) {
+      const historyMap = new Map<string, ExerciseHistory>();
+      for (const row of progressionHistory as ExerciseHistory[]) {
+        historyMap.set(row.exercise_id, row);
+      }
+
+      for (const ex of enrichedExercises) {
+        const hist = historyMap.get(ex.exercise_id);
+        const catalogEntry = catalogMap.get(ex.exercise_id);
+        const exEquipment = catalogEntry?.equipment ?? [];
+
+        const result = calculateProgression(
+          hist ?? null,
+          exEquipment,
+          trainingStyle
+        );
+        if (result) {
+          ex.progression_type = result.progression_type;
+          ex.previous_display = result.previous_display;
+
+          // Override working set targets
+          if (result.progression_type !== "new_exercise") {
+            for (const set of ex.sets) {
+              if (set.set_type === "working") {
+                set.target_load_kg = result.target_load_kg;
+                set.target_reps = result.target_reps;
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error(
+      "[generator] Progression override failed (non-fatal):",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 
   const profileGoal = profile.goal ?? "improve_fitness";
 

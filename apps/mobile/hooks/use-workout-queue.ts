@@ -425,6 +425,7 @@ export function useStartPendingWorkout() {
           restDurationSeconds: ex.rest_duration_seconds,
           notes: ex.notes ?? "",
           difficultyFeedback: null,
+          progressionType: ex.progression_type ?? null,
           sets: ex.sets.map((set, setIndex) => ({
             id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
             type: set.set_type,
@@ -432,7 +433,8 @@ export function useStartPendingWorkout() {
             reps: String(set.target_reps),
             rpe: null,
             isCompleted: false,
-            previousDisplay: null,
+            previousDisplay:
+              set.set_type === "working" ? (ex.previous_display ?? null) : null,
           })),
         })
       );

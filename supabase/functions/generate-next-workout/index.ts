@@ -183,6 +183,7 @@ Deno.serve(async (req: Request) => {
     // 9. Generate replacement workout
     const genResult = await generateSingleWorkout({
       supabaseClient,
+      userId: user_id,
       profile: { ...profile, goal: profileGoal } as ProfileData,
       trainingSplit: profile.training_split,
       durationMinutes: profile.session_duration_minutes ?? 45,

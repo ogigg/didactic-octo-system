@@ -19,6 +19,12 @@ export interface WorkoutExercise {
   notes: string;
   difficultyFeedback: "too_easy" | "ok" | "too_hard" | null;
   sets: WorkoutSet[];
+  progressionType?:
+    | "weight_up"
+    | "reps_up"
+    | "maintained"
+    | "new_exercise"
+    | null;
 }
 
 interface RestTimerState {
