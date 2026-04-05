@@ -18,6 +18,7 @@ import {
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ProgressionPill } from "@/components/workout/progression-pill";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
@@ -41,6 +42,13 @@ interface LocalExercise {
   rest_duration_seconds: number;
   notes: string | null;
   sets: LocalSet[];
+  progression_type?:
+    | "weight_up"
+    | "reps_up"
+    | "maintained"
+    | "new_exercise"
+    | null;
+  previous_display?: string | null;
 }
 
 interface LocalSet {
@@ -121,6 +129,8 @@ export default function WorkoutPreviewScreen() {
           exercise_name: ex.exercise_name,
           rest_duration_seconds: ex.rest_duration_seconds,
           notes: ex.notes,
+          progression_type: ex.progression_type ?? null,
+          previous_display: ex.previous_display ?? null,
           sets: ex.sets.map((s) => ({
             set_type: s.set_type,
             target_load_kg: s.target_load_kg,
@@ -420,9 +430,15 @@ function ExerciseCard({
       {/* Exercise header */}
       <View style={styles.exerciseHeader}>
         <View style={styles.exerciseHeaderLeft}>
-          <Text style={[Typography.titleSm, { color: text }]} numberOfLines={1}>
-            {exercise.exercise_name}
-          </Text>
+          <View style={styles.exerciseNameRow}>
+            <Text
+              style={[Typography.titleSm, { color: text, flex: 1 }]}
+              numberOfLines={1}
+            >
+              {exercise.exercise_name}
+            </Text>
+            <ProgressionPill type={exercise.progression_type} />
+          </View>
           <View style={styles.exerciseMeta}>
             <Text style={[Typography.micro, { color: textMuted }]}>
               {t("exerciseList.rest", {
@@ -824,6 +840,11 @@ const styles = StyleSheet.create({
   exerciseHeaderLeft: {
     flex: 1,
     gap: 2,
+  },
+  exerciseNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   exerciseMeta: {
     flexDirection: "row",

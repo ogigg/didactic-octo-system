@@ -18,6 +18,12 @@ export interface WorkoutExercise {
   restDurationSeconds: number;
   notes: string;
   sets: WorkoutSet[];
+  progressionType?:
+    | "weight_up"
+    | "reps_up"
+    | "maintained"
+    | "new_exercise"
+    | null;
 }
 
 interface RestTimerState {

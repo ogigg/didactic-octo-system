@@ -46,12 +46,21 @@ const generatedSetSchema = z.object({
   target_reps: z.number().int().min(1),
 });
 
+const progressionTypeSchema = z.enum([
+  "weight_up",
+  "reps_up",
+  "maintained",
+  "new_exercise",
+]);
+
 const generatedExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
   sets: z.array(generatedSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
+  progression_type: progressionTypeSchema.nullable().optional(),
+  previous_display: z.string().nullable().optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
@@ -130,6 +139,7 @@ export function mapGeneratedToWorkoutExercises(
     name: ex.exercise_name,
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
+    progressionType: ex.progression_type ?? null,
     sets: ex.sets.map(
       (set, i): WorkoutSet => ({
         id: `set-${ex.exercise_id}-${i}-${now}`,
@@ -138,7 +148,8 @@ export function mapGeneratedToWorkoutExercises(
         reps: String(set.target_reps),
         rpe: null,
         isCompleted: false,
-        previousDisplay: null,
+        previousDisplay:
+          set.set_type === "working" ? (ex.previous_display ?? null) : null,
       })
     ),
   }));

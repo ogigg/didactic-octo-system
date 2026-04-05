@@ -129,4 +129,9 @@ export const workout = {
   nextWorkout: {
     preparing: "Your next workout is being prepared",
   },
+  progression: {
+    weightUp: "Weight up",
+    repsUp: "Reps up",
+    maintained: "Maintained",
+  },
 } as const;

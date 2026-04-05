@@ -3,6 +3,7 @@ import { Radii, Spacing, Typography } from "@/constants/theme";
 import { SetHeader } from "@/components/workout/set-header";
 import { SetRow } from "@/components/workout/set-row";
 import { ExerciseMenu } from "@/components/workout/exercise-menu";
+import { ProgressionPill } from "@/components/workout/progression-pill";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise } from "@/stores/workout-store";
@@ -84,6 +85,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
         >
           {exercise.name}
         </Text>
+        <ProgressionPill type={exercise.progressionType} />
         <Pressable
           onPress={() => setMenuVisible(true)}
           accessibilityRole="button"

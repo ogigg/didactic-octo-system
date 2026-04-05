@@ -27,12 +27,23 @@ const generatedSetSchema = z.object({
   target_reps: z.number(),
 });
 
+export const progressionTypeSchema = z.enum([
+  "weight_up",
+  "reps_up",
+  "maintained",
+  "new_exercise",
+]);
+
+export type ProgressionType = z.infer<typeof progressionTypeSchema>;
+
 const generatedExerciseSchema = z.object({
   exercise_id: z.string(),
   exercise_name: z.string(),
   rest_duration_seconds: z.number(),
   notes: z.string().nullable(),
   sets: z.array(generatedSetSchema),
+  progression_type: progressionTypeSchema.nullable().optional(),
+  previous_display: z.string().nullable().optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
