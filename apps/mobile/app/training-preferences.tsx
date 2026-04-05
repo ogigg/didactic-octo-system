@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 
-import { BackButton } from "@/components/ui/back-button";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Button } from "@/components/ui/button";
 import { OptionChips } from "@/components/generate-workout/option-chips";
 import { CustomPromptInput } from "@/components/generate-workout/custom-prompt-input";
@@ -192,13 +192,10 @@ export default function TrainingPreferencesScreen() {
     >
       <SafeAreaView style={styles.safe}>
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: border }]}>
-          <BackButton />
-          <Text style={[Typography.titleMd, { color: textColor }]}>
-            {t("header.title")}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <ScreenHeader
+          title={t("header.title")}
+          titleStyle={Typography.titleMd}
+        />
 
         <ScrollView
           style={styles.scroll}
@@ -316,15 +313,6 @@ function SectionTitle({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-  },
-  headerSpacer: { width: 44 },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.lg },
   sectionTitle: {

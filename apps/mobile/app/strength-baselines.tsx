@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { BackButton } from "@/components/ui/back-button";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Button } from "@/components/ui/button";
 import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
 import { StrengthBaselineForm } from "@/components/strength-baseline-form";
@@ -93,13 +93,10 @@ export default function StrengthBaselinesScreen() {
     >
       <SafeAreaView style={styles.safe}>
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: border }]}>
-          <BackButton />
-          <Text style={[Typography.titleMd, { color: textColor }]}>
-            {t("header.title")}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <ScreenHeader
+          title={t("header.title")}
+          titleStyle={Typography.titleMd}
+        />
 
         <ScrollView
           style={styles.scroll}
@@ -153,15 +150,6 @@ export default function StrengthBaselinesScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-  },
-  headerSpacer: { width: 44 },
   scroll: { flex: 1 },
   scrollContent: {
     paddingHorizontal: Spacing.xl,

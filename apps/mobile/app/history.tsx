@@ -1,5 +1,5 @@
 import { WorkoutHistoryCard } from "@/components/history/workout-history-card";
-import { BackButton } from "@/components/ui/back-button";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   useWorkoutHistory,
@@ -136,20 +136,11 @@ export default function HistoryScreen() {
     <View style={[styles.root, { backgroundColor: background }]}>
       <SafeAreaView style={styles.safe}>
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: border }]}>
-          <BackButton accessibilityLabel={t("header.back")} />
-          <Text
-            style={[
-              Typography.titleLg,
-              styles.headerTitle,
-              { color: textColor },
-            ]}
-            numberOfLines={isDayMode ? 2 : 1}
-          >
-            {headerTitle}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <ScreenHeader
+          title={headerTitle}
+          numberOfLines={isDayMode ? 2 : 1}
+          backAccessibilityLabel={t("header.back")}
+        />
 
         <FlatList
           data={items}
@@ -183,20 +174,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-  },
-  headerSpacer: { width: 44 },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    marginHorizontal: Spacing.sm,
-  },
   list: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,

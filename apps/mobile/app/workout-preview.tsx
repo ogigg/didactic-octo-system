@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-import { BackButton } from "@/components/ui/back-button";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProgressionPill } from "@/components/workout/progression-pill";
@@ -297,10 +297,7 @@ export default function WorkoutPreviewScreen() {
       <View style={[styles.root, { backgroundColor: background }]}>
         <SafeAreaProvider>
           <SafeAreaView style={styles.safe}>
-            <View style={[styles.header, { borderBottomColor: border }]}>
-              <BackButton />
-              <View style={styles.headerSpacer} />
-            </View>
+            <ScreenHeader />
             <View style={styles.emptyContainer}>
               <IconSymbol name="flame" size={40} color={textDisabled} />
               <Text style={[Typography.body, { color: textMuted }]}>
@@ -327,25 +324,25 @@ export default function WorkoutPreviewScreen() {
       <SafeAreaProvider>
         <SafeAreaView style={styles.safe}>
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: border }]}>
-            <BackButton />
-            <Text
-              style={[Typography.titleMd, { color: text }]}
-              numberOfLines={1}
-            >
-              {workout.workout_data.workout_name}
-            </Text>
-            <Pressable
-              onPress={handleToggleEdit}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={isEditing ? t("edit.done") : t("edit.toggle")}
-            >
-              <Text style={[Typography.bodyMedium, { color: primary }]}>
-                {isEditing ? t("edit.done") : t("edit.toggle")}
-              </Text>
-            </Pressable>
-          </View>
+          <ScreenHeader
+            title={workout.workout_data.workout_name}
+            titleStyle={Typography.titleMd}
+            numberOfLines={1}
+            rightElement={
+              <Pressable
+                onPress={handleToggleEdit}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isEditing ? t("edit.done") : t("edit.toggle")
+                }
+              >
+                <Text style={[Typography.bodyMedium, { color: primary }]}>
+                  {isEditing ? t("edit.done") : t("edit.toggle")}
+                </Text>
+              </Pressable>
+            }
+          />
 
           {/* Scrollable content */}
           <ScrollView
@@ -876,15 +873,6 @@ function EditSetRow({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-  },
-  headerSpacer: { width: 60 },
   scroll: { flex: 1 },
   scrollContent: {
     paddingHorizontal: Spacing.xl,

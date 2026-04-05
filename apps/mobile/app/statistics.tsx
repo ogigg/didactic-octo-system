@@ -14,7 +14,7 @@ import { HeatmapChart } from "@/components/stats/heatmap-chart";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { PRList } from "@/components/stats/pr-list";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
-import { BackButton } from "@/components/ui/back-button";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
@@ -91,14 +91,7 @@ export default function StatisticsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <BackButton />
-          <Text
-            style={[Typography.displayLg, { color: textColor }, styles.title]}
-          >
-            {t("title")}
-          </Text>
-        </View>
+        <ScreenHeader title={t("title")} />
 
         {/* Heatmap Section */}
         <SectionCard>
@@ -197,15 +190,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing["3xl"],
     gap: Spacing.xl,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  title: {
-    flex: 1,
   },
   card: {
     borderRadius: Radii.lg,
