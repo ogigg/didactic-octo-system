@@ -119,11 +119,13 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
           </Text>
           <Pressable
             onPress={handleBuildQueue}
+            disabled={rebuildQueue.isPending}
             style={({ pressed }) => [
               styles.generateButton,
               {
                 backgroundColor: primarySurface,
-                opacity: pressed ? Opacity.pressed : 1,
+                opacity:
+                  pressed || rebuildQueue.isPending ? Opacity.pressed : 1,
               },
             ]}
             accessibilityRole="button"
