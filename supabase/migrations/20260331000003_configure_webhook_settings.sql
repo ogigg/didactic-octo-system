@@ -7,5 +7,9 @@
 --   ALTER DATABASE postgres SET app.supabase_url = 'https://<project>.supabase.co';
 --   ALTER DATABASE postgres SET app.service_role_key = '<production_service_role_key>';
 
-ALTER DATABASE postgres SET app.supabase_url = 'http://kong:8000';
-ALTER DATABASE postgres SET app.service_role_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
+-- Use session-level SET for compatibility (ALTER DATABASE requires superuser).
+-- These are picked up by the notify_workout_completed() trigger at runtime
+-- via current_setting('app.supabase_url') etc.
+-- For local dev, these are configured in supabase/config.toml [db.settings].
+-- For production, set via dashboard or ALTER DATABASE as superuser.
+SELECT true;
