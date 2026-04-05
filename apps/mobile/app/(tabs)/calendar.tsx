@@ -2,6 +2,7 @@ import type { WorkoutSession } from "@/components/calendar/types";
 import { MonthBlock, getMonthHeight } from "@/components/calendar/month-block";
 import { Spacing } from "@/constants/theme";
 import { useCalendarEntries } from "@/hooks/use-calendar-entries";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
@@ -38,6 +39,7 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { getEntriesForMonth, isLoading } = useCalendarEntries();
+  const background = useThemeColor({}, "background");
 
   const handleDayPress = useCallback(
     (dateKey: string, sessions: WorkoutSession[]) => {
@@ -54,7 +56,7 @@ export default function CalendarScreen() {
   );
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: background }]}>
       <FlatList
         data={MONTHS}
         keyExtractor={(item) => `${item.year}-${item.month}`}

@@ -762,12 +762,14 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   volumeNumber: {
+    // No token for fontSize: 48 — larger than displayLg (28)
     fontSize: 48,
     fontWeight: "700",
     letterSpacing: -1,
     lineHeight: 56,
   },
   volumeUnit: {
+    // No token — fontSize: 20 with fontWeight "600" (displaySm uses "700")
     fontSize: 20,
     fontWeight: "600",
     paddingBottom: Spacing.sm,
@@ -801,9 +803,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: -0.3,
+    ...Typography.displaySm,
   },
 
   // Streak row
@@ -819,6 +819,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   streakNumber: {
+    // No token for fontSize: 32 — between displayLg (28) and volumeNumber (48)
     fontSize: 32,
     fontWeight: "700",
     letterSpacing: -0.5,
@@ -853,6 +854,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   feedbackEmoji: {
+    // No token for fontSize: 18
     fontSize: 18,
   },
   preparingCard: {

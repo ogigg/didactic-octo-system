@@ -1,5 +1,5 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Spacing, Typography } from "@/constants/theme";
+import { Radii, Spacing, Typography } from "@/constants/theme";
 import { StyleSheet, Text, View } from "react-native";
 import type { DonutSegment } from "./donut-chart";
 
