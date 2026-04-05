@@ -30,6 +30,7 @@ export function MiniWorkoutBar() {
   const primary = useThemeColor({}, "primary");
   const textColor = useThemeColor({}, "text");
   const border = useThemeColor({}, "border");
+  const success = useThemeColor({}, "success");
 
   const [now, setNow] = useState(Date.now());
 
@@ -54,7 +55,7 @@ export function MiniWorkoutBar() {
         Elevation.sm,
       ]}
     >
-      <View style={styles.dot} />
+      <View style={[styles.dot, { backgroundColor: success }]} />
       <Text
         style={[Typography.bodyMedium, { color: textColor }]}
         numberOfLines={1}
@@ -81,8 +82,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: "#34C759",
+    borderRadius: Radii.full,
   },
   timer: {
     ...Typography.bodyMedium,

@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, ViewStyle } from "react-native";
 interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "destructive";
+  variant?: "primary" | "secondary" | "ghost" | "destructive" | "success";
   disabled?: boolean;
   accessibilityLabel?: string;
   style?: ViewStyle;
@@ -23,6 +23,7 @@ export function Button({
   const primaryContainer = useThemeColor({}, "primaryContainer");
   const borderSubtle = useThemeColor({}, "borderSubtle");
   const destructiveSurface = useThemeColor({}, "destructiveSurface");
+  const successColor = useThemeColor({}, "success");
   const textDisabled = useThemeColor({}, "textDisabled");
   const errorColor = useThemeColor({}, "error");
 
@@ -34,11 +35,13 @@ export function Button({
         ? primaryContainer
         : variant === "destructive"
           ? destructiveSurface
-          : "transparent";
+          : variant === "success"
+            ? successColor
+            : "transparent";
 
   const textColor = disabled
     ? textDisabled
-    : variant === "primary"
+    : variant === "primary" || variant === "success"
       ? "#FFFFFF"
       : variant === "secondary" || variant === "ghost"
         ? primary

@@ -76,7 +76,13 @@ export default function ForgotPasswordScreen() {
           {t("forgotPassword.successBody", { email: successEmail })}
         </Text>
         <Link href="/(auth)/sign-in" asChild>
-          <Pressable accessibilityRole="link" style={styles.backLink}>
+          <Pressable
+            accessibilityRole="link"
+            style={({ pressed }) => [
+              styles.backLink,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
             <Text style={[Typography.body, { color: primary }]}>
               {t("forgotPassword.backToSignIn")}
             </Text>
@@ -163,7 +169,13 @@ export default function ForgotPasswordScreen() {
           />
 
           <Link href="/(auth)/sign-in" asChild>
-            <Pressable accessibilityRole="link" style={styles.backLink}>
+            <Pressable
+              accessibilityRole="link"
+              style={({ pressed }) => [
+                styles.backLink,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
               <Text style={[Typography.body, { color: primary }]}>
                 {t("forgotPassword.backToSignIn")}
               </Text>

@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 32,
     height: 32,
-    borderRadius: 999,
+    borderRadius: Radii.full,
     borderWidth: 2,
   },
 });

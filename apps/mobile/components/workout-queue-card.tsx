@@ -597,7 +597,7 @@ const cardStyles = StyleSheet.create({
   liveDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: Radii.full,
   },
   timerText: {
     ...Typography.caption,

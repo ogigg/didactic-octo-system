@@ -12,6 +12,7 @@ import {
 
 import { useAuthStore } from "@/stores/auth-store";
 
+import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
   Elevation,
@@ -99,7 +100,6 @@ export default function ProfileScreen() {
   const textMuted = useThemeColor({}, "textMuted");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const border = useThemeColor({}, "border");
-  const errorColor = useThemeColor({}, "error");
 
   const { totalWorkouts, isLoading: statsLoading } = useWorkoutStats();
   const { weeklyDurations, isLoading: weeklyLoading } = useWeeklyDurations(12);
@@ -235,20 +235,13 @@ export default function ProfileScreen() {
             ))}
           </View>
           {/* Logout */}
-          <TouchableOpacity
-            style={[
-              styles.logoutButton,
-              { backgroundColor: backgroundSubtle },
-              Elevation.sm,
-            ]}
+          <Button
+            variant="destructive"
+            label={tAuth("logout.button")}
             onPress={handleLogout}
-            accessibilityRole="button"
             accessibilityLabel={tAuth("logout.button")}
-          >
-            <Text style={[Typography.titleSm, { color: errorColor }]}>
-              {tAuth("logout.button")}
-            </Text>
-          </TouchableOpacity>
+            style={styles.logoutButton}
+          />
         </ScrollView>
       </SafeAreaView>
     </View>

@@ -239,7 +239,10 @@ export default function SignUpScreen() {
               {t("signUp.hasAccount")}
             </Text>
             <Link href="/(auth)/sign-in" asChild>
-              <Pressable accessibilityRole="link">
+              <Pressable
+                accessibilityRole="link"
+                style={({ pressed }) => pressed && { opacity: 0.7 }}
+              >
                 <Text style={[Typography.body, { color: primary }]}>
                   {" "}
                   {t("signUp.signInLink")}

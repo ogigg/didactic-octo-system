@@ -139,7 +139,10 @@ export default function SignInScreen() {
                 {t("signIn.passwordLabel")}
               </Text>
               <Link href="/(auth)/forgot-password" asChild>
-                <Pressable accessibilityRole="link">
+                <Pressable
+                  accessibilityRole="link"
+                  style={({ pressed }) => pressed && { opacity: 0.7 }}
+                >
                   <Text style={[Typography.caption, { color: primary }]}>
                     {t("signIn.forgotPassword")}
                   </Text>
@@ -220,7 +223,10 @@ export default function SignInScreen() {
               {t("signIn.noAccount")}
             </Text>
             <Link href="/(auth)/sign-up" asChild>
-              <Pressable accessibilityRole="link">
+              <Pressable
+                accessibilityRole="link"
+                style={({ pressed }) => pressed && { opacity: 0.7 }}
+              >
                 <Text style={[Typography.body, { color: primary }]}>
                   {" "}
                   {t("signIn.signUpLink")}

@@ -6,8 +6,9 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 interface Exercise {
   name: string;
@@ -42,7 +43,6 @@ export function WorkoutPlanCard({
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
-  const primary = useThemeColor({}, "primary");
   const success = useThemeColor({}, "success");
   const borderSubtle = useThemeColor({}, "borderSubtle");
 
@@ -109,19 +109,13 @@ export function WorkoutPlanCard({
         ))}
       </View>
 
-      <TouchableOpacity
+      <Button
+        variant={isActive ? "success" : "primary"}
+        label={isActive ? "Resume Workout" : "Start Workout"}
         onPress={onStartWorkout}
-        style={[
-          styles.startButton,
-          { backgroundColor: isActive ? success : primary },
-        ]}
-        accessibilityRole="button"
         accessibilityLabel={isActive ? "Resume workout" : "Start workout"}
-      >
-        <Text style={[Typography.titleSm, styles.startButtonText]}>
-          {isActive ? "Resume Workout" : "Start Workout"}
-        </Text>
-      </TouchableOpacity>
+        style={styles.startButton}
+      />
     </View>
   );
 }
@@ -145,7 +139,7 @@ const styles = StyleSheet.create({
   liveDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: Radii.full,
   },
   timerText: {
     ...Typography.caption,
@@ -170,11 +164,6 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   startButton: {
-    borderRadius: Radii.lg,
     paddingVertical: Spacing.lg,
-    alignItems: "center",
-  },
-  startButtonText: {
-    color: "#FFFFFF",
   },
 });

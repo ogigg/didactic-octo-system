@@ -21,6 +21,7 @@ export function ExerciseMenu({
   const background = useThemeColor({}, "backgroundElevated");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
+  const textMuted = useThemeColor({}, "textMuted");
   const errorColor = useThemeColor({}, "error");
   const border = useThemeColor({}, "border");
 
@@ -63,7 +64,7 @@ export function ExerciseMenu({
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
         <View style={[styles.sheet, { backgroundColor: background }]}>
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: textMuted }]} />
           <Text
             style={[
               Typography.titleSm,
@@ -123,7 +124,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: Radii.full,
-    backgroundColor: "#888",
     alignSelf: "center",
     marginBottom: Spacing.lg,
   },

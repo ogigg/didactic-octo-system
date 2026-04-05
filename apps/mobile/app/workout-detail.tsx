@@ -4,19 +4,18 @@ import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { BackButton } from "@/components/ui/back-button";
 
 function formatDuration(
   startedAt: string | null,
@@ -75,7 +74,6 @@ function countCompletedSets(detail: WorkoutDetail): number {
 
 export default function WorkoutDetailScreen() {
   const { t } = useTranslation("history");
-  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const textColor = useThemeColor({}, "text");
@@ -109,14 +107,7 @@ export default function WorkoutDetailScreen() {
       <View style={[styles.root, { backgroundColor: background }]}>
         <SafeAreaView style={styles.safe}>
           <View style={[styles.topBar, { borderBottomColor: border }]}>
-            <Pressable
-              onPress={() => router.back()}
-              style={styles.backBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="chevron-back" size={22} color={primary} />
-            </Pressable>
+            <BackButton />
           </View>
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={primary} />
@@ -131,14 +122,7 @@ export default function WorkoutDetailScreen() {
       <SafeAreaView style={styles.safe}>
         {/* Top bar */}
         <View style={[styles.topBar, { borderBottomColor: border }]}>
-          <Pressable
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="chevron-back" size={22} color={primary} />
-          </Pressable>
+          <BackButton />
           <View style={styles.topBarTitle}>
             <Text
               style={[Typography.titleSm, { color: textColor }]}
@@ -324,16 +308,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: Spacing.sm,
   },
-  backBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radii.full,
-  },
   topBarTitle: {
     flex: 1,
-    gap: 2,
+    gap: Spacing.xs,
   },
   scroll: {
     paddingHorizontal: Spacing.xl,
@@ -389,6 +366,6 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: Radii.full,
   },
 });
