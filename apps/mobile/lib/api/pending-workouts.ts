@@ -14,7 +14,12 @@ import { supabase } from "@/lib/supabase";
 // Types
 // -----------------------------------------------------------------------------
 
-export type PendingWorkoutStatus = "queued" | "generating" | "ready" | "failed";
+export type PendingWorkoutStatus =
+  | "queued"
+  | "generating"
+  | "regenerating"
+  | "ready"
+  | "failed";
 export type FocusArea =
   | "push"
   | "pull"
@@ -51,7 +56,7 @@ const pendingWorkoutSchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),
   queue_position: z.number(),
-  status: z.enum(["queued", "generating", "ready", "failed"]),
+  status: z.enum(["queued", "generating", "regenerating", "ready", "failed"]),
   workout_data: generateWorkoutResponseSchema.nullable(),
   generation_source: z
     .enum(["llm", "fallback_template", "fallback_substitution"])
@@ -179,7 +184,8 @@ export async function triggerQueueGeneration(
 
 export async function triggerRegeneration(
   pendingWorkoutId: string,
-  preferences: WorkoutGenerationPreferences
+  preferences: WorkoutGenerationPreferences,
+  timezoneOffsetMinutes: number
 ): Promise<z.infer<typeof generateWorkoutResponseSchema>> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: {
@@ -190,6 +196,7 @@ export async function triggerRegeneration(
       training_style: preferences.training_style,
       difficulty: preferences.difficulty,
       custom_prompt: preferences.custom_prompt ?? undefined,
+      timezone_offset_minutes: timezoneOffsetMinutes,
     },
   });
 

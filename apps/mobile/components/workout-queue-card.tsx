@@ -20,6 +20,7 @@ import {
 } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { FocusArea, PendingWorkout } from "@/lib/api/pending-workouts";
+import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { useTranslation } from "react-i18next";
 
 // -----------------------------------------------------------------------------
@@ -151,6 +152,7 @@ export function WorkoutQueueCard({
   const textDisabled = useThemeColor({}, "textDisabled");
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
+  const primaryContainer = useThemeColor({}, "primaryContainer");
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const border = useThemeColor({}, "border");
@@ -160,6 +162,9 @@ export function WorkoutQueueCard({
 
   const focusLabel = getFocusLabel(workout.focus_area);
   const exerciseCount = getExerciseCount(workout);
+  const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
+    workout.last_regenerated_at
+  );
 
   // -- ACTIVE state --
   if (isActive) {
@@ -248,6 +253,187 @@ export function WorkoutQueueCard({
         >
           {t("queueCard.generating")}
         </Text>
+      </View>
+    );
+  }
+
+  // -- REGENERATING state --
+  if (workout.status === "regenerating" && workout.workout_data) {
+    const muscleSummary = getMuscleSummary(workout);
+
+    if (isNextUp) {
+      const exercises = workout.workout_data.exercises;
+      const previewExercises = exercises.slice(0, 3);
+      const remaining = exercises.length - previewExercises.length;
+
+      return (
+        <View
+          style={[
+            cardStyles.container,
+            {
+              backgroundColor: backgroundElevated,
+              borderColor: border,
+              borderWidth: 1,
+              opacity: 0.92,
+            },
+            Elevation.sm,
+          ]}
+          accessibilityLabel={t("queueCard.regenerating")}
+        >
+          <View style={cardStyles.headerRow}>
+            <View
+              style={[
+                cardStyles.nextBadge,
+                { backgroundColor: primaryContainer, gap: Spacing.sm },
+              ]}
+            >
+              <View
+                style={[cardStyles.liveDot, { backgroundColor: primary }]}
+              />
+              <Text style={[Typography.label, { color: primary }]}>
+                {t("queueCard.regenerating")}
+              </Text>
+            </View>
+            {focusLabel ? (
+              <Text style={[Typography.caption, { color: textSecondary }]}>
+                {focusLabel}
+              </Text>
+            ) : null}
+          </View>
+
+          <Text
+            style={[Typography.titleMd, { color: text }, cardStyles.title]}
+            numberOfLines={1}
+          >
+            {workout.workout_data.workout_name}
+          </Text>
+
+          <Text
+            style={[
+              Typography.caption,
+              { color: textMuted },
+              cardStyles.statusMessage,
+            ]}
+          >
+            {t("queueCard.regeneratingSubtitle")}
+          </Text>
+
+          <View style={cardStyles.metaRow}>
+            <View style={cardStyles.metaItem}>
+              <IconSymbol name="clock" size={13} color={textMuted} />
+              <Text style={[Typography.caption, { color: textSecondary }]}>
+                {t("queueCard.duration", {
+                  minutes: Math.round(exerciseCount * 7),
+                })}
+              </Text>
+            </View>
+            <View style={cardStyles.metaItem}>
+              <IconSymbol name="dumbbell.fill" size={13} color={textMuted} />
+              <Text style={[Typography.caption, { color: textSecondary }]}>
+                {exerciseCount} exercises
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[cardStyles.exercisePreview, { borderTopColor: border }]}
+          >
+            {previewExercises.map((ex) => (
+              <View key={ex.exercise_id} style={cardStyles.exerciseRow}>
+                <Text
+                  style={[Typography.bodyMedium, { color: text }]}
+                  numberOfLines={1}
+                >
+                  {ex.exercise_name}
+                </Text>
+                <Text style={[Typography.caption, { color: textSecondary }]}>
+                  {t("queueCard.setsAndReps", {
+                    sets: ex.sets.length,
+                    reps: ex.sets[0]?.target_reps ?? "—",
+                  })}
+                </Text>
+              </View>
+            ))}
+            {remaining > 0 && (
+              <Text
+                style={[
+                  Typography.caption,
+                  { color: textMuted },
+                  cardStyles.moreText,
+                ]}
+              >
+                {t("queueCard.exerciseCount", { count: remaining })}
+              </Text>
+            )}
+          </View>
+
+          <View
+            style={[
+              cardStyles.statusRail,
+              { backgroundColor: primaryContainer, borderColor: border },
+            ]}
+          >
+            <Text style={[Typography.titleSm, { color: primary }]}>
+              {t("queueCard.regenerating")}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View
+        style={[
+          cardStyles.container,
+          cardStyles.containerCompact,
+          {
+            backgroundColor: backgroundElevated,
+            borderColor: border,
+            borderWidth: 1,
+            opacity: 0.92,
+          },
+        ]}
+        accessibilityLabel={t("queueCard.regenerating")}
+      >
+        <View style={cardStyles.collapsedRow}>
+          <View style={cardStyles.collapsedLeft}>
+            <Text style={[Typography.label, { color: textMuted }]}>
+              {t("queueCard.dayLabel", { position: workout.queue_position })}
+            </Text>
+            <Text
+              style={[Typography.titleSm, { color: text }]}
+              numberOfLines={1}
+            >
+              {workout.workout_data.workout_name}
+            </Text>
+            <Text
+              style={[Typography.caption, { color: textSecondary }]}
+              numberOfLines={1}
+            >
+              {muscleSummary}
+            </Text>
+            <Text style={[Typography.caption, { color: primary }]}>
+              {t("queueCard.regeneratingSubtitle")}
+            </Text>
+          </View>
+          <View style={cardStyles.collapsedRight}>
+            {focusLabel ? (
+              <View
+                style={[cardStyles.chip, { backgroundColor: primaryContainer }]}
+              >
+                <Text style={[Typography.micro, { color: primary }]}>
+                  {focusLabel}
+                </Text>
+              </View>
+            ) : null}
+            <View
+              style={[
+                cardStyles.liveDot,
+                { backgroundColor: primary, marginRight: Spacing.xs },
+              ]}
+            />
+          </View>
+        </View>
       </View>
     );
   }
@@ -363,6 +549,18 @@ export function WorkoutQueueCard({
           {workout.workout_data.workout_name}
         </Text>
 
+        {!regenerationEligibility.canRegenerate && (
+          <Text
+            style={[
+              Typography.caption,
+              { color: textMuted },
+              cardStyles.statusMessage,
+            ]}
+          >
+            {t("queueCard.regenerationUnavailableToday")}
+          </Text>
+        )}
+
         {/* Meta row: duration + exercise count */}
         <View style={cardStyles.metaRow}>
           <View style={cardStyles.metaItem}>
@@ -475,6 +673,11 @@ export function WorkoutQueueCard({
             >
               {muscleSummary}
             </Text>
+            {!regenerationEligibility.canRegenerate && (
+              <Text style={[Typography.caption, { color: textMuted }]}>
+                {t("queueCard.regenerationUnavailableToday")}
+              </Text>
+            )}
           </View>
           <View style={cardStyles.collapsedRight}>
             {focusLabel ? (
@@ -560,8 +763,17 @@ const cardStyles = StyleSheet.create({
   moreText: {
     marginTop: Spacing.xs,
   },
+  statusMessage: {
+    marginBottom: Spacing.md,
+  },
   ctaButton: {
     borderRadius: Radii.lg,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  statusRail: {
+    borderRadius: Radii.lg,
+    borderWidth: 1,
     paddingVertical: 13,
     alignItems: "center",
   },

@@ -43,6 +43,10 @@ export const home = {
     startWorkout: "Start Workout",
     resumeWorkout: "Resume Workout",
     generating: "Preparing your workout...",
+    regenerating: "Refreshing workout",
+    regeneratingSubtitle: "Your replacement workout is on the way.",
+    regenerationUnavailableToday:
+      "Already refreshed today. You can regenerate this plan again tomorrow.",
     queued: "Up next",
     failed: "Couldn't generate",
     tryAgain: "Try Again",

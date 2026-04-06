@@ -26,6 +26,9 @@ export const workoutPreview = {
     regenerate: "Regenerate",
     regeneratedToday: "Regenerated today",
     regenerating: "Generating...",
+    regenerationAvailable: "Available once per plan each day.",
+    regenerationUnavailableToday:
+      "You already regenerated this plan today. Try again tomorrow.",
   },
   regenerate: {
     confirmTitle: "Generate a new workout?",
@@ -37,5 +40,10 @@ export const workoutPreview = {
   empty: {
     title: "No workout data",
     subtitle: "This workout is still being generated.",
+  },
+  status: {
+    regeneratingTitle: "Refreshing this plan",
+    regeneratingMessage:
+      "This workout is being replaced now. The updated version will appear automatically when it is ready.",
   },
 } as const;

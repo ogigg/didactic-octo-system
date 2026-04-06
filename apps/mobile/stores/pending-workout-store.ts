@@ -16,6 +16,7 @@ interface PendingWorkoutState {
     | "replenishment"
     | null;
   recoveryAttempts: Record<string, number>;
+  regeneratingWorkoutIds: string[];
 }
 
 interface PendingWorkoutActions {
@@ -25,6 +26,8 @@ interface PendingWorkoutActions {
   clearQueueGenerationContext: () => void;
   recordRecoveryAttempt: (id: string) => number;
   clearRecoveryAttempt: (id: string) => void;
+  markWorkoutRegenerating: (id: string) => void;
+  clearWorkoutRegenerating: (id: string) => void;
   reset: () => void;
 }
 
@@ -36,6 +39,7 @@ const initialState: PendingWorkoutState = {
   queueGenerationStartedAt: null,
   queueGenerationTrigger: null,
   recoveryAttempts: {},
+  regeneratingWorkoutIds: [],
 };
 
 // -----------------------------------------------------------------------------
@@ -80,11 +84,46 @@ export const usePendingWorkoutStore = create<
           return { recoveryAttempts };
         }),
 
+      markWorkoutRegenerating: (id) =>
+        set((state) => {
+          if (state.regeneratingWorkoutIds.includes(id)) {
+            return state;
+          }
+
+          return {
+            regeneratingWorkoutIds: [...state.regeneratingWorkoutIds, id],
+          };
+        }),
+
+      clearWorkoutRegenerating: (id) =>
+        set((state) => ({
+          regeneratingWorkoutIds: state.regeneratingWorkoutIds.filter(
+            (workoutId) => workoutId !== id
+          ),
+        })),
+
       reset: () => set(initialState),
     }),
     {
       name: "pending-workout-storage",
+      version: 1,
       storage: createJSONStorage(() => AsyncStorage),
+      migrate: (persistedState) => {
+        const state = persistedState as
+          | Partial<PendingWorkoutState>
+          | undefined;
+
+        return {
+          ...initialState,
+          ...state,
+          regeneratingWorkoutIds: [],
+        };
+      },
+      partialize: (state) => ({
+        queueGenerationStartedAt: state.queueGenerationStartedAt,
+        queueGenerationTrigger: state.queueGenerationTrigger,
+        recoveryAttempts: state.recoveryAttempts,
+      }),
     }
   )
 );

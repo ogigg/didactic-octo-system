@@ -34,7 +34,40 @@ const requestSchema = z.object({
   custom_prompt: z.string().max(500).optional(),
   // Regeneration: identifies a pending workout slot to replace
   pending_workout_id: z.string().uuid().optional(),
+  timezone_offset_minutes: z.number().int().min(-840).max(840).optional(),
 });
+
+interface PendingWorkoutSnapshot {
+  id: string;
+  regeneration_count: number | null;
+  last_regenerated_at: string | null;
+  workout_data: Record<string, unknown> | null;
+  status: string;
+}
+
+function toDateKeyForOffset(date: Date, timezoneOffsetMinutes: number): string {
+  const shifted = new Date(date.getTime() - timezoneOffsetMinutes * 60_000);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+async function restorePendingWorkoutAfterFailure(params: {
+  userClient: ReturnType<typeof createClient>;
+  pendingWorkoutId: string;
+  userId: string;
+  hadWorkoutData: boolean;
+}) {
+  const status = params.hadWorkoutData ? "ready" : "failed";
+
+  await params.userClient
+    .from("pending_workouts")
+    .update({ status })
+    .eq("id", params.pendingWorkoutId)
+    .eq("user_id", params.userId);
+}
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -49,6 +82,11 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders() });
   }
+
+  let pendingWorkoutSnapshot: PendingWorkoutSnapshot | null = null;
+  let pendingWorkoutIdForRecovery: string | null = null;
+  let userIdForRecovery: string | null = null;
+  let userClientForRecovery: ReturnType<typeof createClient> | null = null;
 
   try {
     // 1. Auth
@@ -74,6 +112,8 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: authHeader } } }
     );
+    userClientForRecovery = userClient;
+    userIdForRecovery = user.id;
 
     // 2. Parse and validate request
     const body = await req.json();
@@ -93,7 +133,9 @@ Deno.serve(async (req: Request) => {
       difficulty,
       custom_prompt,
       pending_workout_id,
+      timezone_offset_minutes,
     } = parsed.data;
+    pendingWorkoutIdForRecovery = pending_workout_id ?? null;
 
     // 3. Rate limiting (skip for pending workout regeneration — has its own daily limit)
     if (!pending_workout_id) {
@@ -125,7 +167,9 @@ Deno.serve(async (req: Request) => {
     if (pending_workout_id) {
       const { data: pendingWorkout } = await userClient
         .from("pending_workouts")
-        .select("id, last_regenerated_at, user_id")
+        .select(
+          "id, regeneration_count, last_regenerated_at, workout_data, status"
+        )
         .eq("id", pending_workout_id)
         .eq("user_id", user.id)
         .single();
@@ -135,12 +179,12 @@ Deno.serve(async (req: Request) => {
       }
 
       if (pendingWorkout.last_regenerated_at) {
-        const lastRegen = new Date(pendingWorkout.last_regenerated_at);
-        const now = new Date();
+        const currentTimezoneOffsetMinutes = timezone_offset_minutes ?? 0;
         const sameDay =
-          lastRegen.getFullYear() === now.getFullYear() &&
-          lastRegen.getMonth() === now.getMonth() &&
-          lastRegen.getDate() === now.getDate();
+          toDateKeyForOffset(
+            new Date(pendingWorkout.last_regenerated_at),
+            currentTimezoneOffsetMinutes
+          ) === toDateKeyForOffset(new Date(), currentTimezoneOffsetMinutes);
 
         if (sameDay) {
           return errorResponse(
@@ -148,6 +192,18 @@ Deno.serve(async (req: Request) => {
             429
           );
         }
+      }
+
+      pendingWorkoutSnapshot = pendingWorkout;
+
+      const { error: markRegeneratingError } = await userClient
+        .from("pending_workouts")
+        .update({ status: "regenerating" })
+        .eq("id", pending_workout_id)
+        .eq("user_id", user.id);
+
+      if (markRegeneratingError) {
+        return errorResponse("Failed to start workout regeneration.", 500);
       }
     }
 
@@ -234,29 +290,46 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!result.success || !result.data) {
+      if (pending_workout_id && pendingWorkoutSnapshot) {
+        await restorePendingWorkoutAfterFailure({
+          userClient,
+          pendingWorkoutId: pending_workout_id,
+          userId: user.id,
+          hadWorkoutData: pendingWorkoutSnapshot.workout_data !== null,
+        });
+      }
+
       return errorResponse(result.error ?? "Workout generation failed", 500);
     }
 
     // 10. If regenerating a pending workout, update it
     if (pending_workout_id) {
-      const { data: currentPW } = await userClient
-        .from("pending_workouts")
-        .select("regeneration_count")
-        .eq("id", pending_workout_id)
-        .single();
-
-      await userClient
+      const { error: updateError } = await userClient
         .from("pending_workouts")
         .update({
           workout_data: result.data as unknown as Record<string, unknown>,
           generation_source: result.generationSource,
           status: "ready",
           last_regenerated_at: new Date().toISOString(),
-          regeneration_count: (currentPW?.regeneration_count ?? 0) + 1,
+          regeneration_count:
+            (pendingWorkoutSnapshot?.regeneration_count ?? 0) + 1,
           generated_at: new Date().toISOString(),
         })
         .eq("id", pending_workout_id)
         .eq("user_id", user.id);
+
+      if (updateError) {
+        await restorePendingWorkoutAfterFailure({
+          userClient,
+          pendingWorkoutId: pending_workout_id,
+          userId: user.id,
+          hadWorkoutData: pendingWorkoutSnapshot?.workout_data !== null,
+        });
+
+        return errorResponse("Failed to save regenerated workout.", 500);
+      }
+
+      pendingWorkoutSnapshot = null;
     }
 
     console.log("[generate-workout] Success!", {
@@ -267,6 +340,20 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse(result.data);
   } catch (err) {
+    if (
+      pendingWorkoutIdForRecovery &&
+      pendingWorkoutSnapshot &&
+      userIdForRecovery &&
+      userClientForRecovery
+    ) {
+      await restorePendingWorkoutAfterFailure({
+        userClient: userClientForRecovery,
+        pendingWorkoutId: pendingWorkoutIdForRecovery,
+        userId: userIdForRecovery,
+        hadWorkoutData: pendingWorkoutSnapshot.workout_data !== null,
+      });
+    }
+
     console.error("[generate-workout] Unhandled error:", err);
     return errorResponse("Internal server error", 500);
   }

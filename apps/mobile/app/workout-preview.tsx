@@ -27,7 +27,7 @@ import {
   useStartPendingWorkout,
   useWorkoutQueueData,
 } from "@/hooks/use-workout-queue";
-import type { PendingWorkout } from "@/lib/api/pending-workouts";
+import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { trackEvent } from "@/lib/track-event";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
@@ -68,17 +68,6 @@ function estimateMinutes(exercises: LocalExercise[]): number {
   return Math.round((totalSets * 45 + (totalSets - 1) * avgRest) / 60);
 }
 
-function canRegenerateToday(workout: PendingWorkout): boolean {
-  if (!workout.last_regenerated_at) return true;
-  const last = new Date(workout.last_regenerated_at);
-  const now = new Date();
-  return (
-    last.getFullYear() !== now.getFullYear() ||
-    last.getMonth() !== now.getMonth() ||
-    last.getDate() !== now.getDate()
-  );
-}
-
 // -----------------------------------------------------------------------------
 // Screen
 // -----------------------------------------------------------------------------
@@ -107,6 +96,7 @@ export default function WorkoutPreviewScreen() {
   const nextWorkout = selectNextWorkout(queue);
   const workout = queue.find((w) => w.id === id) ?? null;
   const isNextUp = nextWorkout?.id === id;
+  const isRegenerating = workout?.status === "regenerating";
 
   // Mutations
   const startMutation = useStartPendingWorkout();
@@ -176,6 +166,12 @@ export default function WorkoutPreviewScreen() {
   }, [id]);
 
   useEffect(() => {
+    if (isRegenerating) {
+      setIsEditing(false);
+    }
+  }, [isRegenerating]);
+
+  useEffect(() => {
     return () => {
       if (!workout) return;
 
@@ -210,17 +206,23 @@ export default function WorkoutPreviewScreen() {
 
   // Handlers
   const handleStart = useCallback(() => {
-    if (!workout) return;
+    if (!workout || isRegenerating) return;
     startMutation.mutate({
       pendingWorkout: workout,
       exercises: localExercises,
       wasEdited: dirtyEditTypes.length > 0 || workout.user_edits !== null,
       editCount: dirtyEditTypes.length,
     });
-  }, [dirtyEditTypes.length, localExercises, startMutation, workout]);
+  }, [
+    dirtyEditTypes.length,
+    isRegenerating,
+    localExercises,
+    startMutation,
+    workout,
+  ]);
 
   const handleRegenerate = useCallback(() => {
-    if (!workout) return;
+    if (!workout || isRegenerating) return;
     Alert.alert(t("regenerate.confirmTitle"), t("regenerate.confirmMessage"), [
       { text: t("regenerate.cancel"), style: "cancel" },
       {
@@ -229,10 +231,10 @@ export default function WorkoutPreviewScreen() {
         onPress: () => regenerateMutation.mutate(workout),
       },
     ]);
-  }, [workout, regenerateMutation, t]);
+  }, [isRegenerating, workout, regenerateMutation, t]);
 
   const persistEdits = useCallback(() => {
-    if (!workout || dirtyEditTypes.length === 0) return;
+    if (!workout || dirtyEditTypes.length === 0 || isRegenerating) return;
 
     editMutation.mutate({
       id: workout.id,
@@ -243,15 +245,16 @@ export default function WorkoutPreviewScreen() {
       },
       editType: dirtyEditTypes.length === 1 ? dirtyEditTypes[0] : "multiple",
     });
-  }, [dirtyEditTypes, editMutation, localExercises, workout]);
+  }, [dirtyEditTypes, editMutation, isRegenerating, localExercises, workout]);
 
   const handleSwap = useCallback(
     (exerciseIndex: number) => {
+      if (isRegenerating) return;
       swapIndexRef.current = exerciseIndex;
       setSwapResult(null);
       router.push("/exercise-picker?mode=pending_swap" as never);
     },
-    [router, setSwapResult]
+    [isRegenerating, router, setSwapResult]
   );
 
   const handleUpdateSet = useCallback(
@@ -282,6 +285,8 @@ export default function WorkoutPreviewScreen() {
   );
 
   const handleToggleEdit = useCallback(() => {
+    if (isRegenerating) return;
+
     setIsEditing((prev) => {
       if (prev) {
         persistEdits();
@@ -289,7 +294,7 @@ export default function WorkoutPreviewScreen() {
 
       return !prev;
     });
-  }, [persistEdits]);
+  }, [isRegenerating, persistEdits]);
 
   // Loading / empty states
   if (!workout || !workout.workout_data) {
@@ -314,7 +319,11 @@ export default function WorkoutPreviewScreen() {
   }
 
   const estimatedMinutes = estimateMinutes(localExercises);
-  const regenerable = canRegenerateToday(workout);
+  const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
+    workout.last_regenerated_at
+  );
+  const regenerable = regenerationEligibility.canRegenerate && !isRegenerating;
+  const canEdit = isEditing && !isRegenerating;
 
   return (
     <KeyboardAvoidingView
@@ -331,13 +340,20 @@ export default function WorkoutPreviewScreen() {
             rightElement={
               <Pressable
                 onPress={handleToggleEdit}
+                disabled={isRegenerating}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: isRegenerating }}
                 accessibilityLabel={
                   isEditing ? t("edit.done") : t("edit.toggle")
                 }
               >
-                <Text style={[Typography.bodyMedium, { color: primary }]}>
+                <Text
+                  style={[
+                    Typography.bodyMedium,
+                    { color: isRegenerating ? textMuted : primary },
+                  ]}
+                >
                   {isEditing ? t("edit.done") : t("edit.toggle")}
                 </Text>
               </Pressable>
@@ -384,6 +400,36 @@ export default function WorkoutPreviewScreen() {
               </View>
             </View>
 
+            {isRegenerating ? (
+              <View
+                style={[
+                  styles.statusCard,
+                  {
+                    backgroundColor: primaryContainer,
+                    borderColor: border,
+                  },
+                ]}
+              >
+                <View style={styles.statusCardHeader}>
+                  <View
+                    style={[styles.statusDot, { backgroundColor: primary }]}
+                  />
+                  <Text style={[Typography.titleSm, { color: primary }]}>
+                    {t("status.regeneratingTitle")}
+                  </Text>
+                </View>
+                <Text style={[Typography.caption, { color: textSecondary }]}>
+                  {t("status.regeneratingMessage")}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[Typography.caption, { color: textMuted }]}>
+                {regenerationEligibility.canRegenerate
+                  ? t("actions.regenerationAvailable")
+                  : t("actions.regenerationUnavailableToday")}
+              </Text>
+            )}
+
             {/* Exercise list */}
             <View style={styles.exerciseList}>
               {localExercises.map((exercise, exIndex) => (
@@ -391,11 +437,10 @@ export default function WorkoutPreviewScreen() {
                   key={`${exercise.exercise_id}-${exIndex}`}
                   exercise={exercise}
                   exerciseIndex={exIndex}
-                  isEditing={isEditing}
+                  isEditing={canEdit}
                   text={text}
                   textSecondary={textSecondary}
                   textMuted={textMuted}
-                  textDisabled={textDisabled}
                   border={border}
                   backgroundElevated={backgroundElevated}
                   inputFill={inputFill}
@@ -418,11 +463,12 @@ export default function WorkoutPreviewScreen() {
               <Button
                 label={t("actions.startWorkout")}
                 onPress={handleStart}
+                disabled={isRegenerating}
                 accessibilityLabel={t("actions.startWorkout")}
               />
             )}
             {!isNextUp && <View style={styles.footerSpacer} />}
-            {regenerateMutation.isPending ? (
+            {isRegenerating ? (
               <View
                 style={[
                   styles.regenerateDisabled,
@@ -448,7 +494,7 @@ export default function WorkoutPreviewScreen() {
                 ]}
               >
                 <Text style={[Typography.caption, { color: textMuted }]}>
-                  {t("actions.regeneratedToday")}
+                  {t("actions.regenerationUnavailableToday")}
                 </Text>
               </View>
             )}
@@ -470,7 +516,6 @@ interface ExerciseCardProps {
   text: string;
   textSecondary: string;
   textMuted: string;
-  textDisabled: string;
   border: string;
   backgroundElevated: string;
   inputFill: string;
@@ -495,7 +540,6 @@ function ExerciseCard({
   text,
   textSecondary,
   textMuted,
-  textDisabled,
   border,
   backgroundElevated,
   inputFill,
@@ -902,6 +946,23 @@ const styles = StyleSheet.create({
   },
   exerciseList: {
     gap: Spacing.md,
+  },
+  statusCard: {
+    borderWidth: 1,
+    borderRadius: Radii.md,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  statusCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: Radii.full,
   },
   exerciseCard: {
     borderRadius: Radii.md,

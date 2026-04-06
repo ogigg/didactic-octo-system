@@ -22,6 +22,7 @@ import {
   isPendingWorkoutStale,
   MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
 } from "@/lib/pending-workout-recovery";
+import { getCurrentTimezoneOffsetMinutes } from "@/lib/pending-workout-regeneration";
 import { pendingWorkoutKeys } from "@/lib/query-keys";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/track-event";
@@ -47,6 +48,25 @@ const POLL_INTERVAL_MS = 10_000;
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+function applyOptimisticRegenerationState(
+  queue: PendingWorkout[],
+  regeneratingWorkoutIds: string[]
+): PendingWorkout[] {
+  if (regeneratingWorkoutIds.length === 0) {
+    return queue;
+  }
+
+  return queue.map((workout) =>
+    regeneratingWorkoutIds.includes(workout.id) &&
+    workout.status !== "failed" &&
+    workout.status !== "ready"
+      ? workout
+      : regeneratingWorkoutIds.includes(workout.id)
+        ? { ...workout, status: "regenerating" }
+        : workout
+  );
+}
 
 function getGenerationPreferencesFromProfile(
   profile: Profile | undefined
@@ -78,6 +98,9 @@ function getGenerationPreferencesFromProfile(
 
 export function useWorkoutQueueData() {
   const { user } = useAuth();
+  const regeneratingWorkoutIds = usePendingWorkoutStore(
+    (s) => s.regeneratingWorkoutIds
+  );
 
   const query = useQuery({
     queryKey: pendingWorkoutKeys.list(),
@@ -85,7 +108,12 @@ export function useWorkoutQueueData() {
     enabled: !!user,
   });
 
-  return { ...query, queue: query.data ?? [] };
+  const queue = applyOptimisticRegenerationState(
+    query.data ?? [],
+    regeneratingWorkoutIds
+  );
+
+  return { ...query, queue };
 }
 
 // -----------------------------------------------------------------------------
@@ -113,6 +141,9 @@ export function useWorkoutQueue() {
   const clearQueueGenerationContext = usePendingWorkoutStore(
     (s) => s.clearQueueGenerationContext
   );
+  const regeneratingWorkoutIds = usePendingWorkoutStore(
+    (s) => s.regeneratingWorkoutIds
+  );
 
   const previousQueueRef = useRef<PendingWorkout[]>([]);
   const recoveryInFlightRef = useRef(false);
@@ -131,13 +162,18 @@ export function useWorkoutQueue() {
       if (!data || data.length === 0) return false;
       const hasPending = data.some(
         (w: PendingWorkout) =>
-          w.status === "queued" || w.status === "generating"
+          w.status === "queued" ||
+          w.status === "generating" ||
+          w.status === "regenerating"
       );
       return hasPending ? POLL_INTERVAL_MS : false;
     },
   });
 
-  const queue = query.data ?? [];
+  const queue = applyOptimisticRegenerationState(
+    query.data ?? [],
+    regeneratingWorkoutIds
+  );
 
   // ---- Debounced realtime invalidation ----
 
@@ -189,7 +225,9 @@ export function useWorkoutQueue() {
       const previous = previousQueue.find((item) => item.id === workout.id);
       const becameReady =
         workout.status === "ready" &&
-        ((previous !== undefined && previous.status !== "ready") ||
+        ((previous !== undefined &&
+          previous.status !== "ready" &&
+          previous.status !== "regenerating") ||
           queueGenerationTrigger !== null);
 
       if (becameReady) {
@@ -238,6 +276,7 @@ export function useWorkoutQueue() {
     queue,
     queueGenerationStartedAt,
     queueGenerationTrigger,
+    regeneratingWorkoutIds,
   ]);
 
   // ---- Recovery: fix stale workouts ----
@@ -290,7 +329,11 @@ export function useWorkoutQueue() {
           await setPendingWorkoutStatus(workout.id, "generating");
 
           try {
-            await triggerRegeneration(workout.id, preferences);
+            await triggerRegeneration(
+              workout.id,
+              preferences,
+              getCurrentTimezoneOffsetMinutes()
+            );
             clearRecoveryAttempt(workout.id);
           } catch {
             recordRecoveryAttempt(workout.id);
@@ -343,6 +386,12 @@ export function useIsFullyReady() {
 export function useRegenerateWorkout() {
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
+  const markWorkoutRegenerating = usePendingWorkoutStore(
+    (s) => s.markWorkoutRegenerating
+  );
+  const clearWorkoutRegenerating = usePendingWorkoutStore(
+    (s) => s.clearWorkoutRegenerating
+  );
 
   return useMutation({
     mutationFn: async (pendingWorkout: PendingWorkout) => {
@@ -352,16 +401,68 @@ export function useRegenerateWorkout() {
         throw new Error("Training preferences are incomplete");
       }
 
-      return triggerRegeneration(pendingWorkout.id, preferences);
+      await setPendingWorkoutStatus(pendingWorkout.id, "regenerating");
+
+      return triggerRegeneration(
+        pendingWorkout.id,
+        preferences,
+        getCurrentTimezoneOffsetMinutes()
+      );
+    },
+    onMutate: async (pendingWorkout) => {
+      await queryClient.cancelQueries({ queryKey: pendingWorkoutKeys.list() });
+
+      const previousQueue = queryClient.getQueryData<PendingWorkout[]>(
+        pendingWorkoutKeys.list()
+      );
+
+      queryClient.setQueryData<PendingWorkout[]>(
+        pendingWorkoutKeys.list(),
+        (current = []) =>
+          current.map((workout) =>
+            workout.id === pendingWorkout.id
+              ? { ...workout, status: "regenerating" }
+              : workout
+          )
+      );
+      markWorkoutRegenerating(pendingWorkout.id);
+
+      trackEvent("pending_workout_regenerated", {
+        phase: "started",
+        queue_position: pendingWorkout.queue_position,
+        focus_area: pendingWorkout.focus_area,
+        previous_generation_source: pendingWorkout.generation_source,
+      });
+
+      return { previousQueue };
     },
     onSuccess: (_data, pendingWorkout) => {
+      clearWorkoutRegenerating(pendingWorkout.id);
       trackEvent("pending_workout_regenerated", {
+        phase: "completed",
         queue_position: pendingWorkout.queue_position,
         focus_area: pendingWorkout.focus_area,
         previous_generation_source: pendingWorkout.generation_source,
       });
 
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+    },
+    onError: (_error, pendingWorkout, context) => {
+      clearWorkoutRegenerating(pendingWorkout.id);
+
+      if (context?.previousQueue) {
+        queryClient.setQueryData(
+          pendingWorkoutKeys.list(),
+          context.previousQueue
+        );
+      }
+
+      void setPendingWorkoutStatus(pendingWorkout.id, pendingWorkout.status);
+
+      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+    },
+    onSettled: (_data, _error, pendingWorkout) => {
+      clearWorkoutRegenerating(pendingWorkout.id);
     },
   });
 }
@@ -399,6 +500,13 @@ export function useStartPendingWorkout() {
         exercise_name: string;
         rest_duration_seconds: number;
         notes: string | null;
+        progression_type?:
+          | "weight_up"
+          | "reps_up"
+          | "maintained"
+          | "new_exercise"
+          | null;
+        previous_display?: string | null;
         sets: {
           set_type: "warmup" | "working";
           target_load_kg: number;

@@ -158,7 +158,9 @@ export default function HomeScreen() {
           .length,
         generating_count: queue.filter(
           (workout) =>
-            workout.status === "generating" || workout.status === "queued"
+            workout.status === "generating" ||
+            workout.status === "queued" ||
+            workout.status === "regenerating"
         ).length,
         total_count: queue.length,
         has_active_workout: isWorkoutActive,
