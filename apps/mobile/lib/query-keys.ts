@@ -38,6 +38,11 @@ export const pendingWorkoutKeys = {
   detail: (id: string) => [...pendingWorkoutKeys.all, id] as const,
 };
 
+export const exerciseDetailKeys = {
+  all: ["exercise-detail"] as const,
+  detail: (id: string) => [...exerciseDetailKeys.all, id] as const,
+};
+
 export const statsKeys = {
   all: ["stats"] as const,
   heatmap: () => [...statsKeys.all, "heatmap"] as const,

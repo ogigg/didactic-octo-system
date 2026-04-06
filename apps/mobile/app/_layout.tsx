@@ -10,6 +10,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
 import { AppState, StyleSheet, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import "react-native-reanimated";
@@ -94,96 +95,106 @@ export default function RootLayout() {
   }, [colorScheme]);
 
   return (
-    <SafeAreaProvider>
-      <View style={[styles.root, { backgroundColor: colors.background }]}>
-        <AmbientGlow variant="hero" />
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider value={theme}>
-            <Stack
-              screenOptions={{
-                contentStyle: styles.transparent,
-              }}
-            >
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="(onboarding)"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="modal"
-                options={{ presentation: "modal", title: t("nav.modal") }}
-              />
-              <Stack.Screen
-                name="design-system"
-                options={{
-                  presentation: "modal",
-                  title: t("nav.designSystem"),
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <View style={[styles.root, { backgroundColor: colors.background }]}>
+          <AmbientGlow variant="hero" />
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider value={theme}>
+              <Stack
+                screenOptions={{
+                  contentStyle: styles.transparent,
                 }}
-              />
-              <Stack.Screen
-                name="workout"
-                options={{
-                  presentation: "fullScreenModal",
-                  headerShown: false,
-                  gestureEnabled: false,
-                }}
-              />
-              <Stack.Screen
-                name="workout-summary"
-                options={{
-                  presentation: "fullScreenModal",
-                  headerShown: false,
-                  gestureEnabled: false,
-                }}
-              />
-              <Stack.Screen
-                name="exercise-picker"
-                options={{
-                  presentation: "fullScreenModal",
-                  headerShown: false,
-                  gestureEnabled: true,
-                }}
-              />
-              <Stack.Screen
-                name="generate-workout"
-                options={{
-                  presentation: "fullScreenModal",
-                  headerShown: false,
-                  gestureEnabled: true,
-                }}
-              />
-              <Stack.Screen name="history" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="workout-detail"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="statistics"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="workout-preview"
-                options={{
-                  presentation: "fullScreenModal",
-                  headerShown: false,
-                  gestureEnabled: true,
-                }}
-              />
-              <Stack.Screen
-                name="training-preferences"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="strength-baselines"
-                options={{ headerShown: false }}
-              />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </QueryClientProvider>
-      </View>
-    </SafeAreaProvider>
+              >
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="(onboarding)"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{ presentation: "modal", title: t("nav.modal") }}
+                />
+                <Stack.Screen
+                  name="design-system"
+                  options={{
+                    presentation: "modal",
+                    title: t("nav.designSystem"),
+                  }}
+                />
+                <Stack.Screen
+                  name="workout"
+                  options={{
+                    presentation: "fullScreenModal",
+                    headerShown: false,
+                    gestureEnabled: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="workout-summary"
+                  options={{
+                    presentation: "fullScreenModal",
+                    headerShown: false,
+                    gestureEnabled: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="exercise-picker"
+                  options={{
+                    presentation: "fullScreenModal",
+                    headerShown: false,
+                    gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="generate-workout"
+                  options={{
+                    presentation: "fullScreenModal",
+                    headerShown: false,
+                    gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen name="history" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="workout-detail"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="exercise-detail"
+                  options={{
+                    presentation: "fullScreenModal",
+                    headerShown: false,
+                    gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="statistics"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="workout-preview"
+                  options={{
+                    presentation: "fullScreenModal",
+                    headerShown: false,
+                    gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="training-preferences"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="strength-baselines"
+                  options={{ headerShown: false }}
+                />
+              </Stack>
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </View>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

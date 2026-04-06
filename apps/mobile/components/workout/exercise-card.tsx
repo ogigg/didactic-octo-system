@@ -1,16 +1,16 @@
-import { useThemeColor } from "@/hooks/use-theme-color";
-import { Radii, Spacing, Typography } from "@/constants/theme";
-import { SetHeader } from "@/components/workout/set-header";
-import { SetRow } from "@/components/workout/set-row";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ExerciseMenu } from "@/components/workout/exercise-menu";
 import { ProgressionPill } from "@/components/workout/progression-pill";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useWorkoutStore } from "@/stores/workout-store";
+import { SetHeader } from "@/components/workout/set-header";
+import { SetRow } from "@/components/workout/set-row";
+import { Radii, Spacing, Typography } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WorkoutExercise } from "@/stores/workout-store";
+import { useWorkoutStore } from "@/stores/workout-store";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 interface ExerciseCardProps {
   exercise: WorkoutExercise;
@@ -35,6 +35,13 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
   const textMuted = useThemeColor({}, "textMuted");
   const inputFill = useThemeColor({}, "inputFill");
   const textSecondary = useThemeColor({}, "textSecondary");
+
+  const handleExercisePress = useCallback(() => {
+    router.push({
+      pathname: "/exercise-detail",
+      params: { exerciseId: exercise.id },
+    });
+  }, [router, exercise.id]);
 
   const handleAddSet = useCallback(() => {
     addSet(exercise.id);
@@ -79,12 +86,19 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
         <View
           style={[styles.imagePlaceholder, { backgroundColor: inputFill }]}
         />
-        <Text
-          style={[Typography.titleSm, styles.exerciseName, { color: primary }]}
-          numberOfLines={1}
+        <Pressable
+          onPress={handleExercisePress}
+          accessibilityRole="link"
+          accessibilityLabel={exercise.name}
+          style={styles.exerciseName}
         >
-          {exercise.name}
-        </Text>
+          <Text
+            style={[Typography.titleSm, { color: primary }]}
+            numberOfLines={1}
+          >
+            {exercise.name}
+          </Text>
+        </Pressable>
         <ProgressionPill type={exercise.progressionType} />
         <Pressable
           onPress={() => setMenuVisible(true)}
