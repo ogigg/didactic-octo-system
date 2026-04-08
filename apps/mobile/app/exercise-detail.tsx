@@ -562,6 +562,22 @@ export default function ExerciseDetailScreen() {
               {activeTab === "howTo" ? renderHowTo() : null}
             </ScrollView>
           </GestureDetector>
+          <ExercisePreferenceSheet
+            visible={prefSheetVisible}
+            exerciseName={exercise?.name ?? ""}
+            currentPreference={preference ?? null}
+            onClose={() => setPrefSheetVisible(false)}
+            onSelect={(pref) => {
+              if (pref === null) {
+                removePreferenceMutation.mutate(exerciseId ?? "");
+              } else {
+                setPreferenceMutation.mutate({
+                  exerciseId: exerciseId ?? "",
+                  preference: pref,
+                });
+              }
+            }}
+          />
         </SafeAreaView>
       </SafeAreaProvider>
     </View>
