@@ -8,6 +8,8 @@ import {
 } from "@/lib/api/workouts";
 import { upsertProfile } from "@/lib/api/profiles";
 import type { OnboardingData } from "@/lib/api/profiles";
+import { upsertMeasurement } from "@/lib/api/body-measurements";
+import type { MeasurementInput } from "@/lib/api/body-measurements";
 import { syncQueue } from "@/lib/sync-queue";
 
 import type { WorkoutSummary } from "@/stores/workout-store";
@@ -50,4 +52,11 @@ export function registerSyncHandlers(): void {
     upsertProfile(payload as OnboardingData)
   );
   syncQueue.registerHandler("save_workout", handleSaveWorkout);
+  syncQueue.registerHandler("upsert_measurement", (payload: unknown) => {
+    const { loggedAt, fields } = payload as {
+      loggedAt: string;
+      fields: MeasurementInput;
+    };
+    return upsertMeasurement(loggedAt, fields);
+  });
 }

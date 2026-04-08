@@ -2,7 +2,35 @@
 
 ## Context
 
-The app has a working onboarding flow, tab navigation with mock data, a design system, and i18n — but no backend integration, authentication, or core workout features. This roadmap covers everything needed to reach a complete MVP loop: sign in → generate workout → log sets → see summary → repeat.
+**MVP status:** The full loop is implemented: auth → onboarding → training setup → AI generation → logger → post-workout summary → analytics, with RLS, offline sync, and PostHog. The ticket list below is the historical plan that delivered that scope.
+
+**PRD note:** Exercise data lives in the Supabase `exercises` table rather than an external MCP feed; behavior matches the intent (curated, queryable exercise catalog).
+
+---
+
+## Post-MVP — prioritized themes
+
+These are ordered by **impact vs. leverage on what already exists** (`set_logs`, exercises media fields, Edge Functions, i18n).
+
+| Priority  | Theme                                   | Why now                                                                                                                                       |
+| --------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1**    | **Progress charts & trends**            | Strength per exercise, weekly volume/tonnage over time — `set_logs` already holds the series; mostly presentation + queries.                  |
+| **P1**    | **Exercise instruction library**        | Surface `instructions`, `image_url`, `video_url` on exercise detail — high UX value, minimal schema work.                                     |
+| **P2**    | **Workout templates & favorites**       | Save a generated workout to re-run; favorite exercises so generation can bias toward them — strong retention.                                 |
+| **P2**    | **lb/kg toggle & more locales**         | i18n infrastructure exists; unit preference affects copy and inputs everywhere weights appear.                                                |
+| **P3**    | **AI coach chat**                       | Same LLM pipeline, new surface — “why this exercise?”, “what should I focus on?” with session/history context. Larger product + cost surface. |
+| **P3**    | **Consistency / streaks (private)**     | Lightweight accountability without full social; pairs well with analytics.                                                                    |
+| **Later** | **Superset & circuit support**          | Great for gym efficiency; requires workout model + logger + AI output shape changes.                                                          |
+| **Later** | **Deload week intelligence**            | Signals from RPE, reps, feedback — needs reliable heuristics and UX for “planned easy week”.                                                  |
+| **Later** | **Body measurements & progress photos** | Profile already hints (“Measures”); needs storage, privacy, and UI scope.                                                                     |
+| **Later** | **Social & sharing**                    | Share summaries / groups — policy, moderation, and positioning beyond MVP’s “no sharing”.                                                     |
+| **Later** | **Wearables (HealthKit / Google Fit)**  | HR export, calories — platform APIs and background behavior; can inform intensity later.                                                      |
+
+---
+
+## Historical MVP phases (reference)
+
+The app had a working onboarding flow, tab navigation with mock data, a design system, and i18n — then this roadmap covered backend, auth, and the full workout loop below.
 
 ---
 
@@ -46,13 +74,13 @@ The app has a working onboarding flow, tab navigation with mock data, a design s
 
 ## Phase 3 — AI Workout Generation
 
-| #    | Title                                | Description                                                                                                                                                                                                                           | Deps       |
-| ---- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| T-14 | **`generate-workout` Edge Function** | Deno function that fetches profile + last 3 sessions, builds prompt with exercise IDs, calls OpenRouter (Claude 3.5 Sonnet primary, GPT-4o fallback), validates response, inserts workout_session + session_exercises + session_sets. | T-02, T-03 |
-| T-15 | **LLM response Zod validation**      | Define `WorkoutPlanSchema` validating exercise IDs exist in DB, positive load/reps/rest, contiguous order. Add substitution logic for invalid exercises.                                                                              | T-03       |
-| T-16 | **Fallback templates**               | Rule-based workout templates per goal (push/pull/legs, circuit, full-body). Used when both LLMs fail or regeneration limit hit.                                                                                                       | T-03       |
-| T-17 | **Rate limiting & cost controls**    | 10 req/min per user, 1 AI generation per 30 min. Max 2 regenerations per session. Log cost metadata.                                                                                                                                  | T-14       |
-| T-18 | **Client-side generation hook**      | `useGenerateWorkout` mutation calling Edge Function via `supabase.functions.invoke()`. Loading skeleton, error handling, retry UI. Wire "Start Workout" button.                                                                       | T-11, T-14 |
+| #    | Title                                  | Description                                                                                                                                                                                                                           | Deps       |
+| ---- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| T-14 | `**generate-workout` Edge Function\*\* | Deno function that fetches profile + last 3 sessions, builds prompt with exercise IDs, calls OpenRouter (Claude 3.5 Sonnet primary, GPT-4o fallback), validates response, inserts workout_session + session_exercises + session_sets. | T-02, T-03 |
+| T-15 | **LLM response Zod validation**        | Define `WorkoutPlanSchema` validating exercise IDs exist in DB, positive load/reps/rest, contiguous order. Add substitution logic for invalid exercises.                                                                              | T-03       |
+| T-16 | **Fallback templates**                 | Rule-based workout templates per goal (push/pull/legs, circuit, full-body). Used when both LLMs fail or regeneration limit hit.                                                                                                       | T-03       |
+| T-17 | **Rate limiting & cost controls**      | 10 req/min per user, 1 AI generation per 30 min. Max 2 regenerations per session. Log cost metadata.                                                                                                                                  | T-14       |
+| T-18 | **Client-side generation hook**        | `useGenerateWorkout` mutation calling Edge Function via `supabase.functions.invoke()`. Loading skeleton, error handling, retry UI. Wire "Start Workout" button.                                                                       | T-11, T-14 |
 
 > T-15 and T-16 can be built **in parallel** with T-14.
 

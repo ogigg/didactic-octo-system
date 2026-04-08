@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,12 +12,19 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
+import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useExerciseDetail } from "@/hooks/use-exercise-detail-query";
 import { useExercise } from "@/hooks/use-exercises-query";
+import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
+import {
+  useSetExercisePreference,
+  useRemoveExercisePreference,
+} from "@/hooks/use-exercise-preference-mutations";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type {
   ExerciseDetailStats,
@@ -280,11 +288,15 @@ export default function ExerciseDetailScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [prefSheetVisible, setPrefSheetVisible] = useState(false);
 
   const { data: exercise } = useExercise(exerciseId ?? "");
   const { data: detail, isLoading: detailLoading } = useExerciseDetail(
     exerciseId ?? ""
   );
+  const { data: preference } = useExercisePreference(exerciseId ?? "");
+  const setPreferenceMutation = useSetExercisePreference();
+  const removePreferenceMutation = useRemoveExercisePreference();
 
   const sessions = useMemo(
     () =>
@@ -518,7 +530,22 @@ export default function ExerciseDetailScreen() {
     <View style={[styles.root, { backgroundColor: background }]}>
       <SafeAreaProvider>
         <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-          <ScreenHeader title={exercise?.name ?? ""} numberOfLines={2} />
+          <ScreenHeader
+            title={exercise?.name ?? ""}
+            numberOfLines={2}
+            rightElement={
+              <Pressable
+                onPress={() => setPrefSheetVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t("header.accessibilityLabel", {
+                  ns: "exercisePreference",
+                })}
+                hitSlop={8}
+              >
+                <ExercisePreferenceIcon preference={preference ?? null} />
+              </Pressable>
+            }
+          />
           <GestureDetector gesture={swipeGesture}>
             <ScrollView
               contentContainerStyle={styles.scroll}

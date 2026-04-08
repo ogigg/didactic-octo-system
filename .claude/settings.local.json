@@ -23,7 +23,20 @@
       "Bash(find /Users/oskargierszewski/Documents/Projects/workout/apps/mobile -name *zustand* -o -name *store*)",
       "Bash(find /Users/oskargierszewski/Documents/Projects/workout -name .env* -o -name *supabase* -type f)",
       "Bash(find /Users/oskargierszewski/Documents/Projects/workout -type f -name *workout*card* -o -name *current*workout* -o -name *active*workout*)",
-      "Bash(grep -r \"next exercises\\\\|Next Exercises\\\\|NEXT_EXERCISES\" /Users/oskargierszewski/Documents/Projects/workout/apps/mobile --include=*.tsx --include=*.ts)"
+      "Bash(git merge:*)",
+      "Bash(ipconfig getifaddr:*)",
+      "Bash(supabase functions:*)",
+      "Bash(supabase status:*)",
+      "Bash(find /Users/oskargierszewski/Documents/Projects/workout/apps/mobile/components -type f -name *.tsx -o -name *.ts)",
+      "Bash(npx eslint:*)",
+      "Bash(npx eslint*)",
+      "Bash(find /Users/oskargierszewski/Documents/Projects/workout/apps/mobile/i18n -type f -name *.json)",
+      "Bash(find:*)",
+      "Bash(node -e \"console.log\\(require\\('@tanstack/react-query/package.json'\\).version\\)\")",
+      "Skill(gsd:autonomous)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(xargs basename:*)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
     ]
   }
 }

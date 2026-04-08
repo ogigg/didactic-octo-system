@@ -43,6 +43,14 @@ export const exerciseDetailKeys = {
   detail: (id: string) => [...exerciseDetailKeys.all, id] as const,
 };
 
+export const exercisePreferenceKeys = {
+  all: ["exercise-preferences"] as const,
+  detail: (exerciseId: string) =>
+    [...exercisePreferenceKeys.all, exerciseId] as const,
+  batch: (exerciseIds: string[]) =>
+    [...exercisePreferenceKeys.all, "batch", ...exerciseIds.sort()] as const,
+};
+
 export const statsKeys = {
   all: ["stats"] as const,
   heatmap: () => [...statsKeys.all, "heatmap"] as const,
@@ -50,4 +58,11 @@ export const statsKeys = {
   prs: () => [...statsKeys.all, "prs"] as const,
   muscleDistribution: (period: string) =>
     [...statsKeys.all, "muscle-distribution", period] as const,
+};
+
+export const measurementKeys = {
+  all: ["measurements"] as const,
+  trend: (field: string, fromDate: string | null) =>
+    [...measurementKeys.all, "trend", field, fromDate] as const,
+  latest: () => [...measurementKeys.all, "latest"] as const,
 };

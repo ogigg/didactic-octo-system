@@ -44,6 +44,9 @@ const MAPPING = {
   number: "tag",
   clock: "schedule",
   "dumbbell.fill": "fitness-center",
+  heart: "favorite-border",
+  "hand.thumbsdown": "thumb-down",
+  nosign: "block",
 } as IconMapping;
 
 /**
