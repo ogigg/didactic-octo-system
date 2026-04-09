@@ -188,6 +188,10 @@ export default function RootLayout() {
                   name="strength-baselines"
                   options={{ headerShown: false }}
                 />
+                <Stack.Screen
+                  name="measurements"
+                  options={{ headerShown: false }}
+                />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>

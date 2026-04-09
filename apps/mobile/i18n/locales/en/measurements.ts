@@ -1,0 +1,42 @@
+export const measurements = {
+  title: "Body Measurements",
+  chart: {
+    title: "Trend",
+    empty: "Log your first measurement to see a trend",
+  },
+  groups: {
+    bodyComposition: "Body Composition",
+    upperBody: "Upper Body",
+    lowerBody: "Lower Body",
+  },
+  fields: {
+    weight_kg: "Weight",
+    body_fat_pct: "Body Fat",
+    muscle_mass_kg: "Muscle Mass",
+    chest_cm: "Chest",
+    waist_cm: "Waist",
+    hips_cm: "Hips",
+    neck_cm: "Neck",
+    shoulders_cm: "Shoulders",
+    biceps_left_cm: "Biceps L",
+    biceps_right_cm: "Biceps R",
+    forearm_left_cm: "Forearm L",
+    forearm_right_cm: "Forearm R",
+    thigh_left_cm: "Thigh L",
+    thigh_right_cm: "Thigh R",
+    calf_left_cm: "Calf L",
+    calf_right_cm: "Calf R",
+  },
+  units: {
+    kg: "kg",
+    pct: "%",
+    cm: "cm",
+  },
+  sheet: {
+    title: "Log Measurement",
+    date: "Date",
+    value: "Value",
+    save: "Save",
+    placeholder: "Enter value",
+  },
+} as const;

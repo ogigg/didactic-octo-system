@@ -56,7 +56,12 @@ const NAV_ITEMS: NavItem[] = [
     disabled: false,
     route: "/(tabs)/calendar",
   },
-  { icon: "ruler.fill", labelKey: "nav.measures", disabled: true },
+  {
+    icon: "ruler.fill",
+    labelKey: "nav.measures",
+    disabled: false,
+    route: "/measurements",
+  },
   {
     icon: "clock.arrow.circlepath",
     labelKey: "nav.history",
