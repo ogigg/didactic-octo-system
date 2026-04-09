@@ -1,4 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+function useForceUpdate() {
+  const [, setTick] = useState(0);
+  return useCallback(() => setTick((t) => t + 1), []);
+}
+import { Controller, useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import {
   Keyboard,
   Modal,
@@ -11,28 +18,35 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useTranslation } from "react-i18next";
 
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/measurements/date-picker-input";
 import { NUMERIC_ACCESSORY_ID } from "@/components/numeric-keyboard-accessory";
+import { Button } from "@/components/ui/button";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Radii, Spacing, Typography } from "@/constants/theme";
-import { useThemeColor } from "@/hooks/use-theme-color";
 import { MEASUREMENT_GROUPS, getMeasurementUnit } from "@/data/measurements";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import type { LatestMeasurements } from "@/lib/api/body-measurements";
-
-function parseMeasurementValue(val: string): number | null {
-  if (!val || val.trim() === "") return null;
-  const parsed = parseFloat(val);
-  if (isNaN(parsed)) return null;
-  return Math.round(parsed * 1000) / 1000;
-}
 
 function todayString(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+function parseMeasurementValue(val: string): number | null {
+  if (!val || val.trim() === "") return null;
+  const normalized = val.trim().replace(",", ".");
+  const parsed = parseFloat(normalized);
+  if (isNaN(parsed)) return null;
+  return parsed;
+}
+
+const measurementFields = MEASUREMENT_GROUPS.flatMap((g) => g.fields);
+
+type FormData = {
+  date: string;
+  measurements: Record<string, string>;
+};
 
 interface LogMeasurementsModalProps {
   visible: boolean;
@@ -47,6 +61,7 @@ export function LogMeasurementsModal({
   onSave,
   onClose,
 }: LogMeasurementsModalProps) {
+  const forceUpdate = useForceUpdate();
   const { t } = useTranslation("measurements");
   const background = useThemeColor({}, "backgroundElevated");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
@@ -54,46 +69,59 @@ export function LogMeasurementsModal({
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
   const inputFill = useThemeColor({}, "inputFill");
-  const inputFillFocused = useThemeColor({}, "inputFillFocused");
+  const _inputFillFocused = useThemeColor({}, "inputFillFocused");
   const border = useThemeColor({}, "border");
-  const primary = useThemeColor({}, "primary");
+  const _primary = useThemeColor({}, "primary");
 
-  const [date, setDate] = useState(todayString());
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const {
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<FormData>({
+    mode: "onChange",
+    defaultValues: {
+      date: "",
+      measurements: {},
+    },
+  });
+
+  const measurementValues = watch("measurements");
 
   useEffect(() => {
     if (visible) {
-      setDate(todayString());
-      setValues({});
-      setFocusedField(null);
+      forceUpdate();
+      reset({
+        date: todayString(),
+        measurements: {},
+      });
     }
-  }, [visible]);
+  }, [visible, reset, forceUpdate]);
 
-  const filledCount = Object.values(values).filter(
-    (v) => v.length > 0 && !isNaN(parseFloat(v))
+  const filledCount = (
+    measurementValues ? Object.values(measurementValues) : []
+  ).filter(
+    (v) => typeof v === "string" && v.length > 0 && !isNaN(parseFloat(v))
   ).length;
 
-  function handleSave() {
+  function handleFormSubmit(data: FormData) {
     const fields: Record<string, number> = {};
-    for (const [key, val] of Object.entries(values)) {
-      const num = parseMeasurementValue(val);
+    for (const field of measurementFields) {
+      const val = data.measurements[field];
+      const num = parseMeasurementValue(val ?? "");
       if (num !== null) {
-        fields[key] = num;
+        fields[field] = num;
       }
     }
     if (Object.keys(fields).length === 0) return;
-    onSave(date, fields);
+    onSave(data.date, fields);
     Keyboard.dismiss();
   }
 
   function handleClose() {
     Keyboard.dismiss();
     onClose();
-  }
-
-  function updateValue(field: string, val: string) {
-    setValues((prev) => ({ ...prev, [field]: val }));
   }
 
   return (
@@ -103,136 +131,142 @@ export function LogMeasurementsModal({
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <SafeAreaView style={[styles.root, { backgroundColor: background }]}>
-        <View style={[styles.header, { borderBottomColor: border }]}>
-          <TouchableOpacity
-            onPress={handleClose}
-            accessibilityRole="button"
-            accessibilityLabel={t("modal.close")}
-            hitSlop={8}
-            style={styles.headerButton}
+      {visible ? (
+        <SafeAreaView style={[styles.root, { backgroundColor: background }]}>
+          <View style={[styles.header, { borderBottomColor: border }]}>
+            <TouchableOpacity
+              onPress={handleClose}
+              accessibilityRole="button"
+              accessibilityLabel={t("modal.close")}
+              hitSlop={8}
+              style={styles.headerButton}
+            >
+              <IconSymbol name="xmark" size={20} color={textColor} />
+            </TouchableOpacity>
+            <Text style={[Typography.titleMd, { color: textColor }]}>
+              {t("modal.title")}
+            </Text>
+            <View style={styles.headerButton} />
+          </View>
+
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <IconSymbol name="xmark" size={20} color={textColor} />
-          </TouchableOpacity>
-          <Text style={[Typography.titleMd, { color: textColor }]}>
-            {t("modal.title")}
-          </Text>
-          <View style={styles.headerButton} />
-        </View>
+            <Controller
+              control={control}
+              name="date"
+              render={({ field: { value, onChange } }) => (
+                <DatePickerInput
+                  label={t("modal.dateLabel")}
+                  value={value}
+                  onChange={onChange}
+                />
+              )}
+            />
 
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <DatePickerInput
-            label={t("modal.dateLabel")}
-            value={date}
-            onChange={setDate}
-          />
+            {MEASUREMENT_GROUPS.map((group) => (
+              <View key={group.key} style={styles.groupSection}>
+                <Text style={[Typography.label, { color: textMuted }]}>
+                  {t(`groups.${group.key}`)}
+                </Text>
+                <View
+                  style={[
+                    styles.fieldsContainer,
+                    { backgroundColor: backgroundSubtle, borderColor: border },
+                  ]}
+                >
+                  {group.fields.map((field, i) => {
+                    const unit = getMeasurementUnit(field);
+                    const latest = latestData?.[field];
 
-          {MEASUREMENT_GROUPS.map((group) => (
-            <View key={group.key} style={styles.groupSection}>
-              <Text style={[Typography.label, { color: textMuted }]}>
-                {t(`groups.${group.key}`)}
-              </Text>
-              <View
-                style={[
-                  styles.fieldsContainer,
-                  { backgroundColor: backgroundSubtle, borderColor: border },
-                ]}
-              >
-                {group.fields.map((field, i) => {
-                  const unit = getMeasurementUnit(field);
-                  const latest = latestData?.[field];
-                  const isFocused = focusedField === field;
-
-                  return (
-                    <View
-                      key={field}
-                      style={[
-                        styles.fieldRow,
-                        i < group.fields.length - 1 && {
-                          borderBottomWidth: StyleSheet.hairlineWidth,
-                          borderBottomColor: border,
-                        },
-                      ]}
-                    >
-                      <View style={styles.fieldLabel}>
-                        <Text
-                          style={[Typography.body, { color: textColor }]}
-                          numberOfLines={1}
-                        >
-                          {t(`fields.${field}`)}
-                        </Text>
-                        {latest !== null && latest !== undefined && (
+                    return (
+                      <View
+                        key={field}
+                        style={[
+                          styles.fieldRow,
+                          i < group.fields.length - 1 && {
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: border,
+                          },
+                        ]}
+                      >
+                        <View style={styles.fieldLabel}>
                           <Text
-                            style={[
-                              Typography.caption,
-                              { color: textSecondary },
-                            ]}
+                            style={[Typography.body, { color: textColor }]}
+                            numberOfLines={1}
                           >
-                            {latest} {unit}
+                            {t(`fields.${field}`)}
                           </Text>
-                        )}
-                      </View>
-                      <View style={styles.fieldInput}>
-                        <TextInput
-                          value={values[field] ?? ""}
-                          onChangeText={(v) => updateValue(field, v)}
-                          onFocus={() => setFocusedField(field)}
-                          onBlur={() => setFocusedField(null)}
-                          keyboardType="decimal-pad"
-                          placeholder="—"
-                          placeholderTextColor={textMuted}
-                          style={[
-                            styles.valueInput,
-                            {
-                              color: textColor,
-                              backgroundColor: isFocused
-                                ? inputFillFocused
-                                : inputFill,
-                            },
-                            isFocused && {
-                              borderColor: primary,
-                              borderWidth: 1.5,
-                            },
-                          ]}
-                          inputAccessoryViewID={NUMERIC_ACCESSORY_ID}
+                          {latest !== null && latest !== undefined && (
+                            <Text
+                              style={[
+                                Typography.caption,
+                                { color: textSecondary },
+                              ]}
+                            >
+                              {latest} {unit}
+                            </Text>
+                          )}
+                        </View>
+                        <Controller
+                          control={control}
+                          name={`measurements.${field}` as const}
+                          render={({ field: { value, onChange, onBlur } }) => (
+                            <View style={styles.fieldInput}>
+                              <TextInput
+                                value={value ?? ""}
+                                onChangeText={onChange}
+                                onBlur={onBlur}
+                                keyboardType="decimal-pad"
+                                placeholder="—"
+                                placeholderTextColor={textMuted}
+                                style={[
+                                  styles.valueInput,
+                                  {
+                                    color: textColor,
+                                    backgroundColor: inputFill,
+                                  },
+                                ]}
+                                inputAccessoryViewID={NUMERIC_ACCESSORY_ID}
+                              />
+                              <Text
+                                style={[
+                                  Typography.caption,
+                                  styles.unitLabel,
+                                  { color: textMuted },
+                                ]}
+                              >
+                                {unit}
+                              </Text>
+                            </View>
+                          )}
                         />
-                        <Text
-                          style={[
-                            Typography.caption,
-                            styles.unitLabel,
-                            { color: textMuted },
-                          ]}
-                        >
-                          {unit}
-                        </Text>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
 
-          <View style={styles.bottomPadding} />
-        </ScrollView>
+            <View style={styles.bottomPadding} />
+          </ScrollView>
 
-        <View style={[styles.footer, { borderTopColor: border }]}>
-          <Button
-            label={
-              filledCount > 0
-                ? t("modal.saveCount", { count: filledCount })
-                : t("modal.save")
-            }
-            onPress={handleSave}
-            disabled={filledCount === 0}
-          />
-        </View>
-      </SafeAreaView>
+          <View style={[styles.footer, { borderTopColor: border }]}>
+            <Button
+              label={
+                filledCount > 0
+                  ? t("modal.saveCount", { count: filledCount })
+                  : t("modal.save")
+              }
+              onPress={handleSubmit(handleFormSubmit)}
+              disabled={filledCount === 0}
+            />
+          </View>
+        </SafeAreaView>
+      ) : null}
     </Modal>
   );
 }

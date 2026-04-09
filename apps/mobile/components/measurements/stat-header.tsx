@@ -23,6 +23,7 @@ export function StatHeader({
   const { t } = useTranslation("measurements");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
+  const primary = useThemeColor({}, "primary");
   const success = useThemeColor({}, "success");
   const error = useThemeColor({}, "error");
 
@@ -58,13 +59,13 @@ export function StatHeader({
             <IconSymbol
               name={delta.direction === "up" ? "arrow.up" : "arrow.down"}
               size={10}
-              color={delta.direction === "up" ? error : success}
+              color={primary}
             />
             <Text
               style={[
                 Typography.caption,
                 {
-                  color: delta.direction === "up" ? error : success,
+                  color: primary,
                   fontWeight: "600",
                 },
               ]}

@@ -1,11 +1,11 @@
-import { useThemeColor } from "@/hooks/use-theme-color";
-import { Radii, Typography } from "@/constants/theme";
-import { formatExerciseDuration } from "@/lib/format-exercise-duration";
-import { DurationPicker } from "@/components/workout/duration-picker";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { DurationPicker } from "@/components/workout/duration-picker";
+import { Radii, Typography } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface SetTimerCellProps {
   durationSeconds: number | null;
@@ -169,5 +169,6 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 4,
   },
 });
