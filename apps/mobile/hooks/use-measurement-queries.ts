@@ -5,13 +5,16 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   fetchLatestMeasurements,
   fetchMeasurementTrend,
+  fetchMeasurementHistory,
   upsertMeasurement,
+  deleteMeasurement,
   STATS_PERIODS,
 } from "@/lib/api/body-measurements";
 import type {
   StatsPeriod,
   MeasurementTrendPoint,
   LatestMeasurements,
+  MeasurementHistoryItem,
   MeasurementInput,
 } from "@/lib/api/body-measurements";
 import type { MeasurementField } from "@/data/measurements";
@@ -77,6 +80,30 @@ export function useUpsertMeasurement() {
           .enqueue("upsert_measurement", user.id, variables)
           .catch(console.warn);
       }
+    },
+  });
+}
+
+export function useMeasurementHistory(field: MeasurementField): {
+  data: MeasurementHistoryItem[] | undefined;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = useQuery({
+    queryKey: measurementKeys.history(field),
+    queryFn: () => fetchMeasurementHistory(field),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return { data, isLoading };
+}
+
+export function useDeleteMeasurement() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (loggedAt: string) => deleteMeasurement(loggedAt),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: measurementKeys.all });
     },
   });
 }

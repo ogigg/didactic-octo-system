@@ -1,5 +1,11 @@
-import { useMemo } from "react";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import Svg, {
   Circle,
   Defs,
@@ -12,25 +18,49 @@ import Svg, {
 
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
+import { Spacing, Typography } from "@/constants/theme";
+import type { MeasurementUnit } from "@/data/measurements";
 
 interface LineChartProps {
   data: MeasurementTrendPoint[];
   height?: number;
+  unit: MeasurementUnit;
+  selectedPoint?: MeasurementTrendPoint | null;
+  onPointPress?: (point: MeasurementTrendPoint) => void;
 }
 
 const PADDING = { top: 8, right: 8, bottom: 28, left: 44 };
-const MIN_POINT_RADIUS = 2.5;
+const MIN_POINT_RADIUS = 4;
+const SELECTED_POINT_RADIUS = 6;
 const MAX_POINTS_LABELS = 6;
+const TOUCH_SLOP = 20;
 
-export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
+interface ChartPoint {
+  x: number;
+  y: number;
+  value: number;
+  date: string;
+}
+
+export function MeasurementLineChart({
+  data,
+  height = 180,
+  unit,
+  selectedPoint,
+  onPointPress,
+}: LineChartProps) {
   const { width: screenWidth } = useWindowDimensions();
-  const chartWidth = screenWidth - 40; // account for screen padding
+  const chartWidth = screenWidth - 40;
   const textMuted = useThemeColor({}, "textMuted");
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
+  const textColor = useThemeColor({}, "text");
+  const primaryContainer = useThemeColor({}, "primaryContainer");
 
   const plotWidth = chartWidth - PADDING.left - PADDING.right;
   const plotHeight = height - PADDING.top - PADDING.bottom;
+
+  const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
 
   const { points, yMin, yMax, xLabels } = useMemo(() => {
     if (data.length === 0) {
@@ -57,7 +87,6 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
       return { x, y, value: d.value, date: d.date };
     });
 
-    // Generate x-axis labels (evenly spaced from the data)
     const xLabels: string[] = [];
     if (data.length <= MAX_POINTS_LABELS) {
       xLabels.push(...data.map((d) => formatDate(d.date)));
@@ -71,7 +100,6 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
     return { points, yMin, yMax, xLabels };
   }, [data, plotWidth, plotHeight]);
 
-  // Build SVG path
   const linePath = useMemo(() => {
     if (points.length === 0) return "";
     return points
@@ -79,7 +107,6 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
       .join(" ");
   }, [points]);
 
-  // Build area fill path (closes to the bottom)
   const areaPath = useMemo(() => {
     if (points.length === 0) return "";
     const bottom = PADDING.top + plotHeight;
@@ -89,7 +116,6 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
     return `${line} L ${points[points.length - 1].x} ${bottom} L ${points[0].x} ${bottom} Z`;
   }, [points, plotHeight]);
 
-  // Y-axis ticks
   const yTicks = useMemo(() => {
     const ticks: number[] = [];
     const steps = 4;
@@ -98,6 +124,8 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
     }
     return ticks;
   }, [yMin, yMax]);
+
+  const activePoint = hoveredPoint || selectedPoint;
 
   if (data.length === 0) return null;
 
@@ -115,7 +143,6 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
           </LinearGradient>
         </Defs>
 
-        {/* Y-axis grid lines and labels */}
         {yTicks.map((tick) => {
           const y =
             PADDING.top +
@@ -145,10 +172,8 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
           );
         })}
 
-        {/* Area fill */}
         <Path d={areaPath} fill="url(#areaGradient)" />
 
-        {/* Line */}
         <Path
           d={linePath}
           fill="none"
@@ -158,18 +183,22 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
           strokeLinecap="round"
         />
 
-        {/* Data points */}
-        {points.map((p) => (
-          <Circle
-            key={`dp-${p.date}`}
-            cx={p.x}
-            cy={p.y}
-            r={MIN_POINT_RADIUS}
-            fill={primary}
-          />
-        ))}
+        {points.map((p) => {
+          const isActive =
+            activePoint?.date === p.date && activePoint?.value === p.value;
+          return (
+            <Circle
+              key={`dp-${p.date}`}
+              cx={p.x}
+              cy={p.y}
+              r={isActive ? SELECTED_POINT_RADIUS : MIN_POINT_RADIUS}
+              fill={isActive ? primaryContainer : primary}
+              stroke={primary}
+              strokeWidth={isActive ? 2 : 0}
+            />
+          );
+        })}
 
-        {/* X-axis labels */}
         {xLabels.map((label, i) => {
           const xIndex =
             data.length <= MAX_POINTS_LABELS
@@ -197,6 +226,56 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
           );
         })}
       </Svg>
+
+      {points.map((p) => {
+        const isActive =
+          activePoint?.date === p.date && activePoint?.value === p.value;
+        return (
+          <Pressable
+            key={`touch-${p.date}`}
+            style={[
+              styles.touchArea,
+              {
+                left: p.x - TOUCH_SLOP,
+                top: p.y - TOUCH_SLOP,
+                width: TOUCH_SLOP * 2,
+                height: TOUCH_SLOP * 2,
+              },
+            ]}
+            onPress={() => onPointPress?.(p)}
+            onPressIn={() => setHoveredPoint(p)}
+            onPressOut={() => setHoveredPoint(null)}
+          >
+            {isActive && (
+              <View
+                style={[
+                  styles.activeIndicator,
+                  { backgroundColor: primaryContainer },
+                ]}
+              />
+            )}
+          </Pressable>
+        );
+      })}
+
+      {activePoint && (
+        <View
+          style={[
+            styles.tooltip,
+            {
+              backgroundColor: primaryContainer,
+              borderColor: primary,
+            },
+          ]}
+        >
+          <Text style={[Typography.titleSm, { color: textColor }]}>
+            {activePoint.value} {unit}
+          </Text>
+          <Text style={[Typography.caption, { color: textMuted }]}>
+            {formatFullDate(activePoint.date)}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -204,6 +283,15 @@ export function MeasurementLineChart({ data, height = 180 }: LineChartProps) {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function formatFullDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function formatTickValue(value: number): string {
@@ -215,5 +303,30 @@ function formatTickValue(value: number): string {
 const styles = StyleSheet.create({
   container: {
     alignSelf: "stretch",
+    position: "relative",
+  },
+  touchArea: {
+    position: "absolute",
+  },
+  activeIndicator: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -4 }, { translateY: -4 }],
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tooltip: {
+    position: "absolute",
+    top: Spacing.sm,
+    left: "50%",
+    transform: [{ translateX: -50 }],
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 2,
   },
 });

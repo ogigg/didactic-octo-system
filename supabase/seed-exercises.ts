@@ -68,6 +68,7 @@ interface WgerExerciseInfo {
 interface ExerciseRow {
   name: string;
   external_id: string;
+  exercise_type: "weight";
   primary_muscles: string[];
   secondary_muscles: string[];
   equipment: string[];
@@ -135,6 +136,7 @@ async function seedFromApi(): Promise<ExerciseRow[]> {
     return {
       name: translation.name.trim(),
       external_id: `wger-${e.id}`,
+      exercise_type: "weight",
       primary_muscles: e.muscles.map((m) => m.name_en || m.name),
       secondary_muscles: e.muscles_secondary.map((m) => m.name_en || m.name),
       equipment: e.equipment.map((eq) => eq.name),

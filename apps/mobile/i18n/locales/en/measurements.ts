@@ -3,6 +3,7 @@ export const measurements = {
   chart: {
     title: "Trend",
     empty: "Log your first measurement to see a trend",
+    tapToSeeDetails: "Tap a point to see details",
   },
   groups: {
     bodyComposition: "Body Composition",
@@ -39,4 +40,27 @@ export const measurements = {
     save: "Save",
     placeholder: "Enter value",
   },
+  modal: {
+    title: "Log Measurement",
+    editTitle: "Edit Measurement",
+    fieldLabel: "Field",
+    valueLabel: "Value",
+    dateLabel: "Date",
+    save: "Save",
+    update: "Update",
+    placeholder: "0.0",
+    previous: "Previous: {{value}} {{unit}}",
+  },
+  history: {
+    title: "History",
+    empty: "No measurements logged yet",
+    loading: "Loading...",
+    edit: "Edit",
+    delete: "Delete",
+    deleteConfirmTitle: "Delete Measurement",
+    deleteConfirmMessage:
+      "Are you sure you want to delete this measurement ({{value}} {{unit}})?",
+    cancel: "Cancel",
+  },
+  addButton: "Log Measurement",
 } as const;

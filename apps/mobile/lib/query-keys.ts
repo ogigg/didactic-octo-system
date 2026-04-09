@@ -65,4 +65,6 @@ export const measurementKeys = {
   trend: (field: string, fromDate: string | null) =>
     [...measurementKeys.all, "trend", field, fromDate] as const,
   latest: () => [...measurementKeys.all, "latest"] as const,
+  history: (field: string) =>
+    [...measurementKeys.all, "history", field] as const,
 };

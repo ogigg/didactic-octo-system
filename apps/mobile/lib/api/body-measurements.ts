@@ -64,6 +64,16 @@ export interface MeasurementInput {
   [key: string]: number | undefined;
 }
 
+export const measurementHistoryItemSchema = z.object({
+  date: z.string(),
+  value: z.number(),
+  logged_at: z.string(),
+});
+
+export type MeasurementHistoryItem = z.infer<
+  typeof measurementHistoryItemSchema
+>;
+
 // -----------------------------------------------------------------------------
 // Period Helpers
 // -----------------------------------------------------------------------------
@@ -154,6 +164,36 @@ export async function upsertMeasurement(
     },
     { onConflict: "user_id,logged_at" }
   );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function fetchMeasurementHistory(
+  field: MeasurementField
+): Promise<MeasurementHistoryItem[]> {
+  await getAuthenticatedUserId();
+
+  const { data, error } = await supabase.rpc("get_measurement_history", {
+    p_field: field,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z.array(measurementHistoryItemSchema).parse(data);
+}
+
+export async function deleteMeasurement(loggedAt: string): Promise<void> {
+  const userId = await getAuthenticatedUserId();
+
+  const { error } = await supabase
+    .from("body_measurements")
+    .delete()
+    .eq("user_id", userId)
+    .eq("logged_at", loggedAt);
 
   if (error) {
     throw new Error(error.message);
