@@ -4,6 +4,7 @@ import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
   generateSingleWorkout,
   getFocusAreaForPosition,
+  type ExercisePreference,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -129,7 +130,16 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 6. Check for concurrent generation — skip if already in progress
+    // 6. Fetch exercise preferences
+    const { data: prefRows } = await userClient
+      .from("exercise_preferences")
+      .select("exercise_id, preference")
+      .eq("user_id", user.id);
+
+    const exercisePreferences: ExercisePreference[] =
+      (prefRows as ExercisePreference[] | null) ?? [];
+
+    // 7. Check for concurrent generation — skip if already in progress
     const { data: existingQueue } = await userClient
       .from("pending_workouts")
       .select("id, status")
@@ -149,7 +159,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 7. Clear existing pending workouts for this user
+    // 8. Clear existing pending workouts for this user
     const { error: deleteError } = await userClient
       .from("pending_workouts")
       .delete()
@@ -163,7 +173,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Failed to clear existing queue", 500);
     }
 
-    // 8. Create N pending_workout rows with status 'queued'
+    // 9. Create N pending_workout rows with status 'queued'
     const queuedWorkouts = Array.from({ length: count }, (_, i) => ({
       user_id: user.id,
       queue_position: i + 1,
@@ -184,7 +194,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Failed to create workout queue", 500);
     }
 
-    // 9. Generate each workout sequentially
+    // 10. Generate each workout sequentially
     const results: {
       position: number;
       status: string;
@@ -219,6 +229,8 @@ Deno.serve(async (req: Request) => {
         strengthBaselines,
         queueContext: queueContext.length > 0 ? queueContext : undefined,
         history,
+        exercisePreferences:
+          exercisePreferences.length > 0 ? exercisePreferences : undefined,
       });
 
       if (genResult.success && genResult.data) {

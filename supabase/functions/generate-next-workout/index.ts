@@ -4,6 +4,7 @@ import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
   determineReplacementFocusArea,
   generateSingleWorkout,
+  type ExercisePreference,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -158,7 +159,16 @@ Deno.serve(async (req: Request) => {
         workout_data: pw.workout_data as QueueContextItem["workout_data"],
       }));
 
-    // 8. Insert placeholder row so the client can show a "generating" card
+    // 8. Fetch exercise preferences
+    const { data: prefRows } = await supabaseClient
+      .from("exercise_preferences")
+      .select("exercise_id, preference")
+      .eq("user_id", user_id);
+
+    const exercisePreferences: ExercisePreference[] =
+      (prefRows as ExercisePreference[] | null) ?? [];
+
+    // 9. Insert placeholder row so the client can show a "generating" card
     const profileGoal = profile.goal ?? "improve_fitness";
 
     const { data: placeholder, error: placeholderError } = await supabaseClient
@@ -180,7 +190,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Failed to create placeholder", 500);
     }
 
-    // 9. Generate replacement workout
+    // 10. Generate replacement workout
     const genResult = await generateSingleWorkout({
       supabaseClient,
       userId: user_id,
@@ -195,6 +205,8 @@ Deno.serve(async (req: Request) => {
       strengthBaselines,
       queueContext: queueContext.length > 0 ? queueContext : undefined,
       history,
+      exercisePreferences:
+        exercisePreferences.length > 0 ? exercisePreferences : undefined,
     });
 
     if (!genResult.success || !genResult.data) {
@@ -210,7 +222,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ success: false, error: genResult.error }, 500);
     }
 
-    // 10. Update placeholder with generated data
+    // 11. Update placeholder with generated data
     const { error: insertError } = await supabaseClient
       .from("pending_workouts")
       .update({

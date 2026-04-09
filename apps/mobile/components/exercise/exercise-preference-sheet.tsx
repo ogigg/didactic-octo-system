@@ -15,8 +15,11 @@ interface ExercisePreferenceSheetProps {
 
 const PREFERENCE_OPTIONS: {
   value: ExercisePreferenceValue;
-  labelKey: string;
-  descriptionKey: string;
+  labelKey: "options.preferred" | "options.softDislike" | "options.hardDislike";
+  descriptionKey:
+    | "options.preferredDescription"
+    | "options.softDislikeDescription"
+    | "options.hardDislikeDescription";
   icon: "heart.fill" | "hand.thumbsdown" | "nosign";
   colorKey: "primary" | "textSecondary" | "error";
   destructive?: boolean;

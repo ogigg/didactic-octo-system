@@ -1,9 +1,15 @@
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { ExerciseMenu } from "@/components/workout/exercise-menu";
 import { ProgressionPill } from "@/components/workout/progression-pill";
 import { SetHeader } from "@/components/workout/set-header";
 import { SetRow } from "@/components/workout/set-row";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
+import {
+  useSetExercisePreference,
+  useRemoveExercisePreference,
+} from "@/hooks/use-exercise-preference-mutations";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
@@ -20,6 +26,11 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
   const { t } = useTranslation("workout");
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [prefSheetVisible, setPrefSheetVisible] = useState(false);
+
+  const { data: preference } = useExercisePreference(exercise.id);
+  const setPreferenceMutation = useSetExercisePreference();
+  const removePreferenceMutation = useRemoveExercisePreference();
 
   const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
   const updateSetField = useWorkoutStore((s) => s.updateSetField);
@@ -169,8 +180,28 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
       <ExerciseMenu
         visible={menuVisible}
         exerciseName={exercise.name}
+        currentPreference={preference ?? null}
         onClose={() => setMenuVisible(false)}
         onReplace={handleReplace}
+        onPreferenceSelect={() => setPrefSheetVisible(true)}
+      />
+
+      {/* Exercise Preference Sheet */}
+      <ExercisePreferenceSheet
+        visible={prefSheetVisible}
+        exerciseName={exercise.name}
+        currentPreference={preference ?? null}
+        onClose={() => setPrefSheetVisible(false)}
+        onSelect={(pref) => {
+          if (pref === null) {
+            removePreferenceMutation.mutate(exercise.id);
+          } else {
+            setPreferenceMutation.mutate({
+              exerciseId: exercise.id,
+              preference: pref,
+            });
+          }
+        }}
       />
     </View>
   );

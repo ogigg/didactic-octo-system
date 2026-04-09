@@ -3,19 +3,24 @@ import { Radii, Spacing, Typography } from "@/constants/theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
 
 interface ExerciseMenuProps {
   visible: boolean;
   exerciseName: string;
+  currentPreference?: ExercisePreferenceValue | null;
   onClose: () => void;
   onReplace: () => void;
+  onPreferenceSelect?: () => void;
 }
 
 export function ExerciseMenu({
   visible,
   exerciseName,
+  currentPreference,
   onClose,
   onReplace,
+  onPreferenceSelect,
 }: ExerciseMenuProps) {
   const { t } = useTranslation("workout");
   const background = useThemeColor({}, "backgroundElevated");
@@ -30,7 +35,29 @@ export function ExerciseMenu({
     Alert.alert(exerciseName, t("menu.notImplemented"));
   };
 
+  const preferenceIcon: "heart" | "heart.fill" | "hand.thumbsdown" | "nosign" =
+    currentPreference === "preferred"
+      ? "heart.fill"
+      : currentPreference === "soft_dislike"
+        ? "hand.thumbsdown"
+        : currentPreference === "hard_dislike"
+          ? "nosign"
+          : "heart";
+
   const options = [
+    ...(onPreferenceSelect
+      ? [
+          {
+            label: t("menu.preference", { ns: "exercisePreference" }),
+            icon: preferenceIcon,
+            color: textSecondary,
+            onPress: () => {
+              onClose();
+              onPreferenceSelect();
+            },
+          },
+        ]
+      : []),
     {
       label: t("menu.reorder"),
       icon: "arrow.up.arrow.down" as const,

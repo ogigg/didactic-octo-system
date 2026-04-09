@@ -18,9 +18,17 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
+import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { ProgressionPill } from "@/components/workout/progression-pill";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
+import {
+  useSetExercisePreference,
+  useRemoveExercisePreference,
+} from "@/hooks/use-exercise-preference-mutations";
+import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
 import {
   useEditPendingWorkout,
   useRegenerateWorkout,
@@ -107,10 +115,22 @@ export default function WorkoutPreviewScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [localExercises, setLocalExercises] = useState<LocalExercise[]>([]);
   const [dirtyEditTypes, setDirtyEditTypes] = useState<string[]>([]);
+  const [prefSheetExerciseId, setPrefSheetExerciseId] = useState<string | null>(
+    null
+  );
   const swapIndexRef = useRef<number | null>(null);
   const openedAtRef = useRef(Date.now());
   const swapResult = usePendingSwapStore((s) => s.result);
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
+
+  // Exercise preferences
+  const exerciseIds = localExercises.map((e) => e.exercise_id);
+  const { data: preferencesMap } = useExercisePreferences(exerciseIds);
+  const setPreferenceMutation = useSetExercisePreference();
+  const removePreferenceMutation = useRemoveExercisePreference();
+  const prefSheetExercise = localExercises.find(
+    (e) => e.exercise_id === prefSheetExerciseId
+  );
 
   const markEditType = useCallback((editType: string) => {
     setDirtyEditTypes((prev) =>
@@ -438,6 +458,7 @@ export default function WorkoutPreviewScreen() {
                   exercise={exercise}
                   exerciseIndex={exIndex}
                   isEditing={canEdit}
+                  preference={preferencesMap?.get(exercise.exercise_id) ?? null}
                   text={text}
                   textSecondary={textSecondary}
                   textMuted={textMuted}
@@ -449,6 +470,9 @@ export default function WorkoutPreviewScreen() {
                   primarySurface={primarySurface}
                   onUpdateSet={handleUpdateSet}
                   onSwap={handleSwap}
+                  onOpenPreference={() =>
+                    setPrefSheetExerciseId(exercise.exercise_id)
+                  }
                   t={t}
                 />
               ))}
@@ -456,6 +480,29 @@ export default function WorkoutPreviewScreen() {
 
             <View style={styles.bottomPadding} />
           </ScrollView>
+
+          {/* Exercise Preference Sheet */}
+          <ExercisePreferenceSheet
+            visible={prefSheetExerciseId !== null}
+            exerciseName={prefSheetExercise?.exercise_name ?? ""}
+            currentPreference={
+              prefSheetExerciseId
+                ? (preferencesMap?.get(prefSheetExerciseId) ?? null)
+                : null
+            }
+            onClose={() => setPrefSheetExerciseId(null)}
+            onSelect={(pref) => {
+              if (!prefSheetExerciseId) return;
+              if (pref === null) {
+                removePreferenceMutation.mutate(prefSheetExerciseId);
+              } else {
+                setPreferenceMutation.mutate({
+                  exerciseId: prefSheetExerciseId,
+                  preference: pref,
+                });
+              }
+            }}
+          />
 
           {/* Footer actions */}
           <View style={[styles.footer, { backgroundColor: background }]}>
@@ -513,6 +560,7 @@ interface ExerciseCardProps {
   exercise: LocalExercise;
   exerciseIndex: number;
   isEditing: boolean;
+  preference: ExercisePreferenceValue | null | undefined;
   text: string;
   textSecondary: string;
   textMuted: string;
@@ -529,6 +577,7 @@ interface ExerciseCardProps {
     value: string
   ) => void;
   onSwap: (exerciseIndex: number) => void;
+  onOpenPreference: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: TFunction<any, any>;
 }
@@ -537,6 +586,7 @@ function ExerciseCard({
   exercise,
   exerciseIndex,
   isEditing,
+  preference,
   text,
   textSecondary,
   textMuted,
@@ -548,6 +598,7 @@ function ExerciseCard({
   primarySurface,
   onUpdateSet,
   onSwap,
+  onOpenPreference,
   t,
 }: ExerciseCardProps) {
   return (
@@ -567,6 +618,19 @@ function ExerciseCard({
             >
               {exercise.exercise_name}
             </Text>
+            <Pressable
+              onPress={onOpenPreference}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel={t("exerciseList.preference", {
+                ns: "exercisePreference",
+              })}
+            >
+              <ExercisePreferenceIcon
+                preference={preference ?? null}
+                size={18}
+              />
+            </Pressable>
             <ProgressionPill type={exercise.progression_type} />
           </View>
           <View style={styles.exerciseMeta}>

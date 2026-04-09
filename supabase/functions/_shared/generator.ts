@@ -152,6 +152,12 @@ export interface GenerateWorkoutParams {
   strengthBaselines?: StrengthBaseline[];
   queueContext?: QueueContextItem[];
   history?: HistorySession[];
+  exercisePreferences?: ExercisePreference[];
+}
+
+export interface ExercisePreference {
+  exercise_id: string;
+  preference: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +253,39 @@ function formatQueueContext(context: QueueContextItem[]): string {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: Format Exercise Preferences for Prompt
+// ---------------------------------------------------------------------------
+
+function formatPreferences(preferences: ExercisePreference[]): string {
+  const preferred = preferences
+    .filter((p) => p.preference === "preferred")
+    .map((p) => p.exercise_id);
+  const softDisliked = preferences
+    .filter((p) => p.preference === "soft_dislike")
+    .map((p) => p.exercise_id);
+
+  const sections: string[] = [];
+
+  if (preferred.length > 0) {
+    sections.push(
+      "## Preferred Exercises (IDs the user wants to see more often)",
+      preferred.join(", "),
+      "Prioritize these exercises when they fit the workout's focus. Select them over equivalent alternatives when possible."
+    );
+  }
+
+  if (softDisliked.length > 0) {
+    sections.push(
+      "## Deprioritized Exercises (IDs the user wants to see less often)",
+      softDisliked.join(", "),
+      "Avoid selecting these exercises unless no good alternatives exist for the target muscle group."
+    );
+  }
+
+  return sections.join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // Prompt Builder
 // ---------------------------------------------------------------------------
 
@@ -262,7 +301,8 @@ export function buildPrompt(
   history: HistorySession[],
   focusArea?: string,
   strengthBaselines?: StrengthBaseline[],
-  queueContext?: QueueContextItem[]
+  queueContext?: QueueContextItem[],
+  exercisePreferences?: ExercisePreference[]
 ): { system: string; user: string } {
   const counts = EXERCISE_COUNTS[durationMinutes] ?? { min: 5, max: 7 };
 
@@ -310,6 +350,9 @@ Response JSON schema:
   const queueContextSection = queueContext?.length
     ? `\n\n${formatQueueContext(queueContext)}`
     : "";
+  const preferencesSection = exercisePreferences?.length
+    ? `\n\n${formatPreferences(exercisePreferences)}`
+    : "";
 
   const user = `## User Profile
 - Goal: ${profile.goal}${profile.custom_goal ? ` (${profile.custom_goal})` : ""}
@@ -340,7 +383,7 @@ Response JSON schema:
 ${summarizeHistory(history)}
 
 ## Exercise Catalog
-${exerciseList}${baselinesSection}${queueContextSection}${customSection}`;
+${exerciseList}${preferencesSection}${baselinesSection}${queueContextSection}${customSection}`;
 
   return { system, user };
 }
@@ -410,7 +453,8 @@ export function buildFallbackWorkout(
 
 export async function fetchExerciseCatalog(
   supabaseClient: SupabaseClient,
-  equipment: string
+  equipment: string,
+  hardDislikedIds?: Set<string>
 ): Promise<ExerciseCatalogEntry[]> {
   let exerciseQuery = supabaseClient
     .from("exercises")
@@ -436,6 +480,13 @@ export async function fetchExerciseCatalog(
 
   const { data, error } = await exerciseQuery.order("name").limit(100);
   if (error || !data?.length) return [];
+
+  if (hardDislikedIds && hardDislikedIds.size > 0) {
+    return (data as ExerciseCatalogEntry[]).filter(
+      (e) => !hardDislikedIds.has(e.id)
+    );
+  }
+
   return data as ExerciseCatalogEntry[];
 }
 
@@ -519,10 +570,27 @@ export async function generateSingleWorkout(
     strengthBaselines,
     queueContext,
     history = [],
+    exercisePreferences,
   } = params;
 
-  // Fetch exercise catalog
-  const catalog = await fetchExerciseCatalog(supabaseClient, equipment);
+  // Build hard-disliked set for catalog filtering
+  const hardDislikedIds = new Set(
+    (exercisePreferences ?? [])
+      .filter((p) => p.preference === "hard_dislike")
+      .map((p) => p.exercise_id)
+  );
+
+  // Remaining preferences (preferred + soft_dislike) for prompt injection
+  const promptPreferences = (exercisePreferences ?? []).filter(
+    (p) => p.preference !== "hard_dislike"
+  );
+
+  // Fetch exercise catalog (hard-disliked exercises excluded)
+  const catalog = await fetchExerciseCatalog(
+    supabaseClient,
+    equipment,
+    hardDislikedIds.size > 0 ? hardDislikedIds : undefined
+  );
   if (!catalog.length) {
     return {
       success: false,
@@ -551,7 +619,8 @@ export async function generateSingleWorkout(
         history,
         focusArea,
         strengthBaselines,
-        queueContext
+        queueContext,
+        promptPreferences.length > 0 ? promptPreferences : undefined
       );
 
       const controller = new AbortController();

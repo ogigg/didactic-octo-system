@@ -22,4 +22,7 @@ export const exercisePreference = {
   menu: {
     preference: "Exercise preference",
   },
+  exerciseList: {
+    preference: "Set exercise preference",
+  },
 } as const;

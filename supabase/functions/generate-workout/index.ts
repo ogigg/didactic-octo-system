@@ -3,6 +3,7 @@ import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
   generateSingleWorkout,
+  type ExercisePreference,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -272,7 +273,16 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 9. Generate workout
+    // 9. Fetch exercise preferences
+    const { data: prefRows } = await userClient
+      .from("exercise_preferences")
+      .select("exercise_id, preference")
+      .eq("user_id", user.id);
+
+    const exercisePreferences: ExercisePreference[] =
+      (prefRows as ExercisePreference[] | null) ?? [];
+
+    // 10. Generate workout
     const result = await generateSingleWorkout({
       supabaseClient: userClient,
       userId: user.id,
@@ -287,6 +297,8 @@ Deno.serve(async (req: Request) => {
         strengthBaselines.length > 0 ? strengthBaselines : undefined,
       queueContext,
       history,
+      exercisePreferences:
+        exercisePreferences.length > 0 ? exercisePreferences : undefined,
     });
 
     if (!result.success || !result.data) {
