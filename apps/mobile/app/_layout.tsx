@@ -9,20 +9,20 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { AppState, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useAuthStore } from "@/stores/auth-store";
-import { queryClient } from "@/lib/query-client";
-import { syncQueue } from "@/lib/sync-queue";
-import { registerSyncHandlers } from "@/lib/sync-handlers";
 import { flushPostHog } from "@/lib/posthog";
+import { queryClient } from "@/lib/query-client";
+import { registerSyncHandlers } from "@/lib/sync-handlers";
+import { syncQueue } from "@/lib/sync-queue";
+import { useAuthStore } from "@/stores/auth-store";
 import NetInfo from "@react-native-community/netinfo";
 
 SplashScreen.preventAutoHideAsync();
@@ -104,6 +104,7 @@ export default function RootLayout() {
               <Stack
                 screenOptions={{
                   contentStyle: styles.transparent,
+                  headerShown: false,
                 }}
               >
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -190,6 +191,10 @@ export default function RootLayout() {
                 />
                 <Stack.Screen
                   name="measurements"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="feedback"
                   options={{ headerShown: false }}
                 />
               </Stack>

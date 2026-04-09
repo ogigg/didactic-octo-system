@@ -16,5 +16,6 @@ export const profile = {
     history: "History",
     trainingPreferences: "Preferences",
     strengthBaselines: "Strength",
+    feedback: "Feedback",
   },
 } as const;

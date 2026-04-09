@@ -37,7 +37,8 @@ interface NavItem {
     | "ruler.fill"
     | "clock.arrow.circlepath"
     | "gearshape.fill"
-    | "flame.fill";
+    | "flame.fill"
+    | "megaphone.fill";
   labelKey: string;
   disabled: boolean;
   route?: string;
@@ -79,6 +80,12 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: "nav.strengthBaselines",
     disabled: false,
     route: "/strength-baselines",
+  },
+  {
+    icon: "megaphone.fill",
+    labelKey: "nav.feedback",
+    disabled: false,
+    route: "/feedback",
   },
 ];
 
