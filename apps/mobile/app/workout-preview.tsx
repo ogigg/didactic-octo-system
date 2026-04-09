@@ -61,8 +61,9 @@ interface LocalExercise {
 
 interface LocalSet {
   set_type: "warmup" | "working";
-  target_load_kg: number;
-  target_reps: number;
+  target_load_kg: number | null;
+  target_reps: number | null;
+  target_duration_seconds?: number | null;
 }
 
 // -----------------------------------------------------------------------------
@@ -162,8 +163,11 @@ export default function WorkoutPreviewScreen() {
           previous_display: ex.previous_display ?? null,
           sets: ex.sets.map((s) => ({
             set_type: s.set_type,
-            target_load_kg: s.target_load_kg,
-            target_reps: s.target_reps,
+            target_load_kg: s.target_load_kg ?? null,
+            target_reps: s.target_reps ?? null,
+            target_duration_seconds:
+              (s as { target_duration_seconds?: number | null })
+                .target_duration_seconds ?? null,
           })),
         }))
       );

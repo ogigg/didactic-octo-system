@@ -7,6 +7,7 @@ export interface WorkoutSet {
   type: "warmup" | "working";
   kg: string;
   reps: string;
+  durationSeconds: number | null;
   rpe: number | null;
   isCompleted: boolean;
   previousDisplay: string | null;
@@ -15,6 +16,7 @@ export interface WorkoutSet {
 export interface WorkoutExercise {
   id: string;
   name: string;
+  exerciseType: "weight" | "time";
   restDurationSeconds: number;
   notes: string;
   difficultyFeedback: "too_easy" | "ok" | "too_hard" | null;
@@ -71,6 +73,11 @@ interface WorkoutActions {
     field: "kg" | "reps",
     value: string
   ) => void;
+  updateSetDuration: (
+    exerciseId: string,
+    setId: string,
+    durationSeconds: number | null
+  ) => void;
   updateSetRpe: (exerciseId: string, setId: string, rpe: number | null) => void;
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
@@ -81,12 +88,16 @@ interface WorkoutActions {
   ) => void;
   replaceExercise: (
     exerciseId: string,
-    newExercise: { id: string; name: string }
+    newExercise: { id: string; name: string; exerciseType?: "weight" | "time" }
   ) => void;
   startRestTimer: (exerciseId: string) => void;
   adjustRestTimer: (deltaSeconds: number) => void;
   skipRestTimer: () => void;
-  addExercise: (exercise: { id: string; name: string }) => void;
+  addExercise: (exercise: {
+    id: string;
+    name: string;
+    exerciseType?: "weight" | "time";
+  }) => void;
   removeExercise: (exerciseId: string) => void;
   updateWorkoutName: (name: string) => void;
 }
@@ -116,6 +127,19 @@ function updateExerciseSets(
   return exercises.map((ex) =>
     ex.id === exerciseId ? { ...ex, sets: updater(ex.sets) } : ex
   );
+}
+
+function makeEmptySet(): WorkoutSet {
+  return {
+    id: generateSetId(),
+    type: "working",
+    kg: "",
+    reps: "",
+    durationSeconds: null,
+    rpe: null,
+    isCompleted: false,
+    previousDisplay: null,
+  };
 }
 
 export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
@@ -177,6 +201,13 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           ),
         })),
 
+      updateSetDuration: (exerciseId, setId, durationSeconds) =>
+        set((state) => ({
+          exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
+            sets.map((s) => (s.id === setId ? { ...s, durationSeconds } : s))
+          ),
+        })),
+
       updateSetRpe: (exerciseId, setId, rpe) =>
         set((state) => ({
           exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
@@ -188,15 +219,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         set((state) => ({
           exercises: updateExerciseSets(state.exercises, exerciseId, (sets) => [
             ...sets,
-            {
-              id: generateSetId(),
-              type: "working",
-              kg: "",
-              reps: "",
-              rpe: null,
-              isCompleted: false,
-              previousDisplay: null,
-            },
+            makeEmptySet(),
           ]),
         })),
 
@@ -233,7 +256,12 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         set((state) => ({
           exercises: state.exercises.map((ex) =>
             ex.id === exerciseId
-              ? { ...ex, id: newExercise.id, name: newExercise.name }
+              ? {
+                  ...ex,
+                  id: newExercise.id,
+                  name: newExercise.name,
+                  exerciseType: newExercise.exerciseType ?? ex.exerciseType,
+                }
               : ex
           ),
         })),
@@ -273,18 +301,11 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             {
               id: exercise.id,
               name: exercise.name,
+              exerciseType: exercise.exerciseType ?? "weight",
               restDurationSeconds: 90,
               notes: "",
               difficultyFeedback: null,
-              sets: Array.from({ length: 3 }, () => ({
-                id: generateSetId(),
-                type: "working" as const,
-                kg: "",
-                reps: "",
-                rpe: null,
-                isCompleted: false,
-                previousDisplay: null,
-              })),
+              sets: Array.from({ length: 3 }, makeEmptySet),
             },
           ],
         })),
@@ -303,6 +324,16 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         if (error) {
           console.warn("[workout-store] hydration failed, resetting:", error);
           state?.clearWorkout();
+        } else if (state) {
+          // Migrate hydrated exercises to ensure new fields exist
+          state.exercises = state.exercises.map((ex) => ({
+            ...ex,
+            exerciseType: ex.exerciseType ?? "weight",
+            sets: ex.sets.map((s) => ({
+              ...s,
+              durationSeconds: s.durationSeconds ?? null,
+            })),
+          }));
         }
       },
     }

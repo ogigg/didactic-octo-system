@@ -498,6 +498,7 @@ export function useStartPendingWorkout() {
       exercises?: {
         exercise_id: string;
         exercise_name: string;
+        exercise_type?: "weight" | "time";
         rest_duration_seconds: number;
         notes: string | null;
         progression_type?:
@@ -509,8 +510,9 @@ export function useStartPendingWorkout() {
         previous_display?: string | null;
         sets: {
           set_type: "warmup" | "working";
-          target_load_kg: number;
-          target_reps: number;
+          target_load_kg?: number | null;
+          target_reps?: number | null;
+          target_duration_seconds?: number | null;
         }[];
       }[];
       wasEdited?: boolean;
@@ -530,6 +532,7 @@ export function useStartPendingWorkout() {
         (ex, exIndex) => ({
           id: ex.exercise_id,
           name: ex.exercise_name,
+          exerciseType: (ex.exercise_type as "weight" | "time") ?? "weight",
           restDurationSeconds: ex.rest_duration_seconds,
           notes: ex.notes ?? "",
           difficultyFeedback: null,
@@ -537,8 +540,11 @@ export function useStartPendingWorkout() {
           sets: ex.sets.map((set, setIndex) => ({
             id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
             type: set.set_type,
-            kg: String(set.target_load_kg),
-            reps: String(set.target_reps),
+            kg: set.target_load_kg != null ? String(set.target_load_kg) : "",
+            reps: set.target_reps != null ? String(set.target_reps) : "",
+            durationSeconds:
+              (set as { target_duration_seconds?: number | null })
+                .target_duration_seconds ?? null,
             rpe: null,
             isCompleted: false,
             previousDisplay:

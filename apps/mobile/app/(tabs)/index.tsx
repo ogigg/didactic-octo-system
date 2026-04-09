@@ -114,6 +114,7 @@ export default function HomeScreen() {
         const exercises: WorkoutExercise[] = template.exercises.map((ex) => ({
           id: ex.id,
           name: ex.name,
+          exerciseType: "weight" as const,
           restDurationSeconds: 90,
           notes: "",
           difficultyFeedback: null,
@@ -122,6 +123,7 @@ export default function HomeScreen() {
             type: "working" as const,
             kg: "",
             reps: "",
+            durationSeconds: null,
             rpe: null,
             isCompleted: false,
             previousDisplay: null,

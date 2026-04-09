@@ -18,8 +18,20 @@ export const workout = {
     previous: "PREVIOUS",
     kg: "KG",
     reps: "REPS",
+    time: "TIME",
     rpe: "RPE",
     done: "\u2713",
+  },
+  durationPicker: {
+    title: "Set Duration",
+    hours: "h",
+    minutes: "m",
+    seconds: "s",
+    confirm: "Confirm",
+  },
+  setTimer: {
+    start: "Start",
+    stop: "Stop",
   },
   rpe: {
     title: "Rate of Perceived Exertion",
@@ -73,6 +85,7 @@ export const workout = {
       title: "Exercise Breakdown",
       setsCompleted: "{{completed}}/{{total}} sets",
       topSet: "Best: {{kg}}kg × {{reps}}",
+      topDuration: "Best: {{time}}",
       noSets: "No sets completed",
     },
     muscle: {

@@ -34,6 +34,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
 
   const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
   const updateSetField = useWorkoutStore((s) => s.updateSetField);
+  const updateSetDuration = useWorkoutStore((s) => s.updateSetDuration);
   const updateSetRpe = useWorkoutStore((s) => s.updateSetRpe);
   const addSet = useWorkoutStore((s) => s.addSet);
   const removeSet = useWorkoutStore((s) => s.removeSet);
@@ -144,7 +145,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
       </View>
 
       {/* Set Table */}
-      <SetHeader />
+      <SetHeader exerciseType={exercise.exerciseType ?? "weight"} />
       {exercise.sets.map((set) => {
         const currentWorkingIndex =
           set.type === "working" ? workingSetIndex++ : 0;
@@ -154,9 +155,13 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
             set={set}
             setIndex={currentWorkingIndex}
             exerciseId={exercise.id}
+            exerciseType={exercise.exerciseType ?? "weight"}
             onToggleComplete={() => toggleSetComplete(exercise.id, set.id)}
             onUpdateField={(field, value) =>
               updateSetField(exercise.id, set.id, field, value)
+            }
+            onUpdateDuration={(seconds) =>
+              updateSetDuration(exercise.id, set.id, seconds)
             }
             onUpdateRpe={(rpe) => updateSetRpe(exercise.id, set.id, rpe)}
             onRemove={() => removeSet(exercise.id, set.id)}

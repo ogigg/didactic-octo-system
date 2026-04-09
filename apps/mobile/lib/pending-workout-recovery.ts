@@ -131,6 +131,7 @@ export async function buildFallbackPendingWorkoutData(params: {
     exercises: selected.map((exercise) => ({
       exercise_id: exercise.id,
       exercise_name: exercise.name,
+      exercise_type: "weight" as const,
       rest_duration_seconds: 90,
       notes: "Fallback template generated after repeated recovery attempts.",
       sets: getSetTargets(focusArea, exercise.name),

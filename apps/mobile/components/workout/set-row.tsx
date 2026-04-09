@@ -1,7 +1,9 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { RpePicker } from "@/components/workout/rpe-picker";
+import { SetTimerCell } from "@/components/workout/set-timer-cell";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { parseExerciseDuration } from "@/lib/format-exercise-duration";
 import type { WorkoutSet } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -23,8 +25,10 @@ interface SetRowProps {
   set: WorkoutSet;
   setIndex: number;
   exerciseId: string;
+  exerciseType?: "weight" | "time";
   onToggleComplete: () => void;
   onUpdateField: (field: "kg" | "reps", value: string) => void;
+  onUpdateDuration: (durationSeconds: number | null) => void;
   onUpdateRpe: (rpe: number | null) => void;
   onRemove: () => void;
 }
@@ -32,8 +36,10 @@ interface SetRowProps {
 export function SetRow({
   set,
   setIndex,
+  exerciseType = "weight",
   onToggleComplete,
   onUpdateField,
+  onUpdateDuration,
   onUpdateRpe,
   onRemove,
 }: SetRowProps) {
@@ -146,16 +152,26 @@ export function SetRow({
 
   const handleFillFromPrevious = useCallback(() => {
     if (!set.previousDisplay) return;
-    // Parse "80×8" or "80x8" format
-    const match = set.previousDisplay.match(/^([\d.]+)[×x]([\d.]+)$/);
-    if (match) {
-      if (Platform.OS === "ios") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (exerciseType === "time") {
+      const seconds = parseExerciseDuration(set.previousDisplay);
+      if (seconds !== null) {
+        if (Platform.OS === "ios") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        onUpdateDuration(seconds);
       }
-      onUpdateField("kg", match[1]);
-      onUpdateField("reps", match[2]);
+    } else {
+      // Parse "80×8" or "80x8" format
+      const match = set.previousDisplay.match(/^([\d.]+)[×x]([\d.]+)$/);
+      if (match) {
+        if (Platform.OS === "ios") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        onUpdateField("kg", match[1]);
+        onUpdateField("reps", match[2]);
+      }
     }
-  }, [set.previousDisplay, onUpdateField]);
+  }, [set.previousDisplay, exerciseType, onUpdateField, onUpdateDuration]);
 
   const springBack = useCallback(() => {
     Animated.spring(translateX, {
@@ -296,50 +312,62 @@ export function SetRow({
               </Text>
             </Pressable>
 
-            <TextInput
-              ref={kgRef}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: kgFocused ? inputFillFocused : inputFill,
-                  color: textColor,
-                  borderColor: kgFocused ? primary : "transparent",
-                },
-              ]}
-              value={set.kg}
-              onChangeText={handleKgChange}
-              onFocus={() => setKgFocused(true)}
-              onBlur={() => setKgFocused(false)}
-              onSubmitEditing={handleKgSubmit}
-              returnKeyType="next"
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={textDisabled}
-              accessibilityLabel={`Weight in kg for set ${setLabel}`}
-              selectTextOnFocus
-            />
+            {exerciseType === "time" ? (
+              <SetTimerCell
+                durationSeconds={set.durationSeconds}
+                setLabel={setLabel}
+                onUpdateDuration={onUpdateDuration}
+              />
+            ) : (
+              <>
+                <TextInput
+                  ref={kgRef}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: kgFocused ? inputFillFocused : inputFill,
+                      color: textColor,
+                      borderColor: kgFocused ? primary : "transparent",
+                    },
+                  ]}
+                  value={set.kg}
+                  onChangeText={handleKgChange}
+                  onFocus={() => setKgFocused(true)}
+                  onBlur={() => setKgFocused(false)}
+                  onSubmitEditing={handleKgSubmit}
+                  returnKeyType="next"
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={textDisabled}
+                  accessibilityLabel={`Weight in kg for set ${setLabel}`}
+                  selectTextOnFocus
+                />
 
-            <TextInput
-              ref={repsRef}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: repsFocused ? inputFillFocused : inputFill,
-                  color: textColor,
-                  borderColor: repsFocused ? primary : "transparent",
-                },
-              ]}
-              value={set.reps}
-              onChangeText={handleRepsChange}
-              onFocus={() => setRepsFocused(true)}
-              onBlur={() => setRepsFocused(false)}
-              returnKeyType="done"
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={textDisabled}
-              accessibilityLabel={`Reps for set ${setLabel}`}
-              selectTextOnFocus
-            />
+                <TextInput
+                  ref={repsRef}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: repsFocused
+                        ? inputFillFocused
+                        : inputFill,
+                      color: textColor,
+                      borderColor: repsFocused ? primary : "transparent",
+                    },
+                  ]}
+                  value={set.reps}
+                  onChangeText={handleRepsChange}
+                  onFocus={() => setRepsFocused(true)}
+                  onBlur={() => setRepsFocused(false)}
+                  returnKeyType="done"
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={textDisabled}
+                  accessibilityLabel={`Reps for set ${setLabel}`}
+                  selectTextOnFocus
+                />
+              </>
+            )}
 
             <Pressable
               onPress={() => setRpePickerVisible(true)}

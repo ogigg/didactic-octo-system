@@ -23,8 +23,9 @@ export interface GenerateWorkoutRequest {
 
 const generatedSetSchema = z.object({
   set_type: z.enum(["warmup", "working"]),
-  target_load_kg: z.number(),
-  target_reps: z.number(),
+  target_load_kg: z.number().optional(),
+  target_reps: z.number().optional(),
+  target_duration_seconds: z.number().optional(),
 });
 
 export const progressionTypeSchema = z.enum([
@@ -39,6 +40,7 @@ export type ProgressionType = z.infer<typeof progressionTypeSchema>;
 const generatedExerciseSchema = z.object({
   exercise_id: z.string(),
   exercise_name: z.string(),
+  exercise_type: z.enum(["weight", "time"]).default("weight"),
   rest_duration_seconds: z.number(),
   notes: z.string().nullable(),
   sets: z.array(generatedSetSchema),

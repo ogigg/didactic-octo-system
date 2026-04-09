@@ -30,7 +30,9 @@ export interface SessionStats {
   completionRate: number;
 }
 
-export function computeSessionStats(exercises: WorkoutExercise[]): SessionStats {
+export function computeSessionStats(
+  exercises: WorkoutExercise[]
+): SessionStats {
   let totalSets = 0;
   let completedSets = 0;
 
@@ -45,7 +47,8 @@ export function computeSessionStats(exercises: WorkoutExercise[]): SessionStats 
     exerciseCount: exercises.length,
     totalSets,
     completedSets,
-    completionRate: totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0,
+    completionRate:
+      totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0,
   };
 }
 
@@ -76,19 +79,19 @@ export function getVolumeComparison(totalKg: number): VolumeComparison {
 const MUSCLE_DISPLAY_NAMES: Record<string, string> = {
   "Anterior deltoid": "Front Delts",
   "Biceps brachii": "Biceps",
-  "Brachialis": "Forearms",
+  Brachialis: "Forearms",
   "Erector spinae": "Lower Back",
-  "Gastrocnemius": "Calves",
+  Gastrocnemius: "Calves",
   "Gluteus maximus": "Glutes",
-  "Hamstrings": "Hamstrings",
+  Hamstrings: "Hamstrings",
   "Lateral deltoid": "Side Delts",
   "Latissimus dorsi": "Back",
   "Pectoralis major": "Chest",
   "Posterior deltoid": "Rear Delts",
-  "Quadriceps": "Quads",
+  Quadriceps: "Quads",
   "Rectus abdominis": "Abs",
-  "Rhomboids": "Upper Back",
-  "Soleus": "Calves",
+  Rhomboids: "Upper Back",
+  Soleus: "Calves",
   "Triceps brachii": "Triceps",
 };
 
@@ -121,6 +124,17 @@ export function getTopSet(sets: WorkoutSet[]): TopSet | null {
     }
   }
 
+  return best;
+}
+
+export function getBestDurationSeconds(sets: WorkoutSet[]): number | null {
+  let best: number | null = null;
+  for (const set of sets) {
+    if (!set.isCompleted) continue;
+    const dur = set.durationSeconds;
+    if (dur == null || dur <= 0) continue;
+    if (best === null || dur > best) best = dur;
+  }
   return best;
 }
 

@@ -143,11 +143,16 @@ export default function ExercisePickerScreen() {
         return;
       }
       if (mode === "add") {
-        addExercise({ id: exercise.id, name: exercise.name });
+        addExercise({
+          id: exercise.id,
+          name: exercise.name,
+          exerciseType: exercise.exercise_type,
+        });
       } else if (exerciseId) {
         replaceExercise(exerciseId, {
           id: exercise.id,
           name: exercise.name,
+          exerciseType: exercise.exercise_type,
         });
       }
       router.back();

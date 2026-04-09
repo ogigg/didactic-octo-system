@@ -40,8 +40,10 @@ import {
   computeSessionStats,
   getVolumeComparison,
   getTopSet,
+  getBestDurationSeconds,
   formatDuration,
 } from "@/lib/workout-summary-utils";
+import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { trackEvent } from "@/lib/track-event";
 
@@ -149,7 +151,11 @@ function ExerciseRow({
 
   const completed = exercise.sets.filter((s) => s.isCompleted).length;
   const total = exercise.sets.length;
-  const topSet = getTopSet(exercise.sets);
+  const isTimeExercise = exercise.exerciseType === "time";
+  const topSet = isTimeExercise ? null : getTopSet(exercise.sets);
+  const bestDuration = isTimeExercise
+    ? getBestDurationSeconds(exercise.sets)
+    : null;
   const hasCompletedSets = completed > 0;
 
   const handleFeedback = useCallback(
@@ -187,7 +193,17 @@ function ExerciseRow({
             </Text>
           </>
         )}
-        {!topSet && completed === 0 && (
+        {bestDuration != null && (
+          <>
+            <Text style={[Typography.caption, { color: textMuted }]}> · </Text>
+            <Text style={[Typography.caption, { color: textMuted }]}>
+              {t("summary.exercises.topDuration", {
+                time: formatExerciseDuration(bestDuration),
+              })}
+            </Text>
+          </>
+        )}
+        {!topSet && !bestDuration && completed === 0 && (
           <Text style={[Typography.caption, { color: textMuted }]}>
             {" · "}
             {t("summary.exercises.noSets")}

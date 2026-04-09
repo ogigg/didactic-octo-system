@@ -12,11 +12,13 @@
 export interface WorkingSetRecord {
   load_kg: number | null;
   reps: number | null;
+  duration_seconds: number | null;
   completed: boolean;
 }
 
 export interface ExerciseHistory {
   exercise_id: string;
+  exercise_type: "weight" | "time";
   session_completed_at: string;
   difficulty_feedback: "too_easy" | "ok" | "too_hard" | null;
   working_sets: WorkingSetRecord[] | null;
@@ -30,8 +32,9 @@ export type ProgressionType =
 
 export interface ProgressionResult {
   exercise_id: string;
-  target_load_kg: number;
-  target_reps: number;
+  target_load_kg?: number;
+  target_reps?: number;
+  target_duration_seconds?: number;
   progression_type: ProgressionType;
   previous_display: string | null;
 }
@@ -51,6 +54,10 @@ const DEFAULT_REP_RANGE = REP_RANGES.hypertrophy;
 
 /** Max days since last session before we hold instead of progressing. */
 const STALE_THRESHOLD_DAYS = 14;
+
+// Default duration increments for time exercises (seconds)
+const TIME_INCREMENT_TOO_EASY = 15;
+const TIME_INCREMENT_OK = 10;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,8 +85,80 @@ function formatPreviousDisplay(loadKg: number, reps: number): string {
   return `${loadKg}×${reps}`;
 }
 
+export function formatExerciseDuration(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 // ---------------------------------------------------------------------------
-// Core Algorithm
+// Time Exercise Progression
+// ---------------------------------------------------------------------------
+
+export function calculateTimeProgression(
+  history: ExerciseHistory,
+  now: Date = new Date()
+): ProgressionResult | null {
+  if (!history.working_sets?.length) return null;
+
+  const completedSets = history.working_sets.filter(
+    (s): s is WorkingSetRecord & { duration_seconds: number } =>
+      s.completed && s.duration_seconds != null && s.duration_seconds > 0
+  );
+
+  if (completedSets.length === 0) return null;
+
+  const bestDuration = Math.max(
+    ...completedSets.map((s) => s.duration_seconds)
+  );
+  const previousDisplay = formatExerciseDuration(bestDuration);
+
+  // Check staleness
+  if (
+    history.session_completed_at &&
+    daysBetween(history.session_completed_at, now) > STALE_THRESHOLD_DAYS
+  ) {
+    return {
+      exercise_id: history.exercise_id,
+      target_duration_seconds: bestDuration,
+      progression_type: "maintained",
+      previous_display: previousDisplay,
+    };
+  }
+
+  if (history.difficulty_feedback === "too_hard") {
+    return {
+      exercise_id: history.exercise_id,
+      target_duration_seconds: bestDuration,
+      progression_type: "maintained",
+      previous_display: previousDisplay,
+    };
+  }
+
+  if (history.difficulty_feedback === "too_easy") {
+    return {
+      exercise_id: history.exercise_id,
+      target_duration_seconds: bestDuration + TIME_INCREMENT_TOO_EASY,
+      progression_type: "reps_up",
+      previous_display: previousDisplay,
+    };
+  }
+
+  // feedback = "ok" or null: bump by smaller increment
+  return {
+    exercise_id: history.exercise_id,
+    target_duration_seconds: bestDuration + TIME_INCREMENT_OK,
+    progression_type: "reps_up",
+    previous_display: previousDisplay,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Core Algorithm (weight exercises)
 // ---------------------------------------------------------------------------
 
 export function calculateProgression(
@@ -90,6 +169,11 @@ export function calculateProgression(
 ): ProgressionResult | null {
   if (!history || !history.working_sets?.length) {
     return null; // new exercise — keep LLM suggestion
+  }
+
+  // Dispatch to time progression for time exercises
+  if (history.exercise_type === "time") {
+    return calculateTimeProgression(history, now);
   }
 
   const exerciseId = history.exercise_id;

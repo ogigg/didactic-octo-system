@@ -27,12 +27,14 @@ function mapResponseToWorkoutExercises(
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
     difficultyFeedback: null,
+    exerciseType: ex.exercise_type ?? "weight",
     sets: ex.sets.map(
       (set, i): WorkoutSet => ({
         id: `set-${ex.exercise_id}-${i}-${Date.now()}`,
         type: set.set_type,
-        kg: String(set.target_load_kg),
-        reps: String(set.target_reps),
+        kg: set.target_load_kg != null ? String(set.target_load_kg) : "",
+        reps: set.target_reps != null ? String(set.target_reps) : "",
+        durationSeconds: set.target_duration_seconds ?? null,
         rpe: null,
         isCompleted: false,
         previousDisplay: null,

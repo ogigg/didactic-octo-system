@@ -11,6 +11,7 @@ export const exerciseDetail = {
     maxWeight: "Max Weight",
     maxReps: "Max Reps",
     bestSet: "Best Set",
+    bestDuration: "Best Duration",
     est1rm: "Est. 1RM",
     maxRpe: "Max RPE",
     volume: "Volume Over Time",

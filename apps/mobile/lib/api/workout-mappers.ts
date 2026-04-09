@@ -44,7 +44,7 @@ export function mapWorkoutStoreToDb(
   options: MapToDbOptions
 ): WorkoutDbPayload {
   const session: CreateWorkoutSessionInput = {
-    name: summary.workoutName || null,
+    name: summary.workoutName || undefined,
     generation_source: options.generationSource ?? "llm",
     goal_snapshot: options.goalSnapshot,
     custom_goal_snapshot: options.customGoalSnapshot,
@@ -63,21 +63,41 @@ export function mapWorkoutStoreToDb(
       difficulty_feedback: exercise.difficultyFeedback,
     };
 
-    const sets = exercise.sets.map((set, setIndex) => {
-      const sessionSet: SessionSetInput = {
-        id: Crypto.randomUUID(),
-        set_number: setIndex + 1,
-        set_type: set.type,
-        target_load_kg: parseLoadKg(set.kg),
-        target_reps: parseReps(set.reps),
-      };
+    const isTimeExercise = (exercise.exerciseType ?? "weight") === "time";
 
-      const log: SetLogInput = {
-        actual_load_kg: set.isCompleted ? parseLoadKg(set.kg) : undefined,
-        actual_reps: set.isCompleted ? parseReps(set.reps) : undefined,
-        rpe: set.rpe ?? undefined,
-        completed: set.isCompleted,
-      };
+    const sets = exercise.sets.map((set, setIndex) => {
+      let sessionSet: SessionSetInput;
+      let log: SetLogInput;
+
+      if (isTimeExercise) {
+        sessionSet = {
+          id: Crypto.randomUUID(),
+          set_number: setIndex + 1,
+          set_type: set.type,
+          target_duration_seconds: set.durationSeconds ?? undefined,
+        };
+        log = {
+          actual_duration_seconds: set.isCompleted
+            ? (set.durationSeconds ?? undefined)
+            : undefined,
+          rpe: set.rpe ?? undefined,
+          completed: set.isCompleted,
+        };
+      } else {
+        sessionSet = {
+          id: Crypto.randomUUID(),
+          set_number: setIndex + 1,
+          set_type: set.type,
+          target_load_kg: parseLoadKg(set.kg),
+          target_reps: parseReps(set.reps),
+        };
+        log = {
+          actual_load_kg: set.isCompleted ? parseLoadKg(set.kg) : undefined,
+          actual_reps: set.isCompleted ? parseReps(set.reps) : undefined,
+          rpe: set.rpe ?? undefined,
+          completed: set.isCompleted,
+        };
+      }
 
       return { sessionSet, log };
     });
@@ -99,10 +119,11 @@ export function mapDbToWorkoutStore(detail: WorkoutDetail): {
   const exercises: WorkoutExercise[] = detail.exercises.map((ex) => ({
     id: ex.exercise_id,
     name: ex.exercise_name,
+    exerciseType: ex.exercise_type ?? "weight",
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
     difficultyFeedback: ex.difficulty_feedback,
-    sets: ex.sets.map((s) => mapDbSetToStore(s)),
+    sets: ex.sets.map((s) => mapDbSetToStore(s, ex.exercise_type ?? "weight")),
   }));
 
   return {
@@ -112,20 +133,37 @@ export function mapDbToWorkoutStore(detail: WorkoutDetail): {
 }
 
 function mapDbSetToStore(
-  dbSet: WorkoutDetail["exercises"][number]["sets"][number]
+  dbSet: WorkoutDetail["exercises"][number]["sets"][number],
+  exerciseType: "weight" | "time"
 ): WorkoutSet {
   const log = dbSet.log;
+
+  if (exerciseType === "time") {
+    return {
+      id: dbSet.id,
+      type: dbSet.set_type,
+      kg: "",
+      reps: "",
+      durationSeconds:
+        log?.actual_duration_seconds ?? dbSet.target_duration_seconds ?? null,
+      rpe: log?.rpe ?? null,
+      isCompleted: log?.completed ?? false,
+      previousDisplay: null,
+    };
+  }
+
   return {
     id: dbSet.id,
     type: dbSet.set_type,
     kg:
       log?.actual_load_kg != null
         ? String(log.actual_load_kg)
-        : String(dbSet.target_load_kg),
+        : String(dbSet.target_load_kg ?? ""),
     reps:
       log?.actual_reps != null
         ? String(log.actual_reps)
-        : String(dbSet.target_reps),
+        : String(dbSet.target_reps ?? ""),
+    durationSeconds: null,
     rpe: log?.rpe ?? null,
     isCompleted: log?.completed ?? false,
     previousDisplay: null,

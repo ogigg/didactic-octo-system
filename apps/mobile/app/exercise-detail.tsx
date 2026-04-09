@@ -30,6 +30,7 @@ import type {
   ExerciseDetailStats,
   ExerciseSessionHistory,
 } from "@/lib/api/exercise-detail";
+import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 
 type Tab = "overview" | "history" | "howTo";
 
@@ -79,12 +80,18 @@ function getAchievedLabel(
     : t("overview.noDate");
 }
 
-function hasAnyRecord(records: ExerciseDetailStats | undefined): boolean {
+function hasAnyRecord(
+  records: ExerciseDetailStats | undefined,
+  isTimeExercise = false
+): boolean {
+  if (!records) return false;
+  if (isTimeExercise) {
+    return (records.max_duration_seconds ?? 0) > 0;
+  }
   return (
-    !!records &&
-    (records.max_weight_kg > 0 ||
-      records.max_reps > 0 ||
-      records.max_volume_set_kg > 0)
+    records.max_weight_kg > 0 ||
+    records.max_reps > 0 ||
+    records.max_volume_set_kg > 0
   );
 }
 
@@ -353,6 +360,7 @@ export default function ExerciseDetailScreen() {
     }
 
     const records = detail?.records;
+    const isTimeExercise = exercise?.exercise_type === "time";
 
     return (
       <View style={styles.sectionStack}>
@@ -399,25 +407,42 @@ export default function ExerciseDetailScreen() {
 
         <View style={styles.sectionBlock}>
           <SectionTitle title={t("overview.records")} />
-          {hasAnyRecord(records) ? (
+          {hasAnyRecord(records, isTimeExercise) ? (
             <View style={styles.recordList}>
-              <RecordRow
-                label={t("overview.maxWeight")}
-                value={formatValue(records?.max_weight_kg, "kg")}
-                dateLabel={getAchievedLabel(t, records?.max_weight_date)}
-              />
-              <Divider />
-              <RecordRow
-                label={t("overview.maxReps")}
-                value={formatValue(records?.max_reps)}
-                dateLabel={getAchievedLabel(t, records?.max_reps_date)}
-              />
-              <Divider />
-              <RecordRow
-                label={t("overview.bestSet")}
-                value={formatValue(records?.max_volume_set_kg, "kg")}
-                dateLabel={getAchievedLabel(t, records?.max_volume_set_date)}
-              />
+              {isTimeExercise ? (
+                <RecordRow
+                  label={t("overview.bestDuration")}
+                  value={
+                    records?.max_duration_seconds != null
+                      ? formatExerciseDuration(records.max_duration_seconds)
+                      : "-"
+                  }
+                  dateLabel={getAchievedLabel(t, records?.max_duration_date)}
+                />
+              ) : (
+                <>
+                  <RecordRow
+                    label={t("overview.maxWeight")}
+                    value={formatValue(records?.max_weight_kg, "kg")}
+                    dateLabel={getAchievedLabel(t, records?.max_weight_date)}
+                  />
+                  <Divider />
+                  <RecordRow
+                    label={t("overview.maxReps")}
+                    value={formatValue(records?.max_reps)}
+                    dateLabel={getAchievedLabel(t, records?.max_reps_date)}
+                  />
+                  <Divider />
+                  <RecordRow
+                    label={t("overview.bestSet")}
+                    value={formatValue(records?.max_volume_set_kg, "kg")}
+                    dateLabel={getAchievedLabel(
+                      t,
+                      records?.max_volume_set_date
+                    )}
+                  />
+                </>
+              )}
             </View>
           ) : (
             <View style={styles.emptyState}>
@@ -434,20 +459,23 @@ export default function ExerciseDetailScreen() {
           )}
         </View>
 
-        <Divider />
-
-        <View style={styles.sectionBlock}>
-          <View style={styles.compactStatRow}>
-            <CompactStat
-              label={t("overview.est1rm")}
-              value={formatValue(records?.est_1rm_kg, "kg")}
-            />
-            <CompactStat
-              label={t("overview.maxRpe")}
-              value={formatValue(records?.max_rpe)}
-            />
-          </View>
-        </View>
+        {!isTimeExercise && (
+          <>
+            <Divider />
+            <View style={styles.sectionBlock}>
+              <View style={styles.compactStatRow}>
+                <CompactStat
+                  label={t("overview.est1rm")}
+                  value={formatValue(records?.est_1rm_kg, "kg")}
+                />
+                <CompactStat
+                  label={t("overview.maxRpe")}
+                  value={formatValue(records?.max_rpe)}
+                />
+              </View>
+            </View>
+          </>
+        )}
 
         <Divider />
 

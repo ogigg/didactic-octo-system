@@ -56,6 +56,7 @@ const setLogDetailSchema = z
     id: z.string().uuid(),
     actual_load_kg: z.number().nullable(),
     actual_reps: z.number().nullable(),
+    actual_duration_seconds: z.number().nullable().optional(),
     rpe: z.number().nullable(),
     completed: z.boolean(),
     not_completed_reason: z.string().nullable(),
@@ -66,8 +67,9 @@ const setDetailSchema = z.object({
   id: z.string().uuid(),
   set_number: z.number(),
   set_type: z.enum(["warmup", "working"]),
-  target_load_kg: z.number(),
-  target_reps: z.number(),
+  target_load_kg: z.number().nullable().optional(),
+  target_reps: z.number().nullable().optional(),
+  target_duration_seconds: z.number().nullable().optional(),
   log: setLogDetailSchema,
 });
 
@@ -75,6 +77,7 @@ const exerciseDetailSchema = z.object({
   id: z.string().uuid(),
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
+  exercise_type: z.enum(["weight", "time"]).default("weight"),
   primary_muscles: z.array(z.string()),
   order_index: z.number(),
   rest_duration_seconds: z.number(),
@@ -149,13 +152,15 @@ export interface SessionSetInput {
   id: string;
   set_number: number;
   set_type: "warmup" | "working";
-  target_load_kg: number;
-  target_reps: number;
+  target_load_kg?: number;
+  target_reps?: number;
+  target_duration_seconds?: number;
 }
 
 export interface SetLogInput {
   actual_load_kg?: number;
   actual_reps?: number;
+  actual_duration_seconds?: number;
   rpe?: number;
   completed: boolean;
   not_completed_reason?: string;
@@ -391,8 +396,9 @@ export async function upsertSessionSets(
     session_exercise_id: sessionExerciseId,
     set_number: s.set_number,
     set_type: s.set_type,
-    target_load_kg: s.target_load_kg,
-    target_reps: s.target_reps,
+    target_load_kg: s.target_load_kg ?? null,
+    target_reps: s.target_reps ?? null,
+    target_duration_seconds: s.target_duration_seconds ?? null,
   }));
 
   const { error } = await supabase
@@ -415,6 +421,7 @@ export async function upsertSetLog(
       session_set_id: sessionSetId,
       actual_load_kg: log.actual_load_kg ?? null,
       actual_reps: log.actual_reps ?? null,
+      actual_duration_seconds: log.actual_duration_seconds ?? null,
       rpe: log.rpe ?? null,
       completed: log.completed,
       not_completed_reason: log.not_completed_reason ?? null,

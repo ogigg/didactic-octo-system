@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
-import { calculateProgression, type ExerciseHistory } from "./progression.ts";
+import {
+  calculateProgression,
+  type ExerciseHistory,
+  formatExerciseDuration,
+} from "./progression.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -24,8 +28,9 @@ export const EXERCISE_COUNTS: Record<number, { min: number; max: number }> = {
 
 export const llmSetSchema = z.object({
   set_type: z.enum(["warmup", "working"]),
-  target_load_kg: z.number().min(0),
-  target_reps: z.number().int().min(1),
+  target_load_kg: z.number().min(0).optional(),
+  target_reps: z.number().int().min(1).optional(),
+  target_duration_seconds: z.number().int().min(1).optional(),
 });
 
 export const llmExerciseSchema = z.object({
@@ -42,8 +47,9 @@ export const llmResponseSchema = z.object({
 
 export const generatedSetSchema = z.object({
   set_type: z.enum(["warmup", "working"]),
-  target_load_kg: z.number().min(0),
-  target_reps: z.number().int().min(1),
+  target_load_kg: z.number().min(0).optional(),
+  target_reps: z.number().int().min(1).optional(),
+  target_duration_seconds: z.number().int().min(1).optional(),
 });
 
 export const progressionTypeSchema = z.enum([
@@ -56,6 +62,7 @@ export const progressionTypeSchema = z.enum([
 export const generatedExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
+  exercise_type: z.enum(["weight", "time"]).default("weight"),
   sets: z.array(generatedSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
@@ -87,6 +94,7 @@ export const generateWorkoutResponseSchema = z.object({
 export interface ExerciseCatalogEntry {
   id: string;
   name: string;
+  exercise_type: "weight" | "time";
   primary_muscles: string[];
   secondary_muscles: string[] | null;
   equipment: string[];
@@ -105,14 +113,17 @@ export interface HistorySession {
   completed_at: string | null;
   exercises: {
     exercise_name: string;
+    exercise_type?: "weight" | "time";
     difficulty_feedback: string | null;
     sets: {
       set_type: string;
-      target_load_kg: number;
-      target_reps: number;
+      target_load_kg?: number;
+      target_reps?: number;
+      target_duration_seconds?: number;
       log: {
         actual_load_kg: number | null;
         actual_reps: number | null;
+        actual_duration_seconds?: number | null;
         rpe: number | null;
         completed: boolean;
       } | null;
@@ -133,7 +144,11 @@ export interface QueueContextItem {
     workout_name: string;
     exercises: {
       exercise_name: string;
-      sets: { target_load_kg: number; target_reps: number }[];
+      sets: {
+        target_load_kg?: number;
+        target_reps?: number;
+        target_duration_seconds?: number;
+      }[];
     }[];
   } | null;
 }
@@ -152,12 +167,6 @@ export interface GenerateWorkoutParams {
   strengthBaselines?: StrengthBaseline[];
   queueContext?: QueueContextItem[];
   history?: HistorySession[];
-  exercisePreferences?: ExercisePreference[];
-}
-
-export interface ExercisePreference {
-  exercise_id: string;
-  preference: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,12 +187,18 @@ export function summarizeHistory(sessions: HistorySession[]): string {
           const feedback = ex.difficulty_feedback
             ? ` (feedback: ${ex.difficulty_feedback})`
             : "";
+          const isTime = ex.exercise_type === "time";
           const setsSummary = ex.sets
             .filter((set) => set.log?.completed)
-            .map(
-              (set) =>
-                `${set.log?.actual_load_kg ?? set.target_load_kg}kg×${set.log?.actual_reps ?? set.target_reps}`
-            )
+            .map((set) => {
+              if (isTime) {
+                const dur =
+                  set.log?.actual_duration_seconds ??
+                  set.target_duration_seconds;
+                return dur ? formatExerciseDuration(dur) : "?s";
+              }
+              return `${set.log?.actual_load_kg ?? set.target_load_kg ?? 0}kg×${set.log?.actual_reps ?? set.target_reps ?? 0}`;
+            })
             .join(", ");
           return `  - ${ex.exercise_name}: ${setsSummary || "no completed sets"}${feedback}`;
         })
@@ -237,7 +252,12 @@ function formatQueueContext(context: QueueContextItem[]): string {
       item.workout_data?.exercises
         ?.map((ex) => {
           const setsSummary = ex.sets
-            .map((s) => `${s.target_load_kg}kg×${s.target_reps}`)
+            .map((s) => {
+              if (s.target_duration_seconds != null) {
+                return formatExerciseDuration(s.target_duration_seconds);
+              }
+              return `${s.target_load_kg ?? 0}kg×${s.target_reps ?? 0}`;
+            })
             .join(", ");
           return `${ex.exercise_name} (${setsSummary})`;
         })
@@ -250,39 +270,6 @@ function formatQueueContext(context: QueueContextItem[]): string {
     lines.join("\n"),
     "Ensure variety by selecting different exercises and varying the stimulus for this workout's focus.",
   ].join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// Helper: Format Exercise Preferences for Prompt
-// ---------------------------------------------------------------------------
-
-function formatPreferences(preferences: ExercisePreference[]): string {
-  const preferred = preferences
-    .filter((p) => p.preference === "preferred")
-    .map((p) => p.exercise_id);
-  const softDisliked = preferences
-    .filter((p) => p.preference === "soft_dislike")
-    .map((p) => p.exercise_id);
-
-  const sections: string[] = [];
-
-  if (preferred.length > 0) {
-    sections.push(
-      "## Preferred Exercises (IDs the user wants to see more often)",
-      preferred.join(", "),
-      "Prioritize these exercises when they fit the workout's focus. Select them over equivalent alternatives when possible."
-    );
-  }
-
-  if (softDisliked.length > 0) {
-    sections.push(
-      "## Deprioritized Exercises (IDs the user wants to see less often)",
-      softDisliked.join(", "),
-      "Avoid selecting these exercises unless no good alternatives exist for the target muscle group."
-    );
-  }
-
-  return sections.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -301,15 +288,14 @@ export function buildPrompt(
   history: HistorySession[],
   focusArea?: string,
   strengthBaselines?: StrengthBaseline[],
-  queueContext?: QueueContextItem[],
-  exercisePreferences?: ExercisePreference[]
+  queueContext?: QueueContextItem[]
 ): { system: string; user: string } {
   const counts = EXERCISE_COUNTS[durationMinutes] ?? { min: 5, max: 7 };
 
   const exerciseList = catalog
     .map(
       (e) =>
-        `- ID: ${e.id} | Name: ${e.name} | Muscles: ${e.primary_muscles.join(", ")} | Equipment: ${e.equipment.join(", ") || "bodyweight"} | Difficulty: ${e.difficulty_level ?? "unknown"}`
+        `- ID: ${e.id} | Name: ${e.name} | Type: ${e.exercise_type} | Muscles: ${e.primary_muscles.join(", ")} | Equipment: ${e.equipment.join(", ") || "bodyweight"} | Difficulty: ${e.difficulty_level ?? "unknown"}`
     )
     .join("\n");
 
@@ -327,15 +313,21 @@ Response JSON schema:
       "sets": [
         {
           "set_type": "warmup | working",
+          // For weight exercises (Type: weight):
           "target_load_kg": "number — weight in kg",
-          "target_reps": "number — target repetitions"
+          "target_reps": "number — target repetitions",
+          // For time exercises (Type: time), use instead:
+          "target_duration_seconds": "number — hold duration in seconds"
         }
       ],
       "rest_duration_seconds": "number — rest between sets (30-180)",
       "notes": "string | null — brief coaching tip if technique matters"
     }
   ]
-}`;
+}
+
+IMPORTANT: For exercises with Type: time, use target_duration_seconds (not target_load_kg/target_reps).
+For exercises with Type: weight, use target_load_kg and target_reps (not target_duration_seconds).`;
 
   const splitLabel = trainingSplit.replace(/_/g, " ");
   const customSection = customPrompt
@@ -349,9 +341,6 @@ Response JSON schema:
     : "";
   const queueContextSection = queueContext?.length
     ? `\n\n${formatQueueContext(queueContext)}`
-    : "";
-  const preferencesSection = exercisePreferences?.length
-    ? `\n\n${formatPreferences(exercisePreferences)}`
     : "";
 
   const user = `## User Profile
@@ -374,16 +363,17 @@ Response JSON schema:
 - Adjust complexity and load for "${difficulty}" level
 - For "${splitLabel}" split, choose an appropriate muscle group focus for today's session
 - Include 1 warmup set per compound exercise (lower weight, higher reps)
-- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg
-- If feedback was "too_hard", maintain or slightly reduce load
-- For new exercises (no history), use moderate starting weights
+- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)
+- If feedback was "too_hard", maintain or slightly reduce load/duration
+- For new exercises (no history), use moderate starting weights or durations (20-45s for time exercises)
 - Generate a creative, motivating workout name
+- For time exercises (Type: time), use target_duration_seconds instead of target_load_kg/target_reps
 
 ## Recent Workout History
 ${summarizeHistory(history)}
 
 ## Exercise Catalog
-${exerciseList}${preferencesSection}${baselinesSection}${queueContextSection}${customSection}`;
+${exerciseList}${baselinesSection}${queueContextSection}${customSection}`;
 
   return { system, user };
 }
@@ -402,12 +392,12 @@ export function buildFallbackWorkout(
 
   const styleSchemes: Record<
     string,
-    { sets: number; reps: number; rest: number }
+    { sets: number; reps: number; rest: number; duration: number }
   > = {
-    strength: { sets: 4, reps: 5, rest: 120 },
-    hypertrophy: { sets: 3, reps: 10, rest: 90 },
-    endurance: { sets: 3, reps: 15, rest: 45 },
-    circuit: { sets: 3, reps: 12, rest: 30 },
+    strength: { sets: 4, reps: 5, rest: 120, duration: 30 },
+    hypertrophy: { sets: 3, reps: 10, rest: 90, duration: 40 },
+    endurance: { sets: 3, reps: 15, rest: 45, duration: 45 },
+    circuit: { sets: 3, reps: 12, rest: 30, duration: 30 },
   };
   const scheme = styleSchemes[trainingStyle] ?? styleSchemes.hypertrophy;
 
@@ -418,6 +408,18 @@ export function buildFallbackWorkout(
   return {
     workout_name: `${splitLabel.charAt(0).toUpperCase() + splitLabel.slice(1)} Workout`,
     exercises: selected.map((ex) => {
+      if (ex.exercise_type === "time") {
+        return {
+          exercise_id: ex.id,
+          sets: Array.from({ length: scheme.sets }, () => ({
+            set_type: "working" as const,
+            target_duration_seconds: scheme.duration,
+          })),
+          rest_duration_seconds: scheme.rest,
+          notes: null,
+        };
+      }
+
       const isCompound =
         ex.primary_muscles.length > 1 ||
         ["barbell", "dumbbell"].some((eq) =>
@@ -453,13 +455,12 @@ export function buildFallbackWorkout(
 
 export async function fetchExerciseCatalog(
   supabaseClient: SupabaseClient,
-  equipment: string,
-  hardDislikedIds?: Set<string>
+  equipment: string
 ): Promise<ExerciseCatalogEntry[]> {
   let exerciseQuery = supabaseClient
     .from("exercises")
     .select(
-      "id, name, primary_muscles, secondary_muscles, equipment, difficulty_level"
+      "id, name, exercise_type, primary_muscles, secondary_muscles, equipment, difficulty_level"
     );
 
   if (equipment === "bodyweight") {
@@ -480,13 +481,6 @@ export async function fetchExerciseCatalog(
 
   const { data, error } = await exerciseQuery.order("name").limit(100);
   if (error || !data?.length) return [];
-
-  if (hardDislikedIds && hardDislikedIds.size > 0) {
-    return (data as ExerciseCatalogEntry[]).filter(
-      (e) => !hardDislikedIds.has(e.id)
-    );
-  }
-
   return data as ExerciseCatalogEntry[];
 }
 
@@ -570,27 +564,10 @@ export async function generateSingleWorkout(
     strengthBaselines,
     queueContext,
     history = [],
-    exercisePreferences,
   } = params;
 
-  // Build hard-disliked set for catalog filtering
-  const hardDislikedIds = new Set(
-    (exercisePreferences ?? [])
-      .filter((p) => p.preference === "hard_dislike")
-      .map((p) => p.exercise_id)
-  );
-
-  // Remaining preferences (preferred + soft_dislike) for prompt injection
-  const promptPreferences = (exercisePreferences ?? []).filter(
-    (p) => p.preference !== "hard_dislike"
-  );
-
-  // Fetch exercise catalog (hard-disliked exercises excluded)
-  const catalog = await fetchExerciseCatalog(
-    supabaseClient,
-    equipment,
-    hardDislikedIds.size > 0 ? hardDislikedIds : undefined
-  );
+  // Fetch exercise catalog
+  const catalog = await fetchExerciseCatalog(supabaseClient, equipment);
   if (!catalog.length) {
     return {
       success: false,
@@ -619,8 +596,7 @@ export async function generateSingleWorkout(
         history,
         focusArea,
         strengthBaselines,
-        queueContext,
-        promptPreferences.length > 0 ? promptPreferences : undefined
+        queueContext
       );
 
       const controller = new AbortController();
@@ -701,12 +677,15 @@ export async function generateSingleWorkout(
     generationSource = "fallback_template";
   }
 
-  // Enrich with exercise names
+  // Enrich with exercise names and types
   const enrichedExercises = workoutData.exercises.map((ex) => {
     const catalogEntry = catalogMap.get(ex.exercise_id);
     return {
       exercise_id: ex.exercise_id,
       exercise_name: catalogEntry?.name ?? "Unknown Exercise",
+      exercise_type: (catalogEntry?.exercise_type ?? "weight") as
+        | "weight"
+        | "time",
       sets: ex.sets,
       rest_duration_seconds: ex.rest_duration_seconds,
       notes: ex.notes,
@@ -747,8 +726,15 @@ export async function generateSingleWorkout(
           if (result.progression_type !== "new_exercise") {
             for (const set of ex.sets) {
               if (set.set_type === "working") {
-                set.target_load_kg = result.target_load_kg;
-                set.target_reps = result.target_reps;
+                if (result.target_duration_seconds != null) {
+                  set.target_duration_seconds = result.target_duration_seconds;
+                  set.target_load_kg = undefined;
+                  set.target_reps = undefined;
+                } else {
+                  set.target_load_kg = result.target_load_kg ?? 0;
+                  set.target_reps = result.target_reps ?? 1;
+                  set.target_duration_seconds = undefined;
+                }
               }
             }
           }

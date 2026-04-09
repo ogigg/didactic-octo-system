@@ -15,6 +15,8 @@ const exerciseDetailStatsSchema = z.object({
   max_volume_set_date: z.string().nullable(),
   est_1rm_kg: z.number().nullable(),
   max_rpe: z.number().nullable(),
+  max_duration_seconds: z.number().nullable().optional(),
+  max_duration_date: z.string().nullable().optional(),
 });
 
 export type ExerciseDetailStats = z.infer<typeof exerciseDetailStatsSchema>;
@@ -23,6 +25,7 @@ const exerciseSessionSetSchema = z.object({
   set_number: z.number(),
   load_kg: z.number().nullable(),
   reps: z.number().nullable(),
+  duration_seconds: z.number().nullable().optional(),
   rpe: z.number().nullable(),
 });
 
@@ -41,10 +44,12 @@ export type ExerciseSessionHistory = z.infer<
 const volumeWeekSchema = z.object({
   week_start: z.string(),
   volume_kg: z.number(),
+  total_duration_seconds: z.number().nullable().optional(),
 });
 
 const exerciseDetailResponseSchema = z
   .object({
+    exercise_type: z.enum(["weight", "time"]).default("weight"),
     records: exerciseDetailStatsSchema,
     volume_weeks: z.array(volumeWeekSchema),
     sessions: z.array(exerciseSessionHistorySchema),
@@ -55,7 +60,9 @@ const exerciseDetailResponseSchema = z
       (session) =>
         Array.isArray(session.sets) &&
         session.sets.some(
-          (set) => set.load_kg != null && set.reps != null && set.reps > 0
+          (set) =>
+            (set.load_kg != null && set.reps != null && set.reps > 0) ||
+            (set.duration_seconds != null && set.duration_seconds > 0)
         )
     ),
   }));

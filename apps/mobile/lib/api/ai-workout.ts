@@ -137,6 +137,7 @@ export function mapGeneratedToWorkoutExercises(
   return exercises.map((ex) => ({
     id: ex.exercise_id,
     name: ex.exercise_name,
+    exerciseType: "weight" as const,
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
     difficultyFeedback: null,
@@ -147,6 +148,7 @@ export function mapGeneratedToWorkoutExercises(
         type: set.set_type,
         kg: String(set.target_load_kg),
         reps: String(set.target_reps),
+        durationSeconds: null,
         rpe: null,
         isCompleted: false,
         previousDisplay:

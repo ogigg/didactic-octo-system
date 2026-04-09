@@ -10,6 +10,7 @@ export const exerciseSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
   external_id: z.string().nullable(),
+  exercise_type: z.enum(["weight", "time"]).default("weight"),
   primary_muscles: z.array(z.string()),
   secondary_muscles: z.array(z.string()).nullable(),
   equipment: z.array(z.string()),

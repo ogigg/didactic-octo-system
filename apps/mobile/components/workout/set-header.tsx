@@ -3,7 +3,11 @@ import { Spacing, Typography } from "@/constants/theme";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-export function SetHeader() {
+interface SetHeaderProps {
+  exerciseType?: "weight" | "time";
+}
+
+export function SetHeader({ exerciseType = "weight" }: SetHeaderProps) {
   const { t } = useTranslation("workout");
   const textMuted = useThemeColor({}, "textMuted");
 
@@ -15,12 +19,20 @@ export function SetHeader() {
       <Text style={[styles.label, styles.prevCol, { color: textMuted }]}>
         {t("setHeader.previous")}
       </Text>
-      <Text style={[styles.label, styles.inputCol, { color: textMuted }]}>
-        {t("setHeader.kg")}
-      </Text>
-      <Text style={[styles.label, styles.inputCol, { color: textMuted }]}>
-        {t("setHeader.reps")}
-      </Text>
+      {exerciseType === "time" ? (
+        <Text style={[styles.label, styles.timeCol, { color: textMuted }]}>
+          {t("setHeader.time")}
+        </Text>
+      ) : (
+        <>
+          <Text style={[styles.label, styles.inputCol, { color: textMuted }]}>
+            {t("setHeader.kg")}
+          </Text>
+          <Text style={[styles.label, styles.inputCol, { color: textMuted }]}>
+            {t("setHeader.reps")}
+          </Text>
+        </>
+      )}
       <Text style={[styles.label, styles.rpeCol, { color: textMuted }]}>
         {t("setHeader.rpe")}
       </Text>
@@ -51,6 +63,10 @@ const styles = StyleSheet.create({
   },
   inputCol: {
     width: 56,
+    textAlign: "center",
+  },
+  timeCol: {
+    width: 122,
     textAlign: "center",
   },
   rpeCol: {
