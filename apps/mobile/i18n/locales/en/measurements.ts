@@ -1,9 +1,12 @@
 export const measurements = {
-  title: "Body Measurements",
+  title: "Measurements",
   chart: {
     title: "Trend",
     empty: "Log your first measurement to see a trend",
     tapToSeeDetails: "Tap a point to see details",
+  },
+  stat: {
+    noData: "No data yet",
   },
   groups: {
     bodyComposition: "Body Composition",
@@ -47,7 +50,9 @@ export const measurements = {
     valueLabel: "Value",
     dateLabel: "Date",
     save: "Save",
+    saveCount: "Save {{count}} measurements",
     update: "Update",
+    close: "Close",
     placeholder: "0.0",
     previous: "Previous: {{value}} {{unit}}",
   },

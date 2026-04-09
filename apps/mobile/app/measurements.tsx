@@ -1,20 +1,29 @@
 import { useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import SectionCard from "@/components/ui/section-card";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MeasurementLineChart } from "@/components/measurements/line-chart";
-import { MeasurementGroup } from "@/components/measurements/measurement-group";
-import { MeasurementRow } from "@/components/measurements/measurement-row";
-import { MetricDropdown } from "@/components/measurements/metric-dropdown";
-import { AddMeasurementModal } from "@/components/measurements/add-measurement-modal";
+import { FieldPillSelector } from "@/components/measurements/field-pill-selector";
+import { StatHeader } from "@/components/measurements/stat-header";
 import { MeasurementHistoryList } from "@/components/measurements/measurement-history-list";
+import {
+  AddMeasurementModal,
+  EditMeasurementModal,
+} from "@/components/measurements/add-measurement-modal";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
-import { Button } from "@/components/ui/button";
-import { Spacing, Typography } from "@/constants/theme";
+import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   useMeasurementTrend,
@@ -25,27 +34,25 @@ import {
 } from "@/hooks/use-measurement-queries";
 import type { StatsPeriod } from "@/hooks/use-measurement-queries";
 import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
-import {
-  MEASUREMENT_GROUPS,
-  DEFAULT_FIELD,
-  getMeasurementUnit,
-} from "@/data/measurements";
+import { getMeasurementUnit } from "@/data/measurements";
 import type { MeasurementField } from "@/data/measurements";
+
+const DEFAULT_FIELD: MeasurementField = "weight_kg";
 
 export default function MeasurementsScreen() {
   const { t } = useTranslation("measurements");
   const textMuted = useThemeColor({}, "textMuted");
-  const backgroundElevated = useThemeColor({}, "backgroundElevated");
+  const primary = useThemeColor({}, "primary");
 
   const [selectedField, setSelectedField] =
     useState<MeasurementField>(DEFAULT_FIELD);
   const [period, setPeriod] = useState<StatsPeriod>("90d");
-  const [modalVisible, setModalVisible] = useState(false);
-  const [activeField, setActiveField] = useState<MeasurementField | null>(null);
-  const [editingEntry, setEditingEntry] = useState<{
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [editModal, setEditModal] = useState<{
+    visible: boolean;
     date: string;
     value: number;
-  } | null>(null);
+  }>({ visible: false, date: "", value: 0 });
   const [selectedPoint, setSelectedPoint] =
     useState<MeasurementTrendPoint | null>(null);
 
@@ -60,38 +67,28 @@ export default function MeasurementsScreen() {
   const deleteMutation = useDeleteMeasurement();
 
   const unit = getMeasurementUnit(selectedField);
-
-  function handleAddMeasurement(field: MeasurementField) {
-    setActiveField(field);
-    setEditingEntry(null);
-    setModalVisible(true);
-  }
+  const latestValue = latestData?.[selectedField] ?? null;
+  const fieldLabel = t(`fields.${selectedField}`);
 
   function handleAddPress() {
-    setActiveField(selectedField);
-    setEditingEntry(null);
-    setModalVisible(true);
+    setAddModalVisible(true);
+  }
+
+  function handleMultiSave(date: string, fields: Record<string, number>) {
+    upsertMutation.mutate({ loggedAt: date, fields });
+    setAddModalVisible(false);
   }
 
   function handleEditEntry(entry: { date: string; value: number }) {
-    setActiveField(selectedField);
-    setEditingEntry({ date: entry.date, value: entry.value });
-    setModalVisible(true);
+    setEditModal({ visible: true, date: entry.date, value: entry.value });
   }
 
-  function handleSave(date: string, value: number) {
-    if (!activeField) return;
+  function handleEditSave(date: string, value: number) {
     upsertMutation.mutate({
       loggedAt: date,
-      fields: { [activeField]: value },
+      fields: { [selectedField]: value },
     });
-    setModalVisible(false);
-    setEditingEntry(null);
-  }
-
-  function handleClose() {
-    setModalVisible(false);
-    setEditingEntry(null);
+    setEditModal({ visible: false, date: "", value: 0 });
   }
 
   function handleDelete(loggedAt: string) {
@@ -102,37 +99,36 @@ export default function MeasurementsScreen() {
     setSelectedPoint(point);
   }
 
-  function getLatestValue(field: MeasurementField): number | null {
-    if (!latestData) return null;
-    return latestData[field] ?? null;
-  }
-
-  function countFilledValues(fields: MeasurementField[]): number {
-    if (!latestData) return 0;
-    return fields.filter((f) => latestData[f] !== null).length;
-  }
-
-  const hasAnyData = latestData
-    ? Object.values(latestData).some((v) => v !== null && v !== undefined)
-    : false;
-
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
           <ScreenHeader title={t("title")} />
 
+          <FieldPillSelector
+            selected={selectedField}
+            onChange={(f) => {
+              setSelectedField(f);
+              setSelectedPoint(null);
+            }}
+          />
+
           <SectionCard accent>
-            <View style={styles.chartControls}>
-              <MetricDropdown
-                selected={selectedField}
-                onChange={setSelectedField}
-              />
-              <PeriodSelector
-                selected={period}
-                onChange={(p) => setPeriod(p as StatsPeriod)}
-              />
-            </View>
+            <StatHeader
+              latestValue={latestValue}
+              unit={unit}
+              history={historyData}
+              label={fieldLabel}
+            />
+
+            <PeriodSelector
+              selected={period}
+              onChange={(p) => setPeriod(p as StatsPeriod)}
+            />
+
             {!trendLoading && trendData && trendData.length > 0 ? (
               <MeasurementLineChart
                 data={trendData}
@@ -142,77 +138,49 @@ export default function MeasurementsScreen() {
               />
             ) : (
               <View style={styles.emptyChart}>
-                <Text style={[Typography.body, { color: textMuted }]}>
+                <Text style={[Typography.caption, { color: textMuted }]}>
                   {t("chart.empty")}
                 </Text>
               </View>
             )}
-            {trendData && trendData.length > 1 && (
-              <Text
-                style={[
-                  Typography.caption,
-                  { color: textMuted, textAlign: "center" },
-                ]}
-              >
-                {t("chart.tapToSeeDetails")}
-              </Text>
-            )}
           </SectionCard>
 
-          {hasAnyData && (
-            <SectionCard>
-              <MeasurementHistoryList
-                data={historyData}
-                isLoading={historyLoading}
-                unit={unit}
-                onEdit={handleEditEntry}
-                onDelete={handleDelete}
-              />
-            </SectionCard>
-          )}
+          <SectionCard>
+            <MeasurementHistoryList
+              data={historyData}
+              isLoading={historyLoading}
+              unit={unit}
+              onEdit={handleEditEntry}
+              onDelete={handleDelete}
+            />
+          </SectionCard>
 
-          {MEASUREMENT_GROUPS.map((group) => (
-            <MeasurementGroup
-              key={group.key}
-              title={t(`groups.${group.key}`)}
-              count={countFilledValues(group.fields)}
-              defaultOpen={group.key === "bodyComposition"}
-            >
-              {group.fields.map((field) => (
-                <MeasurementRow
-                  key={field}
-                  field={field}
-                  label={t(`fields.${field}`)}
-                  latestValue={getLatestValue(field)}
-                  unit={getMeasurementUnit(field)}
-                  onAdd={() => handleAddMeasurement(field)}
-                />
-              ))}
-            </MeasurementGroup>
-          ))}
-
-          <View style={styles.spacer} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
 
-        <View style={[styles.footer, { backgroundColor: backgroundElevated }]}>
-          <Button
-            label={t("addButton")}
-            onPress={handleAddPress}
-            style={styles.addButton}
-          />
-        </View>
+        <Pressable
+          onPress={handleAddPress}
+          accessibilityRole="button"
+          accessibilityLabel={t("addButton")}
+          style={[styles.fab, { backgroundColor: primary }]}
+        >
+          <IconSymbol name="plus" size={24} color="#FFFFFF" />
+        </Pressable>
 
         <AddMeasurementModal
-          visible={modalVisible}
-          field={activeField}
-          initialValue={
-            editingEntry?.value ??
-            (activeField ? getLatestValue(activeField) : null)
-          }
-          initialDate={editingEntry?.date}
-          isEditing={editingEntry !== null}
-          onSave={handleSave}
-          onClose={handleClose}
+          visible={addModalVisible}
+          latestData={latestData}
+          onSave={handleMultiSave}
+          onClose={() => setAddModalVisible(false)}
+        />
+
+        <EditMeasurementModal
+          visible={editModal.visible}
+          field={selectedField}
+          initialValue={editModal.value}
+          initialDate={editModal.date}
+          onSave={handleEditSave}
+          onClose={() => setEditModal({ visible: false, date: "", value: 0 })}
         />
 
         <NumericKeyboardAccessory />
@@ -230,30 +198,27 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing["3xl"],
     gap: Spacing.lg,
   },
-  chartControls: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   emptyChart: {
-    height: 180,
+    height: 140,
     alignItems: "center",
     justifyContent: "center",
   },
-  spacer: {
+  bottomSpacer: {
     height: 80,
   },
-  footer: {
+  fab: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Platform.select({ ios: Spacing.xl, android: Spacing.lg }),
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  addButton: {
-    width: "100%",
+    bottom: Platform.select({ ios: 36, android: 24 }),
+    right: Spacing.xl,
+    width: 56,
+    height: 56,
+    borderRadius: Radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });

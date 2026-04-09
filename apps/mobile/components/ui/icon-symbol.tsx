@@ -47,6 +47,9 @@ const MAPPING = {
   heart: "favorite-border",
   "hand.thumbsdown": "thumb-down",
   nosign: "block",
+  "arrow.up": "arrow-upward",
+  "arrow.down": "arrow-downward",
+  pencil: "edit",
 } as IconMapping;
 
 /**

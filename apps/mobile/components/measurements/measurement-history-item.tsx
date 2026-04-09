@@ -1,11 +1,11 @@
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Radii, Spacing, Typography } from "@/constants/theme";
+import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { MeasurementHistoryItem as HistoryItemType } from "@/lib/api/body-measurements";
 import type { MeasurementUnit } from "@/data/measurements";
-import { useTranslation } from "react-i18next";
 
 interface MeasurementHistoryItemProps {
   item: HistoryItemType;
@@ -23,17 +23,9 @@ export function MeasurementHistoryItem({
   const { t } = useTranslation("measurements");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
-  const primary = useThemeColor({}, "primary");
-
-  function formatDate(dateStr: string): string {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }
+  const textSecondary = useThemeColor({}, "textSecondary");
+  const border = useThemeColor({}, "border");
+  const error = useThemeColor({}, "error");
 
   function handleDelete() {
     Alert.alert(
@@ -51,34 +43,37 @@ export function MeasurementHistoryItem({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: backgroundSubtle }]}>
-      <View style={styles.valueContainer}>
-        <Text style={[Typography.titleMd, { color: textColor }]}>
+    <View style={[styles.row, { borderBottomColor: border }]}>
+      <View style={styles.left}>
+        <Text style={[Typography.bodyMedium, { color: textColor }]}>
           {item.value}
+          <Text style={[Typography.caption, { color: textMuted }]}>
+            {" "}
+            {unit}
+          </Text>
         </Text>
-        <Text style={[Typography.body, { color: textMuted }]}>{unit}</Text>
       </View>
-      <Text style={[Typography.caption, { color: textMuted }]}>
-        {formatDate(item.date)}
+      <Text style={[Typography.caption, { color: textSecondary }]}>
+        {formatShortDate(item.date)}
       </Text>
-      <View style={styles.actions}>
-        <Pressable
-          onPress={() => onEdit(item)}
-          accessibilityRole="button"
-          accessibilityLabel={t("history.edit")}
-          style={[styles.actionButton]}
-        >
-          <IconSymbol name="pencil" size={18} color={primary} />
-        </Pressable>
-        <Pressable
-          onPress={handleDelete}
-          accessibilityRole="button"
-          accessibilityLabel={t("history.delete")}
-          style={[styles.actionButton]}
-        >
-          <IconSymbol name="trash" size={18} color={textMuted} />
-        </Pressable>
-      </View>
+      <Pressable
+        onPress={() => onEdit(item)}
+        accessibilityRole="button"
+        accessibilityLabel={t("history.edit")}
+        hitSlop={8}
+        style={styles.iconButton}
+      >
+        <IconSymbol name="pencil" size={14} color={textMuted} />
+      </Pressable>
+      <Pressable
+        onPress={handleDelete}
+        accessibilityRole="button"
+        accessibilityLabel={t("history.delete")}
+        hitSlop={8}
+        style={styles.iconButton}
+      >
+        <IconSymbol name="trash" size={14} color={error} />
+      </Pressable>
     </View>
   );
 }
@@ -94,25 +89,6 @@ export function MeasurementHistoryDateGroup({
 }: MeasurementHistoryDateGroupProps) {
   const textMuted = useThemeColor({}, "textMuted");
 
-  function formatGroupDate(dateStr: string): string {
-    const d = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (d.toDateString() === today.toDateString()) {
-      return "Today";
-    }
-    if (d.toDateString() === yesterday.toDateString()) {
-      return "Yesterday";
-    }
-    return d.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-    });
-  }
-
   return (
     <View style={styles.dateGroup}>
       <Text
@@ -125,37 +101,51 @@ export function MeasurementHistoryDateGroup({
   );
 }
 
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatGroupDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 const styles = StyleSheet.create({
-  container: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderRadius: Radii.md,
-    marginBottom: Spacing.sm,
-  },
-  valueContainer: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  actions: {
-    flexDirection: "row",
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: Spacing.sm,
   },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: Radii.full,
+  left: {
+    flex: 1,
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },
   dateGroup: {
-    marginBottom: Spacing.md,
+    marginTop: Spacing.md,
   },
   dateGroupLabel: {
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
     textTransform: "uppercase",
   },
 });
