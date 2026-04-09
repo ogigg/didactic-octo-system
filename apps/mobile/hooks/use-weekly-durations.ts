@@ -59,7 +59,7 @@ export function useWeeklyDurations(weekCount: number) {
     return oldestMonday.toISOString();
   }, [weekCount]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: [...workoutStatsKeys.all, "weekly-durations", weekCount] as const,
     queryFn: () => fetchWeeklyDurations(fromIso),
     staleTime: 60_000,
@@ -70,5 +70,5 @@ export function useWeeklyDurations(weekCount: number) {
     [data, weekCount]
   );
 
-  return { weeklyDurations, isLoading };
+  return { weeklyDurations, isLoading, refetch };
 }

@@ -72,7 +72,7 @@ async function fetchWorkoutStatsBase(): Promise<WorkoutStatsFetched> {
 }
 
 export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: workoutStatsKeys.all,
     queryFn: fetchWorkoutStatsBase,
     staleTime: Infinity,
@@ -90,5 +90,6 @@ export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
     totalWorkouts: data?.totalWorkouts ?? null,
     streakWeeks,
     isLoading,
+    refetch,
   };
 }
