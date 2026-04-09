@@ -17,10 +17,8 @@ import { MeasurementLineChart } from "@/components/measurements/line-chart";
 import { FieldPillSelector } from "@/components/measurements/field-pill-selector";
 import { StatHeader } from "@/components/measurements/stat-header";
 import { MeasurementHistoryList } from "@/components/measurements/measurement-history-list";
-import {
-  AddMeasurementModal,
-  EditMeasurementModal,
-} from "@/components/measurements/add-measurement-modal";
+import { LogMeasurementsModal } from "@/components/measurements/log-measurements-modal";
+import { EditMeasurementModal } from "@/components/measurements/edit-measurement-modal";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
 import { Radii, Spacing, Typography } from "@/constants/theme";
@@ -167,7 +165,7 @@ export default function MeasurementsScreen() {
           <IconSymbol name="plus" size={24} color="#FFFFFF" />
         </Pressable>
 
-        <AddMeasurementModal
+        <LogMeasurementsModal
           visible={addModalVisible}
           latestData={latestData}
           onSave={handleMultiSave}
