@@ -28,6 +28,7 @@ export const workout = {
     minutes: "m",
     seconds: "s",
     confirm: "Confirm",
+    presets: "Quick pick",
   },
   setTimer: {
     start: "Start",
