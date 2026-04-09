@@ -1,10 +1,11 @@
-import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { WorkoutSession } from "./types";
 
 interface DayCellProps {
   day: number;
+  isToday: boolean;
   sessions: WorkoutSession[];
   onPress?: () => void;
 }
@@ -13,11 +14,12 @@ const CIRCLE_SIZE = 32;
 const CELL_HEIGHT = 60;
 const CELL_WIDTH_PERCENT = `${100 / 7}%` as const;
 
-export function DayCell({ day, sessions, onPress }: DayCellProps) {
+export function DayCell({ day, isToday, sessions, onPress }: DayCellProps) {
   const primary = useThemeColor({}, "primary");
   const warning = useThemeColor({}, "warning");
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
+  const primarySurface = useThemeColor({}, "primarySurface");
 
   const count = sessions.length;
   const hasWorkout = count > 0;
@@ -42,6 +44,10 @@ export function DayCell({ day, sessions, onPress }: DayCellProps) {
               <Text style={styles.badgeText}>×{extraCount}</Text>
             </View>
           )}
+        </View>
+      ) : isToday ? (
+        <View style={[styles.circle, { backgroundColor: primarySurface }]}>
+          <Text style={[styles.circleText, { color: primary }]}>{day}</Text>
         </View>
       ) : (
         <Text style={[styles.plainDay, { color: textMuted }]}>{day}</Text>

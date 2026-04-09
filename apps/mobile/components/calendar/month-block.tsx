@@ -1,5 +1,6 @@
-import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { DayCell } from "./day-cell";
 import type { DayEntry, WorkoutSession } from "./types";
@@ -53,6 +54,15 @@ export function MonthBlock({
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
 
+  const { isCurrentMonth, todayDate } = useMemo(() => {
+    const today = new Date();
+    return {
+      isCurrentMonth:
+        today.getFullYear() === year && today.getMonth() + 1 === month,
+      todayDate: today.getDate(),
+    };
+  }, [year, month]);
+
   const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
 
@@ -94,6 +104,7 @@ export function MonthBlock({
             <DayCell
               key={day}
               day={day}
+              isToday={isCurrentMonth && day === todayDate}
               sessions={sessions}
               onPress={
                 sessions.length > 0 && onDayPress
