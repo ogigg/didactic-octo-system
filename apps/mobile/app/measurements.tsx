@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Platform,
   Pressable,
@@ -9,32 +10,31 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 
-import SectionCard from "@/components/ui/section-card";
-import { ScreenHeader } from "@/components/ui/screen-header";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { MeasurementLineChart } from "@/components/measurements/line-chart";
-import { FieldPillSelector } from "@/components/measurements/field-pill-selector";
-import { StatHeader } from "@/components/measurements/stat-header";
-import { MeasurementHistoryList } from "@/components/measurements/measurement-history-list";
-import { LogMeasurementsModal } from "@/components/measurements/log-measurements-modal";
 import { EditMeasurementModal } from "@/components/measurements/edit-measurement-modal";
-import { PeriodSelector } from "@/components/stats/period-selector";
+import { FieldPillSelector } from "@/components/measurements/field-pill-selector";
+import { MeasurementLineChart } from "@/components/measurements/line-chart";
+import { LogMeasurementsModal } from "@/components/measurements/log-measurements-modal";
+import { MeasurementHistoryList } from "@/components/measurements/measurement-history-list";
+import { StatHeader } from "@/components/measurements/stat-header";
 import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
+import { PeriodSelector } from "@/components/stats/period-selector";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ScreenHeader } from "@/components/ui/screen-header";
+import SectionCard from "@/components/ui/section-card";
 import { Radii, Spacing, Typography } from "@/constants/theme";
-import { useThemeColor } from "@/hooks/use-theme-color";
-import {
-  useMeasurementTrend,
-  useLatestMeasurements,
-  useUpsertMeasurement,
-  useMeasurementHistory,
-  useDeleteMeasurement,
-} from "@/hooks/use-measurement-queries";
-import type { StatsPeriod } from "@/hooks/use-measurement-queries";
-import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
-import { getMeasurementUnit } from "@/data/measurements";
 import type { MeasurementField } from "@/data/measurements";
+import { getMeasurementUnit } from "@/data/measurements";
+import type { StatsPeriod } from "@/hooks/use-measurement-queries";
+import {
+  useDeleteMeasurement,
+  useLatestMeasurements,
+  useMeasurementHistory,
+  useMeasurementTrend,
+  useUpsertMeasurement,
+} from "@/hooks/use-measurement-queries";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
 
 const DEFAULT_FIELD: MeasurementField = "weight_kg";
 
@@ -203,7 +203,14 @@ export default function MeasurementsScreen() {
           initialValue={editModal.value}
           initialDate={editModal.date}
           onSave={handleEditSave}
-          onClose={() => setEditModal({ visible: false, date: "", value: 0 })}
+          onClose={() =>
+            setEditModal({
+              visible: false,
+              date: "",
+              originalDate: "",
+              value: 0,
+            })
+          }
         />
 
         <NumericKeyboardAccessory />

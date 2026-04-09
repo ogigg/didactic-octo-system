@@ -1,11 +1,11 @@
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Spacing, Typography } from "@/constants/theme";
+import type { MeasurementUnit } from "@/data/measurements";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { MeasurementHistoryItem as HistoryItemType } from "@/lib/api/body-measurements";
-import type { MeasurementUnit } from "@/data/measurements";
 
 interface MeasurementHistoryItemProps {
   item: HistoryItemType;
@@ -43,7 +43,7 @@ export function MeasurementHistoryItem({
   }
 
   return (
-    <View style={[styles.row, { borderBottomColor: border }]}>
+    <View style={[styles.row]}>
       <View style={styles.left}>
         <Text style={[Typography.bodyMedium, { color: textColor }]}>
           {item.value}
@@ -78,25 +78,55 @@ export function MeasurementHistoryItem({
   );
 }
 
-interface MeasurementHistoryDateGroupProps {
-  date: string;
-  children: React.ReactNode;
-}
-
 export function MeasurementHistoryDateGroup({
   date,
   children,
-}: MeasurementHistoryDateGroupProps) {
+  isLast,
+}: {
+  date: string;
+  children: React.ReactNode;
+  isLast?: boolean;
+}) {
   const textMuted = useThemeColor({}, "textMuted");
+  const border = useThemeColor({}, "border");
 
   return (
-    <View style={styles.dateGroup}>
+    <View
+      style={[
+        styles.dateGroup,
+        {
+          borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+          borderBottomColor: border,
+        },
+      ]}
+    >
       <Text
         style={[Typography.label, styles.dateGroupLabel, { color: textMuted }]}
       >
         {formatGroupDate(date)}
       </Text>
       {children}
+    </View>
+  );
+}
+
+export function YearSeparator({ year }: { year: number }) {
+  const border = useThemeColor({}, "border");
+  const textMuted = useThemeColor({}, "textMuted");
+
+  return (
+    <View style={[styles.yearSeparator, { borderBottomColor: border }]}>
+      <View style={[styles.yearSeparatorLine, { backgroundColor: border }]} />
+      <Text
+        style={[
+          Typography.label,
+          styles.yearSeparatorText,
+          { color: textMuted },
+        ]}
+      >
+        {year}
+      </Text>
+      <View style={[styles.yearSeparatorLine, { backgroundColor: border }]} />
     </View>
   );
 }
@@ -129,7 +159,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: Spacing.sm,
   },
   left: {
@@ -146,6 +175,19 @@ const styles = StyleSheet.create({
   },
   dateGroupLabel: {
     marginBottom: Spacing.xs,
+    textTransform: "uppercase",
+  },
+  yearSeparator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    gap: Spacing.md,
+  },
+  yearSeparatorLine: {
+    flex: 1,
+    height: 1,
+  },
+  yearSeparatorText: {
     textTransform: "uppercase",
   },
 });

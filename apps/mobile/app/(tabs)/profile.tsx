@@ -1,7 +1,9 @@
+import { useCallback, useState } from "react";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -113,8 +115,24 @@ export default function ProfileScreen() {
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const border = useThemeColor({}, "border");
 
-  const { totalWorkouts, isLoading: statsLoading } = useWorkoutStats();
-  const { weeklyDurations, isLoading: weeklyLoading } = useWeeklyDurations(12);
+  const {
+    totalWorkouts,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useWorkoutStats();
+  const {
+    weeklyDurations,
+    isLoading: weeklyLoading,
+    refetch: refetchWeekly,
+  } = useWeeklyDurations(12);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetchStats(), refetchWeekly()]);
+    setRefreshing(false);
+  }, [refetchStats, refetchWeekly]);
 
   const maxMinutes = weeklyLoading
     ? 0
@@ -123,7 +141,12 @@ export default function ProfileScreen() {
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
           {/* Header */}
           <Text style={[Typography.displayLg, { color: textColor }]}>
             {t("title")}

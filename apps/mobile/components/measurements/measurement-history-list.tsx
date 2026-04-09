@@ -1,14 +1,15 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { StyleSheet, Text, View } from "react-native";
 
 import { Spacing, Typography } from "@/constants/theme";
+import type { MeasurementUnit } from "@/data/measurements";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { MeasurementHistoryItem as HistoryItemType } from "@/lib/api/body-measurements";
-import type { MeasurementUnit } from "@/data/measurements";
 import {
-  MeasurementHistoryItem,
   MeasurementHistoryDateGroup,
+  MeasurementHistoryItem,
+  YearSeparator,
 } from "./measurement-history-item";
 
 interface MeasurementHistoryListProps {
@@ -17,11 +18,6 @@ interface MeasurementHistoryListProps {
   unit: MeasurementUnit;
   onEdit: (item: HistoryItemType) => void;
   onDelete: (loggedAt: string) => void;
-}
-
-interface GroupedData {
-  date: string;
-  items: HistoryItemType[];
 }
 
 export function MeasurementHistoryList({
@@ -50,6 +46,13 @@ export function MeasurementHistoryList({
       items,
     }));
   }, [data]);
+
+  const dataWithYears = useMemo(() => {
+    return groupedData.map((group) => ({
+      ...group,
+      year: new Date(group.date).getFullYear(),
+    }));
+  }, [groupedData]);
 
   const count = data?.length ?? 0;
 
@@ -91,19 +94,29 @@ export function MeasurementHistoryList({
         </Text>
         <Text style={[Typography.caption, { color: textMuted }]}>{count}</Text>
       </View>
-      {groupedData.map((group) => (
-        <MeasurementHistoryDateGroup key={group.date} date={group.date}>
-          {group.items.map((item) => (
-            <MeasurementHistoryItem
-              key={item.logged_at}
-              item={item}
-              unit={unit}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))}
-        </MeasurementHistoryDateGroup>
-      ))}
+      {dataWithYears.map((group, index) => {
+        const prevYear = index > 0 ? dataWithYears[index - 1].year : null;
+        const showYearSeparator = prevYear !== null && prevYear !== group.year;
+        const isLast =
+          index === dataWithYears.length - 1 ||
+          dataWithYears[index + 1]?.year !== group.year;
+        return (
+          <View key={group.date}>
+            {showYearSeparator && <YearSeparator year={group.year} />}
+            <MeasurementHistoryDateGroup date={group.date} isLast={isLast}>
+              {group.items.map((item) => (
+                <MeasurementHistoryItem
+                  key={item.logged_at}
+                  item={item}
+                  unit={unit}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              ))}
+            </MeasurementHistoryDateGroup>
+          </View>
+        );
+      })}
     </View>
   );
 }

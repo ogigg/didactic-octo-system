@@ -1,33 +1,31 @@
-import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { StyleSheet, Text, View } from "react-native";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Spacing, Typography } from "@/constants/theme";
-import { useThemeColor } from "@/hooks/use-theme-color";
 import type { MeasurementUnit } from "@/data/measurements";
-import type { MeasurementHistoryItem } from "@/lib/api/body-measurements";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
 
 interface StatHeaderProps {
   latestValue: number | null;
   unit: MeasurementUnit;
-  history: MeasurementHistoryItem[] | undefined;
+  trendData: MeasurementTrendPoint[] | undefined;
   label: string;
 }
 
 export function StatHeader({
   latestValue,
   unit,
-  history,
+  trendData,
   label,
 }: StatHeaderProps) {
   const { t } = useTranslation("measurements");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
   const primary = useThemeColor({}, "primary");
-  const success = useThemeColor({}, "success");
-  const error = useThemeColor({}, "error");
 
-  const delta = computeDelta(history);
+  const delta = computeDelta(trendData);
 
   return (
     <View style={styles.container}>
@@ -85,12 +83,15 @@ interface Delta {
 }
 
 function computeDelta(
-  history: MeasurementHistoryItem[] | undefined
+  history: MeasurementTrendPoint[] | undefined
 ): Delta | null {
   if (!history || history.length < 2) return null;
-  const latest = history[0].value;
-  const previous = history[1].value;
-  const diff = latest - previous;
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  const oldest = sorted[0].value;
+  const latest = sorted[sorted.length - 1].value;
+  const diff = latest - oldest;
   if (diff === 0) return null;
   return {
     amount: Math.abs(diff),
