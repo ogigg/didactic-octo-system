@@ -52,15 +52,14 @@ export function ScreenHeader({
 
 const styles = StyleSheet.create({
   header: {
+    display: "flex",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
   },
   headerTitle: {
-    flex: 1,
+    flexGrow: 1,
     textAlign: "center",
     marginHorizontal: Spacing.sm,
   },
