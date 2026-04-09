@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { OptionChips } from "@/components/generate-workout/option-chips";
 import { Button } from "@/components/ui/button";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { sendFeedback } from "@/lib/api/feedback";
@@ -89,6 +90,7 @@ export default function FeedbackScreen() {
       ]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         <ScreenHeader
           title={t("header.title")}

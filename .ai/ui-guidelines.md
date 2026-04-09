@@ -276,7 +276,15 @@ The left `BackButton` and right spacer share the same width so the title is opti
 
 Soft radial gradients placed behind key content areas (timer overlay, hero sections). Uses `glow` token. Implement via `expo-linear-gradient` (RadialGradient) or a blurred `View` with the glow color. Positioned absolutely, offset from center for organic feel.
 
----
+**Implementation:** Use the `<AmbientGlow />` component from `@/components/ambient-glow`.
+
+**Variants:**
+
+- **`hero`**: Large blobs (280px, 200px, 160px) — for hero/content-heavy screens like Home
+- **`subtle`**: Smaller blobs (200px, 160px) — for list-based screens like History, Settings
+- **`timer`**: Medium blobs — for rest timer overlay
+
+**Usage:** Add `<AmbientGlow variant="..." />` as the first child of the root `View` in every screen. Always include it — the root layout already has one, but screen-level variants can add depth on top.
 
 ## Accessibility
 

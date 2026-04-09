@@ -1,16 +1,17 @@
+import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutHistoryCard } from "@/components/history/workout-history-card";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   useWorkoutHistory,
   useWorkoutHistoryForDay,
 } from "@/hooks/use-workout-queries";
-import { Spacing, Typography } from "@/constants/theme";
 import type { WorkoutHistoryItem } from "@/lib/api/workouts";
 import { isValidDateKey } from "@/lib/local-day-bounds";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useTranslation } from "react-i18next";
 import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   FlatList,
@@ -134,6 +135,7 @@ export default function HistoryScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
+      <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         {/* Header */}
         <ScreenHeader

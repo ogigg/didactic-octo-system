@@ -21,6 +21,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { ProgressionPill } from "@/components/workout/progression-pill";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
@@ -324,6 +325,7 @@ export default function WorkoutPreviewScreen() {
   if (!workout || !workout.workout_data) {
     return (
       <View style={[styles.root, { backgroundColor: background }]}>
+        <AmbientGlow variant="subtle" />
         <SafeAreaProvider>
           <SafeAreaView style={styles.safe}>
             <ScreenHeader />
@@ -354,6 +356,7 @@ export default function WorkoutPreviewScreen() {
       style={[styles.root, { backgroundColor: background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <AmbientGlow variant="subtle" />
       <SafeAreaProvider>
         <SafeAreaView style={styles.safe}>
           {/* Header */}

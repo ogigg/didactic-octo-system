@@ -1,7 +1,9 @@
+import { AmbientGlow } from "@/components/ambient-glow";
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
+import { BackButton } from "@/components/ui/back-button";
+import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
-import { Radii, Spacing, Typography } from "@/constants/theme";
 import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useLocalSearchParams } from "expo-router";
@@ -15,7 +17,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BackButton } from "@/components/ui/back-button";
 
 function formatDuration(
   startedAt: string | null,
@@ -105,6 +106,7 @@ export default function WorkoutDetailScreen() {
   if (isLoading || !detail) {
     return (
       <View style={[styles.root, { backgroundColor: background }]}>
+        <AmbientGlow variant="subtle" />
         <SafeAreaView style={styles.safe}>
           <View style={[styles.topBar, { borderBottomColor: border }]}>
             <BackButton />
@@ -119,6 +121,7 @@ export default function WorkoutDetailScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
+      <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         {/* Top bar */}
         <View style={[styles.topBar, { borderBottomColor: border }]}>

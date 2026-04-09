@@ -15,6 +15,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { Button } from "@/components/ui/button";
 import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
 import { StrengthBaselineForm } from "@/components/strength-baseline-form";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useProfile } from "@/hooks/use-profile-query";
@@ -91,6 +92,7 @@ export default function StrengthBaselinesScreen() {
       style={[styles.root, { backgroundColor: background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         {/* Header */}
         <ScreenHeader

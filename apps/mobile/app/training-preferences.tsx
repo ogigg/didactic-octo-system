@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { OptionChips } from "@/components/generate-workout/option-chips";
 import { CustomPromptInput } from "@/components/generate-workout/custom-prompt-input";
 import { PromptSuggestions } from "@/components/generate-workout/prompt-suggestions";
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useProfile } from "@/hooks/use-profile-query";
@@ -190,6 +191,7 @@ export default function TrainingPreferencesScreen() {
       style={[styles.root, { backgroundColor: background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         {/* Header */}
         <ScreenHeader
