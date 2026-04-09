@@ -53,10 +53,11 @@ export function registerSyncHandlers(): void {
   );
   syncQueue.registerHandler("save_workout", handleSaveWorkout);
   syncQueue.registerHandler("upsert_measurement", (payload: unknown) => {
-    const { loggedAt, fields } = payload as {
+    const { loggedAt, fields, originalLoggedAt } = payload as {
       loggedAt: string;
       fields: MeasurementInput;
+      originalLoggedAt?: string;
     };
-    return upsertMeasurement(loggedAt, fields);
+    return upsertMeasurement(loggedAt, fields, originalLoggedAt);
   });
 }

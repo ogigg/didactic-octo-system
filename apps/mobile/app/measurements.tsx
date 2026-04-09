@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -49,20 +50,32 @@ export default function MeasurementsScreen() {
   const [editModal, setEditModal] = useState<{
     visible: boolean;
     date: string;
+    originalDate: string;
     value: number;
-  }>({ visible: false, date: "", value: 0 });
+  }>({ visible: false, date: "", originalDate: "", value: 0 });
   const [selectedPoint, setSelectedPoint] =
     useState<MeasurementTrendPoint | null>(null);
 
-  const { data: trendData, isLoading: trendLoading } = useMeasurementTrend(
-    selectedField,
-    period
-  );
-  const { data: latestData } = useLatestMeasurements();
-  const { data: historyData, isLoading: historyLoading } =
-    useMeasurementHistory(selectedField);
+  const {
+    data: trendData,
+    isLoading: trendLoading,
+    refetch: refetchTrend,
+  } = useMeasurementTrend(selectedField, period);
+  const { data: latestData, refetch: refetchLatest } = useLatestMeasurements();
+  const {
+    data: historyData,
+    isLoading: historyLoading,
+    refetch: refetchHistory,
+  } = useMeasurementHistory(selectedField);
   const upsertMutation = useUpsertMeasurement();
   const deleteMutation = useDeleteMeasurement();
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setIsManualRefreshing(true);
+    await Promise.all([refetchTrend(), refetchLatest(), refetchHistory()]);
+    setIsManualRefreshing(false);
+  }, [refetchTrend, refetchLatest, refetchHistory]);
 
   const unit = getMeasurementUnit(selectedField);
   const latestValue = latestData?.[selectedField] ?? null;
@@ -78,15 +91,21 @@ export default function MeasurementsScreen() {
   }
 
   function handleEditEntry(entry: { date: string; value: number }) {
-    setEditModal({ visible: true, date: entry.date, value: entry.value });
+    setEditModal({
+      visible: true,
+      date: entry.date,
+      originalDate: entry.date,
+      value: entry.value,
+    });
   }
 
   function handleEditSave(date: string, value: number) {
     upsertMutation.mutate({
       loggedAt: date,
+      originalLoggedAt: editModal.originalDate,
       fields: { [selectedField]: value },
     });
-    setEditModal({ visible: false, date: "", value: 0 });
+    setEditModal({ visible: false, date: "", originalDate: "", value: 0 });
   }
 
   function handleDelete(loggedAt: string) {
@@ -103,6 +122,12 @@ export default function MeasurementsScreen() {
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isManualRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
         >
           <ScreenHeader title={t("title")} />
 
@@ -118,7 +143,7 @@ export default function MeasurementsScreen() {
             <StatHeader
               latestValue={latestValue}
               unit={unit}
-              history={historyData}
+              trendData={trendData}
               label={fieldLabel}
             />
 

@@ -144,7 +144,8 @@ export async function fetchLatestMeasurements(): Promise<LatestMeasurements> {
 
 export async function upsertMeasurement(
   loggedAt: string,
-  fields: MeasurementInput
+  fields: MeasurementInput,
+  originalLoggedAt?: string
 ): Promise<void> {
   const userId = await getAuthenticatedUserId();
 
@@ -153,6 +154,49 @@ export async function upsertMeasurement(
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) {
       cleanFields[key] = value;
+    }
+  }
+
+  // If date changed, update the existing entry's date instead of creating new + deleting
+  if (originalLoggedAt && originalLoggedAt !== loggedAt) {
+    // First check if there's already an entry at the new date
+    const { data: existingEntry } = await supabase
+      .from("body_measurements")
+      .select("logged_at")
+      .match({ user_id: userId, logged_at: loggedAt })
+      .single();
+
+    if (existingEntry) {
+      // New date already exists - merge by updating the existing entry
+      const { error: mergeError } = await supabase
+        .from("body_measurements")
+        .update(cleanFields)
+        .match({ user_id: userId, logged_at: loggedAt });
+
+      if (mergeError) {
+        throw new Error(mergeError.message);
+      }
+
+      // Delete the old entry
+      const { error: deleteError } = await supabase
+        .from("body_measurements")
+        .delete()
+        .match({ user_id: userId, logged_at: originalLoggedAt });
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+      return;
+    }
+
+    // No entry at new date - just update the date of existing entry
+    const { error: updateError } = await supabase
+      .from("body_measurements")
+      .update({ logged_at: loggedAt })
+      .match({ user_id: userId, logged_at: originalLoggedAt });
+
+    if (updateError) {
+      throw new Error(updateError.message);
     }
   }
 

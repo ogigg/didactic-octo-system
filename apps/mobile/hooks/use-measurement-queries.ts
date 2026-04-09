@@ -39,29 +39,31 @@ export function useMeasurementTrend(
 ): {
   data: MeasurementTrendPoint[] | undefined;
   isLoading: boolean;
+  refetch: () => Promise<unknown>;
 } {
   const fromDate = useMemo(() => computeFromDate(period), [period]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: measurementKeys.trend(field, fromDate),
     queryFn: () => fetchMeasurementTrend(field, fromDate),
     staleTime: 5 * 60 * 1000,
   });
 
-  return { data, isLoading };
+  return { data, isLoading, refetch };
 }
 
 export function useLatestMeasurements(): {
   data: LatestMeasurements | undefined;
   isLoading: boolean;
+  refetch: () => Promise<unknown>;
 } {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: measurementKeys.latest(),
     queryFn: () => fetchLatestMeasurements(),
     staleTime: 10 * 60 * 1000,
   });
 
-  return { data, isLoading };
+  return { data, isLoading, refetch };
 }
 
 export function useUpsertMeasurement() {
@@ -69,8 +71,12 @@ export function useUpsertMeasurement() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (input: { loggedAt: string; fields: MeasurementInput }) =>
-      upsertMeasurement(input.loggedAt, input.fields),
+    mutationFn: (input: {
+      loggedAt: string;
+      originalLoggedAt?: string;
+      fields: MeasurementInput;
+    }) =>
+      upsertMeasurement(input.loggedAt, input.fields, input.originalLoggedAt),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: measurementKeys.all });
     },
@@ -87,14 +93,15 @@ export function useUpsertMeasurement() {
 export function useMeasurementHistory(field: MeasurementField): {
   data: MeasurementHistoryItem[] | undefined;
   isLoading: boolean;
+  refetch: () => Promise<unknown>;
 } {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: measurementKeys.history(field),
     queryFn: () => fetchMeasurementHistory(field),
     staleTime: 5 * 60 * 1000,
   });
 
-  return { data, isLoading };
+  return { data, isLoading, refetch };
 }
 
 export function useDeleteMeasurement() {
