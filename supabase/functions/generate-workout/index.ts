@@ -9,6 +9,10 @@ import {
   type QueueContextItem,
   type StrengthBaseline,
 } from "../_shared/generator.ts";
+import {
+  checkGenerationAllowance,
+  recordGenerationUsage,
+} from "../_shared/subscription.ts";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -138,7 +142,31 @@ Deno.serve(async (req: Request) => {
     } = parsed.data;
     pendingWorkoutIdForRecovery = pending_workout_id ?? null;
 
-    // 3. Rate limiting (skip for pending workout regeneration — has its own daily limit)
+    // 3. Generation allowance check (pending workout regeneration only — not used for direct generation)
+    if (pending_workout_id) {
+      const allowance = await checkGenerationAllowance(
+        supabaseClient,
+        user.id,
+        1
+      );
+
+      if (!allowance.allowed) {
+        console.log(
+          `[generate-workout] Limit reached for user ${user.id}: ${allowance.used}/5 used`
+        );
+        return jsonResponse(
+          {
+            error: "generation_limit_reached",
+            used: allowance.used,
+            remaining: allowance.remaining,
+            tier: allowance.tier,
+          },
+          403
+        );
+      }
+    }
+
+    // 4. Rate limiting (skip for pending workout regeneration — has its own daily limit)
     if (!pending_workout_id) {
       const { data: recentSession } = await userClient
         .from("workout_sessions")
@@ -164,7 +192,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 4. Daily regeneration limit for pending workouts
+    // 5. Daily regeneration limit for pending workouts
     if (pending_workout_id) {
       const { data: pendingWorkout } = await userClient
         .from("pending_workouts")
@@ -208,7 +236,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 5. Fetch profile
+    // 6. Fetch profile
     const { data: profile, error: profileError } = await userClient
       .from("profiles")
       .select("goal, custom_goal, weekly_frequency, gender")
@@ -224,7 +252,7 @@ Deno.serve(async (req: Request) => {
 
     const profileGoal: string = profile.goal ?? "improve_fitness";
 
-    // 6. Fetch recent workout history (last 4 completed sessions)
+    // 7. Fetch recent workout history (last 4 completed sessions)
     const { data: recentSessions } = await userClient
       .from("workout_sessions")
       .select("id")
@@ -244,7 +272,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 7. Fetch strength baselines
+    // 8. Fetch strength baselines
     const { data: baselines } = await userClient
       .from("strength_baselines")
       .select("exercise_key, load_kg, reps")
@@ -253,7 +281,7 @@ Deno.serve(async (req: Request) => {
     const strengthBaselines: StrengthBaseline[] =
       (baselines as StrengthBaseline[] | null) ?? [];
 
-    // 8. Fetch queue context (other pending workouts — for exercise variety during regeneration)
+    // 9. Fetch queue context (other pending workouts — for exercise variety during regeneration)
     let queueContext: QueueContextItem[] | undefined;
     if (pending_workout_id) {
       const { data: otherPending } = await userClient
@@ -273,7 +301,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 9. Fetch exercise preferences
+    // 10. Fetch exercise preferences
     const { data: prefRows } = await userClient
       .from("exercise_preferences")
       .select("exercise_id, preference")
@@ -282,7 +310,7 @@ Deno.serve(async (req: Request) => {
     const exercisePreferences: ExercisePreference[] =
       (prefRows as ExercisePreference[] | null) ?? [];
 
-    // 10. Generate workout
+    // 11. Generate workout
     const result = await generateSingleWorkout({
       supabaseClient: userClient,
       userId: user.id,
@@ -314,7 +342,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse(result.error ?? "Workout generation failed", 500);
     }
 
-    // 10. If regenerating a pending workout, update it
+    // 12. If regenerating a pending workout, update it
     if (pending_workout_id) {
       const { error: updateError } = await userClient
         .from("pending_workouts")
@@ -349,6 +377,11 @@ Deno.serve(async (req: Request) => {
       exerciseCount: result.data.exercises.length,
       pendingWorkoutRegenerated: !!pending_workout_id,
     });
+
+    // Record usage for pending workout regeneration
+    if (pending_workout_id) {
+      await recordGenerationUsage(supabaseClient, user.id, "regeneration", 1);
+    }
 
     return jsonResponse(result.data);
   } catch (err) {

@@ -14,6 +14,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutQueue } from "@/components/workout-queue";
+import { UsageIndicator } from "@/components/subscription/usage-indicator";
+import { Paywall } from "@/components/subscription/paywall";
 import {
   CreateWorkoutCard,
   WorkoutTemplateCard,
@@ -228,6 +230,9 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          {/* AI Generation usage (free users only) */}
+          <UsageIndicator />
+
           {/* Active Workout (if in-progress, show above queue) */}
           {isWorkoutActive && (
             <WorkoutPlanCard
@@ -287,6 +292,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
+      <Paywall />
     </View>
   );
 }

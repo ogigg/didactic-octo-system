@@ -68,3 +68,8 @@ export const measurementKeys = {
   history: (field: string) =>
     [...measurementKeys.all, "history", field] as const,
 };
+
+export const subscriptionKeys = {
+  all: ["subscription"] as const,
+  usage: () => [...subscriptionKeys.all, "usage"] as const,
+};

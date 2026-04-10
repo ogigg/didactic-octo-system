@@ -17,6 +17,7 @@ import { exerciseDetail } from "./locales/en/exercise-detail";
 import { exercisePreference } from "./locales/en/exercise-preference";
 import { measurements } from "./locales/en/measurements";
 import { feedback } from "./locales/en/feedback";
+import { subscription } from "./locales/en/subscription";
 
 export const resources = {
   en: {
@@ -39,6 +40,7 @@ export const resources = {
     exercisePreference,
     measurements,
     feedback,
+    subscription,
   },
 } as const;
 

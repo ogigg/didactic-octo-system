@@ -40,13 +40,20 @@ interface NavItem {
     | "clock.arrow.circlepath"
     | "gearshape.fill"
     | "flame.fill"
-    | "megaphone.fill";
+    | "megaphone.fill"
+    | "star.fill";
   labelKey: string;
   disabled: boolean;
   route?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    icon: "star.fill",
+    labelKey: "nav.subscription",
+    disabled: false,
+    route: "/subscription",
+  },
   {
     icon: "chart.bar.fill",
     labelKey: "nav.statistics",

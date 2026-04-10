@@ -10,6 +10,10 @@ import {
   type QueueContextItem,
   type StrengthBaseline,
 } from "../_shared/generator.ts";
+import {
+  checkGenerationAllowance,
+  recordGenerationUsage,
+} from "../_shared/subscription.ts";
 
 // ---------------------------------------------------------------------------
 // Request Schema
@@ -139,7 +143,31 @@ Deno.serve(async (req: Request) => {
     const exercisePreferences: ExercisePreference[] =
       (prefRows as ExercisePreference[] | null) ?? [];
 
-    // 7. Check for concurrent generation — skip if already in progress
+    // 7. Generation allowance check (skip for onboarding — free pass)
+    if (trigger === "preference_change") {
+      const allowance = await checkGenerationAllowance(
+        supabaseClient,
+        user.id,
+        count
+      );
+
+      if (!allowance.allowed) {
+        console.log(
+          `[generate-workout-queue] Limit reached for user ${user.id}: ${allowance.used}/5 used`
+        );
+        return jsonResponse(
+          {
+            error: "generation_limit_reached",
+            used: allowance.used,
+            remaining: allowance.remaining,
+            tier: allowance.tier,
+          },
+          403
+        );
+      }
+    }
+
+    // 8. Check for concurrent generation — skip if already in progress
     const { data: existingQueue } = await userClient
       .from("pending_workouts")
       .select("id, status")
@@ -159,7 +187,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 8. Clear existing pending workouts for this user
+    // 9. Clear existing pending workouts for this user
     const { error: deleteError } = await userClient
       .from("pending_workouts")
       .delete()
@@ -173,7 +201,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Failed to clear existing queue", 500);
     }
 
-    // 9. Create N pending_workout rows with status 'queued'
+    // 10. Create N pending_workout rows with status 'queued'
     const queuedWorkouts = Array.from({ length: count }, (_, i) => ({
       user_id: user.id,
       queue_position: i + 1,
@@ -194,7 +222,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Failed to create workout queue", 500);
     }
 
-    // 10. Generate each workout sequentially
+    // 11. Generate each workout sequentially
     const results: {
       position: number;
       status: string;
@@ -287,6 +315,21 @@ Deno.serve(async (req: Request) => {
       `[generate-workout-queue] Complete for user ${user.id}:`,
       results
     );
+
+    // Record usage for non-onboarding triggers
+    if (trigger !== "onboarding") {
+      const successfulCount = results.filter(
+        (r) => r.status === "ready"
+      ).length;
+      if (successfulCount > 0) {
+        await recordGenerationUsage(
+          supabaseClient,
+          user.id,
+          "preference_change",
+          successfulCount
+        );
+      }
+    }
 
     return jsonResponse({ success: true, count, trigger, results });
   } catch (err) {

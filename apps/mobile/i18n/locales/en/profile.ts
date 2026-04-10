@@ -10,6 +10,7 @@ export const profile = {
     unitMinutes: "min",
   },
   nav: {
+    subscription: "Subscription",
     statistics: "Statistics",
     calendar: "Calendar",
     measures: "Measures",

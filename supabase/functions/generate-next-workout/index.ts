@@ -10,6 +10,10 @@ import {
   type QueueContextItem,
   type StrengthBaseline,
 } from "../_shared/generator.ts";
+import {
+  checkGenerationAllowance,
+  recordGenerationUsage,
+} from "../_shared/subscription.ts";
 
 // ---------------------------------------------------------------------------
 // Request Schema
@@ -86,9 +90,25 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ skipped: true, reason: "training_not_set_up" });
     }
 
+    // 4. Check generation allowance — silently skip if limit reached
+    const allowance = await checkGenerationAllowance(
+      supabaseClient,
+      user_id,
+      1
+    );
+    if (!allowance.allowed) {
+      console.log(
+        `[generate-next-workout] Generation limit reached for user ${user_id}: ${allowance.used}/5 used this week. Skipping.`
+      );
+      return jsonResponse({
+        skipped: true,
+        reason: "generation_limit_reached",
+      });
+    }
+
     const targetCount = FREQUENCY_MAP[profile.weekly_frequency] ?? 4;
 
-    // 4. Get current pending_workouts
+    // 5. Get current pending_workouts
     const { data: currentQueue } = await supabaseClient
       .from("pending_workouts")
       .select("id, queue_position, status, focus_area, workout_data")
@@ -97,7 +117,7 @@ Deno.serve(async (req: Request) => {
 
     const currentCount = currentQueue?.length ?? 0;
 
-    // If queue is already full, no replacement needed
+    // If queue is already full, no replacement needed — renumbered from step 4
     if (currentCount >= targetCount) {
       console.log(
         `[generate-next-workout] Queue full (${currentCount}/${targetCount}), skipping`
@@ -244,6 +264,8 @@ Deno.serve(async (req: Request) => {
     console.log(
       `[generate-next-workout] Replacement generated: user ${user_id}, position ${targetPosition}, focus ${focusArea}`
     );
+
+    await recordGenerationUsage(supabaseClient, user_id, "auto_completion", 1);
 
     return jsonResponse({
       success: true,

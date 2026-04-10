@@ -9,6 +9,22 @@ import type {
 } from "@/lib/api/generate-workout";
 import { generateWorkoutResponseSchema } from "@/lib/api/generate-workout";
 import { supabase } from "@/lib/supabase";
+import type { GenerationLimitError } from "@/lib/api/subscription";
+
+export class GenerationLimitReachedError extends Error {
+  readonly code = "generation_limit_reached" as const;
+  readonly used: number;
+  readonly remaining: number;
+  readonly tier: string;
+
+  constructor(payload: GenerationLimitError) {
+    super("Weekly generation limit reached");
+    this.name = "GenerationLimitReachedError";
+    this.used = payload.used;
+    this.remaining = payload.remaining;
+    this.tier = payload.tier;
+  }
+}
 
 // -----------------------------------------------------------------------------
 // Types
@@ -173,11 +189,26 @@ export interface WorkoutGenerationPreferences {
 export async function triggerQueueGeneration(
   request: QueueGenerationRequest
 ): Promise<void> {
-  const { error } = await supabase.functions.invoke("generate-workout-queue", {
-    body: request,
-  });
+  const { data, error } = await supabase.functions.invoke(
+    "generate-workout-queue",
+    { body: request }
+  );
 
   if (error) {
+    const body = data as {
+      error?: string;
+      used?: number;
+      remaining?: number;
+      tier?: string;
+    } | null;
+    if (body?.error === "generation_limit_reached") {
+      throw new GenerationLimitReachedError({
+        code: "generation_limit_reached",
+        used: body.used ?? 5,
+        remaining: body.remaining ?? 0,
+        tier: body.tier ?? "free",
+      });
+    }
     throw new Error(error.message);
   }
 }
@@ -201,6 +232,20 @@ export async function triggerRegeneration(
   });
 
   if (error) {
+    const body = data as {
+      error?: string;
+      used?: number;
+      remaining?: number;
+      tier?: string;
+    } | null;
+    if (body?.error === "generation_limit_reached") {
+      throw new GenerationLimitReachedError({
+        code: "generation_limit_reached",
+        used: body.used ?? 5,
+        remaining: body.remaining ?? 0,
+        tier: body.tier ?? "free",
+      });
+    }
     throw new Error(error.message);
   }
 
