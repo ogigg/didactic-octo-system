@@ -13,10 +13,13 @@ import {
   triggerQueueGeneration,
   triggerRegeneration,
   updatePendingWorkoutEdits,
+  GenerationLimitReachedError,
   type PendingWorkout,
   type QueueGenerationRequest,
   type WorkoutGenerationPreferences,
 } from "@/lib/api/pending-workouts";
+import { usePaywallStore } from "@/stores/paywall-store";
+import { subscriptionKeys } from "@/lib/query-keys";
 import {
   buildFallbackPendingWorkoutData,
   isPendingWorkoutStale,
@@ -392,6 +395,7 @@ export function useRegenerateWorkout() {
   const clearWorkoutRegenerating = usePendingWorkoutStore(
     (s) => s.clearWorkoutRegenerating
   );
+  const openPaywall = usePaywallStore((s) => s.open);
 
   return useMutation({
     mutationFn: async (pendingWorkout: PendingWorkout) => {
@@ -446,8 +450,9 @@ export function useRegenerateWorkout() {
       });
 
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
-    onError: (_error, pendingWorkout, context) => {
+    onError: (error, pendingWorkout, context) => {
       clearWorkoutRegenerating(pendingWorkout.id);
 
       if (context?.previousQueue) {
@@ -458,6 +463,12 @@ export function useRegenerateWorkout() {
       }
 
       void setPendingWorkoutStatus(pendingWorkout.id, pendingWorkout.status);
+
+      if (error instanceof GenerationLimitReachedError) {
+        queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
+        openPaywall(error.used, 5);
+        return;
+      }
 
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
     },
@@ -590,6 +601,7 @@ export function useRebuildQueue() {
   const clearQueueGenerationContext = usePendingWorkoutStore(
     (s) => s.clearQueueGenerationContext
   );
+  const openPaywall = usePaywallStore((s) => s.open);
 
   return useMutation({
     mutationFn: async (request: QueueGenerationRequest) => {
@@ -603,9 +615,14 @@ export function useRebuildQueue() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
-    onError: () => {
+    onError: (error) => {
       clearQueueGenerationContext();
+      if (error instanceof GenerationLimitReachedError) {
+        queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
+        openPaywall(error.used, 5);
+      }
     },
   });
 }
