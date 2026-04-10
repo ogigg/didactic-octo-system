@@ -34,8 +34,8 @@ export function UsageIndicator() {
     width: `${progressWidth.value * 100}%`,
   }));
 
-  // Hidden for pro users or when no usage yet
-  if (tier === "pro" || isLoading || weeklyUsage === 0) return null;
+  // Hidden for pro users
+  if (tier === "pro" || isLoading) return null;
 
   const isAtLimit = weeklyUsage >= weeklyLimit;
   const isHigh = weeklyUsage >= weeklyLimit - 1;
