@@ -1,6 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  createJSONStorage,
+  persist,
+  subscribeWithSelector,
+} from "zustand/middleware";
 
 export interface WorkoutSet {
   id: string;
@@ -143,199 +147,203 @@ function makeEmptySet(): WorkoutSet {
 }
 
 export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
-  persist(
-    (set, get) => ({
-      ...initialState,
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
+        ...initialState,
 
-      startWorkout: (name, exercises, generationMeta) =>
-        set({
-          isActive: true,
-          workoutName: name,
-          exercises,
-          startedAtMs: Date.now(),
-          restTimer: null,
-          completedWorkoutSummary: null,
-          generationMeta: generationMeta ?? null,
-        }),
-
-      finishWorkout: () => {
-        const { workoutName, exercises, startedAtMs } = get();
-        const now = Date.now();
-        set({
-          isActive: false,
-          restTimer: null,
-          completedWorkoutSummary: {
-            workoutName,
-            durationMs: startedAtMs ? now - startedAtMs : 0,
+        startWorkout: (name, exercises, generationMeta) =>
+          set({
+            isActive: true,
+            workoutName: name,
             exercises,
-            finishedAtMs: now,
-          },
-        });
-      },
-
-      clearWorkout: () => set(initialState),
-
-      toggleSetComplete: (exerciseId, setId) => {
-        const { exercises } = get();
-        const exercise = exercises.find((e) => e.id === exerciseId);
-        const targetSet = exercise?.sets.find((s) => s.id === setId);
-        const willComplete = targetSet ? !targetSet.isCompleted : false;
-
-        set({
-          exercises: updateExerciseSets(exercises, exerciseId, (sets) =>
-            sets.map((s) =>
-              s.id === setId ? { ...s, isCompleted: !s.isCompleted } : s
-            )
-          ),
-        });
-
-        if (willComplete && exercise) {
-          get().startRestTimer(exerciseId);
-        }
-      },
-
-      updateSetField: (exerciseId, setId, field, value) =>
-        set((state) => ({
-          exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
-            sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s))
-          ),
-        })),
-
-      updateSetDuration: (exerciseId, setId, durationSeconds) =>
-        set((state) => ({
-          exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
-            sets.map((s) => (s.id === setId ? { ...s, durationSeconds } : s))
-          ),
-        })),
-
-      updateSetRpe: (exerciseId, setId, rpe) =>
-        set((state) => ({
-          exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
-            sets.map((s) => (s.id === setId ? { ...s, rpe } : s))
-          ),
-        })),
-
-      addSet: (exerciseId) =>
-        set((state) => ({
-          exercises: updateExerciseSets(state.exercises, exerciseId, (sets) => [
-            ...sets,
-            makeEmptySet(),
-          ]),
-        })),
-
-      removeSet: (exerciseId, setId) =>
-        set((state) => ({
-          exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
-            sets.filter((s) => s.id !== setId)
-          ),
-        })),
-
-      updateNotes: (exerciseId, notes) =>
-        set((state) => ({
-          exercises: state.exercises.map((ex) =>
-            ex.id === exerciseId ? { ...ex, notes } : ex
-          ),
-        })),
-
-      setExerciseDifficultyFeedback: (exerciseId, difficultyFeedback) =>
-        set((state) => ({
-          exercises: state.exercises.map((ex) =>
-            ex.id === exerciseId ? { ...ex, difficultyFeedback } : ex
-          ),
-          completedWorkoutSummary: state.completedWorkoutSummary
-            ? {
-                ...state.completedWorkoutSummary,
-                exercises: state.completedWorkoutSummary.exercises.map((ex) =>
-                  ex.id === exerciseId ? { ...ex, difficultyFeedback } : ex
-                ),
-              }
-            : state.completedWorkoutSummary,
-        })),
-
-      replaceExercise: (exerciseId, newExercise) =>
-        set((state) => ({
-          exercises: state.exercises.map((ex) =>
-            ex.id === exerciseId
-              ? {
-                  ...ex,
-                  id: newExercise.id,
-                  name: newExercise.name,
-                  exerciseType: newExercise.exerciseType ?? ex.exerciseType,
-                }
-              : ex
-          ),
-        })),
-
-      startRestTimer: (exerciseId) => {
-        const exercise = get().exercises.find((e) => e.id === exerciseId);
-        if (!exercise) return;
-        set({
-          restTimer: {
-            exerciseId,
             startedAtMs: Date.now(),
-            durationSeconds: exercise.restDurationSeconds,
-          },
-        });
-      },
+            restTimer: null,
+            completedWorkoutSummary: null,
+            generationMeta: generationMeta ?? null,
+          }),
 
-      adjustRestTimer: (deltaSeconds) =>
-        set((state) => {
-          if (!state.restTimer) return state;
-          return {
+        finishWorkout: () => {
+          const { workoutName, exercises, startedAtMs } = get();
+          const now = Date.now();
+          set({
+            isActive: false,
+            restTimer: null,
+            completedWorkoutSummary: {
+              workoutName,
+              durationMs: startedAtMs ? now - startedAtMs : 0,
+              exercises,
+              finishedAtMs: now,
+            },
+          });
+        },
+
+        clearWorkout: () => set(initialState),
+
+        toggleSetComplete: (exerciseId, setId) => {
+          const { exercises } = get();
+          const exercise = exercises.find((e) => e.id === exerciseId);
+          const targetSet = exercise?.sets.find((s) => s.id === setId);
+          const willComplete = targetSet ? !targetSet.isCompleted : false;
+
+          set({
+            exercises: updateExerciseSets(exercises, exerciseId, (sets) =>
+              sets.map((s) =>
+                s.id === setId ? { ...s, isCompleted: !s.isCompleted } : s
+              )
+            ),
+          });
+
+          if (willComplete && exercise) {
+            get().startRestTimer(exerciseId);
+          }
+        },
+
+        updateSetField: (exerciseId, setId, field, value) =>
+          set((state) => ({
+            exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
+              sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s))
+            ),
+          })),
+
+        updateSetDuration: (exerciseId, setId, durationSeconds) =>
+          set((state) => ({
+            exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
+              sets.map((s) => (s.id === setId ? { ...s, durationSeconds } : s))
+            ),
+          })),
+
+        updateSetRpe: (exerciseId, setId, rpe) =>
+          set((state) => ({
+            exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
+              sets.map((s) => (s.id === setId ? { ...s, rpe } : s))
+            ),
+          })),
+
+        addSet: (exerciseId) =>
+          set((state) => ({
+            exercises: updateExerciseSets(
+              state.exercises,
+              exerciseId,
+              (sets) => [...sets, makeEmptySet()]
+            ),
+          })),
+
+        removeSet: (exerciseId, setId) =>
+          set((state) => ({
+            exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
+              sets.filter((s) => s.id !== setId)
+            ),
+          })),
+
+        updateNotes: (exerciseId, notes) =>
+          set((state) => ({
+            exercises: state.exercises.map((ex) =>
+              ex.id === exerciseId ? { ...ex, notes } : ex
+            ),
+          })),
+
+        setExerciseDifficultyFeedback: (exerciseId, difficultyFeedback) =>
+          set((state) => ({
+            exercises: state.exercises.map((ex) =>
+              ex.id === exerciseId ? { ...ex, difficultyFeedback } : ex
+            ),
+            completedWorkoutSummary: state.completedWorkoutSummary
+              ? {
+                  ...state.completedWorkoutSummary,
+                  exercises: state.completedWorkoutSummary.exercises.map(
+                    (ex) =>
+                      ex.id === exerciseId ? { ...ex, difficultyFeedback } : ex
+                  ),
+                }
+              : state.completedWorkoutSummary,
+          })),
+
+        replaceExercise: (exerciseId, newExercise) =>
+          set((state) => ({
+            exercises: state.exercises.map((ex) =>
+              ex.id === exerciseId
+                ? {
+                    ...ex,
+                    id: newExercise.id,
+                    name: newExercise.name,
+                    exerciseType: newExercise.exerciseType ?? ex.exerciseType,
+                  }
+                : ex
+            ),
+          })),
+
+        startRestTimer: (exerciseId) => {
+          const exercise = get().exercises.find((e) => e.id === exerciseId);
+          if (!exercise) return;
+          set({
             restTimer: {
-              ...state.restTimer,
-              durationSeconds: Math.max(
-                15,
-                state.restTimer.durationSeconds + deltaSeconds
-              ),
+              exerciseId,
+              startedAtMs: Date.now(),
+              durationSeconds: exercise.restDurationSeconds,
             },
-          };
-        }),
+          });
+        },
 
-      skipRestTimer: () => set({ restTimer: null }),
+        adjustRestTimer: (deltaSeconds) =>
+          set((state) => {
+            if (!state.restTimer) return state;
+            return {
+              restTimer: {
+                ...state.restTimer,
+                durationSeconds: Math.max(
+                  15,
+                  state.restTimer.durationSeconds + deltaSeconds
+                ),
+              },
+            };
+          }),
 
-      addExercise: (exercise) =>
-        set((state) => ({
-          exercises: [
-            ...state.exercises,
-            {
-              id: exercise.id,
-              name: exercise.name,
-              exerciseType: exercise.exerciseType ?? "weight",
-              restDurationSeconds: 90,
-              notes: "",
-              difficultyFeedback: null,
-              sets: Array.from({ length: 3 }, makeEmptySet),
-            },
-          ],
-        })),
+        skipRestTimer: () => set({ restTimer: null }),
 
-      removeExercise: (exerciseId) =>
-        set((state) => ({
-          exercises: state.exercises.filter((ex) => ex.id !== exerciseId),
-        })),
+        addExercise: (exercise) =>
+          set((state) => ({
+            exercises: [
+              ...state.exercises,
+              {
+                id: exercise.id,
+                name: exercise.name,
+                exerciseType: exercise.exerciseType ?? "weight",
+                restDurationSeconds: 90,
+                notes: "",
+                difficultyFeedback: null,
+                sets: Array.from({ length: 3 }, makeEmptySet),
+              },
+            ],
+          })),
 
-      updateWorkoutName: (name) => set({ workoutName: name }),
-    }),
-    {
-      name: "active-workout-storage",
-      storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => (state, error) => {
-        if (error) {
-          console.warn("[workout-store] hydration failed, resetting:", error);
-          state?.clearWorkout();
-        } else if (state) {
-          // Migrate hydrated exercises to ensure new fields exist
-          state.exercises = state.exercises.map((ex) => ({
-            ...ex,
-            exerciseType: ex.exerciseType ?? "weight",
-            sets: ex.sets.map((s) => ({
-              ...s,
-              durationSeconds: s.durationSeconds ?? null,
-            })),
-          }));
-        }
-      },
-    }
+        removeExercise: (exerciseId) =>
+          set((state) => ({
+            exercises: state.exercises.filter((ex) => ex.id !== exerciseId),
+          })),
+
+        updateWorkoutName: (name) => set({ workoutName: name }),
+      }),
+      {
+        name: "active-workout-storage",
+        storage: createJSONStorage(() => AsyncStorage),
+        onRehydrateStorage: () => (state, error) => {
+          if (error) {
+            console.warn("[workout-store] hydration failed, resetting:", error);
+            state?.clearWorkout();
+          } else if (state) {
+            // Migrate hydrated exercises to ensure new fields exist
+            state.exercises = state.exercises.map((ex) => ({
+              ...ex,
+              exerciseType: ex.exerciseType ?? "weight",
+              sets: ex.sets.map((s) => ({
+                ...s,
+                durationSeconds: s.durationSeconds ?? null,
+              })),
+            }));
+          }
+        },
+      }
+    )
   )
 );

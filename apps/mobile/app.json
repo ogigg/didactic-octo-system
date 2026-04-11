@@ -5,11 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "sweaty",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ogig.sweaty"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.ogig.sweaty"
     },
     "web": {
       "output": "static",
@@ -28,6 +30,8 @@
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
+      "@bacons/apple-targets",
+      "./plugins/with-live-activities-plist.cjs",
       [
         "expo-splash-screen",
         {
