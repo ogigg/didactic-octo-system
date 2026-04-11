@@ -19,6 +19,13 @@ export const history = {
   detail: {
     muscleDistribution: "Muscle Distribution",
     noMuscleData: "No muscle data available",
+    heartRate: {
+      title: "Heart Rate",
+      unit: "bpm",
+      avg: "Avg",
+      min: "Min",
+      max: "Max",
+    },
     summary: {
       duration: "Duration",
       volume: "Volume",

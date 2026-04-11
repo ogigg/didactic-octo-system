@@ -24,3 +24,12 @@ export type HealthWriteResult =
       reason: "no-permission" | "unavailable" | "error";
       error?: unknown;
     };
+
+/**
+ * A single heart rate sample read from the platform health store.
+ * `timestamp` is the sample's start time; `bpm` is the value in beats/min.
+ */
+export interface HeartRateSample {
+  timestamp: Date;
+  bpm: number;
+}

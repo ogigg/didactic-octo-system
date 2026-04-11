@@ -73,6 +73,13 @@ export const workout = {
       title: "Muscles Worked",
     },
     muscleDistribution: "Muscle Distribution",
+    heartRate: {
+      title: "Heart Rate",
+      unit: "bpm",
+      avg: "Avg",
+      min: "Min",
+      max: "Max",
+    },
     stats: {
       exercises: "Exercises",
       sets: "Sets",

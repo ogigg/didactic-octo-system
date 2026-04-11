@@ -1,10 +1,14 @@
 import AppleHealthKit, { type HealthKitPermissions } from "react-native-health";
 
-import type { HealthWorkoutPayload, HealthWriteResult } from "./types";
+import type {
+  HealthWorkoutPayload,
+  HealthWriteResult,
+  HeartRateSample,
+} from "./types";
 
 const PERMISSIONS: HealthKitPermissions = {
   permissions: {
-    read: [],
+    read: [AppleHealthKit.Constants.Permissions.HeartRate],
     write: [AppleHealthKit.Constants.Permissions.Workout],
   },
 };
@@ -68,6 +72,44 @@ export async function writeWorkoutIOS(
         }
         // result is the UUID string of the inserted HKWorkout
         resolve({ ok: true, externalId: String(result) });
+      }
+    );
+  });
+}
+
+export async function readHeartRateSamplesIOS(
+  startedAt: Date,
+  endedAt: Date
+): Promise<HeartRateSample[]> {
+  try {
+    await initOnce();
+  } catch {
+    return [];
+  }
+
+  return new Promise((resolve) => {
+    AppleHealthKit.getHeartRateSamples(
+      {
+        startDate: startedAt.toISOString(),
+        endDate: endedAt.toISOString(),
+        unit: AppleHealthKit.Constants.Units.bpm,
+        ascending: true,
+      },
+      (error, results) => {
+        if (error || !Array.isArray(results)) {
+          resolve([]);
+          return;
+        }
+        const samples: HeartRateSample[] = [];
+        for (const r of results) {
+          const bpm = Number(r?.value);
+          const ts = r?.startDate ? new Date(r.startDate) : null;
+          if (!Number.isFinite(bpm) || bpm <= 0 || !ts || isNaN(ts.getTime())) {
+            continue;
+          }
+          samples.push({ timestamp: ts, bpm });
+        }
+        resolve(samples);
       }
     );
   });

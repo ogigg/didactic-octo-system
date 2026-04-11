@@ -11,12 +11,14 @@ import type {
   HealthPermissionStatus,
   HealthWorkoutPayload,
   HealthWriteResult,
+  HeartRateSample,
 } from "./types";
 
 export type {
   HealthPermissionStatus,
   HealthWorkoutPayload,
   HealthWriteResult,
+  HeartRateSample,
 } from "./types";
 export { getCachedPermissionStatus, setCachedPermissionStatus };
 
@@ -57,6 +59,22 @@ export async function writeWorkout(
     return writeWorkoutAndroid(payload);
   }
   return { ok: false, reason: "unavailable" };
+}
+
+/**
+ * Read heart rate samples recorded in the platform health store within the
+ * given window. iOS-only for now — Android returns an empty array. Never
+ * throws; returns `[]` on permission errors or missing data.
+ */
+export async function readHeartRateSamples(
+  startedAt: Date,
+  endedAt: Date
+): Promise<HeartRateSample[]> {
+  if (Platform.OS === "ios") {
+    const { readHeartRateSamplesIOS } = await import("./ios");
+    return readHeartRateSamplesIOS(startedAt, endedAt);
+  }
+  return [];
 }
 
 export async function deleteWorkout(

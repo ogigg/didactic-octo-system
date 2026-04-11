@@ -1,7 +1,9 @@
 import { AmbientGlow } from "@/components/ambient-glow";
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { BackButton } from "@/components/ui/back-button";
+import { HeartRateChart } from "@/components/workout/heart-rate-chart";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import type { WorkoutDetail } from "@/lib/api/workouts";
@@ -89,6 +91,20 @@ export default function WorkoutDetailScreen() {
   const textDisabled = useThemeColor({}, "textDisabled");
 
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
+
+  // Heart rate (cache-only read from Apple Health, iOS-only)
+  const hrStartedAt = useMemo(
+    () => (detail?.started_at ? new Date(detail.started_at) : null),
+    [detail?.started_at]
+  );
+  const hrEndedAt = useMemo(
+    () => (detail?.completed_at ? new Date(detail.completed_at) : null),
+    [detail?.completed_at]
+  );
+  const { data: heartRateSamples } = useHeartRateSamples(
+    hrStartedAt,
+    hrEndedAt
+  );
 
   const muscleSegments = useMemo(() => {
     if (!detail) return [];
@@ -281,6 +297,22 @@ export default function WorkoutDetailScreen() {
               </View>
             ))}
           </View>
+
+          {heartRateSamples &&
+            heartRateSamples.length > 0 &&
+            hrStartedAt &&
+            hrEndedAt && (
+              <HeartRateChart
+                samples={heartRateSamples}
+                startedAt={hrStartedAt}
+                endedAt={hrEndedAt}
+                title={t("detail.heartRate.title")}
+                avgLabel={t("detail.heartRate.avg")}
+                minLabel={t("detail.heartRate.min")}
+                maxLabel={t("detail.heartRate.max")}
+                unitLabel={t("detail.heartRate.unit")}
+              />
+            )}
 
           <MuscleDistributionCard
             segments={muscleSegments}

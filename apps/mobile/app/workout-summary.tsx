@@ -1,4 +1,6 @@
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
+import { HeartRateChart } from "@/components/workout/heart-rate-chart";
+import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -329,6 +331,21 @@ export default function WorkoutSummaryScreen() {
     isLoading: statsLoading,
   } = useWorkoutStats(summary?.finishedAtMs ?? Date.now());
 
+  // Heart rate (cache-only read from Apple Health, iOS-only)
+  const hrStartedAt = useMemo(
+    () =>
+      summary ? new Date(summary.finishedAtMs - summary.durationMs) : null,
+    [summary]
+  );
+  const hrEndedAt = useMemo(
+    () => (summary ? new Date(summary.finishedAtMs) : null),
+    [summary]
+  );
+  const { data: heartRateSamples } = useHeartRateSamples(
+    hrStartedAt,
+    hrEndedAt
+  );
+
   const muscleSegments = useMemo(() => {
     if (!summary) return [];
     return aggregateMuscleDistribution(
@@ -573,6 +590,25 @@ export default function WorkoutSummaryScreen() {
                 )}
               </Animated.View>
             )}
+
+            {/* ── 3.5 HEART RATE (iOS only, cache-only) ── */}
+            {heartRateSamples &&
+              heartRateSamples.length > 0 &&
+              hrStartedAt &&
+              hrEndedAt && (
+                <Animated.View entering={anim2}>
+                  <HeartRateChart
+                    samples={heartRateSamples}
+                    startedAt={hrStartedAt}
+                    endedAt={hrEndedAt}
+                    title={t("summary.heartRate.title")}
+                    avgLabel={t("summary.heartRate.avg")}
+                    minLabel={t("summary.heartRate.min")}
+                    maxLabel={t("summary.heartRate.max")}
+                    unitLabel={t("summary.heartRate.unit")}
+                  />
+                </Animated.View>
+              )}
 
             {/* ── 4. SESSION STATS ROW ── */}
             <Animated.View entering={anim3} style={styles.statsRow}>
