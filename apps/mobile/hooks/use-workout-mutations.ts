@@ -10,6 +10,7 @@ import {
   upsertSessionSets,
   upsertSetLog,
 } from "@/lib/api/workouts";
+import { promptAndSyncWorkout } from "@/lib/health/prompt";
 import {
   calendarKeys,
   statsKeys,
@@ -57,11 +58,23 @@ export function useSaveCompletedWorkout() {
 
       return session;
     },
-    onSuccess: () => {
+    onSuccess: (session, variables) => {
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
       queryClient.invalidateQueries({ queryKey: calendarKeys.all });
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
+
+      // Mirror to Apple Health / Health Connect (write-only, best-effort).
+      // Prompts the user on first run, no-ops if denied or unavailable.
+      const { finishedAtMs, durationMs } = variables.summary;
+      promptAndSyncWorkout(session.id, {
+        startedAt: new Date(finishedAtMs - durationMs),
+        endedAt: new Date(finishedAtMs),
+        type: "strength",
+      }).catch((error) => {
+        // Never surfaces to user — Health sync is best-effort.
+        console.warn("Health sync failed:", error);
+      });
     },
     onError: (_error: unknown, variables: SaveWorkoutInput) => {
       if (user) {

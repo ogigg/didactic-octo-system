@@ -18,6 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
 import { registerSyncHandlers } from "@/lib/sync-handlers";
@@ -62,6 +63,9 @@ export default function RootLayout() {
     const appStateSub = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
         syncQueue.processQueue();
+        flushHealthRetryQueue().catch((error) => {
+          console.warn("Health retry queue flush failed:", error);
+        });
       }
     });
 

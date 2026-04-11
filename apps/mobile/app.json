@@ -44,7 +44,16 @@
           }
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "react-native-health",
+        {
+          "isClinicalDataEnabled": false,
+          "healthSharePermission": "Allow Sweaty to read your workout data from Apple Health.",
+          "healthUpdatePermission": "Allow Sweaty to save your completed workouts to Apple Health."
+        }
+      ],
+      "react-native-health-connect"
     ],
     "experiments": {
       "typedRoutes": true,

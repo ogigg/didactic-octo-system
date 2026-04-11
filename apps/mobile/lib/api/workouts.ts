@@ -346,6 +346,7 @@ export async function updateWorkoutSession(
     name: string;
     status: "active" | "completed" | "discarded";
     completed_at: string;
+    health_record_id: string | null;
   }>
 ): Promise<void> {
   await getAuthenticatedUserId();
