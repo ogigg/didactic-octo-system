@@ -32,6 +32,7 @@
       "expo-apple-authentication",
       "@bacons/apple-targets",
       "./plugins/with-live-activities-plist.cjs",
+      "./plugins/with-watch-connectivity.cjs",
       [
         "expo-splash-screen",
         {

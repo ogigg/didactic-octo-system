@@ -5,6 +5,7 @@ import { RestTimerBar } from "@/components/workout/rest-timer-bar";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
+import { useWatchBridge } from "@/hooks/use-watch-bridge";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import * as Linking from "expo-linking";
@@ -31,6 +32,8 @@ export default function WorkoutScreen() {
 
   // iOS Live Activity / Dynamic Island
   useWorkoutLiveActivity();
+  // Apple Watch companion sync
+  useWatchBridge();
 
   // Handle "Mark set done" deep link from Live Activity button
   useEffect(() => {
