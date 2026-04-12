@@ -1,143 +1,95 @@
 # Tech Stack
 
-## Frontend
+> **Document status:** Reference document
+> **Purpose:** Summarize the technologies currently used in the repository and separate them from optional or future-facing tools.
+> **Last reviewed:** 2026-04-11
 
-### Mobile
-- **React Native** - Cross-platform mobile framework
-- **Expo (SDK 52+)** - Development tooling and managed workflow
-- **Expo Router** - File-based navigation
-- **TypeScript** - Type safety
+## How To Read This Document
 
-### State Management
-- **TanStack Query (React Query)** - Server state management and caching
-- **Zustand** - Lightweight local state management
+- `Current stack` means a technology is reflected in the repository or in active project documentation.
+- `Optional or future` means it may be useful later, but should not be assumed to be part of the live implementation without verification.
 
-### Forms & Validation
-- **React Hook Form** - Form handling
-- **Zod** - Runtime type validation
+## Current Stack
 
-### UI Components
-- **React Native Paper** (optional) - Material Design components
-- **Expo Vector Icons** - Icon library
+### Mobile App
 
----
+- **React Native** - cross-platform mobile framework
+- **Expo** - managed app tooling and platform integrations
+- **Expo Router** - file-based routing
+- **TypeScript** - type safety across the app
 
-## Backend
+### Client State And Data Flow
 
-### Infrastructure
-- **Supabase** - Backend-as-a-Service platform
-  - PostgreSQL database (managed)
-  - Authentication & user management
-  - Row Level Security (RLS)
-  - Realtime subscriptions
-  - Storage (optional, for exercise media)
+- **TanStack Query** - server-state fetching and caching
+- **Zustand** - lightweight local state management
+- **AsyncStorage** - persistence for session-oriented and offline-sensitive flows
 
-### Serverless Functions
-- **Supabase Edge Functions** - Deno-based serverless functions
-  - Workout generation logic
-  - AI orchestration
-  - Validation layer
+### Forms And Validation
 
----
+- **React Hook Form** - form state handling
+- **Zod** - runtime validation, including structured external or AI-driven data
 
-## Database
+### Backend And Database
 
-### Primary Database
-- **PostgreSQL** (via Supabase) - Relational database
-  - User profiles
-  - Exercise library
-  - Workout sessions
-  - Performance logs
+- **Supabase** - backend platform for auth, database, and related services
+- **PostgreSQL** - primary relational datastore via Supabase
+- **Supabase JS Client** - typed client access from the app
+- **Supabase Edge Functions** - server-side orchestration and validation logic
 
-### ORM / Query Builder
-- **Supabase JS Client** - Auto-generated typed queries
-- **Drizzle ORM** (optional alternative) - Type-safe ORM
+### AI Layer
 
----
+- **OpenRouter** - model access layer for workout generation
 
-## AI / LLM
+Specific model selection can change over time, so it should be treated as operational configuration rather than a stable architectural dependency.
 
-### API Gateway
-- **OpenRouter** - Unified LLM API gateway
-  - Access to multiple models
-  - Automatic fallback routing
-  - Cost optimization
+### UI And Mobile Integrations
 
-### Models
-- **Claude 3.5 Sonnet** (Anthropic) - Primary model for workout generation
-- **GPT-4o** (OpenAI) - Fallback model
+- **Expo Vector Icons**
+- **React Native Reanimated**
+- **React Native Gesture Handler**
+- **react-i18next** + **i18next** + **expo-localization**
 
-### Prompt Management
-- **Zod** - JSON schema enforcement for LLM outputs
-- **Langchain** (optional future) - Advanced prompt orchestration
+### Quality And Tooling
 
----
+- **Turborepo** - monorepo task orchestration
+- **ESLint** - linting
+- **Prettier** - formatting
+- **Jest** - test runner
+- **React Native Testing Library** - UI behavior testing
+- **Husky** + **lint-staged** - pre-commit formatting workflow
 
-## Development Tools
+### Deployment And Delivery
 
-### Code Quality
-- **ESLint** - JavaScript/TypeScript linting
-- **Prettier** - Code formatting
-- **TypeScript** - Static type checking
+- **EAS Build / Submit / Update** - mobile delivery workflows
+- **GitHub Actions** - CI/CD automation
+- **Supabase CLI** - backend and migration workflows
 
-### Testing
-- **Jest** - Unit and integration testing
-- **React Native Testing Library** - Component testing
-- **Playwright** (future) - E2E testing
+### Analytics And Observability
 
-### Version Control
-- **Git** - Source control
-- **GitHub** - Repository hosting
+- **PostHog** - analytics
 
----
+Observability tooling may evolve. When precision matters, verify the currently configured providers in the codebase and environment setup.
 
-## Deployment & CI/CD
+## Optional Or Future Technologies
 
-### Mobile Deployment
-- **EAS Build** - Native app builds (iOS/Android)
-- **EAS Submit** - App store submission automation
-- **EAS Update** - Over-the-air JavaScript updates
+These technologies appear in planning docs, as alternatives, or as likely future additions. They should not be treated as active dependencies by default.
 
-### Backend Deployment
-- **Supabase CLI** - Edge function deployment
-- **GitHub Actions** - CI/CD pipeline
+- **React Native Paper** - optional UI component layer
+- **Drizzle ORM** - possible alternative data-access layer
+- **LangChain** - possible future prompt orchestration layer
+- **Playwright** - possible future E2E testing addition
+- **Additional external exercise data sources** - useful for seeding or enrichment, not assumed to be runtime dependencies
 
----
+## Environment Notes
 
-## Monitoring & Analytics
+- **Node.js** - see the root `package.json` engines field for the required version
+- **npm** - current package manager in the repository
+- **Deno** - relevant when working with Supabase Edge Functions
 
-### Error Tracking
-- **Sentry** - Error monitoring and crash reporting
+## What This Document Should Not Be Used For
 
-### Analytics
-- **PostHog** - Product analytics and feature flags
+Do not use this file as:
 
-### Performance
-- **Expo Performance Monitoring** - React Native performance metrics
-
----
-
-## External APIs & Services
-
-### Exercise Data
-- **ExerciseDB API** (RapidAPI) - Exercise library seeding
-- **WGER API** (alternative) - Open-source exercise database
-
-### Authentication
-- **Supabase Auth** - Email/password, OAuth providers
-
----
-
-## Development Environment
-
-### Package Manager
-- **npm** or **pnpm** - Dependency management
-
-### Runtime
-- **Node.js 20+** - JavaScript runtime
-- **Deno** - For Supabase Edge Functions
-
-### Environment Management
-- **dotenv** - Environment variable management
-- **Expo Constants** - Expo-specific env vars
-
+- an authoritative dependency lockfile
+- proof that a planned tool is already wired into the application
+- a replacement for checking `package.json`, app config, or deployment config when implementation accuracy matters

@@ -1,4 +1,12 @@
-# Product Requirements Document (PRD) - AI Trainer (MVP)
+# Product Requirements Document (PRD) - Original MVP
+
+> **Document status:** Historical artifact
+> **Purpose:** Preserve the original MVP requirements, assumptions, and acceptance framing.
+> **Last reviewed:** 2026-04-11
+>
+> Historical document: this file captures the original MVP requirements and assumptions.
+>
+> For the current product direction, use `PROJECT.md`.
 
 ## 1. Product Overview
 

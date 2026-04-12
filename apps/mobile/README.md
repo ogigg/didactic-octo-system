@@ -1,89 +1,70 @@
-# Welcome to your Expo app 👋
+# Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This workspace contains the Expo / React Native application for `workout`.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- Expo SDK 54
+- React Native 0.81
+- Expo Router
+- TypeScript
+- TanStack Query
+- Zustand
+- React Hook Form
+- Zod
+- Jest + React Native Testing Library
 
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+From the repository root:
 
 ```bash
-npm run reset-project
+npm install
+cd apps/mobile
+npm run dev
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Testing
-
-This project uses Jest and `@testing-library/react-native` for unit testing.
-
-### Running Tests
+Useful commands:
 
 ```bash
-# Run all tests
+npm run ios
+npm run android
+npm run web
+npm run lint
 npm test
-
-# Run tests in watch mode
 npm run test:watch
-
-# Run tests with coverage
 npm run test:coverage
 ```
 
-### Writing Tests
+## Structure
 
-Tests should be placed alongside the code they test with the `.test.ts` or `.test.tsx` extension, or in a `__tests__` directory.
+- `app` - route files and screen entry points
+- `components` - reusable UI components
+- `hooks` - custom hooks
+- `stores` - Zustand stores and local session state
+- `constants` - tokens, configuration, and static values
+- `i18n` - translation setup and locale files
+- `modules` - custom native / Expo modules
+- `plugins` - Expo config plugins
+- `targets` - Apple target-specific code such as widgets
 
-Example test structure:
+## Development Notes
 
-```typescript
-import { render, screen, fireEvent } from "@testing-library/react-native";
-import { MyComponent } from "../MyComponent";
+- Prefer editing within existing feature patterns instead of introducing parallel abstractions.
+- Keep user-facing strings in `i18n/locales/en`.
+- Validate external and AI-generated data with Zod before it drives UI behavior.
+- Optimize for mobile realities: interrupted sessions, offline-sensitive flows, and fast in-workout interactions.
 
-describe("MyComponent", () => {
-  it("renders correctly", () => {
-    render(<MyComponent />);
-    expect(screen.getByText("Hello")).toBeTruthy();
-  });
-});
-```
+## Testing
 
-### Test Configuration
+- Run all tests with `npm test`.
+- Use `npm run test:watch` during focused iteration.
+- Place tests alongside the code they cover when practical.
+- Prefer behavior-oriented tests using accessibility queries.
 
-Jest configuration is defined in `jest.config.js`, which uses the `jest-expo` preset for React Native compatibility. Additional setup is configured in `jest.setup.js`.
+## Related Docs
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `../../PROJECT.md` for current product context
+- `../../AGENTS.md` for canonical agent guidance
+- `../../.ai/architecture.md` for architecture details
+- `../../.ai/i18n.md` for translation workflow

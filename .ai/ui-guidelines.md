@@ -1,5 +1,9 @@
 # UI Guidelines Design Spec
 
+> **Document status:** Reference document
+> **Purpose:** Capture design tokens, UI patterns, and visual consistency guidance for the mobile app.
+> **Last reviewed:** 2026-04-11
+
 ## Overview
 
 Design system and UI guidelines for the AI-powered workout generation mobile app. Defines design tokens (colors, typography, spacing, radii) and component patterns (buttons, inputs, set table, rest timer, navigation, bottom sheets, difficulty feedback) to ensure visual consistency across all screens.

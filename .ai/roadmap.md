@@ -1,5 +1,9 @@
 # MVP Ticket Roadmap
 
+> **Document status:** Reference document
+> **Purpose:** Track the historical MVP delivery plan and capture current post-MVP priority themes at a high level.
+> **Last reviewed:** 2026-04-11
+
 ## Context
 
 **MVP status:** The full loop is implemented: auth → onboarding → training setup → AI generation → logger → post-workout summary → analytics, with RLS, offline sync, and PostHog. The ticket list below is the historical plan that delivered that scope.
@@ -36,12 +40,12 @@ The app had a working onboarding flow, tab navigation with mock data, a design s
 
 ## Phase 0 — Backend Foundation
 
-| #    | Title                          | Description                                                                                                                                                                                      | Deps |
-| ---- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- |
-| T-01 | **Deploy database schema**     | Run full SQL migration from `db-plan.md`: ENUM types, 6 tables (profiles, exercises, workout_sessions, session_exercises, session_sets, set_logs), indexes, triggers. Enable RLS on every table. | —    |
-| T-02 | **Create RLS policies**        | Apply all Row-Level Security policies: profiles own-row, exercises public-read, all workout tables owner-only via `auth.uid()`.                                                                  | T-01 |
-| T-03 | **Seed exercise database**     | Populate `exercises` table with 100–1000+ entries (ExerciseDB/WGER source). Standardize equipment names and muscle groups.                                                                       | T-01 |
-| T-04 | **Initialize Supabase client** | Create `lib/supabase.ts` with env vars and AsyncStorage as auth persistence adapter. Add `.env` to `.gitignore`.                                                                                 | —    |
+| #    | Title                          | Description                                                                                                                                                                                                            | Deps |
+| ---- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| T-01 | **Deploy database schema**     | Run the database migrations to create the core schema: ENUM types, profile and workout tables, indexes, triggers, and RLS policies. Historical planning context now lives in `db-schema.md` and the migration history. | —    |
+| T-02 | **Create RLS policies**        | Apply all Row-Level Security policies: profiles own-row, exercises public-read, all workout tables owner-only via `auth.uid()`.                                                                                        | T-01 |
+| T-03 | **Seed exercise database**     | Populate `exercises` table with 100–1000+ entries (ExerciseDB/WGER source). Standardize equipment names and muscle groups.                                                                                             | T-01 |
+| T-04 | **Initialize Supabase client** | Create `lib/supabase.ts` with env vars and AsyncStorage as auth persistence adapter. Add `.env` to `.gitignore`.                                                                                                       | —    |
 
 > T-01–T-03 (backend) and T-04 (client) can run **in parallel**.
 

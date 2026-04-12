@@ -1,128 +1,115 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This is the canonical agent-facing guide for this repository.
+
+## Source Of Truth
+
+- Use `PROJECT.md` for current product and execution context.
+- Use `.ai/prd.md` only as historical MVP background.
+- Use `.ai/architecture.md` and `.ai/tech-stack.md` for deeper technical context.
+
+## Repository Overview
+
+This is a Turborepo monorepo for a mobile-first AI workout app.
+
+- `apps/mobile` - Expo / React Native app
+- `packages/ui` - shared UI package
+- `packages/eslint-config` - shared ESLint config
+- `packages/typescript-config` - shared TypeScript config
+- `.ai` - planning and architecture documents
+
+## Product Context
+
+Do not infer product intent from older MVP documents alone.
+
+- The app is in `early product expansion`.
+- The target audience spans both newer and experienced gym users.
+- The core promise is low-friction workout generation based on user preferences, history, and constraints.
+- Favor work that improves generation quality, in-session execution, workout logging, and progression continuity.
 
 ## Commands
 
-### Root (Turborepo)
+### Root
 
 ```bash
-npm run dev          # Start all dev servers
-npm run build        # Build all packages
-npm run lint         # Lint all packages
-npm run test         # Run all tests
-npm run check-types  # TypeScript type checking
-npm run format       # Format all files with Prettier
-npm run format:check # Check formatting without writing
+npm run dev
+npm run build
+npm run lint
+npm run test
+npm run check-types
+npm run format
+npm run format:check
 ```
 
-### Mobile App (`apps/mobile`)
+### Mobile App
 
 ```bash
-npx expo start       # Start Expo dev server
-npx expo run:ios     # Launch iOS simulator
-npx expo run:android # Launch Android emulator
-npm test             # Run Jest tests
-npm run test:watch   # Run Jest in watch mode
-npm run test:coverage # Run Jest with coverage report
+cd apps/mobile
+npm run dev
+npm run ios
+npm run android
+npm test
+npm run test:watch
+npm run test:coverage
+npm run lint
 ```
 
-### Running a single test
+### Single Test
 
 ```bash
-# From apps/mobile
+cd apps/mobile
 npx jest path/to/test.test.tsx
 npx jest --testNamePattern="test name"
 ```
 
-## Architecture
+## Architecture Notes
 
-This is a **Turborepo monorepo** for an AI-powered workout generation mobile app.
-
-### Structure
-
-- `apps/mobile/` — React Native/Expo app (the only app for MVP)
-- `packages/ui/` — Shared React component library
-- `packages/eslint-config/` — Shared ESLint rules
-- `packages/typescript-config/` — Shared TypeScript configs
-- `.ai/` — Planning documents (PRD, DB schema, architecture, tech stack)
-
-### Mobile App Architecture
-
-The app uses **Expo Router** (file-based routing) with the following key directories inside `apps/mobile/`:
-
-- `app/` — Route files (Expo Router convention)
-- `components/` — Reusable UI components with colocated tests
-- `hooks/` — Custom React hooks
-- `constants/` — Theme, colors, configuration
-- `i18n/` — Internationalization setup (i18next + expo-localization)
-
-### Data Flow
-
-```
-User Action → Component → TanStack Query → Supabase Client → PostgreSQL / Edge Functions → OpenRouter LLM
-                                                ↓
-                                    Zustand (local UI state)
-                                    AsyncStorage (offline persistence)
-```
-
-**Supabase Edge Functions** (Deno) handle AI orchestration. All LLM outputs (Codex 3.5 Sonnet via OpenRouter) are validated against database constraints before being returned to the client.
-
-### State Management
-
-- **TanStack Query**: Server state, API calls, caching
-- **Zustand**: Local UI state
-- **AsyncStorage**: Session persistence with queue-based sync and exponential backoff retry for offline-first support
-
-### Database (Supabase/PostgreSQL)
-
-Key tables: `profiles`, `exercises`, `workout_sessions`, `session_exercises`, `session_sets`, `set_logs`. Row-Level Security is enabled on all tables — users can only access their own data via `auth.uid()`. See `.ai/db-plan.md` for full schema.
+- The mobile app uses Expo Router.
+- TanStack Query handles server state.
+- Zustand handles local UI state.
+- AsyncStorage is used for persistence and offline-oriented flows.
+- Supabase handles auth, database, and edge functions.
+- OpenRouter is used for LLM-backed workout generation.
+- Validate external and AI-generated data before it reaches user-facing flows.
 
 ## Code Conventions
 
-From `.cursor/rules/`:
+### TypeScript
 
-**TypeScript**
+- Use `interface` over `type` aliases.
+- Do not use `enum`; prefer const maps.
+- Keep strict typing; avoid `any`.
+- Use functional components only.
 
-- Use `interface` over `type` aliases
-- No `enum` — use const maps instead
-- Strict mode enabled; no `any`
-- Functional components only (no class components)
+### React Native
 
-**React Native**
+- Use `StyleSheet.create()` for styles.
+- Prefer accessibility-first component design.
+- Use Zod to validate external data, especially AI responses.
+- Use React Native Reanimated and Gesture Handler for motion and gestures.
 
-- Validate all external data (especially LLM responses) with **Zod**
-- Use `StyleSheet.create()` for styles
-- Prefer accessibility-first component design
-- Animations via React Native Reanimated; gestures via Gesture Handler
+### Internationalization
 
-**Internationalization (i18next + react-i18next)**
+- All user-facing strings live in `i18n/locales/en/`.
+- Do not hardcode user-facing strings in JSX.
+- Use `useTranslation()` for simple strings and `Trans` for rich inline content.
+- Follow `.ai/i18n.md` for key naming and workflow.
 
-- All user-facing strings live in `i18n/locales/en/`; never hardcode strings in JSX
-- Namespace per screen/feature (kebab-case file, camelCase export): `common`, `home`, `explore`, `modal`, `designSystem`
-- Key pattern: `section.element` within namespace; cross-namespace: `t("key", { ns: "other" })`
-- Use `useTranslation("namespace")` for simple strings; `Trans` component for inline rich text
-- See `.ai/i18n.md` for full naming schema and workflow
+### Testing
 
-**Testing (Jest + React Native Testing Library)**
+- Prefer accessibility queries over implementation details.
+- Test user behavior rather than internal implementation.
+- The mobile app uses Jest with React Native Testing Library.
 
-- Query by accessibility roles/labels first, not test IDs or implementation details
-- Test user behavior, not implementation
-- `jest.config.cjs` uses `jest-expo` preset with custom `transformIgnorePatterns` for RN/Expo modules
-- Setup file: `jest.setup.js` (extends jest-native matchers)
+## Working Style
 
-## Pre-commit Hooks
+- Follow existing patterns before inventing new abstractions.
+- Keep changes focused and maintainable.
+- Prefer improvements that strengthen the main training loop instead of widening scope by default.
+- When product intent is unclear, ask instead of guessing.
+- If you add or materially change important database tables, columns, relationships, or invariants, update `.ai/db-schema.md` in the same change.
 
-Husky runs `lint-staged` on commit, which auto-formats `*.{ts,tsx,js,jsx,json,md,yml,yaml}` with Prettier. Commits will fail if linting errors exist.
+## Pre-commit And Tooling Notes
 
-## Planning Documents
-
-- `.ai/prd.md` — Full product requirements and MVP scope
-- `.ai/architecture.md` — System architecture diagram
-- `.ai/db-plan.md` — PostgreSQL schema, indexes, RLS policies
-- `.ai/tech-stack.md` — Technology selection rationale
-- `.ai/i18n.md` — i18n library stack, key naming schema, and workflow
-
-## Supabase:
-
-To push new migration to supabase use supabase db push --local, the "--local" flag is important!
+- Husky and lint-staged format staged files on commit.
+- If adding Supabase migrations locally, use `supabase db push --local`.

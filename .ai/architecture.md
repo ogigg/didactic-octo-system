@@ -1,305 +1,166 @@
-# AI Trainer - Technical Architecture
+# Technical Architecture
 
-## System Overview
+> **Document status:** Reference document
+> **Purpose:** Describe the current system structure, main data flows, and boundary-level technical decisions.
+> **Last reviewed:** 2026-04-11
 
-The AI Trainer is a mobile-first application built with React Native, leveraging Supabase as the primary backend infrastructure and OpenRouter for LLM-powered workout generation. The architecture follows a serverless pattern with edge functions handling AI orchestration.
+## Scope Of This Document
 
-## Architecture Diagram
+This file is meant to explain how the system is structured today at a high level.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Mobile Client                          │
-│                   (React Native + Expo)                     │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │  Onboarding  │  │    Workout   │  │   Summary    │    │
-│  │    Flow      │  │    Logger    │  │    Screen    │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘    │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                    Supabase Client
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                    Supabase Backend                         │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │              PostgreSQL Database                     │  │
-│  │  - users, profiles, exercises                        │  │
-│  │  - workouts, workout_exercises, logged_sets          │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │              Supabase Auth                           │  │
-│  │  - User authentication & session management          │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │         Edge Functions (Deno Runtime)                │  │
-│  │                                                       │  │
-│  │  ┌─────────────────────────────────────────┐        │  │
-│  │  │  generate-workout                       │        │  │
-│  │  │  - Fetch user history                   │        │  │
-│  │  │  - Filter available exercises           │────────┼──┼─┐
-│  │  │  - Build AI prompt                      │        │  │ │
-│  │  │  - Call OpenRouter API                  │        │  │ │
-│  │  │  - Validate response                    │        │  │ │
-│  │  │  - Store workout plan                   │        │  │ │
-│  │  └─────────────────────────────────────────┘        │  │ │
-│  │                                                       │  │ │
-│  │  ┌─────────────────────────────────────────┐        │  │ │
-│  │  │  validate-workout                       │        │  │ │
-│  │  │  - Schema validation (Zod)              │        │  │ │
-│  │  │  - Exercise existence check             │        │  │ │
-│  │  │  - Safety validation                    │        │  │ │
-│  │  └─────────────────────────────────────────┘        │  │ │
-│  └─────────────────────────────────────────────────────┘  │ │
-└─────────────────────────────────────────────────────────────┘ │
-                                                                 │
-┌────────────────────────────────────────────────────────────────▼─┐
-│                        OpenRouter API                            │
-│                                                                  │
-│  ┌──────────────────┐        ┌──────────────────┐              │
-│  │  Claude 3.5      │        │     GPT-4o       │              │
-│  │  Sonnet          │        │    (Fallback)    │              │
-│  │  (Primary)       │        │                  │              │
-│  └──────────────────┘        └──────────────────┘              │
-└──────────────────────────────────────────────────────────────────┘
+Use `../PROJECT.md` for product intent. Use this document for technical shape and system boundaries.
+
+## Current Architecture Summary
+
+The app is a mobile-first Expo / React Native client backed by Supabase and an LLM integration layer accessed through OpenRouter.
+
+At a high level:
+
+- the mobile app owns onboarding, workout execution, local interaction state, and resilience for interrupted sessions
+- Supabase owns authentication, persistent data, and server-side business logic
+- the AI generation pipeline produces workouts from user context and history, then validates the output before it becomes user-facing
+
+## System Diagram
+
+```text
+Mobile App (Expo / React Native)
+  -> UI, navigation, workout execution, local state, local persistence
+  -> Supabase client
+
+Supabase
+  -> Auth
+  -> Postgres
+  -> Edge Functions / server-side orchestration
+
+AI Integration
+  -> OpenRouter
+  -> model-backed workout generation
+  -> validation and safety checks before persistence / display
 ```
 
-## Core Components
+## Main System Boundaries
 
-### 1. Mobile Client (React Native + Expo)
+### Mobile App
 
-**State Management:**
-- TanStack Query: Server state, caching, optimistic updates
-- Zustand: Local UI state (active workout session, timer)
+The mobile app is responsible for:
 
-**Key Responsibilities:**
-- User interface rendering
-- Workout session persistence (AsyncStorage)
-- Real-time rest timer
-- Offline-first exercise logging with sync
+- rendering the user experience
+- holding local UI state and active-session state
+- preserving in-progress workout context
+- making authenticated requests to backend services
+- keeping in-workout interactions fast and reliable
 
-**Data Flow:**
-```
-User Action → Component → TanStack Query → Supabase Client → Backend
-                ↓
-         Local State (Zustand)
-                ↓
-         AsyncStorage (persistence)
-```
+Key client-side building blocks:
 
-### 2. Backend (Supabase)
+- Expo Router for route structure
+- TanStack Query for server-state fetching and caching
+- Zustand for local app state
+- AsyncStorage for persistence-oriented flows
 
-#### 2.1 PostgreSQL Database
+### Supabase Backend
 
-**Schema Design:**
-- Normalized relational structure
-- Row Level Security (RLS) enabled on all tables
-- Automatic timestamps (created_at, updated_at)
-- Foreign key constraints with cascade deletes
+Supabase is the primary backend surface and is responsible for:
 
-**Key Tables:**
-- `profiles`: User metadata (goal, frequency)
-- `exercises`: Exercise library (1000+ entries)
-- `workouts`: Workout sessions
-- `workout_exercises`: Exercise-workout junction
-- `logged_sets`: Individual set performance data
+- authentication and session handling
+- persistent relational data storage
+- row-level data isolation
+- server-side workout generation and validation flows
 
-#### 2.2 Authentication
+The data model centers on users, workout sessions, exercises, sets, and training history. For exact schema details, use `db-schema.md` and the live database definitions when precision matters.
 
-- Email/password (MVP)
-- JWT-based session management
-- Automatic token refresh
-- RLS policies enforce data isolation per user
+### AI Generation Layer
 
-#### 2.3 Edge Functions
+The AI layer exists to generate structured workout outputs, not free-form chat by default.
 
-**Function: `generate-workout`**
-```typescript
-Input: { userId, previousWorkoutId?, preferences? }
-Process:
-  1. Fetch user profile and goals
-  2. Retrieve last 3 workouts for context
-  3. Filter exercises by equipment/difficulty
-  4. Build structured prompt with exercise IDs
-  5. Call OpenRouter API
-  6. Parse and validate JSON response
-  7. Insert workout into database
-Output: { workoutId, exercises[] }
+Its responsibilities are:
+
+- receive user context, preferences, and relevant history
+- generate workout structure through OpenRouter-backed model calls
+- validate generated output before it is trusted
+- fail safely when responses are invalid or incomplete
+
+This document intentionally avoids treating specific model names as long-term architecture guarantees because model selection can change faster than the surrounding system.
+
+## Primary Data Flows
+
+### Workout Generation
+
+```text
+User opens app
+-> app determines whether a workout should be prepared / fetched
+-> backend loads relevant profile, preference, and workout-history context
+-> generation request is sent through the AI pipeline
+-> response is validated against schema and domain constraints
+-> valid workout is stored / returned
+-> app renders the generated workout
 ```
 
-**Function: `validate-workout`**
-```typescript
-Input: { workoutPlan }
-Process:
-  1. Zod schema validation
-  2. Exercise ID verification against DB
-  3. Volume/intensity safety checks
-  4. Equipment availability validation
-Output: { isValid, errors[] }
+### Workout Execution And Logging
+
+```text
+User performs workout
+-> app records set completion and feedback locally
+-> local state updates immediately for responsive UX
+-> persistence / sync layer preserves progress
+-> backend receives completed workout data
+-> future workout generation can use this history
 ```
 
-### 3. AI Layer (OpenRouter)
+## Validation And Safety
 
-**Model Selection:**
-- Primary: Claude 3.5 Sonnet (best reasoning, JSON reliability)
-- Fallback: GPT-4o (if Claude unavailable)
+Validation happens in layers:
 
-**Prompt Structure:**
-```
-System Prompt:
-  - Role definition (fitness trainer)
-  - Output format constraints (strict JSON schema)
-  - Safety guidelines
+- client-side validation for user-entered data
+- server-side schema validation for generated workout payloads
+- domain validation for exercise identity, structure, and safety-relevant constraints
+- database constraints and auth boundaries for persistence integrity
 
-User Prompt:
-  - User goal and profile
-  - Last 3 workout summaries
-  - Available exercises (ID | Name | Muscle Groups)
-  - Progressive overload instructions
-```
+The architecture should prefer conservative, explainable behavior over clever but brittle generation logic.
 
-**Response Validation:**
-1. JSON parsing
-2. Zod schema validation
-3. Exercise ID existence check
-4. Logical validation (volume, rest periods)
+## Auth And Data Access
 
-**Anti-Hallucination Strategy:**
-- Provide explicit list of allowed exercise IDs in prompt
-- Use enum validation in JSON schema
-- Backend verification layer
-- Retry with feedback on validation failure (max 2 attempts)
+Authentication is handled through Supabase Auth.
 
-## Data Flow Diagrams
+The important architectural invariant is not a specific sign-in method, but that:
 
-### Workout Generation Flow
+- requests are tied to authenticated user identity
+- user data is isolated through row-level security and related backend controls
+- session persistence is secure and resilient enough for a mobile app workflow
 
-```
-User Opens App
-    ↓
-Check if workout exists for today
-    ↓
-NO → Call generate-workout Edge Function
-    ↓
-Fetch user profile + history
-    ↓
-Build AI prompt with exercise database
-    ↓
-OpenRouter API call (Claude 3.5 Sonnet)
-    ↓
-Receive structured JSON response
-    ↓
-Validate workout plan
-    ↓
-Insert into database
-    ↓
-Return workout to client
-    ↓
-Display workout logger UI
-```
+## Monitoring And Operational Concerns
 
-### Workout Logging Flow
+Important operational concerns include:
 
-```
-User logs set (weight, reps)
-    ↓
-Store in local state (Zustand)
-    ↓
-Mark set as complete
-    ↓
-Start rest timer
-    ↓
-On set completion → Optimistic update (TanStack Query)
-    ↓
-Background sync to Supabase
-    ↓
-On workout completion
-    ↓
-Calculate summary metrics (duration, tonnage)
-    ↓
-Update workout status → 'completed'
-    ↓
-Display summary screen
-```
+- error visibility for client and backend failures
+- generation latency and failure-rate tracking
+- validation failure visibility for AI output issues
+- analytics that help understand activation, completion, and adherence
 
-## Security Architecture
+This document describes the concern areas rather than promising a fixed monitoring stack forever.
 
-### Authentication & Authorization
-- All requests authenticated via Supabase JWT
-- Row Level Security (RLS) policies:
-  ```sql
-  CREATE POLICY "Users can only access own workouts"
-  ON workouts FOR SELECT
-  USING (auth.uid() = user_id);
-  ```
+## Current Reality Vs Planned Direction
 
-### Rate Limiting
-- Edge Functions: 10 requests/minute per user
-- AI generation: 1 request per 30 minutes per user
-- Prevents API abuse and cost overruns
+### Current Reality
 
-### Data Validation
-- Client-side: React Hook Form validation
-- Backend: Zod schema validation
-- Database: CHECK constraints, foreign keys
+- mobile app is the primary product surface
+- generation, logging, and progression continuity are core architectural concerns
+- resilience around interrupted sessions and sync-sensitive flows matters at the product level
 
-## Scalability Considerations
+### Planned Direction
 
-### Current MVP Capacity
-- Supabase Free Tier: 50,000 monthly active users
-- Database: 500MB (sufficient for ~100k workouts)
-- Edge Functions: 500k invocations/month
+Likely future architectural evolution may include:
 
-### Scaling Strategy
-1. **Phase 1 (0-1k users)**: Free tier sufficient
-2. **Phase 2 (1k-10k users)**: Upgrade Supabase to Pro ($25/mo)
-3. **Phase 3 (10k+ users)**:
-   - Implement Redis caching (Upstash)
-   - CDN for static assets
-   - Database connection pooling
-   - Optimize AI prompts for cost reduction
+- richer progress visualizations and reporting
+- expanded exercise detail or media support
+- broader localization and unit handling
+- additional training surfaces built on the same workout-history foundation
 
-## Monitoring & Observability
+These are directional possibilities, not commitments.
 
-### Error Tracking
-- Sentry integration (client + edge functions)
-- Custom error boundaries in React Native
+## What This Document Should Not Be Used For
 
-### Analytics
-- PostHog (user behavior, funnel analysis)
-- Supabase Analytics (database metrics)
+Do not use this file as:
 
-### AI Monitoring
-- Log all OpenRouter API calls
-- Track: model used, tokens consumed, latency, cost
-- Alert on validation failures (hallucination detection)
-
-## Deployment Pipeline
-
-```
-Developer Push → GitHub
-    ↓
-CI/CD (GitHub Actions)
-    ↓
-├─ Run TypeScript checks
-├─ Run tests (Jest)
-├─ Build Expo app
-└─ Deploy Edge Functions (Supabase CLI)
-    ↓
-Production
-```
-
-**Expo Deployment:**
-- EAS Build for native binaries (iOS/Android)
-- OTA Updates for JS bundle updates
-- Separate channels: development, staging, production
-
-## Offline Support (Future)
-
-MVP is online-only, but architecture supports offline:
-- AsyncStorage for active workout session
-- Queue failed mutations (TanStack Query)
-- Sync on reconnection
-
+- the current product source of truth
+- a guarantee that every named integration is fully implemented
+- a substitute for checking the actual codebase when implementation details matter
