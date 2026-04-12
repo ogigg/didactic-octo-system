@@ -41,7 +41,8 @@ interface NavItem {
     | "gearshape.fill"
     | "flame.fill"
     | "megaphone.fill"
-    | "star.fill";
+    | "star.fill"
+    | "heart.text.square";
   labelKey: string;
   disabled: boolean;
   route?: string;
@@ -89,6 +90,12 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: "nav.strengthBaselines",
     disabled: false,
     route: "/strength-baselines",
+  },
+  {
+    icon: "heart.text.square",
+    labelKey: "nav.health",
+    disabled: false,
+    route: "/health-settings",
   },
   {
     icon: "megaphone.fill",

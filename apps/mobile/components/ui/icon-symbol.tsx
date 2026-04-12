@@ -46,6 +46,7 @@ const MAPPING = {
   "dumbbell.fill": "fitness-center",
   heart: "favorite-border",
   "hand.thumbsdown": "thumb-down",
+  "heart.text.square": "monitor-heart",
   nosign: "block",
   "arrow.up": "arrow-upward",
   "arrow.down": "arrow-downward",

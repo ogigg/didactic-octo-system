@@ -198,6 +198,10 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="health-settings"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="feedback"
                   options={{ headerShown: false }}
                 />
