@@ -26,6 +26,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { MEASUREMENT_GROUPS, getMeasurementUnit } from "@/data/measurements";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import type { LatestMeasurements } from "@/lib/api/body-measurements";
 
 function todayString(): string {
@@ -63,6 +64,7 @@ export function LogMeasurementsModal({
 }: LogMeasurementsModalProps) {
   const forceUpdate = useForceUpdate();
   const { t } = useTranslation("measurements");
+  const { unit: weightUnit } = useWeightUnit();
   const background = useThemeColor({}, "backgroundElevated");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const textColor = useThemeColor({}, "text");
@@ -179,7 +181,7 @@ export function LogMeasurementsModal({
                   ]}
                 >
                   {group.fields.map((field, i) => {
-                    const unit = getMeasurementUnit(field);
+                    const unit = getMeasurementUnit(field, weightUnit);
                     const latest = latestData?.[field];
 
                     return (

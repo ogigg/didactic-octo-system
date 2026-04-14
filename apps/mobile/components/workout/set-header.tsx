@@ -1,4 +1,5 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { Spacing, Typography } from "@/constants/theme";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -10,6 +11,7 @@ interface SetHeaderProps {
 export function SetHeader({ exerciseType = "weight" }: SetHeaderProps) {
   const { t } = useTranslation("workout");
   const textMuted = useThemeColor({}, "textMuted");
+  const { label } = useWeightUnit();
 
   return (
     <View style={styles.row}>
@@ -26,7 +28,7 @@ export function SetHeader({ exerciseType = "weight" }: SetHeaderProps) {
       ) : (
         <>
           <Text style={[styles.label, styles.inputCol, { color: textMuted }]}>
-            {t("setHeader.kg")}
+            {t("setHeader.kg", { unit: label.toUpperCase() })}
           </Text>
           <Text style={[styles.label, styles.inputCol, { color: textMuted }]}>
             {t("setHeader.reps")}

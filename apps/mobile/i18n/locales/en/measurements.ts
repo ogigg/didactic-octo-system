@@ -33,8 +33,10 @@ export const measurements = {
   },
   units: {
     kg: "kg",
+    lbs: "lbs",
     pct: "%",
     cm: "cm",
+    in: "in",
   },
   sheet: {
     title: "Log Measurement",

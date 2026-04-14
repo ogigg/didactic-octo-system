@@ -9,7 +9,7 @@ export const workoutPreview = {
   },
   exerciseList: {
     setsReps: "{{sets}} × {{reps}}",
-    setsRepsLoad: "{{sets}} × {{reps}} × {{load}}kg",
+    setsRepsLoad: "{{sets}} × {{reps}} × {{load}}",
     warmup: "Warmup",
     working: "Working",
     swap: "Swap",
@@ -18,7 +18,7 @@ export const workoutPreview = {
   edit: {
     toggle: "Edit",
     done: "Done",
-    kg: "kg",
+    kg: "{{unit}}",
     reps: "reps",
   },
   actions: {

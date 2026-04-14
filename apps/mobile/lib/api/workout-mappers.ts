@@ -5,6 +5,7 @@ import type {
   WorkoutSet,
   WorkoutSummary,
 } from "@/stores/workout-store";
+import { toKg, convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 
 import type {
   CreateWorkoutSessionInput,
@@ -37,6 +38,7 @@ interface MapToDbOptions {
   goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
   customGoalSnapshot?: string;
   generationSource?: "llm" | "fallback_template" | "fallback_substitution";
+  weightUnit?: WeightUnit;
 }
 
 export function mapWorkoutStoreToDb(
@@ -53,6 +55,7 @@ export function mapWorkoutStoreToDb(
     ).toISOString(),
   };
 
+  const unit = options.weightUnit ?? "kg";
   const exercises = summary.exercises.map((exercise, index) => {
     const sessionExercise: SessionExerciseInput = {
       id: Crypto.randomUUID(),
@@ -88,11 +91,13 @@ export function mapWorkoutStoreToDb(
           id: Crypto.randomUUID(),
           set_number: setIndex + 1,
           set_type: set.type,
-          target_load_kg: parseLoadKg(set.kg),
+          target_load_kg: parseLoadKg(set.kg, unit),
           target_reps: parseReps(set.reps),
         };
         log = {
-          actual_load_kg: set.isCompleted ? parseLoadKg(set.kg) : undefined,
+          actual_load_kg: set.isCompleted
+            ? parseLoadKg(set.kg, unit)
+            : undefined,
           actual_reps: set.isCompleted ? parseReps(set.reps) : undefined,
           rpe: set.rpe ?? undefined,
           completed: set.isCompleted,
@@ -112,7 +117,10 @@ export function mapWorkoutStoreToDb(
 // DB → Store Mapping
 // -----------------------------------------------------------------------------
 
-export function mapDbToWorkoutStore(detail: WorkoutDetail): {
+export function mapDbToWorkoutStore(
+  detail: WorkoutDetail,
+  weightUnit: WeightUnit = "kg"
+): {
   workoutName: string;
   exercises: WorkoutExercise[];
 } {
@@ -123,7 +131,9 @@ export function mapDbToWorkoutStore(detail: WorkoutDetail): {
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
     difficultyFeedback: ex.difficulty_feedback,
-    sets: ex.sets.map((s) => mapDbSetToStore(s, ex.exercise_type ?? "weight")),
+    sets: ex.sets.map((s) =>
+      mapDbSetToStore(s, ex.exercise_type ?? "weight", weightUnit)
+    ),
   }));
 
   return {
@@ -134,7 +144,8 @@ export function mapDbToWorkoutStore(detail: WorkoutDetail): {
 
 function mapDbSetToStore(
   dbSet: WorkoutDetail["exercises"][number]["sets"][number],
-  exerciseType: "weight" | "time"
+  exerciseType: "weight" | "time",
+  weightUnit: WeightUnit = "kg"
 ): WorkoutSet {
   const log = dbSet.log;
 
@@ -152,13 +163,19 @@ function mapDbSetToStore(
     };
   }
 
+  const rawKg =
+    log?.actual_load_kg != null
+      ? log.actual_load_kg
+      : (dbSet.target_load_kg ?? null);
+  const displayKg =
+    rawKg != null
+      ? String(Math.round(convertWeight(rawKg, weightUnit) * 10) / 10)
+      : "";
+
   return {
     id: dbSet.id,
     type: dbSet.set_type,
-    kg:
-      log?.actual_load_kg != null
-        ? String(log.actual_load_kg)
-        : String(dbSet.target_load_kg ?? ""),
+    kg: displayKg,
     reps:
       log?.actual_reps != null
         ? String(log.actual_reps)
@@ -174,9 +191,10 @@ function mapDbSetToStore(
 // Parsing Helpers
 // -----------------------------------------------------------------------------
 
-function parseLoadKg(value: string): number {
+function parseLoadKg(value: string, unit: WeightUnit = "kg"): number {
   const parsed = parseFloat(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return unit === "lbs" ? toKg(parsed, "lbs") : parsed;
 }
 
 function parseReps(value: string): number {

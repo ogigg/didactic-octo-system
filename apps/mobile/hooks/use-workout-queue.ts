@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
 import { useAuth } from "@/hooks/use-auth";
+import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import { useProfile, type Profile } from "@/hooks/use-profile-query";
 import {
   deletePendingWorkout,
@@ -40,6 +41,24 @@ import {
   type GenerationMeta,
   type WorkoutExercise,
 } from "@/stores/workout-store";
+
+// -----------------------------------------------------------------------------
+// Unit conversion helper
+// -----------------------------------------------------------------------------
+
+function convertPreviousDisplay(
+  display: string | null | undefined,
+  unit: WeightUnit
+): string | null {
+  if (!display || unit === "kg") return display ?? null;
+  // Format is "80×8" or "80x8"
+  const match = display.match(/^([\d.]+)([×x])([\d.]+)$/);
+  if (!match) return display;
+  const kg = parseFloat(match[1]);
+  if (isNaN(kg)) return display;
+  const converted = Math.round(convertWeight(kg, unit) * 10) / 10;
+  return `${converted}${match[2]}${match[3]}`;
+}
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -502,6 +521,8 @@ export function useStartPendingWorkout() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
+  const { data: profile } = useProfile();
+  const weightUnit: WeightUnit = (profile?.weight_unit as WeightUnit) ?? "kg";
 
   return useMutation({
     mutationFn: async (input: {
@@ -551,7 +572,14 @@ export function useStartPendingWorkout() {
           sets: ex.sets.map((set, setIndex) => ({
             id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
             type: set.set_type,
-            kg: set.target_load_kg != null ? String(set.target_load_kg) : "",
+            kg:
+              set.target_load_kg != null
+                ? String(
+                    Math.round(
+                      convertWeight(set.target_load_kg, weightUnit) * 10
+                    ) / 10
+                  )
+                : "",
             reps: set.target_reps != null ? String(set.target_reps) : "",
             durationSeconds:
               (set as { target_duration_seconds?: number | null })
@@ -559,7 +587,9 @@ export function useStartPendingWorkout() {
             rpe: null,
             isCompleted: false,
             previousDisplay:
-              set.set_type === "working" ? (ex.previous_display ?? null) : null,
+              set.set_type === "working"
+                ? convertPreviousDisplay(ex.previous_display, weightUnit)
+                : null,
           })),
         })
       );

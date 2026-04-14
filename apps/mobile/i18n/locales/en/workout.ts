@@ -16,7 +16,7 @@ export const workout = {
   setHeader: {
     set: "SET",
     previous: "PREVIOUS",
-    kg: "KG",
+    kg: "{{unit}}",
     reps: "REPS",
     time: "TIME",
     rpe: "RPE",
@@ -58,7 +58,7 @@ export const workout = {
     heroSubtitle: "Great work! Here's your session recap.",
     volume: {
       title: "Total Volume",
-      unit: "kg",
+      unit: "{{unit}}",
       comparison: "That's like lifting {{comparison}}!",
       textbooks: "a stack of textbooks 📚",
       piano: "a grand piano 🎹",
@@ -92,7 +92,7 @@ export const workout = {
     exercises: {
       title: "Exercise Breakdown",
       setsCompleted: "{{completed}}/{{total}} sets",
-      topSet: "Best: {{kg}}kg × {{reps}}",
+      topSet: "Best: {{weight}} × {{reps}}",
       topDuration: "Best: {{time}}",
       noSets: "No sets completed",
     },

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Equipment, StrengthBaseline } from "@/stores/onboarding-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -72,6 +73,7 @@ export function StrengthBaselineForm({
   baselines,
   onChange,
 }: StrengthBaselineFormProps) {
+  const { label: unitLabel } = useWeightUnit();
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
@@ -151,6 +153,7 @@ export function StrengthBaselineForm({
           reps={getBaseline(field.exercise_key)?.reps ?? 0}
           onLoadChange={(v) => updateBaseline(field.exercise_key, "load_kg", v)}
           onRepsChange={(v) => updateBaseline(field.exercise_key, "reps", v)}
+          unitLabel={unitLabel}
           textColor={textColor}
           textSecondary={textSecondary}
           textMuted={textMuted}
@@ -180,6 +183,7 @@ export function StrengthBaselineForm({
           reps={getBaseline(field.exercise_key)?.reps ?? 0}
           onLoadChange={(v) => updateBaseline(field.exercise_key, "load_kg", v)}
           onRepsChange={(v) => updateBaseline(field.exercise_key, "reps", v)}
+          unitLabel={unitLabel}
           textColor={textColor}
           textSecondary={textSecondary}
           textMuted={textMuted}
@@ -198,6 +202,7 @@ interface BaselineRowProps {
   reps: number;
   onLoadChange: (value: string) => void;
   onRepsChange: (value: string) => void;
+  unitLabel: string;
   textColor: string;
   textSecondary: string;
   textMuted: string;
@@ -212,6 +217,7 @@ function BaselineRow({
   reps,
   onLoadChange,
   onRepsChange,
+  unitLabel,
   textColor,
   textSecondary,
   textMuted,
@@ -229,7 +235,7 @@ function BaselineRow({
             <NumberInput
               value={loadKg === null ? "" : String(loadKg)}
               onChange={onLoadChange}
-              placeholder="kg"
+              placeholder={unitLabel}
               textColor={textColor}
               textMuted={textMuted}
               inputFill={inputFill}

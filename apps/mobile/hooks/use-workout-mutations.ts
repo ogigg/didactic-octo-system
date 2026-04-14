@@ -18,12 +18,14 @@ import {
   workoutStatsKeys,
 } from "@/lib/query-keys";
 import { syncQueue } from "@/lib/sync-queue";
+import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
 
 interface SaveWorkoutInput {
   summary: WorkoutSummary;
   goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
   customGoalSnapshot?: string;
+  weightUnit?: WeightUnit;
 }
 
 export function useSaveCompletedWorkout() {
@@ -35,6 +37,7 @@ export function useSaveCompletedWorkout() {
       const payload = mapWorkoutStoreToDb(input.summary, {
         goalSnapshot: input.goalSnapshot,
         customGoalSnapshot: input.customGoalSnapshot,
+        weightUnit: input.weightUnit,
       });
 
       const session = await createWorkoutSession(payload.session);

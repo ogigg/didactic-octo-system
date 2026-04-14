@@ -31,7 +31,7 @@ export const history = {
       volume: "Volume",
       sets: "Sets",
     },
-    setFormat: "{{kg}} kg × {{reps}}",
+    setFormat: "{{weight}} × {{reps}}",
     setFormatNoLog: "—",
     incomplete: "Incomplete",
   },

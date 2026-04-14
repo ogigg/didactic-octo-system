@@ -19,6 +19,7 @@ import { DatePickerInput } from "@/components/measurements/date-picker-input";
 import { NUMERIC_ACCESSORY_ID } from "@/components/numeric-keyboard-accessory";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { getMeasurementUnit } from "@/data/measurements";
 import type { MeasurementField } from "@/data/measurements";
 
@@ -47,6 +48,7 @@ export function EditMeasurementModal({
   onClose,
 }: EditMeasurementModalProps) {
   const { t } = useTranslation("measurements");
+  const { unit: weightUnit } = useWeightUnit();
   const background = useThemeColor({}, "backgroundElevated");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
@@ -65,7 +67,7 @@ export function EditMeasurementModal({
 
   if (!field) return null;
 
-  const unit = getMeasurementUnit(field);
+  const unit = getMeasurementUnit(field, weightUnit);
   const label = t(`fields.${field}`);
   const parsedValue = parseMeasurementValue(value);
   const isValid = parsedValue !== null;

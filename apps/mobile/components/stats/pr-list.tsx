@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TextInput } from "react-native";
 
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 
 interface PersonalRecord {
   exercise_id: string;
@@ -41,6 +42,7 @@ function StatBlock({ value, label, primaryColor, textMuted }: StatBlockProps) {
 
 export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
   const [query, setQuery] = useState("");
+  const { format: fmtWeight } = useWeightUnit();
 
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const inputFill = useThemeColor({}, "inputFill");
@@ -98,7 +100,7 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
               </Text>
               <View style={styles.statsRow}>
                 <StatBlock
-                  value={`${formatNum(record.max_weight_kg)}kg`}
+                  value={fmtWeight(record.max_weight_kg)}
                   label="Heaviest"
                   primaryColor={primaryColor}
                   textMuted={textMuted}
@@ -110,7 +112,7 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
                   textMuted={textMuted}
                 />
                 <StatBlock
-                  value={`${formatNum(record.max_volume_set_kg)}kg`}
+                  value={fmtWeight(record.max_volume_set_kg)}
                   label="Best Set"
                   primaryColor={primaryColor}
                   textMuted={textMuted}
@@ -118,7 +120,7 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
                 <StatBlock
                   value={
                     record.est_1rm_kg != null
-                      ? `${formatNum(record.est_1rm_kg)}kg`
+                      ? fmtWeight(record.est_1rm_kg)
                       : "\u2014"
                   }
                   label="Est. 1RM"

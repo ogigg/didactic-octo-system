@@ -6,6 +6,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { parseExerciseDuration } from "@/lib/format-exercise-duration";
 import type { WorkoutSet } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -44,6 +45,7 @@ export function SetRow({
   onRemove,
 }: SetRowProps) {
   const { t } = useTranslation("workout");
+  const { label: unitLabel } = useWeightUnit();
   const [rpePickerVisible, setRpePickerVisible] = useState(false);
   const [kgFocused, setKgFocused] = useState(false);
   const [repsFocused, setRepsFocused] = useState(false);
@@ -339,7 +341,7 @@ export function SetRow({
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={textDisabled}
-                  accessibilityLabel={`Weight in kg for set ${setLabel}`}
+                  accessibilityLabel={`Weight in ${unitLabel} for set ${setLabel}`}
                   selectTextOnFocus
                 />
 

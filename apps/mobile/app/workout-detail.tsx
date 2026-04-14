@@ -8,6 +8,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -44,8 +45,8 @@ function formatDate(dateStr: string | null): string {
   }).format(new Date(dateStr));
 }
 
-function formatVolume(detail: WorkoutDetail): string {
-  const total = detail.exercises.reduce((sum, ex) => {
+function computeVolume(detail: WorkoutDetail): number {
+  return detail.exercises.reduce((sum, ex) => {
     return (
       sum +
       ex.sets.reduce((s2, set) => {
@@ -60,10 +61,6 @@ function formatVolume(detail: WorkoutDetail): string {
       }, 0)
     );
   }, 0);
-  return (
-    new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(total) +
-    " kg"
-  );
 }
 
 function countCompletedSets(detail: WorkoutDetail): number {
@@ -90,6 +87,7 @@ export default function WorkoutDetailScreen() {
   const success = useThemeColor({}, "success");
   const textDisabled = useThemeColor({}, "textDisabled");
 
+  const wu = useWeightUnit();
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
 
   // Heart rate (cache-only read from Apple Health, iOS-only)
@@ -192,7 +190,7 @@ export default function WorkoutDetailScreen() {
                   { color: textColor, fontVariant: ["tabular-nums"] },
                 ]}
               >
-                {formatVolume(detail)}
+                {wu.formatSpaced(computeVolume(detail))}
               </Text>
             </View>
             <View
@@ -271,7 +269,7 @@ export default function WorkoutDetailScreen() {
                             { color: textColor, fontVariant: ["tabular-nums"] },
                           ]}
                         >
-                          {set.log!.actual_load_kg} kg{" "}
+                          {wu.formatSpaced(set.log!.actual_load_kg!)}{" "}
                           <Text style={{ color: textMuted }}>×</Text>{" "}
                           {set.log!.actual_reps}
                         </Text>

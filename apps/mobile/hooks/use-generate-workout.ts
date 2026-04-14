@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { useProfile } from "@/hooks/use-profile-query";
 import { useRouter } from "expo-router";
 import {
   generateWorkout,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/api/profiles";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
+import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import { trackEvent } from "@/lib/track-event";
 
 export interface StartTrainingRequest {
@@ -19,7 +21,8 @@ export interface StartTrainingRequest {
 }
 
 function mapResponseToWorkoutExercises(
-  response: GenerateWorkoutResponse
+  response: GenerateWorkoutResponse,
+  weightUnit: WeightUnit = "kg"
 ): WorkoutExercise[] {
   return response.exercises.map((ex) => ({
     id: ex.exercise_id,
@@ -32,7 +35,13 @@ function mapResponseToWorkoutExercises(
       (set, i): WorkoutSet => ({
         id: `set-${ex.exercise_id}-${i}-${Date.now()}`,
         type: set.set_type,
-        kg: set.target_load_kg != null ? String(set.target_load_kg) : "",
+        kg:
+          set.target_load_kg != null
+            ? String(
+                Math.round(convertWeight(set.target_load_kg, weightUnit) * 10) /
+                  10
+              )
+            : "",
         reps: set.target_reps != null ? String(set.target_reps) : "",
         durationSeconds: set.target_duration_seconds ?? null,
         rpe: null,
@@ -46,6 +55,8 @@ function mapResponseToWorkoutExercises(
 export function useGenerateWorkout() {
   const router = useRouter();
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
+  const { data: profile } = useProfile();
+  const weightUnit: WeightUnit = (profile?.weight_unit as WeightUnit) ?? "kg";
 
   return useMutation({
     mutationFn: async ({ preferences, request }: StartTrainingRequest) => {
@@ -65,7 +76,7 @@ export function useGenerateWorkout() {
         has_custom_prompt: !!variables.request.custom_prompt,
       });
 
-      const exercises = mapResponseToWorkoutExercises(data);
+      const exercises = mapResponseToWorkoutExercises(data, weightUnit);
       startWorkout(data.workout_name, exercises);
       router.push("/workout");
     },

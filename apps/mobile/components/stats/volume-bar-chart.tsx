@@ -2,6 +2,7 @@ import { StyleSheet, View, Text } from "react-native";
 
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 
 interface VolumeWeek {
   week_start: string;
@@ -28,13 +29,7 @@ const MONTH_ABBREVS = [
   "Dec",
 ];
 
-function formatVolume(kg: number): string {
-  if (kg >= 1000) {
-    const t = Math.round((kg / 1000) * 10) / 10;
-    return `${t}t`;
-  }
-  return `${Math.round(kg)}kg`;
-}
+// formatVolume is now handled by useWeightUnit().formatVolume
 
 function getMonthLabel(
   dateStr: string,
@@ -53,6 +48,7 @@ export function VolumeBarChart({
   data,
   chartHeight = 120,
 }: VolumeBarChartProps) {
+  const { formatVolume } = useWeightUnit();
   const primaryColor = useThemeColor({}, "primary");
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");

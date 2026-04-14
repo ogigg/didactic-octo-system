@@ -24,6 +24,7 @@ import { ProgressionPill } from "@/components/workout/progression-pill";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
 import {
   useSetExercisePreference,
@@ -86,6 +87,9 @@ export default function WorkoutPreviewScreen() {
   const { t } = useTranslation("workoutPreview");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // Units
+  const wu = useWeightUnit();
 
   // Theme
   const background = useThemeColor({}, "background");
@@ -734,6 +738,8 @@ function ReadSetsTable({
   border,
   t,
 }: ReadSetsTableProps) {
+  const { label: unitLabel, format } = useWeightUnit();
+
   return (
     <View style={styles.setsContainer}>
       {/* Column headers */}
@@ -745,7 +751,7 @@ function ReadSetsTable({
           TYPE
         </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
-          KG
+          {unitLabel.toUpperCase()}
         </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
           REPS
@@ -790,7 +796,7 @@ function ReadSetsTable({
               { fontVariant: ["tabular-nums"] },
             ]}
           >
-            {set.target_load_kg || "—"}
+            {set.target_load_kg ? format(set.target_load_kg) : "—"}
           </Text>
           <Text
             style={[
@@ -841,6 +847,7 @@ function EditSetsTable({
   onUpdateSet,
   t,
 }: EditSetsTableProps) {
+  const wu = useWeightUnit();
   return (
     <View style={styles.setsContainer}>
       {/* Column headers */}
@@ -852,7 +859,7 @@ function EditSetsTable({
           style={[Typography.label, { color: textMuted }, styles.colType]}
         />
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
-          {t("edit.kg")}
+          {t("edit.kg", { unit: wu.label })}
         </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
           {t("edit.reps")}
@@ -908,6 +915,7 @@ function EditSetRow({
   isLast,
   onUpdateSet,
 }: EditSetRowProps) {
+  const wu = useWeightUnit();
   const [focusedField, setFocusedField] = useState<"kg" | "reps" | null>(null);
 
   return (
@@ -949,7 +957,7 @@ function EditSetRow({
           keyboardType="number-pad"
           returnKeyType="done"
           maxLength={5}
-          accessibilityLabel="Weight in kg"
+          accessibilityLabel={`Weight in ${wu.label}`}
         />
       </View>
       <View style={styles.colData}>

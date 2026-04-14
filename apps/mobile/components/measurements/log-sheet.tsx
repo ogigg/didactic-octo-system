@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import type { MeasurementField } from "@/data/measurements";
 import { getMeasurementUnit } from "@/data/measurements";
 import { useTranslation } from "react-i18next";
@@ -34,6 +35,7 @@ export function LogSheet({
   onClose,
 }: LogSheetProps) {
   const { t } = useTranslation("measurements");
+  const { unit: weightUnit } = useWeightUnit();
   const background = useThemeColor({}, "backgroundElevated");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
@@ -52,7 +54,7 @@ export function LogSheet({
 
   if (!field) return null;
 
-  const unit = getMeasurementUnit(field);
+  const unit = getMeasurementUnit(field, weightUnit);
   const label = t(`fields.${field}`);
 
   function handleSave() {

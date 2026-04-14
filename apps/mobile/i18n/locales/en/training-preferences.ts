@@ -2,6 +2,9 @@ export const trainingPreferences = {
   header: {
     title: "Training Preferences",
   },
+  weightUnit: {
+    title: "Weight Unit",
+  },
   trainingSplit: {
     title: "Training Split",
     fullBody: "Full Body",

@@ -47,6 +47,7 @@ import {
 } from "@/lib/workout-summary-utils";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import type { WorkoutExercise } from "@/stores/workout-store";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { trackEvent } from "@/lib/track-event";
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,7 @@ interface ExerciseRowProps {
   primaryContainer: string;
   border: string;
   onFeedbackChange: (exerciseId: string, feedback: DifficultyValue) => void;
+  formatWeight: (kg: number) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: TFunction<any, any>;
 }
@@ -145,6 +147,7 @@ function ExerciseRow({
   primaryContainer,
   border,
   onFeedbackChange,
+  formatWeight,
   t,
 }: ExerciseRowProps) {
   const [feedback, setFeedback] = useState<DifficultyValue | null>(
@@ -189,7 +192,7 @@ function ExerciseRow({
             <Text style={[Typography.caption, { color: textMuted }]}> · </Text>
             <Text style={[Typography.caption, { color: textMuted }]}>
               {t("summary.exercises.topSet", {
-                kg: topSet.kg,
+                weight: formatWeight(topSet.kg),
                 reps: topSet.reps,
               })}
             </Text>
@@ -284,6 +287,9 @@ export default function WorkoutSummaryScreen() {
   const goal = useOnboardingStore((s) => s.goal);
   const customGoal = useOnboardingStore((s) => s.customGoal);
 
+  // Units
+  const wu = useWeightUnit();
+
   // Theme
   const background = useThemeColor({}, "background");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
@@ -375,6 +381,7 @@ export default function WorkoutSummaryScreen() {
         summary,
         goalSnapshot,
         customGoalSnapshot: customGoal ?? undefined,
+        weightUnit: wu.unit,
       },
       {
         onSuccess: () => {
@@ -531,10 +538,10 @@ export default function WorkoutSummaryScreen() {
                         },
                       ]}
                     >
-                      {totalVolume.toLocaleString()}
+                      {Math.round(wu.convert(totalVolume)).toLocaleString()}
                     </Text>
                     <Text style={[styles.volumeUnit, { color: primary }]}>
-                      {t("summary.volume.unit")}
+                      {t("summary.volume.unit", { unit: wu.label })}
                     </Text>
                   </View>
                   <Text
@@ -721,6 +728,7 @@ export default function WorkoutSummaryScreen() {
                     primaryContainer={primaryContainer}
                     border={border}
                     onFeedbackChange={setExerciseDifficultyFeedback}
+                    formatWeight={wu.format}
                     t={t}
                   />
                 ))}

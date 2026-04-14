@@ -24,6 +24,7 @@ import { useProfile } from "@/hooks/use-profile-query";
 import { useRebuildQueue } from "@/hooks/use-workout-queue";
 import { updateTrainingPreferences } from "@/lib/api/profiles";
 import { trackEvent } from "@/lib/track-event";
+import type { WeightUnit } from "@/lib/unit-conversion";
 import type {
   Difficulty,
   DurationMinutes,
@@ -62,6 +63,11 @@ const DIFFICULTY_OPTIONS: { value: Difficulty; label: string }[] = [
   { value: "advanced", label: "Advanced" },
 ];
 
+const UNIT_OPTIONS: { value: WeightUnit; label: string }[] = [
+  { value: "kg", label: "Kilograms (kg)" },
+  { value: "lbs", label: "Pounds (lbs)" },
+];
+
 export default function TrainingPreferencesScreen() {
   const { t } = useTranslation("trainingPreferences");
   const router = useRouter();
@@ -93,6 +99,9 @@ export default function TrainingPreferencesScreen() {
   const [customPrompt, setCustomPrompt] = useState(
     profile?.training_custom_prompt ?? ""
   );
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>(
+    (profile?.weight_unit as WeightUnit) ?? "kg"
+  );
 
   const splitOptions: { value: TrainingSplit; label: string }[] = [
     { value: "full_body", label: t("trainingSplit.fullBody") },
@@ -116,6 +125,7 @@ export default function TrainingPreferencesScreen() {
         training_style: trainingStyle,
         difficulty_level: difficulty,
         training_custom_prompt: customPrompt.trim() || null,
+        weight_unit: weightUnit,
       };
       await updateTrainingPreferences(prefs);
       return prefs;
@@ -142,12 +152,22 @@ export default function TrainingPreferencesScreen() {
         profile?.training_custom_prompt !== prefs.training_custom_prompt
           ? "training_custom_prompt"
           : null,
+        profile?.weight_unit !== prefs.weight_unit ? "weight_unit" : null,
       ].filter((value): value is string => value !== null);
+
+      const onlyUnitChanged =
+        changedFields.length === 1 && changedFields[0] === "weight_unit";
 
       trackEvent("training_preferences_changed", {
         changed_fields: changedFields,
-        triggered_queue_rebuild: true,
+        triggered_queue_rebuild: !onlyUnitChanged,
       });
+
+      if (onlyUnitChanged) {
+        Alert.alert("", t("success"));
+        router.back();
+        return;
+      }
 
       // Trigger queue rebuild
       const frequency = profile?.weekly_frequency;
@@ -176,6 +196,20 @@ export default function TrainingPreferencesScreen() {
   });
 
   function handleSave() {
+    // If only weight_unit changed, no need to rebuild workouts
+    const trainingFieldsChanged =
+      profile?.training_split !== trainingSplit ||
+      profile?.session_duration_minutes !== duration ||
+      profile?.equipment_level !== equipment ||
+      profile?.training_style !== trainingStyle ||
+      profile?.difficulty_level !== difficulty ||
+      profile?.training_custom_prompt !== (customPrompt.trim() || null);
+
+    if (!trainingFieldsChanged) {
+      saveMutation.mutate();
+      return;
+    }
+
     Alert.alert(t("rebuildWarning.title"), t("rebuildWarning.message"), [
       { text: t("rebuildWarning.cancel"), style: "cancel" },
       {
@@ -205,6 +239,15 @@ export default function TrainingPreferencesScreen() {
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
+          {/* Weight Unit */}
+          <SectionTitle title={t("weightUnit.title")} textColor={textColor} />
+          <OptionChips
+            options={UNIT_OPTIONS}
+            selected={weightUnit}
+            onSelect={setWeightUnit}
+            layout="wrap"
+          />
+
           {/* Training Split */}
           <SectionTitle
             title={t("trainingSplit.title")}

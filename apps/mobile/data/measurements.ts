@@ -16,7 +16,7 @@ export type MeasurementField =
   | "calf_left_cm"
   | "calf_right_cm";
 
-export type MeasurementUnit = "kg" | "%" | "cm";
+export type MeasurementUnit = "kg" | "lbs" | "%" | "cm" | "in";
 
 export interface MeasurementGroup {
   key: "bodyComposition" | "upperBody" | "lowerBody";
@@ -42,10 +42,14 @@ export const MEASUREMENT_FIELDS: MeasurementField[] = [
   "calf_right_cm",
 ];
 
-export function getMeasurementUnit(field: MeasurementField): MeasurementUnit {
-  if (field === "weight_kg" || field === "muscle_mass_kg") return "kg";
+export function getMeasurementUnit(
+  field: MeasurementField,
+  weightUnit: "kg" | "lbs" = "kg"
+): MeasurementUnit {
+  if (field === "weight_kg" || field === "muscle_mass_kg")
+    return weightUnit === "lbs" ? "lbs" : "kg";
   if (field === "body_fat_pct") return "%";
-  return "cm";
+  return weightUnit === "lbs" ? "in" : "cm";
 }
 
 export const MEASUREMENT_GROUPS: MeasurementGroup[] = [

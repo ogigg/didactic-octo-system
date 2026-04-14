@@ -26,6 +26,7 @@ import {
   useRemoveExercisePreference,
 } from "@/hooks/use-exercise-preference-mutations";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import type {
   ExerciseDetailStats,
   ExerciseSessionHistory,
@@ -273,7 +274,7 @@ function SessionRow({
                 { color: textColor },
               ]}
             >
-              {formatValue(set.load_kg, "kg")} x {set.reps ?? "-"}
+              {set.load_kg ? wu.format(set.load_kg) : "-"} x {set.reps ?? "-"}
               {set.rpe != null ? ` @${set.rpe}` : ""}
             </Text>
           </View>
@@ -294,6 +295,7 @@ export default function ExerciseDetailScreen() {
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
 
+  const wu = useWeightUnit();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [prefSheetVisible, setPrefSheetVisible] = useState(false);
 
@@ -423,7 +425,11 @@ export default function ExerciseDetailScreen() {
                 <>
                   <RecordRow
                     label={t("overview.maxWeight")}
-                    value={formatValue(records?.max_weight_kg, "kg")}
+                    value={
+                      records?.max_weight_kg
+                        ? wu.format(records.max_weight_kg)
+                        : "-"
+                    }
                     dateLabel={getAchievedLabel(t, records?.max_weight_date)}
                   />
                   <Divider />
@@ -435,7 +441,11 @@ export default function ExerciseDetailScreen() {
                   <Divider />
                   <RecordRow
                     label={t("overview.bestSet")}
-                    value={formatValue(records?.max_volume_set_kg, "kg")}
+                    value={
+                      records?.max_volume_set_kg
+                        ? wu.format(records.max_volume_set_kg)
+                        : "-"
+                    }
                     dateLabel={getAchievedLabel(
                       t,
                       records?.max_volume_set_date
@@ -466,7 +476,9 @@ export default function ExerciseDetailScreen() {
               <View style={styles.compactStatRow}>
                 <CompactStat
                   label={t("overview.est1rm")}
-                  value={formatValue(records?.est_1rm_kg, "kg")}
+                  value={
+                    records?.est_1rm_kg ? wu.format(records.est_1rm_kg) : "-"
+                  }
                 />
                 <CompactStat
                   label={t("overview.maxRpe")}

@@ -34,12 +34,14 @@ import {
   useUpsertMeasurement,
 } from "@/hooks/use-measurement-queries";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
 
 const DEFAULT_FIELD: MeasurementField = "weight_kg";
 
 export default function MeasurementsScreen() {
   const { t } = useTranslation("measurements");
+  const { unit: weightUnit } = useWeightUnit();
   const textMuted = useThemeColor({}, "textMuted");
   const primary = useThemeColor({}, "primary");
 
@@ -77,7 +79,7 @@ export default function MeasurementsScreen() {
     setIsManualRefreshing(false);
   }, [refetchTrend, refetchLatest, refetchHistory]);
 
-  const unit = getMeasurementUnit(selectedField);
+  const unit = getMeasurementUnit(selectedField, weightUnit);
   const latestValue = latestData?.[selectedField] ?? null;
   const fieldLabel = t(`fields.${selectedField}`);
 

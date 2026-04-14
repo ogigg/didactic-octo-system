@@ -31,6 +31,7 @@ const profileSchema = z.object({
   difficulty_level: z.enum(["beginner", "intermediate", "advanced"]).nullable(),
   training_custom_prompt: z.string().nullable(),
   training_setup_completed: z.boolean(),
+  weight_unit: z.enum(["kg", "lbs"]).default("kg"),
   subscription_tier: z.enum(["free", "pro"]).default("free"),
   subscription_expires_at: z.string().nullable(),
   created_at: z.string(),

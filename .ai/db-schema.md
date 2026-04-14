@@ -58,6 +58,7 @@ Important columns:
 - `onboarding_completed`: whether the user finished the onboarding flow
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
+- `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
 - `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state
 
 Relationships:

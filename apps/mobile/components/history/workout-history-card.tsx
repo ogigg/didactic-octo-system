@@ -1,4 +1,5 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import type { WorkoutHistoryItem } from "@/lib/api/workouts";
 import { useTranslation } from "react-i18next";
@@ -33,15 +34,9 @@ function formatDate(dateStr: string | null): string {
   }).format(new Date(dateStr));
 }
 
-function formatVolume(kg: number): string {
-  return (
-    new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(kg) +
-    " kg"
-  );
-}
-
 export function WorkoutHistoryCard({ item, onPress }: WorkoutHistoryCardProps) {
   const { t } = useTranslation("history");
+  const { formatSpaced } = useWeightUnit();
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
@@ -103,7 +98,7 @@ export function WorkoutHistoryCard({ item, onPress }: WorkoutHistoryCardProps) {
               { color: textColor, fontVariant: ["tabular-nums"] },
             ]}
           >
-            {formatVolume(item.total_volume_kg)}
+            {formatSpaced(item.total_volume_kg)}
           </Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: border }]} />

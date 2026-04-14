@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
+import { detectDefaultWeightUnit } from "@/lib/unit-conversion";
 import type {
   Frequency,
   Gender,
@@ -34,6 +35,7 @@ interface ProfilePayload {
   training_style: TrainingStyle;
   difficulty_level: Difficulty;
   training_setup_completed: boolean;
+  weight_unit: "kg" | "lbs";
 }
 
 export interface OnboardingData {
@@ -64,6 +66,7 @@ const profileSchema = z
     training_style: z.enum(["strength", "hypertrophy", "endurance", "circuit"]),
     difficulty_level: z.enum(["beginner", "intermediate", "advanced"]),
     training_setup_completed: z.literal(true),
+    weight_unit: z.enum(["kg", "lbs"]),
   })
   .refine((data) => data.goal !== "custom" || data.custom_goal !== null, {
     message: "custom_goal is required when goal is 'custom'",
@@ -159,6 +162,7 @@ export function mapOnboardingToProfile(
     training_style: deriveStyle(data.goal, data.customGoal),
     difficulty_level: data.experience,
     training_setup_completed: true as const,
+    weight_unit: detectDefaultWeightUnit(),
   };
 
   return profileSchema.parse(mapped) as Omit<ProfilePayload, "id">;
@@ -171,6 +175,7 @@ export interface TrainingPreferences {
   training_style: TrainingStyle;
   difficulty_level: Difficulty;
   training_custom_prompt: string | null;
+  weight_unit: "kg" | "lbs";
 }
 
 export async function updateTrainingPreferences(
@@ -251,6 +256,7 @@ export async function fetchProfile(): Promise<{
   weekly_frequency: DbFrequency;
   equipment_level: string | null;
   difficulty_level: string | null;
+  weight_unit: "kg" | "lbs";
 } | null> {
   const {
     data: { user },
@@ -264,7 +270,7 @@ export async function fetchProfile(): Promise<{
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "onboarding_completed, gender, goal, weekly_frequency, equipment_level, difficulty_level"
+      "onboarding_completed, gender, goal, weekly_frequency, equipment_level, difficulty_level, weight_unit"
     )
     .eq("id", user.id)
     .single();

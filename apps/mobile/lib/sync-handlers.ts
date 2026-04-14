@@ -12,12 +12,14 @@ import { upsertMeasurement } from "@/lib/api/body-measurements";
 import type { MeasurementInput } from "@/lib/api/body-measurements";
 import { syncQueue } from "@/lib/sync-queue";
 
+import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
 
 interface SaveWorkoutPayload {
   summary: WorkoutSummary;
   goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
   customGoalSnapshot?: string;
+  weightUnit?: WeightUnit;
 }
 
 async function handleSaveWorkout(payload: unknown): Promise<void> {
@@ -25,6 +27,7 @@ async function handleSaveWorkout(payload: unknown): Promise<void> {
   const dbPayload = mapWorkoutStoreToDb(input.summary, {
     goalSnapshot: input.goalSnapshot,
     customGoalSnapshot: input.customGoalSnapshot,
+    weightUnit: input.weightUnit,
   });
 
   const session = await createWorkoutSession(dbPayload.session);
