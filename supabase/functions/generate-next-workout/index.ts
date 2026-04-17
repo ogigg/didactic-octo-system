@@ -8,6 +8,7 @@ import {
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
+  type RecentSessionComment,
   type StrengthBaseline,
 } from "../_shared/generator.ts";
 import {
@@ -188,6 +189,17 @@ Deno.serve(async (req: Request) => {
     const exercisePreferences: ExercisePreference[] =
       (prefRows as ExercisePreference[] | null) ?? [];
 
+    // 8b. Fetch last 3 session comments (recent user notes for the planner)
+    const { data: commentRows } = await supabaseClient
+      .from("workout_session_comments")
+      .select("comment, created_at")
+      .eq("user_id", user_id)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    const recentComments: RecentSessionComment[] =
+      (commentRows as RecentSessionComment[] | null) ?? [];
+
     // 9. Insert placeholder row so the client can show a "generating" card
     const profileGoal = profile.goal ?? "improve_fitness";
 
@@ -227,6 +239,7 @@ Deno.serve(async (req: Request) => {
       history,
       exercisePreferences:
         exercisePreferences.length > 0 ? exercisePreferences : undefined,
+      recentComments: recentComments.length > 0 ? recentComments : undefined,
     });
 
     if (!genResult.success || !genResult.data) {

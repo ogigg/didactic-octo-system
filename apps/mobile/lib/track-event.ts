@@ -19,6 +19,7 @@ export type EventName =
   | "session_duration"
   | "feedback_given"
   | "difficulty_feedback_given"
+  | "workout_comment_submitted"
   | "training_preferences_changed"
   | "queue_state_on_open";
 // Future events can be added here

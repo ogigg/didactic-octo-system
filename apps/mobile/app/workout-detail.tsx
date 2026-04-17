@@ -6,6 +6,7 @@ import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
+import { useCommentsForSession } from "@/hooks/use-workout-session-comments";
 import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
@@ -89,6 +90,7 @@ export default function WorkoutDetailScreen() {
 
   const wu = useWeightUnit();
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
+  const { data: sessionComments } = useCommentsForSession(id ?? null);
 
   // Heart rate (cache-only read from Apple Health, iOS-only)
   const hrStartedAt = useMemo(
@@ -312,6 +314,27 @@ export default function WorkoutDetailScreen() {
               />
             )}
 
+          {sessionComments && sessionComments.length > 0 && (
+            <View
+              style={[
+                styles.commentsCard,
+                { backgroundColor: backgroundElevated, borderColor: border },
+              ]}
+            >
+              <Text style={[Typography.titleSm, { color: textColor }]}>
+                {t("detail.comments.title")}
+              </Text>
+              {sessionComments.map((c) => (
+                <Text
+                  key={c.id}
+                  style={[Typography.body, { color: textSecondary }]}
+                >
+                  “{c.comment}”
+                </Text>
+              ))}
+            </View>
+          )}
+
           <MuscleDistributionCard
             segments={muscleSegments}
             title={t("detail.muscleDistribution")}
@@ -400,5 +423,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: Radii.full,
+  },
+  commentsCard: {
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
   },
 });

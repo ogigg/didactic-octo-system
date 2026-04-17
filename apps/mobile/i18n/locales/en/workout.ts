@@ -150,6 +150,23 @@ export const workout = {
   nextWorkout: {
     preparing: "Your next workout is being prepared",
   },
+  sessionComment: {
+    title: "Notes for your next workouts",
+    subtitle:
+      "Anything you want to shape the next sessions? We'll feed your last 3 notes into the planner.",
+    placeholder: "e.g. too much back this week, shorter sessions, more cardio…",
+    chips: {
+      moreLegs: "More legs",
+      moreUpperBody: "More upper body",
+      lessCardio: "Less cardio",
+      moreCardio: "More cardio",
+      shorterSessions: "Shorter sessions",
+      moreCore: "More core",
+    },
+    save: "Save note",
+    saved: "Note saved",
+    counter: "{{count}}/{{max}}",
+  },
   progression: {
     weightUp: "Weight up",
     repsUp: "Reps up",

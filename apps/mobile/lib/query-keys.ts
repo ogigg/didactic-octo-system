@@ -69,6 +69,14 @@ export const measurementKeys = {
     [...measurementKeys.all, "history", field] as const,
 };
 
+export const workoutSessionCommentKeys = {
+  all: ["workout-session-comments"] as const,
+  recent: (userId: string, limit: number) =>
+    [...workoutSessionCommentKeys.all, "recent", userId, limit] as const,
+  forSession: (sessionId: string) =>
+    [...workoutSessionCommentKeys.all, "forSession", sessionId] as const,
+};
+
 export const subscriptionKeys = {
   all: ["subscription"] as const,
   usage: () => [...subscriptionKeys.all, "usage"] as const,
