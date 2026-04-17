@@ -34,5 +34,8 @@ export const history = {
     setFormat: "{{weight}} × {{reps}}",
     setFormatNoLog: "—",
     incomplete: "Incomplete",
+    comments: {
+      title: "Your notes",
+    },
   },
 } as const;

@@ -153,6 +153,11 @@ export interface QueueContextItem {
   } | null;
 }
 
+export interface RecentSessionComment {
+  comment: string;
+  created_at: string;
+}
+
 export interface GenerateWorkoutParams {
   supabaseClient: SupabaseClient;
   userId: string;
@@ -167,6 +172,7 @@ export interface GenerateWorkoutParams {
   strengthBaselines?: StrengthBaseline[];
   queueContext?: QueueContextItem[];
   history?: HistorySession[];
+  recentComments?: RecentSessionComment[];
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +282,22 @@ function formatQueueContext(context: QueueContextItem[]): string {
 // Prompt Builder
 // ---------------------------------------------------------------------------
 
+function formatRecentComments(comments: RecentSessionComment[]): string {
+  if (comments.length === 0) return "";
+  const labels = ["Most recent", "2 sessions ago", "3 sessions ago"];
+  const lines = comments
+    .slice(0, 3)
+    .map(
+      (c, i) =>
+        `- ${labels[i] ?? `${i + 1} sessions ago`}: "${c.comment.replace(/"/g, "'")}"`
+    );
+  return [
+    "## Recent User Feedback (session notes)",
+    "The user left these notes after recent workouts. Weight the most recent more heavily, but avoid over-correcting if a concern was already addressed.",
+    lines.join("\n"),
+  ].join("\n");
+}
+
 export function buildPrompt(
   profile: ProfileData,
   trainingSplit: string,
@@ -288,7 +310,8 @@ export function buildPrompt(
   history: HistorySession[],
   focusArea?: string,
   strengthBaselines?: StrengthBaseline[],
-  queueContext?: QueueContextItem[]
+  queueContext?: QueueContextItem[],
+  recentComments?: RecentSessionComment[]
 ): { system: string; user: string } {
   const counts = EXERCISE_COUNTS[durationMinutes] ?? { min: 5, max: 7 };
 
@@ -342,6 +365,9 @@ For exercises with Type: weight, use target_load_kg and target_reps (not target_
   const queueContextSection = queueContext?.length
     ? `\n\n${formatQueueContext(queueContext)}`
     : "";
+  const recentCommentsSection = recentComments?.length
+    ? `\n\n${formatRecentComments(recentComments)}`
+    : "";
 
   const user = `## User Profile
 - Goal: ${profile.goal}${profile.custom_goal ? ` (${profile.custom_goal})` : ""}
@@ -373,7 +399,7 @@ For exercises with Type: weight, use target_load_kg and target_reps (not target_
 ${summarizeHistory(history)}
 
 ## Exercise Catalog
-${exerciseList}${baselinesSection}${queueContextSection}${customSection}`;
+${exerciseList}${baselinesSection}${queueContextSection}${recentCommentsSection}${customSection}`;
 
   return { system, user };
 }
@@ -564,6 +590,7 @@ export async function generateSingleWorkout(
     strengthBaselines,
     queueContext,
     history = [],
+    recentComments,
   } = params;
 
   // Fetch exercise catalog
@@ -596,7 +623,8 @@ export async function generateSingleWorkout(
         history,
         focusArea,
         strengthBaselines,
-        queueContext
+        queueContext,
+        recentComments
       );
 
       const controller = new AbortController();

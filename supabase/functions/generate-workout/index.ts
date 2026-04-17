@@ -7,6 +7,7 @@ import {
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
+  type RecentSessionComment,
   type StrengthBaseline,
 } from "../_shared/generator.ts";
 import {
@@ -310,6 +311,17 @@ Deno.serve(async (req: Request) => {
     const exercisePreferences: ExercisePreference[] =
       (prefRows as ExercisePreference[] | null) ?? [];
 
+    // 10b. Fetch last 3 session comments
+    const { data: commentRows } = await userClient
+      .from("workout_session_comments")
+      .select("comment, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    const recentComments: RecentSessionComment[] =
+      (commentRows as RecentSessionComment[] | null) ?? [];
+
     // 11. Generate workout
     const result = await generateSingleWorkout({
       supabaseClient: userClient,
@@ -327,6 +339,7 @@ Deno.serve(async (req: Request) => {
       history,
       exercisePreferences:
         exercisePreferences.length > 0 ? exercisePreferences : undefined,
+      recentComments: recentComments.length > 0 ? recentComments : undefined,
     });
 
     if (!result.success || !result.data) {
