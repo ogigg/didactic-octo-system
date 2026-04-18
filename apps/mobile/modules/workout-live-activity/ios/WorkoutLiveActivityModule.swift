@@ -6,14 +6,14 @@ public class WorkoutLiveActivityModule: Module {
     Name("WorkoutLiveActivity")
 
     AsyncFunction("areActivitiesEnabled") { () -> Bool in
-      if #available(iOS 16.1, *) {
+      if #available(iOS 16.2, *) {
         return await LiveActivityManager.shared.areActivitiesEnabled()
       }
       return false
     }
 
     AsyncFunction("startActivity") { (workoutId: String, stateDict: [String: Any]) -> String? in
-      guard #available(iOS 16.1, *) else { return nil }
+      guard #available(iOS 16.2, *) else { return nil }
       guard let state = Self.contentState(from: stateDict) else { return nil }
       do {
         try await LiveActivityManager.shared.start(workoutId: workoutId, state: state)
@@ -25,13 +25,13 @@ public class WorkoutLiveActivityModule: Module {
     }
 
     AsyncFunction("updateActivity") { (stateDict: [String: Any]) in
-      guard #available(iOS 16.1, *) else { return }
+      guard #available(iOS 16.2, *) else { return }
       guard let state = Self.contentState(from: stateDict) else { return }
       await LiveActivityManager.shared.update(state: state)
     }
 
     AsyncFunction("endActivity") { (dismissImmediately: Bool) in
-      guard #available(iOS 16.1, *) else { return }
+      guard #available(iOS 16.2, *) else { return }
       await LiveActivityManager.shared.end(dismissImmediately: dismissImmediately)
     }
   }

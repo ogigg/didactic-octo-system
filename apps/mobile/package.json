@@ -3,6 +3,11 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "type": "module",
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  },
   "scripts": {
     "start": "expo start",
     "dev": "expo start",
