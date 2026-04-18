@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,11 +15,10 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutQueue } from "@/components/workout-queue";
 import { UsageIndicator } from "@/components/subscription/usage-indicator";
 import { Paywall } from "@/components/subscription/paywall";
-import {
-  CreateWorkoutCard,
-  WorkoutTemplateCard,
-} from "@/components/workout-template-card";
+import { WorkoutTemplateCard } from "@/components/workout-template-card";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
+import { GradientSurface } from "@/components/ui/gradient-surface";
+import { SectionHeader } from "@/components/ui/section-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutQueue } from "@/hooks/use-workout-queue";
@@ -100,7 +98,6 @@ export default function HomeScreen() {
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   // Handlers
   const handleCreateWorkout = useCallback(() => {
@@ -195,15 +192,22 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          {/* Weekly Progress — compact bar */}
-          <View
-            style={[styles.progressCard, { backgroundColor: backgroundSubtle }]}
+          {/* Weekly Progress — gradient-washed strip */}
+          <GradientSurface
+            variant="surface"
+            radius="lg"
+            style={styles.progressCard}
           >
             <View style={styles.progressHeader}>
               <Text style={[Typography.titleSm, { color: textColor }]}>
                 {t("weeklyProgress.title")}
               </Text>
-              <Text style={[Typography.titleSm, { color: primary }]}>
+              <Text
+                style={[
+                  Typography.titleSm,
+                  { color: primary, fontVariant: ["tabular-nums"] },
+                ]}
+              >
                 {completedCount}/{frequency}
               </Text>
             </View>
@@ -228,7 +232,7 @@ export default function HomeScreen() {
                 />
               ))}
             </View>
-          </View>
+          </GradientSurface>
 
           {/* AI Generation usage (free users only) */}
           <UsageIndicator />
@@ -249,47 +253,53 @@ export default function HomeScreen() {
 
           {/* My Workouts */}
           {(templates.length > 0 || !isWorkoutActive) && (
-            <View>
-              <Text
-                style={[
-                  Typography.titleMd,
-                  { color: textColor },
-                  styles.sectionTitle,
-                ]}
-              >
-                {t("myWorkouts.title")}
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.templateList}
-              >
-                {templates.map((template) => (
-                  <WorkoutTemplateCard
-                    key={template.id}
-                    template={template}
-                    onPress={() => handleStartTemplate(template)}
-                  />
-                ))}
-                <CreateWorkoutCard
-                  label={t("myWorkouts.create")}
-                  onPress={handleCreateWorkout}
-                />
-              </ScrollView>
+            <View style={styles.section}>
+              <SectionHeader
+                title={t("myWorkouts.title")}
+                action={{
+                  label: t("myWorkouts.create"),
+                  icon: "plus",
+                  onPress: handleCreateWorkout,
+                }}
+              />
+              {templates.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.templateList}
+                >
+                  {templates.map((template) => (
+                    <WorkoutTemplateCard
+                      key={template.id}
+                      template={template}
+                      onPress={() => handleStartTemplate(template)}
+                    />
+                  ))}
+                </ScrollView>
+              ) : (
+                <Text
+                  style={[
+                    Typography.caption,
+                    { color: textSecondary },
+                    styles.emptyTemplates,
+                  ]}
+                >
+                  {t("myWorkouts.empty")}
+                </Text>
+              )}
             </View>
           )}
 
           {/* History Link */}
-          <TouchableOpacity
-            style={[styles.historyButton, { borderColor: border }]}
-            accessibilityRole="button"
-            accessibilityLabel={t("history.seeAll")}
-            onPress={() => router.push("/history")}
-          >
-            <Text style={[Typography.titleSm, { color: primary }]}>
-              {t("history.seeAll")}
-            </Text>
-          </TouchableOpacity>
+          <SectionHeader
+            title={t("history.seeAll")}
+            action={{
+              label: "View",
+              icon: "chevron.right",
+              onPress: () => router.push("/history"),
+            }}
+            style={styles.historyHeader}
+          />
         </ScrollView>
       </SafeAreaView>
       <Paywall />
@@ -314,7 +324,6 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   progressCard: {
-    borderRadius: Radii.lg,
     padding: Spacing.lg,
   },
   progressHeader: {
@@ -332,17 +341,17 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: Radii.full,
   },
-  sectionTitle: {
-    marginBottom: Spacing.md,
+  section: {
+    gap: Spacing.md,
   },
   templateList: {
     gap: Spacing.md,
     paddingRight: Spacing.xl,
   },
-  historyButton: {
-    borderWidth: 1,
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.lg,
-    alignItems: "center",
+  emptyTemplates: {
+    paddingVertical: Spacing.sm,
+  },
+  historyHeader: {
+    marginTop: Spacing.md,
   },
 });

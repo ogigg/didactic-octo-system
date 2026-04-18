@@ -9,6 +9,11 @@ export const profile = {
     subtitle: "Last 12 weeks",
     unitMinutes: "min",
   },
+  sections: {
+    tracking: "Tracking",
+    settings: "Training",
+    account: "Account",
+  },
   nav: {
     subscription: "Subscription",
     statistics: "Statistics",

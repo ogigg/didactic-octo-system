@@ -1,12 +1,7 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
-import {
-  Elevation,
-  Fonts,
-  Radii,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
 import { Button } from "@/components/ui/button";
+import { GradientSurface } from "@/components/ui/gradient-surface";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -39,12 +34,12 @@ export function WorkoutPlanCard({
   isActive = false,
   startedAtMs,
 }: WorkoutPlanCardProps) {
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const success = useThemeColor({}, "success");
   const borderSubtle = useThemeColor({}, "borderSubtle");
+  const primary = useThemeColor({}, "primary");
 
   const [now, setNow] = useState(Date.now());
 
@@ -57,56 +52,75 @@ export function WorkoutPlanCard({
   const elapsed = isActive && startedAtMs ? now - startedAtMs : 0;
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: backgroundSubtle },
-        Elevation.sm,
-      ]}
+    <GradientSurface
+      variant="accent"
+      radius="lg"
+      bordered
+      style={styles.container}
     >
-      {/* Header row: label + live timer */}
       <View style={styles.headerRow}>
-        <Text
-          style={[Typography.label, { color: isActive ? success : textMuted }]}
-        >
-          {isActive ? "IN PROGRESS" : "NEXT WORKOUT"}
-        </Text>
+        <View style={styles.eyebrowRow}>
+          <View
+            style={[
+              styles.eyebrowDot,
+              { backgroundColor: isActive ? success : primary },
+            ]}
+          />
+          <Text
+            style={[Typography.label, { color: isActive ? success : primary }]}
+          >
+            {isActive ? "IN PROGRESS" : "NEXT UP"}
+          </Text>
+        </View>
         {isActive && (
-          <View style={styles.liveIndicator}>
-            <View style={[styles.liveDot, { backgroundColor: success }]} />
-            <Text style={[styles.timerText, { color: success }]}>
-              {formatElapsed(elapsed)}
-            </Text>
-          </View>
+          <Text style={[styles.timerText, { color: success }]}>
+            {formatElapsed(elapsed)}
+          </Text>
         )}
       </View>
 
-      <Text style={[Typography.titleMd, { color: textColor }, styles.title]}>
+      <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>
         {title}
       </Text>
 
       <View style={styles.exerciseList}>
-        {exercises.map((exercise, index) => (
+        {exercises.slice(0, 3).map((exercise, index) => (
           <View
             key={index}
             style={[
               styles.exerciseRow,
-              index > 0 && { borderTopWidth: 1, borderTopColor: borderSubtle },
+              index > 0 && {
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: borderSubtle,
+              },
             ]}
           >
-            <View style={styles.exerciseInfo}>
-              <Text style={[Typography.bodyMedium, { color: textColor }]}>
-                {exercise.name}
-              </Text>
-              <Text style={[Typography.caption, { color: textMuted }]}>
-                {exercise.muscleGroup}
-              </Text>
-            </View>
-            <Text style={[Typography.body, { color: textSecondary }]}>
+            <Text
+              style={[Typography.body, { color: textColor, flex: 1 }]}
+              numberOfLines={1}
+            >
+              {exercise.name}
+            </Text>
+            <Text
+              style={[
+                Typography.caption,
+                { color: textSecondary, fontVariant: ["tabular-nums"] },
+              ]}
+            >
               {exercise.sets}×{exercise.reps}
             </Text>
           </View>
         ))}
+        {exercises.length > 3 ? (
+          <Text
+            style={[
+              Typography.caption,
+              { color: textMuted, marginTop: Spacing.sm },
+            ]}
+          >
+            +{exercises.length - 3} more
+          </Text>
+        ) : null}
       </View>
 
       <Button
@@ -114,31 +128,29 @@ export function WorkoutPlanCard({
         label={isActive ? "Resume Workout" : "Start Workout"}
         onPress={onStartWorkout}
         accessibilityLabel={isActive ? "Resume workout" : "Start workout"}
-        style={styles.startButton}
       />
-    </View>
+    </GradientSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: Radii.lg,
     padding: Spacing.xl,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.md,
   },
-  liveIndicator: {
+  eyebrowRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
   },
-  liveDot: {
-    width: 8,
-    height: 8,
+  eyebrowDot: {
+    width: 6,
+    height: 6,
     borderRadius: Radii.full,
   },
   timerText: {
@@ -148,6 +160,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   title: {
+    ...Typography.titleLg,
     marginBottom: Spacing.lg,
   },
   exerciseList: {
@@ -157,13 +170,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: Spacing.md,
-  },
-  exerciseInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  startButton: {
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    gap: Spacing.md,
   },
 });

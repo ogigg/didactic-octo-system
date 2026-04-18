@@ -21,6 +21,14 @@ export const Colors = {
     error: "#FF3B30",
     destructiveSurface: "#FFF0F0",
     glow: "rgba(56,152,216,0.07)",
+    // Gradient pairs — top-left → bottom-right. Keep deltas small; gradients
+    // are atmospheric, not decorative.
+    surfaceGradientStart: "#FBFBFA",
+    surfaceGradientEnd: "#F4F2EF",
+    heroGradientStart: "#3898D8",
+    heroGradientEnd: "#5E6EE0",
+    accentGradientStart: "rgba(56,152,216,0.08)",
+    accentGradientEnd: "rgba(94,110,224,0.05)",
   },
   dark: {
     background: "#121416",
@@ -42,6 +50,12 @@ export const Colors = {
     error: "#FF453A",
     destructiveSurface: "#2A1215",
     glow: "rgba(56,152,216,0.05)",
+    surfaceGradientStart: "#1C1F22",
+    surfaceGradientEnd: "#141618",
+    heroGradientStart: "#3898D8",
+    heroGradientEnd: "#5E5BD4",
+    accentGradientStart: "rgba(90,174,224,0.10)",
+    accentGradientEnd: "rgba(110,91,212,0.04)",
   },
 };
 

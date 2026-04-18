@@ -7,100 +7,93 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthStore } from "@/stores/auth-store";
 
+import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import {
-  Elevation,
-  Fonts,
-  Opacity,
-  Radii,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { GradientSurface } from "@/components/ui/gradient-surface";
+import { ListGroup, ListRow } from "@/components/ui/list-row";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Fonts, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
 
 const VISIBLE_WEEK_LABELS = new Set(["W1", "W4", "W7", "W10"]);
 
-const MAX_BAR_HEIGHT = 120;
+const MAX_BAR_HEIGHT = 96;
+
+type IconName =
+  | "chart.bar.fill"
+  | "calendar"
+  | "ruler.fill"
+  | "clock.arrow.circlepath"
+  | "gearshape.fill"
+  | "flame.fill"
+  | "megaphone.fill"
+  | "star.fill"
+  | "heart.text.square";
 
 interface NavItem {
-  icon:
-    | "chart.bar.fill"
-    | "calendar"
-    | "ruler.fill"
-    | "clock.arrow.circlepath"
-    | "gearshape.fill"
-    | "flame.fill"
-    | "megaphone.fill"
-    | "star.fill"
-    | "heart.text.square";
+  icon: IconName;
   labelKey: string;
-  disabled: boolean;
   route?: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  {
-    icon: "star.fill",
-    labelKey: "nav.subscription",
-    disabled: false,
-    route: "/subscription",
-  },
+const TRACKING_ITEMS: NavItem[] = [
   {
     icon: "chart.bar.fill",
     labelKey: "nav.statistics",
-    disabled: false,
     route: "/statistics",
   },
   {
     icon: "calendar",
     labelKey: "nav.calendar",
-    disabled: false,
     route: "/(tabs)/calendar",
   },
   {
     icon: "ruler.fill",
     labelKey: "nav.measures",
-    disabled: false,
     route: "/measurements",
   },
   {
     icon: "clock.arrow.circlepath",
     labelKey: "nav.history",
-    disabled: false,
     route: "/history",
   },
+];
+
+const SETTINGS_ITEMS: NavItem[] = [
   {
     icon: "gearshape.fill",
     labelKey: "nav.trainingPreferences",
-    disabled: false,
     route: "/training-preferences",
   },
   {
     icon: "flame.fill",
     labelKey: "nav.strengthBaselines",
-    disabled: false,
     route: "/strength-baselines",
   },
   {
     icon: "heart.text.square",
     labelKey: "nav.health",
-    disabled: false,
     route: "/health-settings",
+  },
+];
+
+const ACCOUNT_ITEMS: NavItem[] = [
+  {
+    icon: "star.fill",
+    labelKey: "nav.subscription",
+    route: "/subscription",
   },
   {
     icon: "megaphone.fill",
     labelKey: "nav.feedback",
-    disabled: false,
     route: "/feedback",
   },
 ];
@@ -126,7 +119,6 @@ export default function ProfileScreen() {
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const border = useThemeColor({}, "border");
 
   const {
@@ -152,8 +144,33 @@ export default function ProfileScreen() {
     ? 0
     : Math.max(...weeklyDurations.map((d) => d.minutes), 0);
 
+  const renderGroup = (items: NavItem[]) => (
+    <ListGroup>
+      {items.map((item, i) => (
+        <ListRow
+          key={item.labelKey}
+          icon={item.icon}
+          label={t(item.labelKey)}
+          onPress={
+            item.route ? () => router.navigate(item.route as never) : undefined
+          }
+          position={
+            items.length === 1
+              ? "only"
+              : i === 0
+                ? "first"
+                : i === items.length - 1
+                  ? "last"
+                  : "middle"
+          }
+        />
+      ))}
+    </ListGroup>
+  );
+
   return (
     <View style={styles.root}>
+      <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -162,57 +179,44 @@ export default function ProfileScreen() {
           }
         >
           {/* Header */}
-          <Text style={[Typography.displayLg, { color: textColor }]}>
-            {t("title")}
-          </Text>
-          <Text
-            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-          >
-            {t("subtitle")}
-          </Text>
+          <View style={styles.headerBlock}>
+            <Text style={[Typography.displayLg, { color: textColor }]}>
+              {t("title")}
+            </Text>
+            <Text style={[Typography.body, { color: textSecondary }]}>
+              {t("subtitle")}
+            </Text>
+          </View>
 
-          {/* Stat Card */}
-          <View
-            style={[
-              styles.card,
-              styles.statCard,
-              { backgroundColor: backgroundSubtle },
-              Elevation.sm,
-            ]}
-          >
+          {/* Hero stat — gradient wash, no hard card edge */}
+          <GradientSurface variant="accent" radius="lg" style={styles.heroStat}>
             <Text
               style={[
-                styles.statNumber,
+                styles.heroNumber,
                 { color: primary, fontFamily: Fonts?.rounded },
               ]}
             >
-              {statsLoading ? "--" : (totalWorkouts ?? 0)}
+              {statsLoading ? "—" : (totalWorkouts ?? 0)}
             </Text>
             <Text style={[Typography.label, { color: textMuted }]}>
               {t("stats.trainingsCompleted")}
             </Text>
-          </View>
+          </GradientSurface>
 
-          {/* Bar Chart Card */}
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: backgroundSubtle },
-              Elevation.sm,
-            ]}
+          {/* Weekly duration chart — soft surface gradient, inline title */}
+          <GradientSurface
+            variant="surface"
+            radius="lg"
+            style={styles.chartCard}
           >
-            <Text style={[Typography.titleSm, { color: textColor }]}>
-              {t("chart.title")}
-            </Text>
-            <Text
-              style={[
-                Typography.caption,
-                { color: textMuted },
-                styles.chartSubtitle,
-              ]}
-            >
-              {t("chart.subtitle")}
-            </Text>
+            <View style={styles.chartHeader}>
+              <Text style={[Typography.titleSm, { color: textColor }]}>
+                {t("chart.title")}
+              </Text>
+              <Text style={[Typography.caption, { color: textMuted }]}>
+                {t("chart.subtitle")}
+              </Text>
+            </View>
             <View style={styles.chartContainer}>
               {weeklyDurations.map((entry) => {
                 const barHeight =
@@ -242,47 +246,26 @@ export default function ProfileScreen() {
                 );
               })}
             </View>
+          </GradientSurface>
+
+          {/* Tracking group */}
+          <View style={styles.group}>
+            <SectionHeader title={t("sections.tracking")} />
+            {renderGroup(TRACKING_ITEMS)}
           </View>
 
-          {/* Nav Grid */}
-          <View style={styles.navGrid}>
-            {NAV_ITEMS.map((item) => (
-              <TouchableOpacity
-                key={item.labelKey}
-                style={[
-                  styles.navButton,
-                  { backgroundColor: backgroundSubtle },
-                  Elevation.sm,
-                  item.disabled && { opacity: Opacity.disabled },
-                ]}
-                disabled={item.disabled}
-                accessibilityRole="button"
-                accessibilityLabel={t(item.labelKey)}
-                onPress={
-                  item.route
-                    ? () => router.navigate(item.route as never)
-                    : undefined
-                }
-              >
-                <IconSymbol
-                  name={item.icon}
-                  size={24}
-                  color={item.disabled ? textMuted : primary}
-                />
-                <Text
-                  style={[
-                    Typography.titleSm,
-                    {
-                      color: item.disabled ? textMuted : textColor,
-                    },
-                    styles.navLabel,
-                  ]}
-                >
-                  {t(item.labelKey)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          {/* Settings group */}
+          <View style={styles.group}>
+            <SectionHeader title={t("sections.settings")} />
+            {renderGroup(SETTINGS_ITEMS)}
           </View>
+
+          {/* Account group */}
+          <View style={styles.group}>
+            <SectionHeader title={t("sections.account")} />
+            {renderGroup(ACCOUNT_ITEMS)}
+          </View>
+
           {/* Logout */}
           <Button
             variant="destructive"
@@ -306,29 +289,32 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing["3xl"],
     gap: Spacing.xl,
   },
-  subtitle: {
-    marginTop: Spacing.xs,
+  headerBlock: {
+    gap: Spacing.xs,
   },
-  card: {
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-  },
-  statCard: {
+  heroStat: {
     alignItems: "center",
+    paddingVertical: Spacing["3xl"],
+    paddingHorizontal: Spacing.xl,
   },
-  statNumber: {
-    fontSize: 48,
+  heroNumber: {
+    fontSize: 56,
     fontWeight: "700",
+    letterSpacing: -1,
     marginBottom: Spacing.xs,
   },
-  chartSubtitle: {
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.lg,
+  chartCard: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  chartHeader: {
+    gap: 2,
   },
   chartContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: Spacing.xs,
+    marginTop: Spacing.sm,
   },
   barColumn: {
     flex: 1,
@@ -341,28 +327,12 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: "100%",
-    borderTopLeftRadius: Radii.sm,
-    borderTopRightRadius: Radii.sm,
+    borderRadius: 3,
   },
-  navGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  group: {
     gap: Spacing.md,
   },
-  navButton: {
-    width: "48%",
-    flexGrow: 1,
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navLabel: {
-    marginTop: Spacing.sm,
-  },
   logoutButton: {
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-    alignItems: "center",
+    marginTop: Spacing.md,
   },
 });
