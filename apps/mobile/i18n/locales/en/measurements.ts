@@ -60,6 +60,8 @@ export const measurements = {
   },
   history: {
     title: "History",
+    entries_one: "{{count}} entry",
+    entries_other: "{{count}} entries",
     empty: "No measurements logged yet",
     loading: "Loading...",
     edit: "Edit",

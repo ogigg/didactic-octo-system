@@ -9,8 +9,10 @@ import {
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AmbientGlow } from "@/components/ambient-glow";
 import { EditMeasurementModal } from "@/components/measurements/edit-measurement-modal";
 import { FieldPillSelector } from "@/components/measurements/field-pill-selector";
 import { MeasurementLineChart } from "@/components/measurements/line-chart";
@@ -19,9 +21,9 @@ import { MeasurementHistoryList } from "@/components/measurements/measurement-hi
 import { StatHeader } from "@/components/measurements/stat-header";
 import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
 import { PeriodSelector } from "@/components/stats/period-selector";
+import { GradientSurface } from "@/components/ui/gradient-surface";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import SectionCard from "@/components/ui/section-card";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import type { MeasurementField } from "@/data/measurements";
 import { getMeasurementUnit } from "@/data/measurements";
@@ -43,7 +45,8 @@ export default function MeasurementsScreen() {
   const { t } = useTranslation("measurements");
   const { unit: weightUnit } = useWeightUnit();
   const textMuted = useThemeColor({}, "textMuted");
-  const primary = useThemeColor({}, "primary");
+  const heroStart = useThemeColor({}, "heroGradientStart");
+  const heroEnd = useThemeColor({}, "heroGradientEnd");
 
   const [selectedField, setSelectedField] =
     useState<MeasurementField>(DEFAULT_FIELD);
@@ -120,6 +123,7 @@ export default function MeasurementsScreen() {
 
   return (
     <View style={styles.root}>
+      <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -141,7 +145,13 @@ export default function MeasurementsScreen() {
             }}
           />
 
-          <SectionCard accent>
+          {/* Hero: current value + trend + chart */}
+          <GradientSurface
+            variant="accent"
+            radius="lg"
+            bordered
+            style={styles.hero}
+          >
             <StatHeader
               latestValue={latestValue}
               unit={unit}
@@ -168,9 +178,10 @@ export default function MeasurementsScreen() {
                 </Text>
               </View>
             )}
-          </SectionCard>
+          </GradientSurface>
 
-          <SectionCard>
+          {/* History — plain section, no card wrap. List renders its own header. */}
+          <View style={styles.historySection}>
             <MeasurementHistoryList
               data={historyData}
               isLoading={historyLoading}
@@ -178,7 +189,7 @@ export default function MeasurementsScreen() {
               onEdit={handleEditEntry}
               onDelete={handleDelete}
             />
-          </SectionCard>
+          </View>
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -187,8 +198,17 @@ export default function MeasurementsScreen() {
           onPress={handleAddPress}
           accessibilityRole="button"
           accessibilityLabel={t("addButton")}
-          style={[styles.fab, { backgroundColor: primary }]}
+          style={({ pressed }) => [
+            styles.fab,
+            pressed && { transform: [{ scale: 0.96 }] },
+          ]}
         >
+          <LinearGradient
+            colors={[heroStart, heroEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <IconSymbol name="plus" size={24} color="#FFFFFF" />
         </Pressable>
 
@@ -230,6 +250,14 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing["3xl"],
     gap: Spacing.lg,
   },
+  hero: {
+    padding: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  historySection: {
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
   emptyChart: {
     height: 140,
     alignItems: "center",
@@ -247,10 +275,11 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });
