@@ -1,0 +1,9 @@
+{
+  "type": "widget",
+  "deploymentTarget": "18.0",
+  "name": "SweatyWidget",
+  "bundleIdentifier": "com.ogig.sweaty.SweatyWidget",
+  "colors": {
+    "widgetAccent": "#38BDF8"
+  }
+}

@@ -1,7 +1,7 @@
 import AppIntents
 import Foundation
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct MarkSetDoneIntent: AppIntent {
   static var title: LocalizedStringResource = "Mark Set Done"
   static var description = IntentDescription("Marks the current workout set as completed.")
@@ -26,11 +26,8 @@ struct MarkSetDoneIntent: AppIntent {
   }
 
   func perform() async throws -> some IntentResult & OpensIntent {
-    guard
-      let url = URL(string: "sweaty://workout?action=markSetDone&exerciseId=\(exerciseId)&setId=\(setId)")
-    else {
-      return .result()
-    }
+    // Force-unwrap is safe: the URL is built from a hard-coded scheme + percent-safe IDs.
+    let url = URL(string: "sweaty://workout?action=markSetDone&exerciseId=\(exerciseId)&setId=\(setId)")!
     return .result(opensIntent: OpenURLIntent(url))
   }
 }

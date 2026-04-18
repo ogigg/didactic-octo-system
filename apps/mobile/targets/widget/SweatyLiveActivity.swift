@@ -71,7 +71,7 @@ private struct LockScreenView: View {
         }
       }
 
-      if #available(iOS 17.0, *) {
+      if #available(iOS 18.0, *) {
         Button(
           intent: MarkSetDoneIntent(
             exerciseId: state.exerciseId,
@@ -133,7 +133,7 @@ private func expandedBottom(state: SweatyWorkoutAttributes.ContentState) -> some
 
     Spacer()
 
-    if #available(iOS 17.0, *) {
+    if #available(iOS 18.0, *) {
       Button(
         intent: MarkSetDoneIntent(
           exerciseId: state.exerciseId,
