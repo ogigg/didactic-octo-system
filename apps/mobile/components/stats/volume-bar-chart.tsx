@@ -85,11 +85,10 @@ export function VolumeBarChart({
       <View style={[styles.chartArea, { height: chartHeight }]}>
         {data.map((week, index) => {
           const isCurrentWeek = index === data.length - 1;
-          const barHeight = Math.max(
-            2,
-            (week.volume_kg / maxVolume) * chartHeight
-          );
           const isEmpty = week.volume_kg === 0;
+          const barHeight = isEmpty
+            ? 3
+            : Math.max(6, (week.volume_kg / maxVolume) * chartHeight);
 
           return (
             <View key={week.week_start} style={styles.barWrapper}>

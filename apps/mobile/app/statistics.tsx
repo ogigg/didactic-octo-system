@@ -9,13 +9,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
+import { AmbientGlow } from "@/components/ambient-glow";
+import { DonutChart } from "@/components/history/donut-chart";
+import { MuscleLegend } from "@/components/history/muscle-legend";
 import { HeatmapChart } from "@/components/stats/heatmap-chart";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { PRList } from "@/components/stats/pr-list";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   useHeatmapData,
@@ -26,28 +29,6 @@ import {
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
 import type { StatsPeriod } from "@/lib/api/stats";
 
-function SectionCard({ children }: { children: React.ReactNode }) {
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
-  return (
-    <View
-      style={[styles.card, { backgroundColor: backgroundSubtle }, Elevation.sm]}
-    >
-      {children}
-    </View>
-  );
-}
-
-function SectionTitle({ children }: { children: string }) {
-  const textColor = useThemeColor({}, "text");
-  return (
-    <Text
-      style={[Typography.titleSm, { color: textColor }, styles.sectionTitle]}
-    >
-      {children}
-    </Text>
-  );
-}
-
 function LoadingPlaceholder() {
   const textMuted = useThemeColor({}, "textMuted");
   return (
@@ -57,18 +38,29 @@ function LoadingPlaceholder() {
   );
 }
 
+function EmptyLine({ text }: { text: string }) {
+  const textMuted = useThemeColor({}, "textMuted");
+  return (
+    <View style={styles.emptyRow}>
+      <Text style={[Typography.caption, { color: textMuted }]}>{text}</Text>
+    </View>
+  );
+}
+
+const PERIOD_TO_WEEKS: Record<StatsPeriod, number> = {
+  "30d": 5,
+  "90d": 13,
+  "1y": 52,
+  all: 52,
+};
+
 export default function StatisticsScreen() {
   const { t } = useTranslation("stats");
 
-  const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
-  const textMuted = useThemeColor({}, "textMuted");
   const primaryColor = useThemeColor({}, "primary");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
-  const borderColor = useThemeColor({}, "border");
 
-  const [musclePeriod, setMusclePeriod] = useState<StatsPeriod>("30d");
-  const [volumePeriod, setVolumePeriod] = useState<StatsPeriod>("90d");
+  const [period, setPeriod] = useState<StatsPeriod>("90d");
 
   const { data: heatmapData, isLoading: heatmapLoading } = useHeatmapData();
   const {
@@ -77,141 +69,130 @@ export default function StatisticsScreen() {
     isLoading: statsLoading,
   } = useWorkoutStats();
   const { segments, isLoading: muscleLoading } =
-    useMuscleDistributionStats(musclePeriod);
+    useMuscleDistributionStats(period);
   const { data: volumeData, isLoading: volumeLoading } =
-    useVolumeOverTime(volumePeriod);
+    useVolumeOverTime(period);
   const { data: prData, isLoading: prLoading } = usePersonalRecords();
 
-  const workoutsThisYear = heatmapData?.length ?? 0;
+  const muscleTotal = segments?.reduce((sum, seg) => sum + seg.value, 0) ?? 0;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <ScreenHeader title={t("title")} />
+    <View style={styles.root}>
+      <AmbientGlow variant="subtle" />
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <ScreenHeader title={t("title")} />
 
-        {/* Heatmap Section */}
-        <SectionCard>
-          <SectionTitle>{t("sections.activity")}</SectionTitle>
-          {heatmapLoading ? (
-            <LoadingPlaceholder />
-          ) : (
-            <>
-              <HeatmapChart data={heatmapData ?? []} />
-              <View style={styles.heatmapSummary}>
-                <Text style={[Typography.caption, { color: textSecondary }]}>
-                  {!statsLoading
-                    ? t("heatmap.workoutsThisYear", {
-                        count: totalWorkouts ?? 0,
-                      })
-                    : "—"}
-                </Text>
-                <Text style={[Typography.caption, { color: primaryColor }]}>
-                  {!statsLoading
-                    ? t("heatmap.streak", { count: streakWeeks ?? 0 })
-                    : "—"}
-                </Text>
+          {/* Global period selector */}
+          <PeriodSelector
+            selected={period}
+            onChange={(p) => setPeriod(p as StatsPeriod)}
+          />
+
+          {/* Activity heatmap */}
+          <View style={styles.section}>
+            <SectionHeader title={t("sections.activity")} />
+            {heatmapLoading ? (
+              <LoadingPlaceholder />
+            ) : (
+              <>
+                <HeatmapChart
+                  data={heatmapData ?? []}
+                  weeks={PERIOD_TO_WEEKS[period]}
+                />
+                <View style={styles.heatmapSummary}>
+                  <Text style={[Typography.caption, { color: textSecondary }]}>
+                    {!statsLoading
+                      ? t("heatmap.workoutsThisYear", {
+                          count: totalWorkouts ?? 0,
+                        })
+                      : "—"}
+                  </Text>
+                  <Text style={[Typography.caption, { color: primaryColor }]}>
+                    {!statsLoading
+                      ? t("heatmap.streak", { count: streakWeeks ?? 0 })
+                      : "—"}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Muscle distribution */}
+          <View style={styles.section}>
+            <SectionHeader title={t("sections.muscles")} />
+            {muscleLoading ? (
+              <LoadingPlaceholder />
+            ) : segments && segments.length > 0 ? (
+              <View style={styles.muscleContent}>
+                <View style={styles.donutWrap}>
+                  <DonutChart segments={segments} size={160} strokeWidth={22} />
+                </View>
+                <MuscleLegend segments={segments} total={muscleTotal} />
               </View>
-            </>
-          )}
-        </SectionCard>
+            ) : (
+              <EmptyLine text={t("empty.subtitle")} />
+            )}
+          </View>
 
-        {/* Muscle Distribution Section */}
-        <SectionCard>
-          <SectionTitle>{t("sections.muscles")}</SectionTitle>
-          <PeriodSelector
-            selected={musclePeriod}
-            onChange={(p) => setMusclePeriod(p as StatsPeriod)}
-          />
-          {muscleLoading ? (
-            <LoadingPlaceholder />
-          ) : segments && segments.length > 0 ? (
-            <View style={styles.muscleCard}>
-              <MuscleDistributionCard
-                segments={segments}
-                title=""
-                titleColor={textColor}
-                backgroundColor={backgroundSubtle}
-                borderColor={borderColor}
-                showBorder={false}
-              />
-            </View>
-          ) : (
-            <View style={styles.loadingRow}>
-              <Text style={[Typography.body, { color: textMuted }]}>
-                {t("empty.subtitle")}
-              </Text>
-            </View>
-          )}
-        </SectionCard>
+          {/* Volume over time */}
+          <View style={styles.section}>
+            <SectionHeader title={t("sections.volume")} />
+            {volumeLoading ? (
+              <LoadingPlaceholder />
+            ) : volumeData && volumeData.length > 0 ? (
+              <VolumeBarChart data={volumeData} />
+            ) : (
+              <EmptyLine text={t("empty.subtitle")} />
+            )}
+          </View>
 
-        {/* Volume Over Time Section */}
-        <SectionCard>
-          <SectionTitle>{t("sections.volume")}</SectionTitle>
-          <PeriodSelector
-            selected={volumePeriod}
-            onChange={(p) => setVolumePeriod(p as StatsPeriod)}
-          />
-          <View style={styles.chartSpacer} />
-          {volumeLoading ? (
-            <LoadingPlaceholder />
-          ) : volumeData && volumeData.length > 0 ? (
-            <VolumeBarChart data={volumeData} />
-          ) : (
-            <View style={styles.loadingRow}>
-              <Text style={[Typography.body, { color: textMuted }]}>
-                {t("empty.subtitle")}
-              </Text>
-            </View>
-          )}
-        </SectionCard>
-
-        {/* Personal Records Section */}
-        <SectionCard>
-          <SectionTitle>{t("sections.records")}</SectionTitle>
-          {prLoading ? (
-            <LoadingPlaceholder />
-          ) : (
-            <PRList records={prData ?? []} emptyText={t("records.empty")} />
-          )}
-        </SectionCard>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Personal records */}
+          <View style={styles.section}>
+            <SectionHeader title={t("sections.records")} />
+            {prLoading ? (
+              <LoadingPlaceholder />
+            ) : (
+              <PRList records={prData ?? []} emptyText={t("records.empty")} />
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   safe: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing["3xl"],
-    gap: Spacing.xl,
+    gap: Spacing["2xl"],
   },
-  card: {
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-    gap: Spacing.lg,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.xs,
+  section: {
+    gap: Spacing.md,
   },
   loadingRow: {
     alignItems: "center",
     paddingVertical: Spacing["2xl"],
   },
+  emptyRow: {
+    paddingVertical: Spacing.lg,
+  },
   heatmapSummary: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: Spacing.sm,
   },
-  muscleCard: {
-    marginTop: Spacing.xs,
+  muscleContent: {
+    gap: Spacing.lg,
   },
-  chartSpacer: {
-    height: Spacing.xs,
+  donutWrap: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
   },
 });

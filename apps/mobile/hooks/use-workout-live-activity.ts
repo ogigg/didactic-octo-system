@@ -18,8 +18,12 @@ import type { WorkoutExercise, WorkoutSet } from "../stores/workout-store";
 interface DerivedLiveState {
   exerciseName: string;
   setDisplay: string;
+  proposalDisplay: string;
   exerciseId: string;
   setId: string;
+  currentSetNumber: number;
+  totalSets: number;
+  workoutName: string;
   workoutStartedAtMs: number;
   restStartedAtMs: number | null;
   restEndsAtMs: number | null;
@@ -47,9 +51,27 @@ function formatSetDisplay(exercise: WorkoutExercise, set: WorkoutSet): string {
   return `${kgLabel} × ${reps}`;
 }
 
+/** Expanded Dynamic Island: e.g. "60 kg × 12 reps" */
+function formatProposalDisplay(
+  exercise: WorkoutExercise,
+  set: WorkoutSet
+): string {
+  if (exercise.exerciseType === "time") {
+    const secs = set.durationSeconds ?? 0;
+    return `${secs}s hold`;
+  }
+  const kg = set.kg?.trim();
+  const reps = set.reps?.trim() || "—";
+  if (kg) {
+    return `${kg} kg × ${reps} reps`;
+  }
+  return `Bodyweight × ${reps} reps`;
+}
+
 function deriveState(
   exercises: WorkoutExercise[],
   startedAtMs: number | null,
+  workoutName: string,
   restTimer: {
     exerciseId: string;
     startedAtMs: number;
@@ -70,11 +92,19 @@ function deriveState(
     restEndsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
   }
 
+  const idx = exercise.sets.findIndex((s) => s.id === set.id);
+  const currentSetNumber = idx >= 0 ? idx + 1 : 1;
+  const totalSets = Math.max(1, exercise.sets.length);
+
   return {
     exerciseName: exercise.name,
     setDisplay: formatSetDisplay(exercise, set),
+    proposalDisplay: formatProposalDisplay(exercise, set),
     exerciseId: exercise.id,
     setId: set.id,
+    currentSetNumber,
+    totalSets,
+    workoutName,
     workoutStartedAtMs: startedAtMs,
     restStartedAtMs,
     restEndsAtMs,
@@ -90,8 +120,12 @@ function shallowEqual(
   return (
     a.exerciseName === b.exerciseName &&
     a.setDisplay === b.setDisplay &&
+    a.proposalDisplay === b.proposalDisplay &&
     a.exerciseId === b.exerciseId &&
     a.setId === b.setId &&
+    a.currentSetNumber === b.currentSetNumber &&
+    a.totalSets === b.totalSets &&
+    a.workoutName === b.workoutName &&
     a.workoutStartedAtMs === b.workoutStartedAtMs &&
     a.restStartedAtMs === b.restStartedAtMs &&
     a.restEndsAtMs === b.restEndsAtMs
@@ -110,7 +144,7 @@ export function useWorkoutLiveActivity() {
     if (Platform.OS !== "ios") return;
 
     // Kick off the activity when the workout is active on mount
-    const { isActive, exercises, startedAtMs, restTimer } =
+    const { isActive, exercises, startedAtMs, workoutName, restTimer } =
       useWorkoutStore.getState();
 
     async function maybeStart() {
@@ -118,7 +152,12 @@ export function useWorkoutLiveActivity() {
       const enabled = await areActivitiesEnabled();
       if (!enabled) return;
 
-      const derived = deriveState(exercises, startedAtMs, restTimer);
+      const derived = deriveState(
+        exercises,
+        startedAtMs,
+        workoutName,
+        restTimer
+      );
       if (!derived) return;
 
       const workoutId = `workout-${startedAtMs}`;
@@ -135,6 +174,7 @@ export function useWorkoutLiveActivity() {
         isActive: s.isActive,
         exercises: s.exercises,
         startedAtMs: s.startedAtMs,
+        workoutName: s.workoutName,
         restTimer: s.restTimer,
       }),
       async (slice) => {
@@ -154,6 +194,7 @@ export function useWorkoutLiveActivity() {
           const derived = deriveState(
             slice.exercises,
             slice.startedAtMs,
+            slice.workoutName,
             slice.restTimer
           );
           if (!derived) return;
@@ -169,6 +210,7 @@ export function useWorkoutLiveActivity() {
         const derived = deriveState(
           slice.exercises,
           slice.startedAtMs,
+          slice.workoutName,
           slice.restTimer
         );
         if (!derived) return;
@@ -193,8 +235,12 @@ function derivedToState(d: DerivedLiveState): LiveActivityState {
   return {
     exerciseName: d.exerciseName,
     setDisplay: d.setDisplay,
+    proposalDisplay: d.proposalDisplay,
     exerciseId: d.exerciseId,
     setId: d.setId,
+    currentSetNumber: d.currentSetNumber,
+    totalSets: d.totalSets,
+    workoutName: d.workoutName,
     workoutStartedAtMs: d.workoutStartedAtMs,
     restStartedAtMs: d.restStartedAtMs,
     restEndsAtMs: d.restEndsAtMs,

@@ -38,6 +38,12 @@ public class WorkoutLiveActivityModule: Module {
 
   // MARK: - Helpers
 
+  private static func intFromDict(_ dict: [String: Any], key: String) -> Int? {
+    if let v = dict[key] as? Int { return v }
+    if let v = dict[key] as? Double { return Int(v) }
+    return nil
+  }
+
   private static func contentState(from dict: [String: Any]) -> SweatyWorkoutAttributes.ContentState? {
     guard
       let exerciseName = dict["exerciseName"] as? String,
@@ -48,6 +54,12 @@ public class WorkoutLiveActivityModule: Module {
     else { return nil }
 
     let workoutStartedAt = Date(timeIntervalSince1970: workoutStartedAtMs / 1000)
+
+    let proposalDisplay =
+      dict["proposalDisplay"] as? String ?? setDisplay
+    let workoutName = dict["workoutName"] as? String ?? ""
+    let currentSetNumber = Self.intFromDict(dict, key: "currentSetNumber") ?? 1
+    let totalSets = max(1, Self.intFromDict(dict, key: "totalSets") ?? 1)
 
     var restStartedAt: Date?
     var restEndsAt: Date?
@@ -61,8 +73,12 @@ public class WorkoutLiveActivityModule: Module {
     return SweatyWorkoutAttributes.ContentState(
       exerciseName: exerciseName,
       setDisplay: setDisplay,
+      proposalDisplay: proposalDisplay,
       exerciseId: exerciseId,
       setId: setId,
+      currentSetNumber: currentSetNumber,
+      totalSets: totalSets,
+      workoutName: workoutName,
       workoutStartedAt: workoutStartedAt,
       restStartedAt: restStartedAt,
       restEndsAt: restEndsAt

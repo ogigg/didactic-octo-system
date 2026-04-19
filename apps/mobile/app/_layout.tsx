@@ -18,6 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useDeepLinks } from "@/hooks/use-deep-links";
 import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
@@ -38,6 +39,10 @@ export default function RootLayout() {
   const colors = Colors[colorScheme ?? "light"];
   const initialize = useAuthStore((s) => s.initialize);
   const isInitialized = useAuthStore((s) => s.isInitialized);
+
+  // Global handler for sweaty:// deep links (e.g. Live Activity "Mark set done").
+  // Registered at the root so it fires regardless of the active route.
+  useDeepLinks();
 
   useEffect(() => {
     const unsubscribe = initialize();

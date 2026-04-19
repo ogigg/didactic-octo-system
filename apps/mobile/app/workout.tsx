@@ -8,7 +8,6 @@ import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import { useWatchBridge } from "@/hooks/use-watch-bridge";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useRouter } from "expo-router";
-import * as Linking from "expo-linking";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Alert,
@@ -35,31 +34,6 @@ export default function WorkoutScreen() {
   // Apple Watch companion sync
   useWatchBridge();
 
-  // Handle "Mark set done" deep link from Live Activity button
-  useEffect(() => {
-    function handleUrl(event: { url: string }) {
-      const parsed = Linking.parse(event.url);
-      if (parsed.queryParams?.action !== "markSetDone") return;
-      const exerciseId = parsed.queryParams.exerciseId as string | undefined;
-      const setId = parsed.queryParams.setId as string | undefined;
-      if (!exerciseId || !setId) return;
-      const { exercises, toggleSetComplete } = useWorkoutStore.getState();
-      const exercise = exercises.find((e) => e.id === exerciseId);
-      const set = exercise?.sets.find((s) => s.id === setId);
-      // Idempotency guard: no-op if already completed
-      if (set && !set.isCompleted) {
-        toggleSetComplete(exerciseId, setId);
-      }
-    }
-
-    // Handle URL that launched the app
-    Linking.getInitialURL().then((url) => {
-      if (url) handleUrl({ url });
-    });
-
-    const subscription = Linking.addEventListener("url", handleUrl);
-    return () => subscription.remove();
-  }, []);
   const exercises = useWorkoutStore((s) => s.exercises);
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);

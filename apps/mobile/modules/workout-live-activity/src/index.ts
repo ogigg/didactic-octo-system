@@ -51,8 +51,12 @@ function stateToDict(state: LiveActivityState): Record<string, unknown> {
   const dict: Record<string, unknown> = {
     exerciseName: state.exerciseName,
     setDisplay: state.setDisplay,
+    proposalDisplay: state.proposalDisplay,
     exerciseId: state.exerciseId,
     setId: state.setId,
+    currentSetNumber: state.currentSetNumber,
+    totalSets: state.totalSets,
+    workoutName: state.workoutName,
     workoutStartedAtMs: state.workoutStartedAtMs,
   };
   if (state.restStartedAtMs !== null && state.restEndsAtMs !== null) {

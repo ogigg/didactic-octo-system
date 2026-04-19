@@ -13,12 +13,13 @@ interface HeatmapDay {
 interface HeatmapChartProps {
   data: HeatmapDay[];
   cellSize?: number;
+  weeks?: number;
 }
 
 const DAY_LABEL_WIDTH = 20;
 const MONTH_LABEL_HEIGHT = 16;
 const CELL_GAP = 2;
-const WEEKS = 52;
+const DEFAULT_WEEKS = 52;
 const DAYS_IN_WEEK = 7;
 const MONTH_ABBREVS = [
   "Jan",
@@ -41,7 +42,7 @@ const DAY_LABELS: { row: number; label: string }[] = [
 ];
 
 function getIntensityLevel(day: HeatmapDay | undefined): number {
-  if (!day || day.volume_kg === 0) return 0;
+  if (!day) return 0;
   if (day.volume_kg > 6000) return 4;
   if (day.volume_kg > 3000) return 3;
   if (day.volume_kg > 1000) return 2;
@@ -68,20 +69,27 @@ function getMondayOfWeek(date: Date): Date {
 export function HeatmapChart({
   data,
   cellSize: cellSizeProp,
+  weeks = DEFAULT_WEEKS,
 }: HeatmapChartProps) {
   const { width: screenWidth } = useWindowDimensions();
   const primaryColor = useThemeColor({}, "primary");
   const borderColor = useThemeColor({}, "border");
   const textMuted = useThemeColor({}, "textMuted");
 
-  const cellSize =
-    cellSizeProp ??
-    Math.floor((screenWidth - 2 * Spacing.xl - DAY_LABEL_WIDTH) / 53);
+  const WEEKS = weeks;
+  const available = screenWidth - 2 * Spacing.xl - DAY_LABEL_WIDTH;
+  const computed = Math.floor((available - (WEEKS - 1) * CELL_GAP) / WEEKS);
+  const cellSize = cellSizeProp ?? Math.max(4, Math.min(28, computed));
 
+  const gridWidth = DAY_LABEL_WIDTH + WEEKS * cellSize + (WEEKS - 1) * CELL_GAP;
+  const legendWidth = 26 + 5 * cellSize + 4 * CELL_GAP + 32;
+  const chartWidth = Math.max(gridWidth, DAY_LABEL_WIDTH + legendWidth);
   const chartHeight =
-    MONTH_LABEL_HEIGHT + DAYS_IN_WEEK * (cellSize + CELL_GAP) + CELL_GAP + 16;
-  const chartWidth =
-    DAY_LABEL_WIDTH + WEEKS * cellSize + (WEEKS - 1) * CELL_GAP;
+    MONTH_LABEL_HEIGHT +
+    DAYS_IN_WEEK * (cellSize + CELL_GAP) +
+    CELL_GAP +
+    cellSize +
+    12;
 
   // Build lookup map
   const dataMap = new Map<string, HeatmapDay>();
@@ -233,6 +241,7 @@ export function HeatmapChart({
 
 const styles = StyleSheet.create({
   container: {
+    alignItems: "center",
     overflow: "hidden",
   },
 });
