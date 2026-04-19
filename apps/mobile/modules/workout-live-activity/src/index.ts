@@ -1,8 +1,8 @@
 import { Platform } from "react-native";
 
-import type { LiveActivityState } from "./types";
+import type { LiveActivityState, PendingLiveActivityAction } from "./types";
 
-export type { LiveActivityState };
+export type { LiveActivityState, PendingLiveActivityAction };
 
 // Lazy-load native module to avoid crashing on Android / web
 let _native: {
@@ -13,6 +13,7 @@ let _native: {
   ): Promise<string | null>;
   updateActivity(state: Record<string, unknown>): Promise<void>;
   endActivity(dismissImmediately: boolean): Promise<void>;
+  drainPendingActions(): Promise<Array<Record<string, unknown>>>;
 } | null = null;
 
 function getNative() {
@@ -45,6 +46,39 @@ export async function endActivity(opts?: {
   dismissImmediately?: boolean;
 }): Promise<void> {
   await getNative()?.endActivity(opts?.dismissImmediately ?? false);
+}
+
+/**
+ * Atomically read & clear the App-Group pending-actions queue. Each entry is
+ * a normalized {@link PendingLiveActivityAction}. Returns `[]` on non-iOS
+ * platforms or when the App Group is unavailable.
+ */
+export async function drainPendingActions(): Promise<
+  PendingLiveActivityAction[]
+> {
+  const raw = (await getNative()?.drainPendingActions()) ?? [];
+  const out: PendingLiveActivityAction[] = [];
+  for (const entry of raw) {
+    const action = normalizeAction(entry);
+    if (action) out.push(action);
+  }
+  return out;
+}
+
+function normalizeAction(
+  entry: Record<string, unknown>
+): PendingLiveActivityAction | null {
+  const type = entry.type;
+  const ts = typeof entry.timestamp === "number" ? entry.timestamp : Date.now();
+  if (type === "skipRest") {
+    return { type, timestamp: ts };
+  }
+  if (type === "adjustRest") {
+    const delta = entry.deltaSeconds;
+    if (typeof delta !== "number" || delta === 0) return null;
+    return { type, deltaSeconds: delta, timestamp: ts };
+  }
+  return null;
 }
 
 function stateToDict(state: LiveActivityState): Record<string, unknown> {

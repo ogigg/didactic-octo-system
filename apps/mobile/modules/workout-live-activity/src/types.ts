@@ -14,3 +14,11 @@ export interface LiveActivityState {
   restStartedAtMs: number | null;
   restEndsAtMs: number | null;
 }
+
+/**
+ * Action emitted by a widget App Intent and parked in the shared App Group
+ * UserDefaults until the main app foregrounds and drains it.
+ */
+export type PendingLiveActivityAction =
+  | { type: "skipRest"; timestamp: number }
+  | { type: "adjustRest"; deltaSeconds: number; timestamp: number };

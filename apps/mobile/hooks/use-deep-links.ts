@@ -41,6 +41,38 @@ function applyMarkSetDone(exerciseId: string, setId: string): void {
   toggleSetComplete(exerciseId, setId);
 }
 
+function applySkipRest(): void {
+  const { restTimer, skipRestTimer } = useWorkoutStore.getState();
+  if (!restTimer) return;
+  skipRestTimer();
+}
+
+function applyAdjustRest(rawDelta: string): void {
+  const delta = Number.parseInt(rawDelta, 10);
+  if (!Number.isFinite(delta) || delta === 0) return;
+  const { restTimer, adjustRestTimer } = useWorkoutStore.getState();
+  if (!restTimer) return;
+  adjustRestTimer(delta);
+}
+
+function dispatchAction(params: Record<string, string>): void {
+  switch (params.action) {
+    case "markSetDone": {
+      const { exerciseId, setId } = params;
+      if (!exerciseId || !setId) return;
+      applyMarkSetDone(exerciseId, setId);
+      return;
+    }
+    case "skipRest":
+      applySkipRest();
+      return;
+    case "adjustRest":
+      if (!params.deltaSeconds) return;
+      applyAdjustRest(params.deltaSeconds);
+      return;
+  }
+}
+
 /**
  * Global deep-link router for the Sweaty URL scheme. Mounted once at the
  * root layout so it survives screen unmounts and doesn't depend on the
@@ -61,22 +93,19 @@ export function useDeepLinks(): void {
       handled.add(rawUrl);
 
       const params = parseQueryParams(rawUrl);
-      if (params.action !== "markSetDone") return;
-
-      const { exerciseId, setId } = params;
-      if (!exerciseId || !setId) return;
+      if (!params.action) return;
 
       // Wait for the persisted workout store to hydrate before mutating.
       // On cold launch the URL may arrive before AsyncStorage has loaded
       // the active workout, in which case `exercises` is empty.
       const persist = useWorkoutStore.persist;
       if (persist.hasHydrated()) {
-        applyMarkSetDone(exerciseId, setId);
+        dispatchAction(params);
         return;
       }
       const unsub = persist.onFinishHydration(() => {
         unsub();
-        applyMarkSetDone(exerciseId, setId);
+        dispatchAction(params);
       });
     }
 

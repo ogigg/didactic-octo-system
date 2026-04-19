@@ -4,6 +4,10 @@
   "name": "SweatyWidget",
   "bundleIdentifier": "com.ogig.sweaty.SweatyWidget",
   "colors": {
-    "widgetAccent": "#38BDF8"
+    "widgetAccent": "#38BDF8",
+    "widgetSuccess": "#34C759"
+  },
+  "entitlements": {
+    "com.apple.security.application-groups": ["group.com.ogig.sweaty"]
   }
 }

@@ -19,6 +19,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useDeepLinks } from "@/hooks/use-deep-links";
+import { useLiveActivityActions } from "@/hooks/use-live-activity-actions";
 import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
@@ -43,6 +44,10 @@ export default function RootLayout() {
   // Global handler for sweaty:// deep links (e.g. Live Activity "Mark set done").
   // Registered at the root so it fires regardless of the active route.
   useDeepLinks();
+
+  // Drain background-safe Live Activity actions (Skip Rest, Adjust Rest, …)
+  // queued in the shared App Group by widget App Intents.
+  useLiveActivityActions();
 
   useEffect(() => {
     const unsubscribe = initialize();

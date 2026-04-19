@@ -34,6 +34,14 @@ public class WorkoutLiveActivityModule: Module {
       guard #available(iOS 16.2, *) else { return }
       await LiveActivityManager.shared.end(dismissImmediately: dismissImmediately)
     }
+
+    /// Atomically read & clear the App-Group pending-actions queue.
+    /// Returns an array of plain dictionaries so the JS side can fan them
+    /// out to the appropriate Zustand store mutations. Always safe to call
+    /// (returns []) on iOS < 16.2 or when the App Group is misconfigured.
+    AsyncFunction("drainPendingActions") { () -> [[String: Any]] in
+      AppGroupBridge.drainPendingActions()
+    }
   }
 
   // MARK: - Helpers
