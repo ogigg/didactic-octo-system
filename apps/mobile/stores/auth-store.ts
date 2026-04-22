@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { syncQueue } from "@/lib/sync-queue";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { fetchProfile } from "@/lib/api/profiles";
+import { cancelAccountDeletion } from "@/lib/api/delete-account";
 
 interface AuthState {
   session: Session | null;
@@ -29,6 +30,16 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
     }
   }
 
+  // If the user scheduled deletion and then signed back in during the grace
+  // period, treat that as a change of heart and clear the pending deletion.
+  async function clearPendingDeletion() {
+    try {
+      await cancelAccountDeletion();
+    } catch (error) {
+      console.warn("[auth-store] Failed to clear pending deletion:", error);
+    }
+  }
+
   return {
     session: null,
     isLoading: false,
@@ -46,10 +57,13 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
       // Subscribe to auth state changes
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
+      } = supabase.auth.onAuthStateChange((event, session) => {
         set({ session, isInitialized: true });
         if (session) {
           syncOnboardingState();
+          if (event === "SIGNED_IN") {
+            clearPendingDeletion();
+          }
         }
       });
 

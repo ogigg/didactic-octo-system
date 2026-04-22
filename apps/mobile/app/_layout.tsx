@@ -215,6 +215,10 @@ export default function RootLayout() {
                   name="feedback"
                   options={{ headerShown: false }}
                 />
+                <Stack.Screen
+                  name="delete-account"
+                  options={{ headerShown: false }}
+                />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>

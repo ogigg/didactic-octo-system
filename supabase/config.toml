@@ -359,6 +359,10 @@ verify_jwt = false
 [functions.generate-next-workout]
 verify_jwt = false
 
+[functions.purge-expired-deletions]
+# Authenticated via CRON_SECRET shared-secret, not a Supabase JWT.
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

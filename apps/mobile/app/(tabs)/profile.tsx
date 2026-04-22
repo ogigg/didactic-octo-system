@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -120,6 +121,7 @@ export default function ProfileScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
+  const errorColor = useThemeColor({}, "error");
 
   const {
     totalWorkouts,
@@ -274,6 +276,27 @@ export default function ProfileScreen() {
             accessibilityLabel={tAuth("logout.button")}
             style={styles.logoutButton}
           />
+
+          {/* Danger zone — irreversible account deletion. */}
+          <Pressable
+            onPress={() => router.navigate("/delete-account")}
+            accessibilityRole="button"
+            accessibilityLabel={t("nav.deleteAccount")}
+            style={({ pressed }) => [
+              styles.deleteAccountButton,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Text
+              style={[
+                Typography.body,
+                styles.deleteAccountLabel,
+                { color: errorColor },
+              ]}
+            >
+              {t("nav.deleteAccount")}
+            </Text>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -334,5 +357,13 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: Spacing.md,
+  },
+  deleteAccountButton: {
+    alignSelf: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  deleteAccountLabel: {
+    textAlign: "center",
   },
 });

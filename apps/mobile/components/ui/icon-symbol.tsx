@@ -51,6 +51,8 @@ const MAPPING = {
   "arrow.up": "arrow-upward",
   "arrow.down": "arrow-downward",
   pencil: "edit",
+  "exclamationmark.triangle.fill": "warning",
+  "person.crop.circle.badge.xmark": "person-off",
 } as IconMapping;
 
 /**

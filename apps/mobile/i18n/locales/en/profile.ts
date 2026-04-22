@@ -24,5 +24,6 @@ export const profile = {
     strengthBaselines: "Strength",
     health: "Health",
     feedback: "Feedback",
+    deleteAccount: "Delete Account",
   },
 } as const;

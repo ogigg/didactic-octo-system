@@ -33,7 +33,8 @@
     "https://deno.land/std@0.224.0/fmt/colors.ts": "508563c0659dd7198ba4bbf87e97f654af3c34eb56ba790260f252ad8012e1c5",
     "https://deno.land/std@0.224.0/internal/diff.ts": "6234a4b493ebe65dc67a18a0eb97ef683626a1166a1906232ce186ae9f65f4e6",
     "https://deno.land/std@0.224.0/internal/format.ts": "0a98ee226fd3d43450245b1844b47003419d34d210fa989900861c79820d21c2",
-    "https://deno.land/std@0.224.0/internal/mod.ts": "534125398c8e7426183e12dc255bb635d94e06d0f93c60a297723abe69d3b22e"
+    "https://deno.land/std@0.224.0/internal/mod.ts": "534125398c8e7426183e12dc255bb635d94e06d0f93c60a297723abe69d3b22e",
+    "https://esm.sh/jose@5.9.6": "8c535558ee938997693933217d3f71cdbb97f968cc9b5385ab442664458aa576"
   },
   "workspace": {
     "packageJson": {
@@ -49,9 +50,11 @@
       "apps/mobile": {
         "packageJson": {
           "dependencies": [
+            "npm:@bacons/apple-targets@^4.0.6",
             "npm:@expo/vector-icons@^15.0.2",
             "npm:@hookform/resolvers@^5.2.2",
             "npm:@react-native-async-storage/async-storage@2.2.0",
+            "npm:@react-native-community/datetimepicker@^9.1.0",
             "npm:@react-native-community/netinfo@11.4.1",
             "npm:@react-navigation/bottom-tabs@^7.4.0",
             "npm:@react-navigation/elements@^2.6.3",
@@ -93,6 +96,8 @@
             "npm:react-hook-form@^7.71.2",
             "npm:react-i18next@^16.5.8",
             "npm:react-native-gesture-handler@2.28",
+            "npm:react-native-health-connect@^3.5.0",
+            "npm:react-native-health@^1.19.0",
             "npm:react-native-reanimated@~4.1.1",
             "npm:react-native-safe-area-context@5.6",
             "npm:react-native-screens@4.16",
@@ -105,6 +110,21 @@
             "npm:typescript@~5.9.2",
             "npm:zod@^3.25.76",
             "npm:zustand@^5.0.12"
+          ]
+        }
+      },
+      "apps/web": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@tailwindcss/postcss@4.1.4",
+            "npm:@types/node@22.14.1",
+            "npm:@types/react-dom@19.1.2",
+            "npm:@types/react@19.1.2",
+            "npm:next@15.3.1",
+            "npm:react-dom@19.1.0",
+            "npm:react@19.1.0",
+            "npm:tailwindcss@4.1.4",
+            "npm:typescript@5.9.2"
           ]
         }
       },
