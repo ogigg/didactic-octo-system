@@ -10,6 +10,7 @@ function makeHistory(
 ): ExerciseHistory {
   return {
     exercise_id: "ex-1",
+    exercise_type: "weight",
     session_completed_at: RECENT,
     difficulty_feedback: null,
     working_sets: [

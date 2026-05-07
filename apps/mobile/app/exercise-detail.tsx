@@ -223,10 +223,12 @@ function SessionRow({
   session,
   setLabel,
   completedSetsLabel,
+  wu,
 }: {
   session: ExerciseSessionHistory;
   setLabel: (number: number) => string;
   completedSetsLabel: string;
+  wu: ReturnType<typeof useWeightUnit>;
 }) {
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -540,6 +542,7 @@ export default function ExerciseDetailScreen() {
             completedSetsLabel={t("history.completedSets", {
               count: session.sets?.length ?? 0,
             })}
+            wu={wu}
           />
         ))}
       </View>

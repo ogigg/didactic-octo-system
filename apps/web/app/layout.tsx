@@ -17,9 +17,7 @@ export const metadata: Metadata = {
     description:
       "AI-generated workouts built around your goals, equipment, and schedule. Just open the app and train.",
     type: "website",
-    // TODO: Replace with actual URL
     url: "https://sweaty.app",
-    // TODO: Replace with actual OG image (1200x630, dark bg + primary accent + app name)
     images: [{ url: "/og.png", width: 1200, height: 630 }],
   },
   twitter: {
@@ -28,7 +26,6 @@ export const metadata: Metadata = {
     description:
       "AI-generated workouts built around your goals, equipment, and schedule.",
   },
-  // TODO: Replace with actual canonical URL
   metadataBase: new URL("https://sweaty.app"),
 };
 

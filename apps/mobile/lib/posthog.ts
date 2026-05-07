@@ -20,9 +20,7 @@ if (!posthogKey) {
 export const posthog = posthogKey
   ? new PostHog(posthogKey, {
       host: posthogHost,
-      captureApplicationLifecycleEvents: true,
-      captureScreenViews: true,
-      debug: __DEV__,
+      captureAppLifecycleEvents: true,
       // Additional PostHog configuration options
       flushAt: 20, // Number of events to batch before sending
       flushInterval: 30000, // Flush every 30 seconds

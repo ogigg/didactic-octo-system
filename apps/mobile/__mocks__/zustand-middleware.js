@@ -2,5 +2,6 @@
 // Makes `persist` a synchronous identity pass-through so stores work without
 // async AsyncStorage rehydration during tests.
 const persist = (config) => config;
+const subscribeWithSelector = (config) => config;
 const createJSONStorage = () => undefined;
-module.exports = { persist, createJSONStorage };
+module.exports = { persist, subscribeWithSelector, createJSONStorage };

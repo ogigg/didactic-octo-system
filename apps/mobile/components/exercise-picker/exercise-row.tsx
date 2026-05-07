@@ -8,7 +8,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 interface ExerciseRowProps {
   exercise: Exercise;
   onSelect: (exercise: Exercise) => void;
-  mode?: "replace" | "add";
+  mode?: "replace" | "add" | "pending_swap";
 }
 
 export const ExerciseRow = memo(function ExerciseRow({

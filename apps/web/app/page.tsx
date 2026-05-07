@@ -124,14 +124,13 @@ export default function Home() {
 
           <WaitlistForm />
 
-          {/* Store badges placeholder */}
+          {/* Store availability notes */}
           <div className="flex gap-4 items-center flex-wrap justify-center">
-            {/* TODO: Replace with actual App Store / Play Store badge links */}
             <div className="px-5 py-3 rounded-md bg-bg-subtle border border-border text-text-muted text-caption select-none">
-              App Store — Coming Soon
+              iOS app planned
             </div>
             <div className="px-5 py-3 rounded-md bg-bg-subtle border border-border text-text-muted text-caption select-none">
-              Google Play — Coming Soon
+              Android app planned
             </div>
           </div>
 
@@ -270,12 +269,17 @@ export default function Home() {
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <span className="text-title-md font-bold text-primary">Sweaty</span>
           <nav className="flex gap-6 text-caption text-text-muted">
-            {/* TODO: Replace with actual policy page URLs */}
             <a href="/privacy" className="hover:text-text transition-colors">
               Privacy Policy
             </a>
             <a href="/terms" className="hover:text-text transition-colors">
               Terms of Service
+            </a>
+            <a
+              href="/delete-account"
+              className="hover:text-text transition-colors"
+            >
+              Delete Account
             </a>
             {/* TODO: Replace with actual contact email */}
             <a

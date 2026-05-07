@@ -5,7 +5,9 @@ jest.mock("@/stores/onboarding-store", () => ({
   useOnboardingStore: jest.fn(),
 }));
 jest.mock("@/hooks/use-profile-mutations", () => ({
-  useUpsertProfile: jest.fn(() => ({ mutate: jest.fn() })),
+  useUpsertProfile: jest.fn(() => ({
+    mutate: jest.fn((_payload, options) => options?.onSuccess?.()),
+  })),
 }));
 jest.mock("@/lib/track-event", () => ({ trackEvent: jest.fn() }));
 jest.mock("expo-router", () => ({
@@ -14,6 +16,7 @@ jest.mock("expo-router", () => ({
 }));
 
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { trackEvent } from "@/lib/track-event";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -42,9 +45,21 @@ beforeEach(() => {
   (useOnboardingStore as unknown as jest.Mock).mockReturnValue(fullStore);
 });
 
+function renderReviewScreen() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ReviewScreen />
+    </QueryClientProvider>
+  );
+}
+
 describe("ReviewScreen", () => {
   it("displays all answered values", () => {
-    render(<ReviewScreen />);
+    renderReviewScreen();
     expect(screen.getByText("Male")).toBeTruthy();
     expect(screen.getByText("Build Strength")).toBeTruthy();
     expect(screen.getByText("4 days per week")).toBeTruthy();
@@ -56,7 +71,7 @@ describe("ReviewScreen", () => {
       gender: null,
       genderSkipped: false,
     });
-    render(<ReviewScreen />);
+    renderReviewScreen();
     expect(screen.queryByText(/gender/i)).toBeNull();
   });
 
@@ -66,7 +81,7 @@ describe("ReviewScreen", () => {
       gender: null,
       genderSkipped: true,
     });
-    render(<ReviewScreen />);
+    renderReviewScreen();
     expect(screen.queryByText(/GENDER/i)).toBeNull();
   });
 
@@ -76,12 +91,12 @@ describe("ReviewScreen", () => {
       goal: null,
       customGoal: "do a muscle-up",
     });
-    render(<ReviewScreen />);
+    renderReviewScreen();
     expect(screen.getByText("do a muscle-up")).toBeTruthy();
   });
 
   it("tapping Edit on gender navigates to gender with editMode", () => {
-    render(<ReviewScreen />);
+    renderReviewScreen();
     const editBtns = screen.getAllByText("Edit");
     fireEvent.press(editBtns[0]); // first Edit is for gender
     expect(router.push).toHaveBeenCalledWith({
@@ -91,14 +106,14 @@ describe("ReviewScreen", () => {
   });
 
   it("tapping submit calls complete and fires analytics", () => {
-    render(<ReviewScreen />);
+    renderReviewScreen();
     fireEvent.press(screen.getByRole("button", { name: /start working out/i }));
     expect(mockComplete).toHaveBeenCalled();
     expect(trackEvent).toHaveBeenCalledWith("onboarding_completed", {});
   });
 
   it("tapping submit navigates to tabs", () => {
-    render(<ReviewScreen />);
+    renderReviewScreen();
     fireEvent.press(screen.getByRole("button", { name: /start working out/i }));
     expect(router.replace).toHaveBeenCalledWith("/(tabs)");
   });

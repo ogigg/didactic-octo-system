@@ -144,6 +144,7 @@ describe("useAuthStore", () => {
         weekly_frequency: "3" as const,
         equipment_level: "full_gym" as const,
         difficulty_level: "intermediate" as const,
+        weight_unit: "kg" as const,
       };
 
       (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
@@ -209,6 +210,7 @@ describe("useAuthStore", () => {
         weekly_frequency: "4" as const,
         equipment_level: null as string | null,
         difficulty_level: null as string | null,
+        weight_unit: "kg" as const,
       };
       let capturedCallback: (event: string, session: unknown) => void;
 

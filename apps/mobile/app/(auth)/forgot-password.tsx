@@ -21,6 +21,7 @@ import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { supabase } from "@/lib/supabase";
 import {
+  type AuthValidationKey,
   type ForgotPasswordFormData,
   forgotPasswordSchema,
 } from "@/lib/schemas/auth";
@@ -156,7 +157,7 @@ export default function ForgotPasswordScreen() {
             />
             {errors.email && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.email.message as string)}
+                {t(errors.email.message as AuthValidationKey)}
               </Text>
             )}
           </View>

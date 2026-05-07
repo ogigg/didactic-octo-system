@@ -54,7 +54,6 @@ export function DatePickerInput({
         style={[
           styles.input,
           {
-            color: textColor,
             backgroundColor: inputFill,
             borderColor: border,
           },

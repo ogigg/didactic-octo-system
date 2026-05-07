@@ -20,7 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { supabase } from "@/lib/supabase";
-import { type SignInFormData, signInSchema } from "@/lib/schemas/auth";
+import {
+  type AuthValidationKey,
+  type SignInFormData,
+  signInSchema,
+} from "@/lib/schemas/auth";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
@@ -127,7 +131,7 @@ export default function SignInScreen() {
             />
             {errors.email && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.email.message as string)}
+                {t(errors.email.message as AuthValidationKey)}
               </Text>
             )}
           </View>
@@ -189,7 +193,7 @@ export default function SignInScreen() {
             />
             {errors.password && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.password.message as string)}
+                {t(errors.password.message as AuthValidationKey)}
               </Text>
             )}
           </View>

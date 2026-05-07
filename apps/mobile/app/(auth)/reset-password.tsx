@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { supabase } from "@/lib/supabase";
 import {
+  type AuthValidationKey,
   type ResetPasswordFormData,
   resetPasswordSchema,
 } from "@/lib/schemas/auth";
@@ -131,7 +132,7 @@ export default function ResetPasswordScreen() {
             />
             {errors.password && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.password.message as string)}
+                {t(errors.password.message as AuthValidationKey)}
               </Text>
             )}
           </View>
@@ -167,7 +168,7 @@ export default function ResetPasswordScreen() {
             />
             {errors.confirmPassword && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.confirmPassword.message as string)}
+                {t(errors.confirmPassword.message as AuthValidationKey)}
               </Text>
             )}
           </View>

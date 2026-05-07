@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -41,8 +41,17 @@ type IconName =
 
 interface NavItem {
   icon: IconName;
-  labelKey: string;
-  route?: string;
+  labelKey:
+    | "nav.statistics"
+    | "nav.calendar"
+    | "nav.measures"
+    | "nav.history"
+    | "nav.trainingPreferences"
+    | "nav.strengthBaselines"
+    | "nav.health"
+    | "nav.subscription"
+    | "nav.feedback";
+  route?: Href;
 }
 
 const TRACKING_ITEMS: NavItem[] = [
@@ -148,25 +157,27 @@ export default function ProfileScreen() {
 
   const renderGroup = (items: NavItem[]) => (
     <ListGroup>
-      {items.map((item, i) => (
-        <ListRow
-          key={item.labelKey}
-          icon={item.icon}
-          label={t(item.labelKey)}
-          onPress={
-            item.route ? () => router.navigate(item.route as never) : undefined
-          }
-          position={
-            items.length === 1
-              ? "only"
-              : i === 0
-                ? "first"
-                : i === items.length - 1
-                  ? "last"
-                  : "middle"
-          }
-        />
-      ))}
+      {items.map((item, i) => {
+        const route = item.route;
+
+        return (
+          <ListRow
+            key={item.labelKey}
+            icon={item.icon}
+            label={t(item.labelKey)}
+            onPress={route ? () => router.navigate(route) : undefined}
+            position={
+              items.length === 1
+                ? "only"
+                : i === 0
+                  ? "first"
+                  : i === items.length - 1
+                    ? "last"
+                    : "middle"
+            }
+          />
+        );
+      })}
     </ListGroup>
   );
 
@@ -279,7 +290,7 @@ export default function ProfileScreen() {
 
           {/* Danger zone — irreversible account deletion. */}
           <Pressable
-            onPress={() => router.navigate("/delete-account")}
+            onPress={() => router.navigate("/delete-account" as Href)}
             accessibilityRole="button"
             accessibilityLabel={t("nav.deleteAccount")}
             style={({ pressed }) => [

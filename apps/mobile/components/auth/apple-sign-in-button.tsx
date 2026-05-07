@@ -46,7 +46,11 @@ export function AppleSignInButton() {
       buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
       cornerRadius={12}
       style={styles.button}
-      onPress={isLoading ? undefined : handleAppleSignIn}
+      onPress={() => {
+        if (!isLoading) {
+          void handleAppleSignIn();
+        }
+      }}
     />
   );
 }

@@ -34,3 +34,7 @@ export type SignInFormData = z.infer<typeof signInSchema>;
 export type SignUpFormData = z.infer<typeof signUpSchema>;
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
+export type AuthValidationKey =
+  | "errors.invalidEmail"
+  | "errors.passwordTooShort"
+  | "errors.passwordsMustMatch";

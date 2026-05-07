@@ -20,7 +20,10 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { sendFeedback } from "@/lib/api/feedback";
-import type { FeedbackFormData } from "@/lib/schemas/feedback";
+import type {
+  FeedbackFormData,
+  FeedbackValidationKey,
+} from "@/lib/schemas/feedback";
 import { feedbackSchema } from "@/lib/schemas/feedback";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -130,7 +133,7 @@ export default function FeedbackScreen() {
                 styles.errorText,
               ]}
             >
-              {t(errors.type.message as string)}
+              {errors.type.message}
             </Text>
           )}
 
@@ -174,7 +177,7 @@ export default function FeedbackScreen() {
                 styles.errorText,
               ]}
             >
-              {t(errors.title.message as string)}
+              {t(errors.title.message as FeedbackValidationKey)}
             </Text>
           )}
 
@@ -224,7 +227,7 @@ export default function FeedbackScreen() {
                 styles.errorText,
               ]}
             >
-              {t(errors.description.message as string)}
+              {t(errors.description.message as FeedbackValidationKey)}
             </Text>
           )}
 

@@ -20,7 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { supabase } from "@/lib/supabase";
-import { type SignUpFormData, signUpSchema } from "@/lib/schemas/auth";
+import {
+  type AuthValidationKey,
+  type SignUpFormData,
+  signUpSchema,
+} from "@/lib/schemas/auth";
 
 export default function SignUpScreen() {
   const { t } = useTranslation("auth");
@@ -149,7 +153,7 @@ export default function SignUpScreen() {
             />
             {errors.email && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.email.message as string)}
+                {t(errors.email.message as AuthValidationKey)}
               </Text>
             )}
           </View>
@@ -185,7 +189,7 @@ export default function SignUpScreen() {
             />
             {errors.password && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.password.message as string)}
+                {t(errors.password.message as AuthValidationKey)}
               </Text>
             )}
           </View>
@@ -222,7 +226,7 @@ export default function SignUpScreen() {
             />
             {errors.confirmPassword && (
               <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.confirmPassword.message as string)}
+                {t(errors.confirmPassword.message as AuthValidationKey)}
               </Text>
             )}
           </View>

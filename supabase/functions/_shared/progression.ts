@@ -12,7 +12,7 @@
 export interface WorkingSetRecord {
   load_kg: number | null;
   reps: number | null;
-  duration_seconds: number | null;
+  duration_seconds?: number | null;
   completed: boolean;
 }
 
