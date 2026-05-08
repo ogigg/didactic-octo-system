@@ -11,7 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ogig.sweaty",
-      "appleTeamId": "X6TS5L9ZTL"
+      "appleTeamId": "X6TS5L9ZTL",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +37,6 @@
       "@bacons/apple-targets",
       "./plugins/with-live-activities-plist.cjs",
       "./plugins/with-app-group.cjs",
-      "./plugins/with-watch-connectivity.cjs",
       [
         "expo-splash-screen",
         {
@@ -65,7 +67,24 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "3d62df88-5973-4504-9c6f-0f2393a5bd6d"
+        "projectId": "3d62df88-5973-4504-9c6f-0f2393a5bd6d",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.ogig.sweaty.SweatyWidget",
+                  "targetName": "SweatyWidget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.ogig.sweaty"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "owner": "ogig"

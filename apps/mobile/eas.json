@@ -5,10 +5,20 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "production"
     },
     "production": {
+      "environment": "production",
       "autoIncrement": true
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {}
+    }
+  },
+  "cli": {
+    "appVersionSource": "remote"
   }
 }
