@@ -1,30 +1,41 @@
 import { useEffect } from "react";
 import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 
+import { supabase } from "@/lib/supabase";
 import { useWorkoutStore } from "@/stores/workout-store";
 
 /**
- * Parses query string from a sweaty:// URL without relying on Linking.parse,
- * whose handling of host vs. path varies across SDK versions.
+ * Parses query and hash params from a sweaty:// URL without relying on
+ * Linking.parse, whose handling of host vs. path varies across SDK versions.
  *
  * Examples it must handle:
  *   sweaty://workout?action=markSetDone&exerciseId=foo&setId=bar
  *   sweaty://workout/?action=markSetDone&...
  */
-function parseQueryParams(url: string): Record<string, string> {
+function parseParams(url: string): Record<string, string> {
   const queryIndex = url.indexOf("?");
-  if (queryIndex === -1) return {};
-  const query = url.slice(queryIndex + 1);
+  const hashIndex = url.indexOf("#");
+  const query =
+    queryIndex === -1
+      ? ""
+      : url.slice(
+          queryIndex + 1,
+          hashIndex === -1 || hashIndex < queryIndex ? undefined : hashIndex
+        );
+  const hash = hashIndex === -1 ? "" : url.slice(hashIndex + 1);
   const out: Record<string, string> = {};
-  for (const pair of query.split("&")) {
-    if (!pair) continue;
-    const eq = pair.indexOf("=");
-    if (eq === -1) {
-      out[decodeURIComponent(pair)] = "";
-    } else {
-      const key = decodeURIComponent(pair.slice(0, eq));
-      const value = decodeURIComponent(pair.slice(eq + 1));
-      out[key] = value;
+  for (const part of [query, hash]) {
+    for (const pair of part.split("&")) {
+      if (!pair) continue;
+      const eq = pair.indexOf("=");
+      if (eq === -1) {
+        out[decodeURIComponent(pair)] = "";
+      } else {
+        const key = decodeURIComponent(pair.slice(0, eq));
+        const value = decodeURIComponent(pair.slice(eq + 1));
+        out[key] = value;
+      }
     }
   }
   return out;
@@ -83,16 +94,33 @@ function dispatchAction(params: Record<string, string>): void {
  *     dispatched by the Live Activity "Mark set done" button (App Intent).
  */
 export function useDeepLinks(): void {
+  const router = useRouter();
+
   useEffect(() => {
     // De-dupe URLs across the cold-launch (getInitialURL) and warm-launch
     // ('url' event) paths. iOS may surface the same URL through both.
     const handled = new Set<string>();
 
-    function process(rawUrl: string): void {
+    async function process(rawUrl: string): Promise<void> {
       if (handled.has(rawUrl)) return;
       handled.add(rawUrl);
 
-      const params = parseQueryParams(rawUrl);
+      const params = parseParams(rawUrl);
+      if (
+        params.type === "recovery" &&
+        params.access_token &&
+        params.refresh_token
+      ) {
+        const { error } = await supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token,
+        });
+        if (!error) {
+          router.replace("/reset-password");
+        }
+        return;
+      }
+
       if (!params.action) return;
 
       // Wait for the persisted workout store to hydrate before mutating.
@@ -111,18 +139,18 @@ export function useDeepLinks(): void {
 
     Linking.getInitialURL()
       .then((url) => {
-        if (url) process(url);
+        if (url) void process(url);
       })
       .catch(() => {
         /* getInitialURL is best-effort */
       });
 
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      process(url);
+      void process(url);
     });
 
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [router]);
 }

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { useAuth } from "@/hooks/use-auth";
 import { useProfile } from "@/hooks/use-profile-query";
 import { fetchWeeklyUsage } from "@/lib/api/subscription";
 import { subscriptionKeys } from "@/lib/query-keys";
@@ -17,6 +18,7 @@ export interface SubscriptionState {
 }
 
 export function useSubscription(): SubscriptionState {
+  const { user } = useAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
 
   const tier = profile?.subscription_tier ?? "free";
@@ -29,7 +31,7 @@ export function useSubscription(): SubscriptionState {
     queryKey: subscriptionKeys.usage(),
     queryFn: fetchWeeklyUsage,
     // Only fetch usage for free users — pro users are unlimited
-    enabled: !isProActive && !profileLoading,
+    enabled: !!user && !isProActive && !profileLoading,
     staleTime: 60_000,
   });
 

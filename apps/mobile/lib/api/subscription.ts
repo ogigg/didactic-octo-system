@@ -26,8 +26,16 @@ export function isGenerationLimitError(
 }
 
 export async function fetchWeeklyUsage(): Promise<GenerationAllowance> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { allowed: true, used: 0, remaining: 5, tier: "free" };
+  }
+
   const { data, error } = await supabase.rpc("check_generation_allowance", {
-    p_user_id: (await supabase.auth.getUser()).data.user?.id ?? "",
+    p_user_id: user.id,
     p_requested_count: 0,
   });
 

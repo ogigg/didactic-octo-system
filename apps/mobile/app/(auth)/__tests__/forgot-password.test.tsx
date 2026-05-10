@@ -8,6 +8,9 @@ jest.mock("@/lib/supabase", () => ({
     },
   },
 }));
+jest.mock("expo-linking", () => ({
+  createURL: jest.fn(() => "sweaty://reset-password"),
+}));
 jest.mock("expo-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => children,
   router: { push: jest.fn() },
@@ -58,7 +61,7 @@ describe("ForgotPasswordScreen", () => {
 
     await waitFor(() => {
       expect(mockReset).toHaveBeenCalledWith("user@example.com", {
-        redirectTo: "mobile://reset-password",
+        redirectTo: "sweaty://reset-password",
       });
     });
   });
