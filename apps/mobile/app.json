@@ -37,6 +37,7 @@
       "expo-router",
       "expo-apple-authentication",
       "@bacons/apple-targets",
+      "./plugins/with-ios-object-version.cjs",
       "./plugins/with-live-activities-plist.cjs",
       "./plugins/with-app-group.cjs",
       [
