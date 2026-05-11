@@ -342,6 +342,7 @@ Notes:
 
 - this table exists to support rate limiting / entitlement logic rather than user-facing history
 - writes are intended to happen through server-side logic / RPCs
+- `check_generation_allowance` may be called by the owning authenticated user or by `service_role`; `record_generation_usage` and `update_subscription_status` are service-role-only because they mutate entitlement/accounting state through `SECURITY DEFINER` RPCs
 
 ## Relationships Summary
 

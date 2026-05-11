@@ -16,17 +16,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
+import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { supabase } from "@/lib/supabase";
 import {
   type AuthValidationKey,
   type SignInFormData,
   signInSchema,
 } from "@/lib/schemas/auth";
-import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
-import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { supabase } from "@/lib/supabase";
 
 export default function SignInScreen() {
   const { t } = useTranslation("auth");
@@ -52,11 +52,12 @@ export default function SignInScreen() {
 
   async function onSubmit(data: SignInFormData) {
     setAuthError(null);
+    console.log("onSubmit", data);
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
-
+    console.log("error", error);
     if (error) {
       setAuthError(
         error.message.toLowerCase().includes("invalid")

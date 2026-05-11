@@ -13,7 +13,9 @@
       "bundleIdentifier": "com.ogig.sweaty",
       "appleTeamId": "X6TS5L9ZTL",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "Allow Sweaty to read your workout data from Apple Health.",
+        "NSHealthUpdateUsageDescription": "Allow Sweaty to save your completed workouts to Apple Health."
       }
     },
     "android": {
@@ -35,6 +37,7 @@
       "expo-router",
       "expo-apple-authentication",
       "@bacons/apple-targets",
+      "./plugins/with-ios-object-version.cjs",
       "./plugins/with-live-activities-plist.cjs",
       "./plugins/with-app-group.cjs",
       [

@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as Linking from "expo-linking";
 import { Link } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -50,7 +51,7 @@ export default function ForgotPasswordScreen() {
   async function onSubmit(data: ForgotPasswordFormData) {
     setAuthError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: "mobile://reset-password",
+      redirectTo: Linking.createURL("reset-password", { scheme: "sweaty" }),
     });
 
     if (error) {
