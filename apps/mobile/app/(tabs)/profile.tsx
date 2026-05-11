@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type Href, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -19,10 +19,16 @@ import { Button } from "@/components/ui/button";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import { ListGroup, ListRow } from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Fonts, Spacing, Typography } from "@/constants/theme";
+import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
+import {
+  changeAppLanguage,
+  getCurrentLanguage,
+  languageLabels,
+  type AppLanguage,
+} from "@/i18n";
 
 const VISIBLE_WEEK_LABELS = new Set(["W1", "W4", "W7", "W10"]);
 
@@ -35,6 +41,7 @@ type IconName =
   | "clock.arrow.circlepath"
   | "gearshape.fill"
   | "flame.fill"
+  | "globe"
   | "megaphone.fill"
   | "star.fill"
   | "heart.text.square";
@@ -108,11 +115,15 @@ const ACCOUNT_ITEMS: NavItem[] = [
   },
 ];
 
+const LANGUAGE_OPTIONS: AppLanguage[] = ["en", "pl"];
+
 export default function ProfileScreen() {
-  const { t } = useTranslation("profile");
+  const { t, i18n } = useTranslation("profile");
   const { t: tAuth } = useTranslation("auth");
   const router = useRouter();
   const signOut = useAuthStore((s) => s.signOut);
+  const [selectedLanguage, setSelectedLanguage] =
+    useState<AppLanguage>(getCurrentLanguage);
 
   function handleLogout() {
     Alert.alert(tAuth("logout.confirmTitle"), tAuth("logout.confirmMessage"), [
@@ -131,6 +142,8 @@ export default function ProfileScreen() {
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
+  const primaryContainer = useThemeColor({}, "primaryContainer");
+  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   const {
     totalWorkouts,
@@ -144,6 +157,24 @@ export default function ProfileScreen() {
   } = useWeeklyDurations(12);
 
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const updateLanguage = () => setSelectedLanguage(getCurrentLanguage());
+
+    i18n.on("languageChanged", updateLanguage);
+    updateLanguage();
+
+    return () => {
+      i18n.off("languageChanged", updateLanguage);
+    };
+  }, [i18n]);
+
+  const handleLanguageChange = useCallback((language: AppLanguage) => {
+    setSelectedLanguage(language);
+    void changeAppLanguage(language).catch(() => {
+      setSelectedLanguage(getCurrentLanguage());
+    });
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -270,7 +301,72 @@ export default function ProfileScreen() {
           {/* Settings group */}
           <View style={styles.group}>
             <SectionHeader title={t("sections.settings")} />
-            {renderGroup(SETTINGS_ITEMS)}
+            <ListGroup>
+              <ListRow
+                icon="globe"
+                label={t("language.label")}
+                showChevron={false}
+                position="first"
+                trailing={
+                  <View
+                    style={[
+                      styles.languageToggle,
+                      { backgroundColor: backgroundSubtle },
+                    ]}
+                  >
+                    {LANGUAGE_OPTIONS.map((language) => {
+                      const selected = selectedLanguage === language;
+                      const label =
+                        language === "en"
+                          ? t("language.english")
+                          : t("language.polish");
+
+                      return (
+                        <Pressable
+                          key={language}
+                          onPress={() => handleLanguageChange(language)}
+                          accessibilityRole="button"
+                          accessibilityLabel={t("language.accessibility", {
+                            language: languageLabels[language],
+                          })}
+                          accessibilityState={{ selected }}
+                          style={({ pressed }) => [
+                            styles.languageOption,
+                            selected && { backgroundColor: primaryContainer },
+                            pressed && { opacity: 0.75 },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              Typography.caption,
+                              styles.languageOptionLabel,
+                              { color: selected ? primary : textSecondary },
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                }
+              />
+              {SETTINGS_ITEMS.map((item, i) => {
+                const route = item.route;
+
+                return (
+                  <ListRow
+                    key={item.labelKey}
+                    icon={item.icon}
+                    label={t(item.labelKey)}
+                    onPress={route ? () => router.navigate(route) : undefined}
+                    position={
+                      i === SETTINGS_ITEMS.length - 1 ? "last" : "middle"
+                    }
+                  />
+                );
+              })}
+            </ListGroup>
           </View>
 
           {/* Account group */}
@@ -376,5 +472,21 @@ const styles = StyleSheet.create({
   },
   deleteAccountLabel: {
     textAlign: "center",
+  },
+  languageToggle: {
+    flexDirection: "row",
+    borderRadius: Radii.sm,
+    padding: 2,
+  },
+  languageOption: {
+    minWidth: 48,
+    minHeight: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radii.sm - 2,
+    paddingHorizontal: Spacing.sm,
+  },
+  languageOptionLabel: {
+    fontWeight: "700",
   },
 });

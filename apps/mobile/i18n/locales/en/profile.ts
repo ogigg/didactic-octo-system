@@ -26,4 +26,10 @@ export const profile = {
     feedback: "Feedback",
     deleteAccount: "Delete Account",
   },
+  language: {
+    label: "Language",
+    english: "English",
+    polish: "Polski",
+    accessibility: "Change app language to {{language}}",
+  },
 } as const;
