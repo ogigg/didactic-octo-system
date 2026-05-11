@@ -27,6 +27,7 @@ import {
   changeAppLanguage,
   getCurrentLanguage,
   languageLabels,
+  supportedLanguages,
   type AppLanguage,
 } from "@/i18n";
 
@@ -114,8 +115,6 @@ const ACCOUNT_ITEMS: NavItem[] = [
     route: "/feedback",
   },
 ];
-
-const LANGUAGE_OPTIONS: AppLanguage[] = ["en", "pl"];
 
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation("profile");
@@ -314,12 +313,9 @@ export default function ProfileScreen() {
                       { backgroundColor: backgroundSubtle },
                     ]}
                   >
-                    {LANGUAGE_OPTIONS.map((language) => {
+                    {supportedLanguages.map((language) => {
                       const selected = selectedLanguage === language;
-                      const label =
-                        language === "en"
-                          ? t("language.english")
-                          : t("language.polish");
+                      const label = languageLabels[language];
 
                       return (
                         <Pressable
