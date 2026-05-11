@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
 import {
   areActivitiesEnabled,
@@ -143,6 +143,14 @@ export function useWorkoutLiveActivity() {
   useEffect(() => {
     if (Platform.OS !== "ios") return;
 
+    function endCurrentActivity() {
+      endActivity({ dismissImmediately: true }).catch((error) => {
+        console.warn("[live-activity] end failed:", error);
+      });
+      activityStartedRef.current = false;
+      lastSentRef.current = null;
+    }
+
     // Kick off the activity when the workout is active on mount
     const { isActive, exercises, startedAtMs, workoutName, restTimer } =
       useWorkoutStore.getState();
@@ -180,7 +188,7 @@ export function useWorkoutLiveActivity() {
       async (slice) => {
         if (!slice.isActive) {
           if (activityStartedRef.current) {
-            await endActivity({ dismissImmediately: false });
+            await endActivity({ dismissImmediately: true });
             activityStartedRef.current = false;
             lastSentRef.current = null;
           }
@@ -221,11 +229,17 @@ export function useWorkoutLiveActivity() {
       }
     );
 
+    const appStateSub = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active" && activityStartedRef.current) {
+        endCurrentActivity();
+      }
+    });
+
     return () => {
       unsubscribe();
+      appStateSub.remove();
       if (activityStartedRef.current) {
-        endActivity({ dismissImmediately: false });
-        activityStartedRef.current = false;
+        endCurrentActivity();
       }
     };
   }, []);

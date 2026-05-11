@@ -9,7 +9,7 @@ actor LiveActivityManager {
 
   func start(workoutId: String, state: SweatyWorkoutAttributes.ContentState) async throws {
     // End any lingering activity first
-    await endAll()
+    await endAll(dismissImmediately: true)
 
     let attributes = SweatyWorkoutAttributes(workoutId: workoutId)
     let content = ActivityContent(state: state, staleDate: nil)
@@ -28,9 +28,17 @@ actor LiveActivityManager {
   }
 
   func end(dismissImmediately: Bool) async {
-    guard let activity = currentActivity else { return }
     let policy: ActivityUIDismissalPolicy = dismissImmediately ? .immediate : .default
-    await activity.end(nil, dismissalPolicy: policy)
+    if let activity = currentActivity {
+      await activity.end(nil, dismissalPolicy: policy)
+    }
+
+    for activity in Activity<SweatyWorkoutAttributes>.activities {
+      if activity.id != currentActivity?.id {
+        await activity.end(nil, dismissalPolicy: policy)
+      }
+    }
+
     currentActivity = nil
   }
 
@@ -40,9 +48,10 @@ actor LiveActivityManager {
 
   // MARK: - Private
 
-  private func endAll() async {
+  private func endAll(dismissImmediately: Bool) async {
+    let policy: ActivityUIDismissalPolicy = dismissImmediately ? .immediate : .default
     for activity in Activity<SweatyWorkoutAttributes>.activities {
-      await activity.end(nil, dismissalPolicy: .immediate)
+      await activity.end(nil, dismissalPolicy: policy)
     }
     currentActivity = nil
   }
