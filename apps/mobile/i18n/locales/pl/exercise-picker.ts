@@ -1,21 +1,21 @@
 export const exercisePicker = {
   header: {
-    titleReplace: "Zamien cwiczenie",
-    titleAdd: "Dodaj cwiczenie",
+    titleReplace: "Zamień ćwiczenie",
+    titleAdd: "Dodaj ćwiczenie",
     cancel: "Anuluj",
   },
   search: {
-    placeholder: "Szukaj cwiczen...",
+    placeholder: "Szukaj ćwiczeń...",
   },
   filters: {
-    allEquipment: "Caly sprzet",
-    allMuscles: "Wszystkie miesnie",
+    allEquipment: "Cały sprzęt",
+    allMuscles: "Wszystkie mięśnie",
   },
   sections: {
     suggested: "Sugerowane",
-    allExercises: "Wszystkie cwiczenia",
+    allExercises: "Wszystkie ćwiczenia",
   },
   list: {
-    empty: "Brak cwiczen pasujacych do filtrow.",
+    empty: "Brak ćwiczeń pasujących do filtrów.",
   },
 } as const;

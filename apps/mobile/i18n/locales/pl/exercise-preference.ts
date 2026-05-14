@@ -1,19 +1,19 @@
 export const exercisePreference = {
   sheet: {
-    title: "Preferencja cwiczenia",
+    title: "Preferencja ćwiczenia",
   },
   options: {
     preferred: "Preferowane",
-    preferredDescription: "Pokazuj to cwiczenie czesciej w treningach",
+    preferredDescription: "Pokazuj to ćwiczenie częściej w treningach",
     softDislike: "Pokazuj rzadziej",
-    softDislikeDescription: "Dodawaj to cwiczenie rzadziej",
+    softDislikeDescription: "Dodawaj to ćwiczenie rzadziej",
     hardDislike: "Nigdy nie pokazuj",
     hardDislikeDescription:
-      "Wyklucz to cwiczenie ze wszystkich przyszlych treningow",
-    remove: "Usun preferencje",
+      "Wyklucz to ćwiczenie ze wszystkich przyszłych treningów",
+    remove: "Usuń preferencje",
   },
   header: {
-    accessibilityLabel: "Ustaw preferencje cwiczenia",
+    accessibilityLabel: "Ustaw preferencje ćwiczenia",
   },
   status: {
     preferred: "Preferowane",
@@ -21,9 +21,9 @@ export const exercisePreference = {
     hardDislike: "Ukryte",
   },
   menu: {
-    preference: "Preferencja cwiczenia",
+    preference: "Preferencja ćwiczenia",
   },
   exerciseList: {
-    preference: "Ustaw preferencje cwiczenia",
+    preference: "Ustaw preferencje ćwiczenia",
   },
 } as const;

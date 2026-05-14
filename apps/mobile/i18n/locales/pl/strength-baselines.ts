@@ -1,13 +1,13 @@
 export const strengthBaselines = {
   header: {
-    title: "Moje poziomy sily",
+    title: "Moje poziomy siły",
   },
-  subtitle: "Pomagaja AI dobrac odpowiednie ciezary.",
-  skipHint: "Zostaw puste pola, aby pominac - AI oszacuje ostroznie.",
+  subtitle: "Pomagają AI dobrać odpowiednie ciężary.",
+  skipHint: "Zostaw puste pola, aby pominąć - AI oszacuje ostrożnie.",
   save: {
     button: "Zapisz",
     saving: "Zapisywanie...",
   },
-  success: "Poziomy sily zaktualizowane!",
-  error: "Nie udalo sie zapisac. Sprobuj ponownie.",
+  success: "Poziomy siły zaktualizowane!",
+  error: "Nie udało się zapisać. Spróbuj ponownie.",
 } as const;

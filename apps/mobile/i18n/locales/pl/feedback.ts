@@ -1,40 +1,40 @@
 export const feedback = {
   header: {
     title: "Opinie",
-    subtitle: "Pomoz nam ulepszac aplikacje, zglaszajac bledy lub pomysly",
+    subtitle: "Pomóż nam ulepszać aplikację, zgłaszając błędy lub pomysły",
   },
   type: {
     title: "Jaki to rodzaj opinii?",
-    bug: "Zgloszenie bledu",
+    bug: "Zgłoszenie błędu",
     feature: "Propozycja funkcji",
   },
   title: {
-    label: "Tytul",
-    placeholder: "Krotkie podsumowanie opinii...",
+    label: "Tytuł",
+    placeholder: "Krótkie podsumowanie opinii...",
   },
   description: {
     label: "Opis",
-    subtitle: "Podaj jak najwiecej szczegolow",
-    placeholder: "Opisz problem lub pomysl na funkcje...",
-    charCount: "{{count}}/{{max}} znakow",
+    subtitle: "Podaj jak najwięcej szczegółów",
+    placeholder: "Opisz problem lub pomysł na funkcję...",
+    charCount: "{{count}}/{{max}} znaków",
   },
   submit: {
-    button: "Wyslij opinie",
-    sending: "Wysylanie...",
+    button: "Wyślij opinię",
+    sending: "Wysyłanie...",
   },
   success: {
-    title: "Dziekujemy!",
-    message: "Otrzymalismy Twoja opinie. Wkrotce ja przejrzymy.",
+    title: "Dziękujemy!",
+    message: "Otrzymaliśmy Twoją opinię. Wkrótce ją przejrzymy.",
     button: "Gotowe",
   },
   error: {
-    title: "Blad",
-    message: "Nie udalo sie wyslac opinii. Sprobuj ponownie.",
+    title: "Błąd",
+    message: "Nie udało się wysłać opinii. Spróbuj ponownie.",
   },
   validation: {
-    titleRequired: "Tytul jest wymagany",
-    titleTooLong: "Tytul musi miec mniej niz 100 znakow",
+    titleRequired: "Tytuł jest wymagany",
+    titleTooLong: "Tytuł musi mieć mniej niż 100 znaków",
     descriptionRequired: "Opis jest wymagany",
-    descriptionTooLong: "Opis musi miec mniej niz 2000 znakow",
+    descriptionTooLong: "Opis musi mieć mniej niż 2000 znaków",
   },
 } as const;

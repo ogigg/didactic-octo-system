@@ -6,15 +6,15 @@ export const common = {
     designSystem: "System designu",
   },
   action: {
-    goToHome: "Przejdz do ekranu startowego",
-    learnMore: "Dowiedz sie wiecej",
-    share: "Udostepnij",
-    delete: "Usun",
+    goToHome: "Przejdź do ekranu startowego",
+    learnMore: "Dowiedz się więcej",
+    share: "Udostępnij",
+    delete: "Usuń",
     action: "Akcja",
   },
   alert: {
-    actionPressed: "Nacisnieto akcje",
-    sharePressed: "Nacisnieto udostepnianie",
-    deletePressed: "Nacisnieto usuwanie",
+    actionPressed: "Naciśnięto akcję",
+    sharePressed: "Naciśnięto udostępnianie",
+    deletePressed: "Naciśnięto usuwanie",
   },
 } as const;

@@ -1,9 +1,9 @@
 export const workoutPreview = {
   header: {
-    back: "Wroc",
+    back: "Wróć",
   },
   meta: {
-    exercises: "{{count}} cwiczen",
+    exercises: "{{count}} ćwiczeń",
     duration: "~{{minutes}} min",
     focus: "Cel",
   },
@@ -12,7 +12,7 @@ export const workoutPreview = {
     setsRepsLoad: "{{sets}} x {{reps}} x {{load}}",
     warmup: "Rozgrzewka",
     working: "Robocze",
-    swap: "Zamien",
+    swap: "Zamień",
     rest: "{{seconds}} s przerwy",
   },
   edit: {
@@ -24,16 +24,16 @@ export const workoutPreview = {
   actions: {
     startWorkout: "Zacznij trening",
     regenerate: "Wygeneruj ponownie",
-    regeneratedToday: "Wygenerowano dzis",
+    regeneratedToday: "Wygenerowano dziś",
     regenerating: "Generowanie...",
-    regenerationAvailable: "Dostepne raz dziennie dla kazdego planu.",
+    regenerationAvailable: "Dostępne raz dziennie dla każdego planu.",
     regenerationUnavailableToday:
-      "Ten plan zostal juz dzis wygenerowany ponownie. Sprobuj jutro.",
+      "Ten plan został już dziś wygenerowany ponownie. Spróbuj jutro.",
   },
   regenerate: {
-    confirmTitle: "Wygenerowac nowy trening?",
+    confirmTitle: "Wygenerować nowy trening?",
     confirmMessage:
-      "To zastapi obecny trening. Mozesz wygenerowac go ponownie tylko raz dziennie.",
+      "To zastąpi obecny trening. Możesz wygenerować go ponownie tylko raz dziennie.",
     confirm: "Wygeneruj ponownie",
     cancel: "Anuluj",
   },
@@ -42,8 +42,8 @@ export const workoutPreview = {
     subtitle: "Ten trening nadal jest generowany.",
   },
   status: {
-    regeneratingTitle: "Odswiezanie planu",
+    regeneratingTitle: "Odświeżanie planu",
     regeneratingMessage:
-      "Ten trening jest teraz zastepowany. Zaktualizowana wersja pojawi sie automatycznie, gdy bedzie gotowa.",
+      "Ten trening jest teraz zastępowany. Zaktualizowana wersja pojawi się automatycznie, gdy będzie gotowa.",
   },
 } as const;

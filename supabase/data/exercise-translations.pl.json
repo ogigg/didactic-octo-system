@@ -3,213 +3,213 @@
     "external_id": "fallback-1",
     "match_external_ids": ["wger-73"],
     "name": "Barbell Bench Press",
-    "pl_name": "Wyciskanie sztangi lezac",
-    "instructions": "Poloz sie na plaskiej lawce, chwyc sztange nieco szerzej niz barki, opusc ja do klatki piersiowej i wycisnij w gore."
+    "pl_name": "Wyciskanie sztangi leżąc",
+    "instructions": "Połóż się na płaskiej ławce, chwyć sztangę nieco szerzej niż barki, opuść ją do klatki piersiowej i wyciśnij w górę."
   },
   {
     "external_id": "fallback-2",
     "name": "Incline Dumbbell Press",
-    "pl_name": "Wyciskanie hantli na lawce skosnej",
-    "instructions": "Ustaw lawke pod katem 30-45 stopni i wyciskaj hantle w gore z poziomu klatki piersiowej."
+    "pl_name": "Wyciskanie hantli na ławce skośnej",
+    "instructions": "Ustaw ławkę pod kątem 30-45 stopni i wyciskaj hantle w górę z poziomu klatki piersiowej."
   },
   {
     "external_id": "fallback-3",
     "name": "Cable Flyes",
-    "pl_name": "Rozpietki na wyciagu",
-    "instructions": "Stan pomiedzy wyciagami i z lekko ugietymi lokciami prowadz uchwyty do siebie przed klatka piersiowa."
+    "pl_name": "Rozpiętki na wyciągu",
+    "instructions": "Stań pomiędzy wyciągami i z lekko ugiętymi łokciami prowadź uchwyty do siebie przed klatką piersiową."
   },
   {
     "external_id": "fallback-4",
     "name": "Barbell Squat",
-    "pl_name": "Przysiad ze sztanga",
-    "instructions": "Ustaw sztange na gornej czesci plecow, zejdz w przysiad z kolanami prowadzonymi na zewnatrz i wstan kontrolowanie."
+    "pl_name": "Przysiad ze sztangą",
+    "instructions": "Ustaw sztangę na górnej części pleców, zejdź w przysiad z kolanami prowadzonymi na zewnątrz i wstań kontrolowanie."
   },
   {
     "external_id": "fallback-5",
     "name": "Leg Press",
-    "pl_name": "Wypychanie nog na suwnicy",
-    "instructions": "Usiadz na suwnicy, ustaw stopy na platformie, opusc ciezar kontrolowanie i wypchnij go bez blokowania kolan."
+    "pl_name": "Wypychanie nóg na suwnicy",
+    "instructions": "Usiądź na suwnicy, ustaw stopy na platformie, opuść ciężar kontrolowanie i wypchnij go bez blokowania kolan."
   },
   {
     "external_id": "fallback-6",
     "match_external_ids": ["wger-1700"],
     "name": "Romanian Deadlift",
-    "pl_name": "Rumunski martwy ciag",
-    "instructions": "Trzymaj lekko ugiete kolana, cofnij biodra i opuszczaj sztange wzdluz ud, czujac rozciagniecie tylu uda."
+    "pl_name": "Rumuński martwy ciąg",
+    "instructions": "Trzymaj lekko ugięte kolana, cofnij biodra i opuszczaj sztangę wzdłuż ud, czując rozciągnięcie tyłu uda."
   },
   {
     "external_id": "fallback-7",
     "name": "Conventional Deadlift",
-    "pl_name": "Martwy ciag klasyczny",
-    "instructions": "Ustaw stopy pod sztanga, napnij plecy i brzuch, podnies sztange przez wyprost bioder oraz kolan."
+    "pl_name": "Martwy ciąg klasyczny",
+    "instructions": "Ustaw stopy pod sztangą, napnij plecy i brzuch, podnieś sztangę przez wyprost bioder oraz kolan."
   },
   {
     "external_id": "fallback-8",
     "name": "Overhead Press",
-    "pl_name": "Wyciskanie sztangi nad glowe",
-    "instructions": "Trzymaj sztange na wysokosci barkow, napnij brzuch i wycisnij sztange nad glowe bez odchylania tulowia."
+    "pl_name": "Wyciskanie sztangi nad głowę",
+    "instructions": "Trzymaj sztangę na wysokości barków, napnij brzuch i wyciśnij sztangę nad głowę bez odchylania tułowia."
   },
   {
     "external_id": "fallback-9",
     "name": "Lateral Raises",
     "pl_name": "Unoszenie hantli bokiem",
-    "instructions": "Stojac prosto unos hantle bokiem do wysokosci barkow, prowadz ruch kontrolowanie i nie bujaj tulowiem."
+    "instructions": "Stojąc prosto unoś hantle bokiem do wysokości barków, prowadź ruch kontrolowanie i nie bujaj tułowiem."
   },
   {
     "external_id": "fallback-10",
     "name": "Pull-ups",
-    "pl_name": "Podciaganie",
-    "instructions": "Zwisnij na drazku, sciagnij lopatki i podciagnij brode ponad drazek, po czym opusc sie kontrolowanie."
+    "pl_name": "Podciąganie",
+    "instructions": "Zawiśnij na drążku, ściągnij łopatki i podciągnij brodę ponad drążek, po czym opuść się kontrolowanie."
   },
   {
     "external_id": "fallback-11",
     "match_external_ids": ["wger-1698", "wger-1699"],
     "name": "Barbell Row",
-    "pl_name": "Wioslowanie sztanga",
-    "instructions": "Pochyl tulow, trzymaj plecy prosto i przyciagaj sztange do dolnej czesci brzucha."
+    "pl_name": "Wiosłowanie sztangą",
+    "instructions": "Pochyl tułów, trzymaj plecy prosto i przyciągaj sztangę do dolnej części brzucha."
   },
   {
     "external_id": "fallback-12",
     "match_external_ids": ["wger-1510"],
     "name": "Lat Pulldown",
-    "pl_name": "Sciaganie drazka wyciagu",
-    "instructions": "Usiadz pod wyciagiem, sciagnij drazek do gornej czesci klatki i kontrolowanie wroc do wyprostu ramion."
+    "pl_name": "Ściąganie drążka wyciągu",
+    "instructions": "Usiądź pod wyciągiem, ściągnij drążek do górnej części klatki i kontrolowanie wróć do wyprostu ramion."
   },
   {
     "external_id": "fallback-13",
     "name": "Seated Cable Row",
-    "pl_name": "Wioslowanie na wyciagu siedzac",
-    "instructions": "Usiadz prosto, przyciagnij uchwyt do tulowia i sciagnij lopatki, po czym powoli wyprostuj ramiona."
+    "pl_name": "Wiosłowanie na wyciągu siedząc",
+    "instructions": "Usiądź prosto, przyciągnij uchwyt do tułowia i ściągnij łopatki, po czym powoli wyprostuj ramiona."
   },
   {
     "external_id": "fallback-14",
     "name": "Barbell Curl",
-    "pl_name": "Uginanie ramion ze sztanga",
-    "instructions": "Trzymaj lokcie blisko tulowia i uginaj ramiona ze sztanga bez bujania cialem."
+    "pl_name": "Uginanie ramion ze sztangą",
+    "instructions": "Trzymaj łokcie blisko tułowia i uginaj ramiona ze sztangą bez bujania ciałem."
   },
   {
     "external_id": "fallback-15",
     "match_external_ids": ["wger-1567"],
     "name": "Hammer Curl",
-    "pl_name": "Uginanie mlotkowe",
-    "instructions": "Trzymaj hantle neutralnym chwytem i uginaj ramiona, utrzymujac lokcie blisko tulowia."
+    "pl_name": "Uginanie młotkowe",
+    "instructions": "Trzymaj hantle neutralnym chwytem i uginaj ramiona, utrzymując łokcie blisko tułowia."
   },
   {
     "external_id": "fallback-16",
     "match_external_ids": ["wger-805", "wger-1185"],
     "name": "Tricep Pushdown",
-    "pl_name": "Prostowanie ramion na wyciagu",
-    "instructions": "Stojac przy wyciagu trzymaj lokcie blisko tulowia i prostuj ramiona w dol, mocno dopinajac triceps."
+    "pl_name": "Prostowanie ramion na wyciągu",
+    "instructions": "Stojąc przy wyciągu trzymaj łokcie blisko tułowia i prostuj ramiona w dół, mocno dopinając triceps."
   },
   {
     "external_id": "fallback-17",
     "name": "Overhead Tricep Extension",
-    "pl_name": "Prostowanie tricepsa nad glowa",
-    "instructions": "Trzymaj obciazenie nad glowa, zegnij lokcie za glowe i wyprostuj ramiona, utrzymujac lokcie stabilnie."
+    "pl_name": "Prostowanie tricepsa nad głową",
+    "instructions": "Trzymaj obciążenie nad głową, zegnij łokcie za głowę i wyprostuj ramiona, utrzymując łokcie stabilnie."
   },
   {
     "external_id": "fallback-18",
     "name": "Dips",
-    "pl_name": "Dipy na poreczach",
-    "instructions": "Oprzyj sie na poreczach, opusc cialo z kontrola i wyprostuj ramiona, utrzymujac barki stabilnie."
+    "pl_name": "Dipy na poręczach",
+    "instructions": "Oprzyj się na poręczach, opuść ciało z kontrolą i wyprostuj ramiona, utrzymując barki stabilnie."
   },
   {
     "external_id": "fallback-19",
     "name": "Leg Curl",
-    "pl_name": "Uginanie nog lezac",
-    "instructions": "Lezac na maszynie uginaj kolana, przyciagajac poduszke w strone posladkow bez odrywania bioder."
+    "pl_name": "Uginanie nóg leżąc",
+    "instructions": "Leżąc na maszynie uginaj kolana, przyciągając poduszkę w stronę pośladków bez odrywania bioder."
   },
   {
     "external_id": "fallback-20",
     "name": "Leg Extension",
-    "pl_name": "Prostowanie nog na maszynie",
-    "instructions": "Usiadz na maszynie, wyprostuj kolana kontrolowanym ruchem i powoli wroc do pozycji startowej."
+    "pl_name": "Prostowanie nóg na maszynie",
+    "instructions": "Usiądź na maszynie, wyprostuj kolana kontrolowanym ruchem i powoli wróć do pozycji startowej."
   },
   {
     "external_id": "fallback-21",
     "name": "Calf Raise",
-    "pl_name": "Wspiecia na palce",
-    "instructions": "Stan stabilnie, unies pietki jak najwyzej, zatrzymaj ruch na gorze i powoli opusc pietki."
+    "pl_name": "Wspięcia na palce",
+    "instructions": "Stań stabilnie, unieś pięty jak najwyżej, zatrzymaj ruch na górze i powoli opuść pięty."
   },
   {
     "external_id": "fallback-22",
     "name": "Plank",
     "pl_name": "Deska",
-    "instructions": "Oprzyj sie na przedramionach lub dloniach, utrzymaj prosta linie od glowy do piet i napnij brzuch oraz posladki."
+    "instructions": "Oprzyj się na przedramionach lub dłoniach, utrzymaj prostą linię od głowy do pięt i napnij brzuch oraz pośladki."
   },
   {
     "external_id": "fallback-23",
     "name": "Cable Crunch",
-    "pl_name": "Brzuszki na wyciagu kleczac",
-    "instructions": "Kleknij przy wyciagu, trzymaj line przy glowie i zginaj tulow, prowadzac zebra w strone bioder."
+    "pl_name": "Brzuszki na wyciągu klęcząc",
+    "instructions": "Klęknij przy wyciągu, trzymaj linę przy głowie i zginaj tułów, prowadząc żebra w stronę bioder."
   },
   {
     "external_id": "fallback-24",
     "name": "Face Pull",
     "pl_name": "Face Pull",
-    "instructions": "Ustaw line na wysokosci twarzy, przyciagaj ja do czola i prowadz lokcie szeroko, sciskajac tyl barkow."
+    "instructions": "Ustaw linę na wysokości twarzy, przyciągaj ją do czoła i prowadź łokcie szeroko, ściskając tył barków."
   },
   {
     "external_id": "fallback-25",
     "match_external_ids": ["wger-1706"],
     "name": "Bulgarian Split Squat",
-    "pl_name": "Przysiad bulgarski",
-    "instructions": "Oprzyj tylna stope na lawce, zejdz w dol kontrolowanie i wroc do pozycji stojacej, utrzymujac stabilne kolano."
+    "pl_name": "Przysiad bułgarski",
+    "instructions": "Oprzyj tylną stopę na ławce, zejdź w dół kontrolowanie i wróć do pozycji stojącej, utrzymując stabilne kolano."
   },
   {
     "external_id": "fallback-26",
     "match_external_ids": ["wger-567"],
     "name": "Dumbbell Shoulder Press",
-    "pl_name": "Wyciskanie hantli nad glowe",
-    "instructions": "Trzymaj hantle na wysokosci barkow, napnij brzuch i wycisnij je nad glowe bez bujania tulowiem."
+    "pl_name": "Wyciskanie hantli nad głowę",
+    "instructions": "Trzymaj hantle na wysokości barków, napnij brzuch i wyciśnij je nad głowę bez bujania tułowiem."
   },
   {
     "external_id": "fallback-27",
     "name": "Chest Dip",
-    "pl_name": "Dipy na klatke",
-    "instructions": "Oprzyj sie na poreczach, pochyl lekko tulow do przodu, opusc cialo i wypchnij sie w gore."
+    "pl_name": "Dipy na klatkę",
+    "instructions": "Oprzyj się na poręczach, pochyl lekko tułów do przodu, opuść ciało i wypchnij się w górę."
   },
   {
     "external_id": "fallback-28",
     "name": "Hip Thrust",
-    "pl_name": "Hip Thrust ze sztanga",
-    "instructions": "Oprzyj gorna czesc plecow o lawke, ustaw sztange na biodrach i wypchnij biodra w gore, dopinajac posladki."
+    "pl_name": "Hip Thrust ze sztangą",
+    "instructions": "Oprzyj górną część pleców o ławkę, ustaw sztangę na biodrach i wypchnij biodra w górę, dopinając pośladki."
   },
   {
     "external_id": "fallback-29",
     "name": "Incline Barbell Press",
-    "pl_name": "Wyciskanie sztangi na lawce skosnej",
-    "instructions": "Ustaw lawke pod skosem, opusc sztange do gornej czesci klatki i wycisnij ja w gore kontrolowanym ruchem."
+    "pl_name": "Wyciskanie sztangi na ławce skośnej",
+    "instructions": "Ustaw ławkę pod skosem, opuść sztangę do górnej części klatki i wyciśnij ją w górę kontrolowanym ruchem."
   },
   {
     "external_id": "fallback-30",
     "name": "Push-ups",
     "pl_name": "Pompki",
-    "instructions": "Ustaw cialo w linii prostej, opusc klatke w strone podlogi i wypchnij sie w gore bez zapadania bioder."
+    "instructions": "Ustaw ciało w linii prostej, opuść klatkę w stronę podłogi i wypchnij się w górę bez zapadania bioder."
   },
   {
     "name": "Plank",
     "pl_name": "Deska",
-    "instructions": "Oprzyj sie na przedramionach lub dloniach. Utrzymaj cialo w prostej linii od glowy do piet, napnij brzuch i posladki, oddychaj spokojnie."
+    "instructions": "Oprzyj się na przedramionach lub dłoniach. Utrzymaj ciało w prostej linii od głowy do pięt, napnij brzuch i pośladki, oddychaj spokojnie."
   },
   {
     "name": "Side Plank",
     "pl_name": "Deska bokiem",
-    "instructions": "Poloz sie na boku i oprzyj na przedramieniu. Unies biodra, utrzymujac prosta linie ciala, a potem wykonaj druga strone."
+    "instructions": "Połóż się na boku i oprzyj na przedramieniu. Unieś biodra, utrzymując prostą linię ciała, a potem wykonaj drugą stronę."
   },
   {
     "name": "Wall Sit",
-    "pl_name": "Krzeselko przy scianie",
-    "instructions": "Oprzyj plecy o sciane i zejdz do pozycji, w ktorej uda sa rownolegle do podlogi. Utrzymaj pozycje przez zadany czas."
+    "pl_name": "Krzesełko przy ścianie",
+    "instructions": "Oprzyj plecy o ścianę i zejdź do pozycji, w której uda są równoległe do podłogi. Utrzymaj pozycję przez zadany czas."
   },
   {
     "name": "Dead Hang",
     "pl_name": "Martwy zwis",
-    "instructions": "Chwyc drazek obiema rekami i zwisnij z wyprostowanymi ramionami. Delikatnie sciagnij lopatki i utrzymaj pozycje."
+    "instructions": "Chwyć drążek obiema rękami i zawiśnij z wyprostowanymi ramionami. Delikatnie ściągnij łopatki i utrzymaj pozycję."
   },
   {
     "name": "L-Sit Hold",
     "pl_name": "Trzymanie L-sit",
-    "instructions": "Usiadz z wyprostowanymi nogami, oprzyj rece obok bioder i unies cialo oraz nogi, utrzymujac ksztalt litery L."
+    "instructions": "Usiądź z wyprostowanymi nogami, oprzyj ręce obok bioder i unieś ciało oraz nogi, utrzymując kształt litery L."
   }
 ]

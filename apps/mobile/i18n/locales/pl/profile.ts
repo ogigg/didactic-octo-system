@@ -1,8 +1,8 @@
 export const profile = {
   title: "Profil",
-  subtitle: "Twoj trening w skrocie",
+  subtitle: "Twój trening w skrócie",
   stats: {
-    trainingsCompleted: "UKONCZONE TRENINGI",
+    trainingsCompleted: "UKOŃCZONE TRENINGI",
   },
   chart: {
     title: "Tygodniowy czas",
@@ -10,7 +10,7 @@ export const profile = {
     unitMinutes: "min",
   },
   sections: {
-    tracking: "Sledzenie",
+    tracking: "Śledzenie",
     settings: "Trening",
     account: "Konto",
   },
@@ -21,15 +21,15 @@ export const profile = {
     measures: "Pomiary",
     history: "Historia",
     trainingPreferences: "Preferencje",
-    strengthBaselines: "Sila",
+    strengthBaselines: "Siła",
     health: "Zdrowie",
     feedback: "Opinie",
-    deleteAccount: "Usun konto",
+    deleteAccount: "Usuń konto",
   },
   language: {
-    label: "Jezyk",
+    label: "Język",
     english: "English",
     polish: "Polski",
-    accessibility: "Zmien jezyk aplikacji na {{language}}",
+    accessibility: "Zmień język aplikacji na {{language}}",
   },
 } as const;
