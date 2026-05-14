@@ -25,6 +25,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
 import {
   useSetExercisePreference,
@@ -132,6 +133,7 @@ export default function WorkoutPreviewScreen() {
   // Exercise preferences
   const exerciseIds = localExercises.map((e) => e.exercise_id);
   const { data: preferencesMap } = useExercisePreferences(exerciseIds);
+  const { exerciseMap } = useLocalizedExerciseMap(exerciseIds);
   const setPreferenceMutation = useSetExercisePreference();
   const removePreferenceMutation = useRemoveExercisePreference();
   const prefSheetExercise = localExercises.find(
@@ -467,6 +469,10 @@ export default function WorkoutPreviewScreen() {
                 <ExerciseCard
                   key={`${exercise.exercise_id}-${exIndex}`}
                   exercise={exercise}
+                  displayName={
+                    exerciseMap.get(exercise.exercise_id)?.name ??
+                    exercise.exercise_name
+                  }
                   exerciseIndex={exIndex}
                   isEditing={canEdit}
                   preference={preferencesMap?.get(exercise.exercise_id) ?? null}
@@ -495,7 +501,12 @@ export default function WorkoutPreviewScreen() {
           {/* Exercise Preference Sheet */}
           <ExercisePreferenceSheet
             visible={prefSheetExerciseId !== null}
-            exerciseName={prefSheetExercise?.exercise_name ?? ""}
+            exerciseName={
+              prefSheetExercise
+                ? (exerciseMap.get(prefSheetExercise.exercise_id)?.name ??
+                  prefSheetExercise.exercise_name)
+                : ""
+            }
             currentPreference={
               prefSheetExerciseId
                 ? (preferencesMap?.get(prefSheetExerciseId) ?? null)
@@ -569,6 +580,7 @@ export default function WorkoutPreviewScreen() {
 
 interface ExerciseCardProps {
   exercise: LocalExercise;
+  displayName: string;
   exerciseIndex: number;
   isEditing: boolean;
   preference: ExercisePreferenceValue | null | undefined;
@@ -595,6 +607,7 @@ interface ExerciseCardProps {
 
 function ExerciseCard({
   exercise,
+  displayName,
   exerciseIndex,
   isEditing,
   preference,
@@ -627,7 +640,7 @@ function ExerciseCard({
               style={[Typography.titleSm, { color: text, flex: 1 }]}
               numberOfLines={1}
             >
-              {exercise.exercise_name}
+              {displayName}
             </Text>
             <Pressable
               onPress={onOpenPreference}

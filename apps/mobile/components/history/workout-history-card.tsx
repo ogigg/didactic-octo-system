@@ -1,5 +1,6 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import type { WorkoutHistoryItem } from "@/lib/api/workouts";
 import { useTranslation } from "react-i18next";
@@ -45,8 +46,16 @@ export function WorkoutHistoryCard({ item, onPress }: WorkoutHistoryCardProps) {
   const border = useThemeColor({}, "border");
 
   const MAX_EXERCISES = 3;
-  const visibleExercises = item.exercise_names.slice(0, MAX_EXERCISES);
-  const remainingCount = item.exercise_names.length - MAX_EXERCISES;
+  const { exerciseMap } = useLocalizedExerciseMap(item.exercise_ids);
+  const exerciseNames =
+    item.exercise_ids.length > 0
+      ? item.exercise_ids.map(
+          (id, index) =>
+            exerciseMap.get(id)?.name ?? item.exercise_names[index] ?? ""
+        )
+      : item.exercise_names;
+  const visibleExercises = exerciseNames.slice(0, MAX_EXERCISES);
+  const remainingCount = exerciseNames.length - MAX_EXERCISES;
 
   return (
     <TouchableOpacity

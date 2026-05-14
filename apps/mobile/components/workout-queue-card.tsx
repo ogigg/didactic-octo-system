@@ -19,6 +19,7 @@ import {
   Typography,
 } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import type { FocusArea, PendingWorkout } from "@/lib/api/pending-workouts";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { useTranslation } from "react-i18next";
@@ -42,10 +43,10 @@ function getFocusLabel(area: FocusArea | null): string {
 
 function getMuscleSummary(workout: PendingWorkout): string {
   if (!workout.workout_data) return "";
-  const names = workout.workout_data.exercises
+  return workout.workout_data.exercises
     .slice(0, 3)
-    .map((e) => e.exercise_name);
-  return names.join(", ");
+    .map((e) => e.exercise_name)
+    .join(", ");
 }
 
 function getExerciseCount(workout: PendingWorkout): number {
@@ -165,6 +166,21 @@ export function WorkoutQueueCard({
   const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
     workout.last_regenerated_at
   );
+  const exerciseIds =
+    workout.workout_data?.exercises.map((exercise) => exercise.exercise_id) ??
+    [];
+  const { exerciseMap } = useLocalizedExerciseMap(exerciseIds);
+  const getExerciseName = (exercise: {
+    exercise_id: string;
+    exercise_name: string;
+  }) => exerciseMap.get(exercise.exercise_id)?.name ?? exercise.exercise_name;
+  const getLocalizedSummary = () => {
+    if (!workout.workout_data) return "";
+    return workout.workout_data.exercises
+      .slice(0, 3)
+      .map(getExerciseName)
+      .join(", ");
+  };
 
   // -- ACTIVE state --
   if (isActive) {
@@ -259,7 +275,7 @@ export function WorkoutQueueCard({
 
   // -- REGENERATING state --
   if (workout.status === "regenerating" && workout.workout_data) {
-    const muscleSummary = getMuscleSummary(workout);
+    const muscleSummary = getLocalizedSummary() || getMuscleSummary(workout);
 
     if (isNextUp) {
       const exercises = workout.workout_data.exercises;
@@ -344,7 +360,7 @@ export function WorkoutQueueCard({
                   style={[Typography.bodyMedium, { color: text }]}
                   numberOfLines={1}
                 >
-                  {ex.exercise_name}
+                  {getExerciseName(ex)}
                 </Text>
                 <Text style={[Typography.caption, { color: textSecondary }]}>
                   {t("queueCard.setsAndReps", {
@@ -587,7 +603,7 @@ export function WorkoutQueueCard({
                 style={[Typography.bodyMedium, { color: text }]}
                 numberOfLines={1}
               >
-                {ex.exercise_name}
+                {getExerciseName(ex)}
               </Text>
               <Text style={[Typography.caption, { color: textSecondary }]}>
                 {t("queueCard.setsAndReps", {
@@ -638,7 +654,7 @@ export function WorkoutQueueCard({
 
   // -- READY state (future/collapsed) --
   if (workout.status === "ready" && workout.workout_data) {
-    const muscleSummary = getMuscleSummary(workout);
+    const muscleSummary = getLocalizedSummary() || getMuscleSummary(workout);
 
     return (
       <Pressable

@@ -4,6 +4,7 @@ import { StyleSheet, View, Text, TextInput } from "react-native";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 
 interface PersonalRecord {
   exercise_id: string;
@@ -38,6 +39,9 @@ function StatBlock({ value, label, valueColor, labelColor }: StatBlockProps) {
 export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
   const [query, setQuery] = useState("");
   const { format: fmtWeight } = useWeightUnit();
+  const { exerciseMap } = useLocalizedExerciseMap(
+    records.map((record) => record.exercise_id)
+  );
 
   const borderSubtle = useThemeColor({}, "borderSubtle");
   const borderColor = useThemeColor({}, "border");
@@ -48,7 +52,9 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
 
   const filtered = query
     ? records.filter((r) =>
-        r.exercise_name.toLowerCase().includes(query.toLowerCase())
+        (exerciseMap.get(r.exercise_id)?.name ?? r.exercise_name)
+          .toLowerCase()
+          .includes(query.toLowerCase())
       )
     : records;
 
@@ -95,7 +101,8 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
                   style={[styles.exerciseName, { color: textColor }]}
                   numberOfLines={1}
                 >
-                  {record.exercise_name}
+                  {exerciseMap.get(record.exercise_id)?.name ??
+                    record.exercise_name}
                 </Text>
                 <View style={styles.statsRow}>
                   <StatBlock

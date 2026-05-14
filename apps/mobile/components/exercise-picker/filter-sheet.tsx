@@ -17,6 +17,7 @@ interface FilterSheetProps {
   title: string;
   options: readonly string[];
   selected: string[];
+  displayLabels?: ReadonlyMap<string, string>;
   onToggle: (value: string) => void;
 }
 
@@ -26,6 +27,7 @@ export function FilterSheet({
   title,
   options,
   selected,
+  displayLabels,
   onToggle,
 }: FilterSheetProps) {
   const background = useThemeColor({}, "backgroundElevated");
@@ -37,12 +39,13 @@ export function FilterSheet({
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
       const isSelected = selected.includes(item);
+      const label = displayLabels?.get(item) ?? item;
       return (
         <Pressable
           onPress={() => onToggle(item)}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: isSelected }}
-          accessibilityLabel={item}
+          accessibilityLabel={label}
           style={[styles.option, { borderBottomColor: border }]}
         >
           <Text
@@ -51,7 +54,7 @@ export function FilterSheet({
               { color: isSelected ? primary : textColor },
             ]}
           >
-            {item}
+            {label}
           </Text>
           {isSelected && (
             <IconSymbol name="checkmark" size={18} color={primary} />
@@ -59,7 +62,7 @@ export function FilterSheet({
         </Pressable>
       );
     },
-    [selected, onToggle, border, textColor, primary]
+    [selected, displayLabels, onToggle, border, textColor, primary]
   );
 
   const keyExtractor = useCallback((item: string) => item, []);

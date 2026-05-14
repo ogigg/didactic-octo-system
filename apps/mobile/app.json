@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.ogig.sweaty",
       "appleTeamId": "X6TS5L9ZTL",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "Allow Sweaty to read your workout data from Apple Health.",
@@ -64,8 +65,7 @@
       "react-native-health-connect"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},

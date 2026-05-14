@@ -78,6 +78,28 @@ interface ExerciseRow {
   video_url: string | null;
 }
 
+interface ExerciseTranslationSeed {
+  external_id?: string;
+  match_external_ids?: string[];
+  name?: string;
+  pl_name?: string;
+  instructions: string | null;
+}
+
+interface ExerciseTranslationRow {
+  exercise_id: string;
+  language_code: "pl";
+  name: string;
+  instructions: string | null;
+  source: "curated";
+}
+
+interface ExerciseLookupRow {
+  id: string;
+  external_id: string | null;
+  name: string;
+}
+
 // ---------------------------------------------------------------------------
 // WGER API helpers
 // ---------------------------------------------------------------------------
@@ -160,6 +182,64 @@ function loadFallback(): ExerciseRow[] {
   return JSON.parse(raw) as ExerciseRow[];
 }
 
+function loadPolishTranslations(): ExerciseTranslationSeed[] {
+  const filePath = path.join(
+    __dirname,
+    "data",
+    "exercise-translations.pl.json"
+  );
+  if (!fs.existsSync(filePath)) {
+    console.warn(`Polish translation file not found: ${filePath}`);
+    return [];
+  }
+
+  const raw = fs.readFileSync(filePath, "utf-8");
+  return JSON.parse(raw) as ExerciseTranslationSeed[];
+}
+
+function normalizeExerciseName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(
+      /\b(barbell|dumbbell|dumbbells|cable|machine|standing|seated|lying)\b/g,
+      " "
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getNameTokens(name: string): Set<string> {
+  return new Set(normalizeExerciseName(name).split(" ").filter(Boolean));
+}
+
+function findLikelyMatches(
+  seedName: string,
+  exercises: ExerciseLookupRow[],
+  limit = 3
+): ExerciseLookupRow[] {
+  const seedTokens = getNameTokens(seedName);
+  if (seedTokens.size === 0) return [];
+
+  return exercises
+    .map((exercise) => {
+      const exerciseTokens = getNameTokens(exercise.name);
+      let overlap = 0;
+
+      for (const token of seedTokens) {
+        if (exerciseTokens.has(token)) overlap += 1;
+      }
+
+      const score = overlap / Math.max(seedTokens.size, exerciseTokens.size, 1);
+      return { exercise, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ exercise }) => exercise);
+}
+
 async function upsertExercises(rows: ExerciseRow[]): Promise<void> {
   console.log(
     `Upserting ${rows.length} exercises in batches of ${BATCH_SIZE}...`
@@ -183,6 +263,156 @@ async function upsertExercises(rows: ExerciseRow[]): Promise<void> {
   console.log(`Successfully upserted ${inserted} exercises.`);
 }
 
+async function upsertPolishTranslations(
+  seeds: ExerciseTranslationSeed[]
+): Promise<void> {
+  if (seeds.length === 0) return;
+
+  console.log(`Preparing ${seeds.length} Polish exercise translations...`);
+
+  const externalIds = seeds
+    .flatMap((seed) => [
+      ...(seed.external_id ? [seed.external_id] : []),
+      ...(seed.match_external_ids ?? []),
+    ])
+    .filter((value): value is string => !!value);
+  const names = seeds
+    .map((seed) => seed.name)
+    .filter((value): value is string => !!value);
+
+  const [byExternalIdResult, byNameResult, allExercisesResult] =
+    await Promise.all([
+      externalIds.length
+        ? supabase
+            .from("exercises")
+            .select("id, external_id, name")
+            .in("external_id", externalIds)
+        : Promise.resolve({ data: [], error: null }),
+      names.length
+        ? supabase
+            .from("exercises")
+            .select("id, external_id, name")
+            .in("name", names)
+        : Promise.resolve({ data: [], error: null }),
+      supabase.from("exercises").select("id, external_id, name"),
+    ]);
+
+  if (byExternalIdResult.error) throw byExternalIdResult.error;
+  if (byNameResult.error) throw byNameResult.error;
+  if (allExercisesResult.error) throw allExercisesResult.error;
+
+  const byExternalId = new Map<string, ExerciseLookupRow>();
+  for (const row of byExternalIdResult.data ?? []) {
+    if (row.external_id) byExternalId.set(row.external_id, row);
+  }
+
+  const byName = new Map<string, ExerciseLookupRow>();
+  for (const row of byNameResult.data ?? []) {
+    byName.set(row.name, row);
+  }
+
+  const byNormalizedName = new Map<string, ExerciseLookupRow[]>();
+  const allExercises = (allExercisesResult.data ?? []) as ExerciseLookupRow[];
+  for (const row of allExercises) {
+    const normalized = normalizeExerciseName(row.name);
+    const existing = byNormalizedName.get(normalized) ?? [];
+    existing.push(row);
+    byNormalizedName.set(normalized, existing);
+  }
+
+  const rows: ExerciseTranslationRow[] = [];
+  const unmatched: ExerciseTranslationSeed[] = [];
+  for (const seed of seeds) {
+    const externalIdMatches = [
+      ...(seed.external_id ? [seed.external_id] : []),
+      ...(seed.match_external_ids ?? []),
+    ]
+      .map((externalId) => byExternalId.get(externalId))
+      .filter((exercise): exercise is ExerciseLookupRow => !!exercise);
+    const normalizedMatches = seed.name
+      ? (byNormalizedName.get(normalizeExerciseName(seed.name)) ?? [])
+      : [];
+    const fallbackExercise =
+      (seed.name ? byName.get(seed.name) : undefined) ??
+      (normalizedMatches.length === 1 ? normalizedMatches[0] : undefined);
+    const matchedExercises =
+      externalIdMatches.length > 0
+        ? externalIdMatches
+        : fallbackExercise
+          ? [fallbackExercise]
+          : [];
+    const translatedName = seed.pl_name ?? seed.name;
+
+    if (matchedExercises.length === 0 || !translatedName) {
+      unmatched.push(seed);
+      continue;
+    }
+
+    for (const exercise of matchedExercises) {
+      rows.push({
+        exercise_id: exercise.id,
+        language_code: "pl",
+        name: translatedName,
+        instructions: seed.instructions,
+        source: "curated",
+      });
+    }
+  }
+
+  const dedupedRows = Array.from(
+    rows
+      .reduce((acc, row) => {
+        acc.set(`${row.exercise_id}:${row.language_code}`, row);
+        return acc;
+      }, new Map<string, ExerciseTranslationRow>())
+      .values()
+  );
+
+  if (dedupedRows.length === 0) {
+    console.warn("No Polish translations matched seeded exercises.");
+    return;
+  }
+
+  if (unmatched.length > 0) {
+    console.warn(
+      `${unmatched.length} Polish translations did not match any exercise:`
+    );
+    for (const seed of unmatched.slice(0, 20)) {
+      const candidates = seed.name
+        ? findLikelyMatches(seed.name, allExercises)
+        : [];
+      const candidateText =
+        candidates.length > 0
+          ? ` | candidates: ${candidates
+              .map(
+                (candidate) =>
+                  `${candidate.external_id ?? "no-id"}:${candidate.name}`
+              )
+              .join("; ")}`
+          : "";
+      console.warn(
+        `  - ${seed.external_id ?? "(no external_id)"} / ${seed.name ?? seed.pl_name ?? "(no name)"}${candidateText}`
+      );
+    }
+    if (unmatched.length > 20) {
+      console.warn(`  ...and ${unmatched.length - 20} more`);
+    }
+  }
+
+  const { error } = await supabase
+    .from("exercise_translations")
+    .upsert(dedupedRows, { onConflict: "exercise_id,language_code" });
+
+  if (error) {
+    console.error("Polish translation upsert failed:", error.message);
+    throw error;
+  }
+
+  console.log(
+    `Successfully upserted ${dedupedRows.length} Polish translations.`
+  );
+}
+
 async function main(): Promise<void> {
   let exercises: ExerciseRow[];
 
@@ -199,6 +429,7 @@ async function main(): Promise<void> {
   }
 
   await upsertExercises(exercises);
+  await upsertPolishTranslations(loadPolishTranslations());
 }
 
 main().catch((err) => {

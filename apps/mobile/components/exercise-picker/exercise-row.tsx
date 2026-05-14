@@ -25,7 +25,8 @@ export const ExerciseRow = memo(function ExerciseRow({
     onSelect(exercise);
   }, [onSelect, exercise]);
 
-  const primaryMuscle = exercise.primary_muscles[0] ?? "";
+  const primaryMuscle =
+    exercise.primary_muscle_labels[0] ?? exercise.primary_muscles[0] ?? "";
 
   return (
     <Pressable

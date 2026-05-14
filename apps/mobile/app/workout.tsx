@@ -6,6 +6,7 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import { useWatchBridge } from "@/hooks/use-watch-bridge";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -45,6 +46,8 @@ export default function WorkoutScreen() {
   const progressTrack = useThemeColor({}, "inputFill");
   const scrollRef = useRef<ScrollView>(null);
   const exerciseLayouts = useRef<Record<string, number>>({});
+  const exerciseIds = useMemo(() => exercises.map((ex) => ex.id), [exercises]);
+  const { exerciseMap } = useLocalizedExerciseMap(exerciseIds);
 
   const { completedSets, totalSets } = useMemo(() => {
     let completed = 0;
@@ -218,7 +221,12 @@ export default function WorkoutScreen() {
                           )
                         }
                       >
-                        <ExerciseCard exercise={exercise} />
+                        <ExerciseCard
+                          exercise={exercise}
+                          displayName={
+                            exerciseMap.get(exercise.id)?.name ?? exercise.name
+                          }
+                        />
                       </View>
                     ))}
                     <TouchableOpacity

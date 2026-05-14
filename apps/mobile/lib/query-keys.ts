@@ -7,16 +7,20 @@ export const profileKeys = {
 
 export const exerciseKeys = {
   all: ["exercises"] as const,
-  list: (filters?: ExerciseFilters) =>
-    [...exerciseKeys.all, "list", filters ?? {}] as const,
-  detail: (id: string) => [...exerciseKeys.all, id] as const,
+  list: (filters?: ExerciseFilters, language = "en") =>
+    [...exerciseKeys.all, "list", language, filters ?? {}] as const,
+  detail: (id: string, language = "en") =>
+    [...exerciseKeys.all, "detail", language, id] as const,
+  labels: (language = "en") =>
+    [...exerciseKeys.all, "labels", language] as const,
 };
 
 export const workoutKeys = {
   all: ["workouts"] as const,
-  list: () => [...workoutKeys.all, "list"] as const,
+  list: (language = "en") => [...workoutKeys.all, "list", language] as const,
   forDay: (dateKey: string) => [...workoutKeys.all, "forDay", dateKey] as const,
-  detail: (id: string) => [...workoutKeys.all, id] as const,
+  detail: (id: string, language = "en") =>
+    [...workoutKeys.all, "detail", language, id] as const,
 };
 
 export const workoutStatsKeys = {
@@ -55,9 +59,9 @@ export const statsKeys = {
   all: ["stats"] as const,
   heatmap: () => [...statsKeys.all, "heatmap"] as const,
   volume: (period: string) => [...statsKeys.all, "volume", period] as const,
-  prs: () => [...statsKeys.all, "prs"] as const,
-  muscleDistribution: (period: string) =>
-    [...statsKeys.all, "muscle-distribution", period] as const,
+  prs: (language = "en") => [...statsKeys.all, "prs", language] as const,
+  muscleDistribution: (period: string, language = "en") =>
+    [...statsKeys.all, "muscle-distribution", period, language] as const,
 };
 
 export const measurementKeys = {

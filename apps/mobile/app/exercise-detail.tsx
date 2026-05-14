@@ -397,11 +397,18 @@ export default function ExerciseDetailScreen() {
             </View>
 
             <View style={styles.metaPillRow}>
-              {exercise.primary_muscles.map((muscle) => (
-                <MetaPill key={muscle} label={muscle} primary />
+              {exercise.primary_muscles.map((muscle, index) => (
+                <MetaPill
+                  key={muscle}
+                  label={exercise.primary_muscle_labels[index] ?? muscle}
+                  primary
+                />
               ))}
-              {(exercise.secondary_muscles ?? []).map((muscle) => (
-                <MetaPill key={muscle} label={muscle} />
+              {(exercise.secondary_muscles ?? []).map((muscle, index) => (
+                <MetaPill
+                  key={muscle}
+                  label={exercise.secondary_muscle_labels[index] ?? muscle}
+                />
               ))}
             </View>
           </View>
