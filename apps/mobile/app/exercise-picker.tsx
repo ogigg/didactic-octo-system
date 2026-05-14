@@ -2,7 +2,11 @@ import { SearchBar } from "@/components/exercise-picker/search-bar";
 import { FilterPills } from "@/components/exercise-picker/filter-pills";
 import { FilterSheet } from "@/components/exercise-picker/filter-sheet";
 import { ExerciseRow } from "@/components/exercise-picker/exercise-row";
-import { useExercise, useExercises } from "@/hooks/use-exercises-query";
+import {
+  useCatalogLabels,
+  useExercise,
+  useExercises,
+} from "@/hooks/use-exercises-query";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -46,6 +50,7 @@ export default function ExercisePickerScreen() {
   const replaceExercise = useWorkoutStore((s) => s.replaceExercise);
   const addExercise = useWorkoutStore((s) => s.addExercise);
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
+  const { labelMaps } = useCatalogLabels();
 
   // Fetch current exercise details for suggestion ranking (replace mode only)
   const { data: currentExercise } = useExercise(
@@ -277,6 +282,7 @@ export default function ExercisePickerScreen() {
             title="Muscle Group"
             options={MUSCLE_GROUPS}
             selected={selectedMuscles}
+            displayLabels={labelMaps.muscle}
             onToggle={toggleMuscle}
           />
           <FilterSheet
@@ -285,6 +291,7 @@ export default function ExercisePickerScreen() {
             title="Equipment"
             options={EQUIPMENT_TYPES}
             selected={selectedEquipment}
+            displayLabels={labelMaps.equipment}
             onToggle={toggleEquipment}
           />
         </SafeAreaView>

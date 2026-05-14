@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { useAuth } from "@/hooks/use-auth";
+import { useAppCatalogLanguage } from "@/hooks/use-exercises-query";
 import {
   fetchWorkoutDetail,
   fetchWorkoutHistoryForDayRange,
@@ -24,10 +25,11 @@ const HISTORY_PAGE_SIZE = 20;
 
 export function useWorkoutHistory(options?: { enabled?: boolean }) {
   const { user } = useAuth();
+  const language = useAppCatalogLanguage();
   const enabled = options?.enabled ?? true;
 
   return useInfiniteQuery({
-    queryKey: workoutKeys.list(),
+    queryKey: workoutKeys.list(language),
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       fetchWorkoutHistoryPage(HISTORY_PAGE_SIZE, pageParam),
     getNextPageParam: (lastPage) => {
@@ -58,8 +60,10 @@ export function useWorkoutHistoryForDay(dateKey: string) {
 }
 
 export function useWorkoutDetail(sessionId: string) {
+  const language = useAppCatalogLanguage();
+
   return useQuery({
-    queryKey: workoutKeys.detail(sessionId),
+    queryKey: workoutKeys.detail(sessionId, language),
     queryFn: () => fetchWorkoutDetail(sessionId),
     enabled: !!sessionId,
   });

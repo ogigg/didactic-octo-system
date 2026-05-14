@@ -20,9 +20,10 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 interface ExerciseCardProps {
   exercise: WorkoutExercise;
+  displayName?: string;
 }
 
-export function ExerciseCard({ exercise }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
   const { t } = useTranslation("workout");
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -47,6 +48,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
   const textMuted = useThemeColor({}, "textMuted");
   const inputFill = useThemeColor({}, "inputFill");
   const textSecondary = useThemeColor({}, "textSecondary");
+  const exerciseName = displayName ?? exercise.name;
 
   const handleExercisePress = useCallback(() => {
     router.push({
@@ -101,21 +103,21 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
         <Pressable
           onPress={handleExercisePress}
           accessibilityRole="link"
-          accessibilityLabel={exercise.name}
+          accessibilityLabel={exerciseName}
           style={styles.exerciseName}
         >
           <Text
             style={[Typography.titleSm, { color: primary }]}
             numberOfLines={1}
           >
-            {exercise.name}
+            {exerciseName}
           </Text>
         </Pressable>
         <ProgressionPill type={exercise.progressionType} />
         <Pressable
           onPress={() => setMenuVisible(true)}
           accessibilityRole="button"
-          accessibilityLabel={`Options for ${exercise.name}`}
+          accessibilityLabel={`Options for ${exerciseName}`}
           hitSlop={8}
           style={styles.menuButton}
         >
@@ -131,7 +133,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
         placeholder={t("exercise.notesPlaceholder")}
         placeholderTextColor={textMuted}
         multiline
-        accessibilityLabel={`Notes for ${exercise.name}`}
+        accessibilityLabel={`Notes for ${exerciseName}`}
       />
 
       {/* Rest Timer Info */}
@@ -184,7 +186,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
       {/* Exercise Menu */}
       <ExerciseMenu
         visible={menuVisible}
-        exerciseName={exercise.name}
+        exerciseName={exerciseName}
         currentPreference={preference ?? null}
         onClose={() => setMenuVisible(false)}
         onReplace={handleReplace}
@@ -194,7 +196,7 @@ export function ExerciseCard({ exercise }: ExerciseCardProps) {
       {/* Exercise Preference Sheet */}
       <ExercisePreferenceSheet
         visible={prefSheetVisible}
-        exerciseName={exercise.name}
+        exerciseName={exerciseName}
         currentPreference={preference ?? null}
         onClose={() => setPrefSheetVisible(false)}
         onSelect={(pref) => {

@@ -95,6 +95,7 @@ export const workoutHistoryItemSchema = z.object({
   exercise_count: z.number(),
   total_sets: z.number(),
   total_volume_kg: z.number(),
+  exercise_ids: z.array(z.string().uuid()).default([]),
   exercise_names: z.array(z.string()),
 });
 

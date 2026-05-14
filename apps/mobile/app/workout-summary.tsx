@@ -8,6 +8,10 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSaveCompletedWorkout } from "@/hooks/use-workout-mutations";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
 import { useExerciseMuscles } from "@/hooks/use-exercise-muscles";
+import {
+  useCatalogLabels,
+  useLocalizedExerciseMap,
+} from "@/hooks/use-exercises-query";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -117,6 +121,7 @@ function StatItem({
 
 interface ExerciseRowProps {
   exercise: WorkoutExercise;
+  displayName: string;
   bgColor: string;
   textColor: string;
   textSecondary: string;
@@ -144,6 +149,7 @@ const DIFFICULTY_OPTIONS: {
 
 function ExerciseRow({
   exercise,
+  displayName,
   bgColor,
   textColor,
   textSecondary,
@@ -175,11 +181,11 @@ function ExerciseRow({
       onFeedbackChange(exercise.id, value);
       trackEvent("difficulty_feedback_given", {
         exercise_id: exercise.id,
-        exercise_name: exercise.name,
+        exercise_name: displayName,
         feedback: value,
       });
     },
-    [exercise.id, exercise.name, onFeedbackChange]
+    [displayName, exercise.id, onFeedbackChange]
   );
 
   return (
@@ -187,7 +193,7 @@ function ExerciseRow({
       style={[styles.exerciseCard, { backgroundColor: bgColor }, Elevation.sm]}
     >
       <Text style={[Typography.titleSm, { color: textColor }]}>
-        {exercise.name}
+        {displayName}
       </Text>
       <View style={styles.exerciseMeta}>
         <Text style={[Typography.caption, { color: textSecondary }]}>
@@ -523,6 +529,8 @@ export default function WorkoutSummaryScreen() {
   );
   const { primaryMusclesByExerciseId, isLoading: musclesLoading } =
     useExerciseMuscles(exerciseIds);
+  const { exerciseMap } = useLocalizedExerciseMap(exerciseIds);
+  const { labelMaps } = useCatalogLabels();
   const {
     totalWorkouts,
     streakWeeks,
@@ -548,11 +556,13 @@ export default function WorkoutSummaryScreen() {
     if (!summary) return [];
     return aggregateMuscleDistribution(
       summary.exercises.map((ex) => ({
-        primaryMuscles: primaryMusclesByExerciseId[ex.id] ?? [],
+        primaryMuscles: (primaryMusclesByExerciseId[ex.id] ?? []).map(
+          (muscle) => labelMaps.muscle.get(muscle) ?? muscle
+        ),
         completedSetCount: ex.sets.filter((s) => s.isCompleted).length,
       }))
     );
-  }, [summary, primaryMusclesByExerciseId]);
+  }, [summary, primaryMusclesByExerciseId, labelMaps.muscle]);
 
   // Auto-save on mount
   const saveWorkout = useSaveCompletedWorkout();
@@ -613,10 +623,13 @@ export default function WorkoutSummaryScreen() {
     if (!summary) return;
     addTemplate({
       name: summary.workoutName,
-      exercises: summary.exercises.map((e) => ({ id: e.id, name: e.name })),
+      exercises: summary.exercises.map((e) => ({
+        id: e.id,
+        name: exerciseMap.get(e.id)?.name ?? e.name,
+      })),
     });
     setSaved(true);
-  }, [summary, addTemplate]);
+  }, [summary, addTemplate, exerciseMap]);
 
   const handleReturnHome = useCallback(() => {
     clearWorkout();
@@ -924,6 +937,9 @@ export default function WorkoutSummaryScreen() {
                     <ExerciseRow
                       key={exercise.id}
                       exercise={exercise}
+                      displayName={
+                        exerciseMap.get(exercise.id)?.name ?? exercise.name
+                      }
                       bgColor={backgroundSubtle}
                       textColor={textColor}
                       textSecondary={textSecondary}

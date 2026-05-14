@@ -17,7 +17,10 @@ import type {
 } from "@/lib/api/stats";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { statsKeys } from "@/lib/query-keys";
-import { getMuscleDisplayName } from "@/lib/workout-summary-utils";
+import {
+  useAppCatalogLanguage,
+  useCatalogLabels,
+} from "@/hooks/use-exercises-query";
 
 function computeFromDate(period: StatsPeriod): string {
   if (period === "all") {
@@ -60,8 +63,9 @@ export function usePersonalRecords(): {
   data: PersonalRecord[] | undefined;
   isLoading: boolean;
 } {
+  const language = useAppCatalogLanguage();
   const { data, isLoading } = useQuery({
-    queryKey: statsKeys.prs(),
+    queryKey: statsKeys.prs(language),
     queryFn: () => fetchStatsPersonalRecords(),
     staleTime: 10 * 60 * 1000,
   });
@@ -74,14 +78,16 @@ export function useMuscleDistributionStats(period: StatsPeriod): {
   isLoading: boolean;
 } {
   const fromDate = useMemo(() => computeFromDate(period), [period]);
+  const language = useAppCatalogLanguage();
+  const { labelMaps } = useCatalogLabels();
 
   const { data: segments, isLoading } = useQuery({
-    queryKey: statsKeys.muscleDistribution(period),
+    queryKey: statsKeys.muscleDistribution(period, language),
     queryFn: () => fetchStatsMuscleDistribution(fromDate),
     select: (rows) =>
       aggregateMuscleDistribution(
         rows.map((row) => ({
-          primaryMuscles: [getMuscleDisplayName(row.muscle)],
+          primaryMuscles: [labelMaps.muscle.get(row.muscle) ?? row.muscle],
           completedSetCount: row.set_count,
         }))
       ),

@@ -23,6 +23,7 @@ import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutQueue } from "@/hooks/use-workout-queue";
 import { useProfile } from "@/hooks/use-profile-query";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { getTargetQueueCount } from "@/lib/pending-workout-queue";
 import { fetchWorkoutHistoryForDayRange } from "@/lib/api/workouts";
 import { getMondayLocal } from "@/lib/iso-week";
@@ -86,6 +87,19 @@ export default function HomeScreen() {
 
   // Templates
   const templates = useWorkoutTemplatesStore((s) => s.templates);
+  const templateExerciseIds = useMemo(
+    () =>
+      templates.flatMap((template) => template.exercises.map((ex) => ex.id)),
+    [templates]
+  );
+  const workoutExerciseIds = useMemo(
+    () => [
+      ...workoutExercises.map((exercise) => exercise.id),
+      ...templateExerciseIds,
+    ],
+    [templateExerciseIds, workoutExercises]
+  );
+  const { exerciseMap } = useLocalizedExerciseMap(workoutExerciseIds);
 
   // Weekly progress comes from completed sessions, not queue size.
   const completedCount = Math.min(
@@ -112,7 +126,7 @@ export default function HomeScreen() {
       if (!isWorkoutActive) {
         const exercises: WorkoutExercise[] = template.exercises.map((ex) => ({
           id: ex.id,
-          name: ex.name,
+          name: exerciseMap.get(ex.id)?.name ?? ex.name,
           exerciseType: "weight" as const,
           restDurationSeconds: 90,
           notes: "",
@@ -132,7 +146,7 @@ export default function HomeScreen() {
       }
       router.push("/workout");
     },
-    [isWorkoutActive, startWorkout, router]
+    [exerciseMap, isWorkoutActive, startWorkout, router]
   );
 
   const handleResumeWorkout = useCallback(() => {
@@ -142,12 +156,12 @@ export default function HomeScreen() {
   const activeExercises = useMemo(
     () =>
       workoutExercises.map((ex) => ({
-        name: ex.name,
+        name: exerciseMap.get(ex.id)?.name ?? ex.name,
         muscleGroup: "",
         sets: ex.sets.length,
         reps: ex.sets[0] ? `${ex.sets[0].reps || "—"}` : "—",
       })),
-    [workoutExercises]
+    [exerciseMap, workoutExercises]
   );
 
   const greeting = useMemo(() => t(getGreetingKey()), [t]);

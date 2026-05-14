@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import {
   isWatchPaired,
   onSetCompleted,
@@ -41,14 +42,15 @@ interface WatchSetPayload {
 function toWatchWorkout(
   name: string,
   startedAtMs: number,
-  exercises: WorkoutExercise[]
+  exercises: WorkoutExercise[],
+  localizedNames?: ReadonlyMap<string, string>
 ): WatchWorkout {
   return {
     id: `workout-${startedAtMs}`,
     name,
     exercises: exercises.map((ex) => ({
       id: ex.id,
-      name: ex.name,
+      name: localizedNames?.get(ex.id) ?? ex.name,
       restDurationSeconds: ex.restDurationSeconds,
       notes: ex.notes || null,
       sets: ex.sets.map((s) => ({
@@ -85,9 +87,10 @@ function buildWatchState(
     exerciseId: string;
     startedAtMs: number;
     durationSeconds: number;
-  } | null
+  } | null,
+  localizedNames?: ReadonlyMap<string, string>
 ): WatchWorkoutState {
-  const workout = toWatchWorkout(name, startedAtMs, exercises);
+  const workout = toWatchWorkout(name, startedAtMs, exercises, localizedNames);
   const { exerciseIndex, setIndex } = findCurrentIndices(exercises);
 
   const state: WatchWorkoutState = {
@@ -117,6 +120,20 @@ function stateHash(s: WatchWorkoutState): string {
 
 export function useWatchBridge() {
   const lastHashRef = useRef<string | null>(null);
+  const exercisesForNames = useWorkoutStore((s) => s.exercises);
+  const { exerciseMap } = useLocalizedExerciseMap(
+    exercisesForNames.map((exercise) => exercise.id)
+  );
+  const localizedNamesRef = useRef(new Map<string, string>());
+
+  useEffect(() => {
+    localizedNamesRef.current = new Map(
+      Array.from(exerciseMap.entries()).map(([id, exercise]) => [
+        id,
+        exercise.name,
+      ])
+    );
+  }, [exerciseMap]);
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -131,7 +148,8 @@ export function useWatchBridge() {
         workoutName,
         startedAtMs,
         exercises,
-        restTimer
+        restTimer,
+        localizedNamesRef.current
       );
       lastHashRef.current = stateHash(state);
       sendWorkoutState(state);
@@ -159,7 +177,8 @@ export function useWatchBridge() {
           slice.workoutName,
           slice.startedAtMs,
           slice.exercises,
-          slice.restTimer
+          slice.restTimer,
+          localizedNamesRef.current
         );
         const hash = stateHash(state);
         if (hash === lastHashRef.current) return;

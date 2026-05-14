@@ -7,6 +7,10 @@ import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import { useCommentsForSession } from "@/hooks/use-workout-session-comments";
+import {
+  useCatalogLabels,
+  useLocalizedExerciseMap,
+} from "@/hooks/use-exercises-query";
 import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
@@ -91,6 +95,12 @@ export default function WorkoutDetailScreen() {
   const wu = useWeightUnit();
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
   const { data: sessionComments } = useCommentsForSession(id ?? null);
+  const detailExerciseIds = useMemo(
+    () => detail?.exercises.map((exercise) => exercise.exercise_id) ?? [],
+    [detail]
+  );
+  const { exerciseMap } = useLocalizedExerciseMap(detailExerciseIds);
+  const { labelMaps } = useCatalogLabels();
 
   // Heart rate (cache-only read from Apple Health, iOS-only)
   const hrStartedAt = useMemo(
@@ -110,12 +120,14 @@ export default function WorkoutDetailScreen() {
     if (!detail) return [];
     return aggregateMuscleDistribution(
       detail.exercises.map((ex) => ({
-        primaryMuscles: ex.primary_muscles,
+        primaryMuscles: ex.primary_muscles.map(
+          (muscle) => labelMaps.muscle.get(muscle) ?? muscle
+        ),
         completedSetCount: ex.sets.filter((s) => s.log?.completed === true)
           .length,
       }))
     );
-  }, [detail]);
+  }, [detail, labelMaps.muscle]);
 
   if (!id) return null;
 
@@ -231,7 +243,7 @@ export default function WorkoutDetailScreen() {
                     styles.exerciseName,
                   ]}
                 >
-                  {ex.exercise_name}
+                  {exerciseMap.get(ex.exercise_id)?.name ?? ex.exercise_name}
                 </Text>
 
                 {/* Set rows */}

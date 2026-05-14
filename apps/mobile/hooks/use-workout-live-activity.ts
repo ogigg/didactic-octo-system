@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AppState, Platform } from "react-native";
 
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import {
   areActivitiesEnabled,
   endActivity,
@@ -76,7 +77,8 @@ function deriveState(
     exerciseId: string;
     startedAtMs: number;
     durationSeconds: number;
-  } | null
+  } | null,
+  localizedNames?: ReadonlyMap<string, string>
 ): DerivedLiveState | null {
   if (!startedAtMs) return null;
 
@@ -97,7 +99,7 @@ function deriveState(
   const totalSets = Math.max(1, exercise.sets.length);
 
   return {
-    exerciseName: exercise.name,
+    exerciseName: localizedNames?.get(exercise.id) ?? exercise.name,
     setDisplay: formatSetDisplay(exercise, set),
     proposalDisplay: formatProposalDisplay(exercise, set),
     exerciseId: exercise.id,
@@ -139,6 +141,20 @@ function shallowEqual(
 export function useWorkoutLiveActivity() {
   const lastSentRef = useRef<DerivedLiveState | null>(null);
   const activityStartedRef = useRef(false);
+  const exercisesForNames = useWorkoutStore((s) => s.exercises);
+  const { exerciseMap } = useLocalizedExerciseMap(
+    exercisesForNames.map((exercise) => exercise.id)
+  );
+  const localizedNamesRef = useRef(new Map<string, string>());
+
+  useEffect(() => {
+    localizedNamesRef.current = new Map(
+      Array.from(exerciseMap.entries()).map(([id, exercise]) => [
+        id,
+        exercise.name,
+      ])
+    );
+  }, [exerciseMap]);
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -164,7 +180,8 @@ export function useWorkoutLiveActivity() {
         exercises,
         startedAtMs,
         workoutName,
-        restTimer
+        restTimer,
+        localizedNamesRef.current
       );
       if (!derived) return;
 
@@ -219,7 +236,8 @@ export function useWorkoutLiveActivity() {
           slice.exercises,
           slice.startedAtMs,
           slice.workoutName,
-          slice.restTimer
+          slice.restTimer,
+          localizedNamesRef.current
         );
         if (!derived) return;
         if (shallowEqual(derived, lastSentRef.current)) return;

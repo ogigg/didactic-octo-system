@@ -140,6 +140,50 @@ Notes:
 
 - this table is product-critical because generated workouts should refer to known exercises
 - time-based exercise support means downstream consumers cannot assume every exercise is load/reps based
+- `id` is the stable exercise identity; `name` is canonical English display/fallback text and must not be treated as identity
+
+### `exercise_translations`
+
+Purpose:
+
+- localized exercise catalog display text keyed by stable exercise ID
+
+Important columns:
+
+- `exercise_id`
+- `language_code`
+- `name`
+- `instructions`
+- `source`
+
+Relationships:
+
+- joins to `exercises`
+
+Notes:
+
+- authenticated users can read translations
+- service role owns writes/imports
+- missing translations fall back to English/canonical `exercises` text
+- generated workouts, session history, preferences, progression, and logs continue to use `exercise_id`
+
+### `catalog_label_translations`
+
+Purpose:
+
+- localized display labels for canonical catalog tokens used by filters and summaries
+
+Important columns:
+
+- `label_type`: `muscle`, `equipment`, or `difficulty`
+- `label_key`: canonical DB token
+- `language_code`
+- `display_name`
+
+Notes:
+
+- canonical `primary_muscles`, `equipment`, and `difficulty_level` values remain unchanged for filtering, generation, analytics, and progression
+- localized labels are display/search concerns only
 
 ### `pending_workouts`
 
