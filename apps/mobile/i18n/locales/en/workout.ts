@@ -37,6 +37,8 @@ export const workout = {
   rpe: {
     title: "Rate of Perceived Exertion",
     select: "Select RPE",
+    explanation:
+      "How hard the set felt: 1 is very easy, 10 is your max effort.",
   },
   menu: {
     reorder: "Reorder Exercise",

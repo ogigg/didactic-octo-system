@@ -57,6 +57,7 @@ const MAPPING = {
   pencil: "edit",
   "exclamationmark.triangle.fill": "warning",
   "person.crop.circle.badge.xmark": "person-off",
+  "questionmark.circle.fill": "help",
 } as IconMapping;
 
 /**

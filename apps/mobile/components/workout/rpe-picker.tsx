@@ -1,3 +1,4 @@
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -41,6 +42,21 @@ export function RpePicker({
           <Text style={[Typography.titleSm, { color: textColor }]}>
             {t("rpe.title")}
           </Text>
+          <View
+            style={[
+              styles.help,
+              { backgroundColor: primarySurface, borderColor: borderSubtle },
+            ]}
+          >
+            <IconSymbol
+              name="questionmark.circle.fill"
+              size={18}
+              color={primary}
+            />
+            <Text style={[styles.helpText, { color: textSecondary }]}>
+              {t("rpe.explanation")}
+            </Text>
+          </View>
           <View style={styles.grid}>
             {RPE_VALUES.map((val) => {
               const isSelected = val === currentValue;
@@ -102,6 +118,20 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: Spacing.sm,
     justifyContent: "center",
+  },
+  help: {
+    borderWidth: 1,
+    borderRadius: Radii.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    maxWidth: 280,
+  },
+  helpText: {
+    ...Typography.caption,
+    flex: 1,
+    lineHeight: 17,
   },
   chip: {
     width: 48,
