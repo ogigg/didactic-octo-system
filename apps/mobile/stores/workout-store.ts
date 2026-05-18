@@ -102,6 +102,14 @@ interface WorkoutActions {
     name: string;
     exerciseType?: "weight" | "time";
   }) => void;
+  addExerciseAfter: (
+    afterExerciseId: string,
+    exercise: {
+      id: string;
+      name: string;
+      exerciseType?: "weight" | "time";
+    }
+  ) => void;
   removeExercise: (exerciseId: string) => void;
   updateWorkoutName: (name: string) => void;
 }
@@ -143,6 +151,34 @@ function makeEmptySet(): WorkoutSet {
     rpe: null,
     isCompleted: false,
     previousDisplay: null,
+  };
+}
+
+function clearSetValues(set: WorkoutSet): WorkoutSet {
+  return {
+    ...set,
+    kg: "",
+    reps: "",
+    durationSeconds: null,
+    rpe: null,
+    isCompleted: false,
+    previousDisplay: null,
+  };
+}
+
+function makeExercise(exercise: {
+  id: string;
+  name: string;
+  exerciseType?: "weight" | "time";
+}): WorkoutExercise {
+  return {
+    id: exercise.id,
+    name: exercise.name,
+    exerciseType: exercise.exerciseType ?? "weight",
+    restDurationSeconds: 90,
+    notes: "",
+    difficultyFeedback: null,
+    sets: Array.from({ length: 3 }, makeEmptySet),
   };
 }
 
@@ -268,6 +304,10 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
                     id: newExercise.id,
                     name: newExercise.name,
                     exerciseType: newExercise.exerciseType ?? ex.exerciseType,
+                    notes: "",
+                    difficultyFeedback: null,
+                    progressionType: "new_exercise",
+                    sets: ex.sets.map(clearSetValues),
                   }
                 : ex
             ),
@@ -303,19 +343,28 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
 
         addExercise: (exercise) =>
           set((state) => ({
-            exercises: [
-              ...state.exercises,
-              {
-                id: exercise.id,
-                name: exercise.name,
-                exerciseType: exercise.exerciseType ?? "weight",
-                restDurationSeconds: 90,
-                notes: "",
-                difficultyFeedback: null,
-                sets: Array.from({ length: 3 }, makeEmptySet),
-              },
-            ],
+            exercises: [...state.exercises, makeExercise(exercise)],
           })),
+
+        addExerciseAfter: (afterExerciseId, exercise) =>
+          set((state) => {
+            const index = state.exercises.findIndex(
+              (ex) => ex.id === afterExerciseId
+            );
+            const newExercise = makeExercise(exercise);
+
+            if (index === -1) {
+              return { exercises: [...state.exercises, newExercise] };
+            }
+
+            return {
+              exercises: [
+                ...state.exercises.slice(0, index + 1),
+                newExercise,
+                ...state.exercises.slice(index + 1),
+              ],
+            };
+          }),
 
         removeExercise: (exerciseId) =>
           set((state) => ({
