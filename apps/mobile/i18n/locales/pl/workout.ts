@@ -37,6 +37,8 @@ export const workout = {
   rpe: {
     title: "Odczuwalny wysiłek",
     select: "Wybierz RPE",
+    explanation:
+      "Jak trudna była seria: 1 to bardzo lekko, 10 to maksymalny wysiłek.",
   },
   menu: {
     reorder: "Zmień kolejność ćwiczenia",
