@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   SectionList,
   StyleSheet,
@@ -49,8 +50,14 @@ export default function ExercisePickerScreen() {
         : "replace";
   const replaceExercise = useWorkoutStore((s) => s.replaceExercise);
   const addExercise = useWorkoutStore((s) => s.addExercise);
+  const addExerciseAfter = useWorkoutStore((s) => s.addExerciseAfter);
+  const workoutExercises = useWorkoutStore((s) => s.exercises);
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
   const { labelMaps } = useCatalogLabels();
+  const activeExercise = useMemo(
+    () => workoutExercises.find((ex) => ex.id === exerciseId),
+    [exerciseId, workoutExercises]
+  );
 
   // Fetch current exercise details for suggestion ranking (replace mode only)
   const { data: currentExercise } = useExercise(
@@ -140,6 +147,44 @@ export default function ExercisePickerScreen() {
   }, [exercises, exerciseId, mode, hasActiveFilters, currentExercise, t]);
 
   // Handlers
+  const hasLoggedValues = useCallback(() => {
+    if (!activeExercise) return false;
+    return activeExercise.sets.some(
+      (set) =>
+        set.isCompleted ||
+        set.kg.trim().length > 0 ||
+        set.reps.trim().length > 0 ||
+        set.durationSeconds != null ||
+        set.rpe != null
+    );
+  }, [activeExercise]);
+
+  const replaceCurrentExercise = useCallback(
+    (exercise: Exercise) => {
+      if (!exerciseId) return;
+      replaceExercise(exerciseId, {
+        id: exercise.id,
+        name: exercise.name,
+        exerciseType: exercise.exercise_type,
+      });
+      router.back();
+    },
+    [exerciseId, replaceExercise, router]
+  );
+
+  const addBelowCurrentExercise = useCallback(
+    (exercise: Exercise) => {
+      if (!exerciseId) return;
+      addExerciseAfter(exerciseId, {
+        id: exercise.id,
+        name: exercise.name,
+        exerciseType: exercise.exercise_type,
+      });
+      router.back();
+    },
+    [addExerciseAfter, exerciseId, router]
+  );
+
   const handleSelect = useCallback(
     (exercise: Exercise) => {
       if (mode === "pending_swap") {
@@ -154,15 +199,36 @@ export default function ExercisePickerScreen() {
           exerciseType: exercise.exercise_type,
         });
       } else if (exerciseId) {
-        replaceExercise(exerciseId, {
-          id: exercise.id,
-          name: exercise.name,
-          exerciseType: exercise.exercise_type,
-        });
+        if (hasLoggedValues()) {
+          Alert.alert(t("replaceConfirm.title"), t("replaceConfirm.message"), [
+            {
+              text: t("replaceConfirm.override"),
+              style: "destructive",
+              onPress: () => replaceCurrentExercise(exercise),
+            },
+            {
+              text: t("replaceConfirm.addBelow"),
+              onPress: () => addBelowCurrentExercise(exercise),
+            },
+          ]);
+          return;
+        }
+        replaceCurrentExercise(exercise);
+        return;
       }
       router.back();
     },
-    [mode, exerciseId, addExercise, replaceExercise, router, setSwapResult]
+    [
+      mode,
+      exerciseId,
+      addExercise,
+      addBelowCurrentExercise,
+      hasLoggedValues,
+      replaceCurrentExercise,
+      router,
+      setSwapResult,
+      t,
+    ]
   );
 
   const handleCancel = useCallback(() => {

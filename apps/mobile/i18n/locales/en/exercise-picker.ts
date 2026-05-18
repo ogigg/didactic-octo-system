@@ -18,4 +18,11 @@ export const exercisePicker = {
   list: {
     empty: "No exercises match your filters.",
   },
+  replaceConfirm: {
+    title: "Replace exercise?",
+    message:
+      "This will clear the current weight, reps, time, RPE, and completed sets for this exercise.",
+    override: "Override",
+    addBelow: "Add Below",
+  },
 } as const;
