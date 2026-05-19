@@ -38,10 +38,9 @@ jest.mock("@/components/workout/set-row", () => {
         },
         ref: React.Ref<{ focusFirstInput: () => void }>
       ) => {
-        const handle =
-          mockSetRowHandles.get(props.set.id) ?? {
-            focusFirstInput: jest.fn(),
-          };
+        const handle = mockSetRowHandles.get(props.set.id) ?? {
+          focusFirstInput: jest.fn(),
+        };
 
         mockSetRowHandles.set(props.set.id, handle);
         mockSetRowProps.push(props);
