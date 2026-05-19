@@ -20,9 +20,37 @@ jest.mock("expo-router", () => ({
   useRouter: jest.fn(() => ({ push: jest.fn() })),
 }));
 
-jest.mock("@/components/workout/set-row", () => ({
-  SetRow: () => null,
-}));
+const mockSetRowProps: {
+  set: { id: string };
+  onSubmitReps?: () => void;
+}[] = [];
+const mockSetRowHandles = new Map<string, { focusFirstInput: jest.Mock }>();
+
+jest.mock("@/components/workout/set-row", () => {
+  const React = require("react");
+
+  return {
+    SetRow: React.forwardRef(
+      (
+        props: {
+          set: { id: string };
+          onSubmitReps?: () => void;
+        },
+        ref: React.Ref<{ focusFirstInput: () => void }>
+      ) => {
+        const handle = mockSetRowHandles.get(props.set.id) ?? {
+          focusFirstInput: jest.fn(),
+        };
+
+        mockSetRowHandles.set(props.set.id, handle);
+        mockSetRowProps.push(props);
+        React.useImperativeHandle(ref, () => handle);
+
+        return null;
+      }
+    ),
+  };
+});
 
 jest.mock("@/components/workout/set-header", () => ({
   SetHeader: () => null,
@@ -66,6 +94,8 @@ const exercise: WorkoutExercise = {
 describe("ExerciseCard", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSetRowProps.length = 0;
+    mockSetRowHandles.clear();
     useWorkoutStore.getState().clearWorkout();
     useWorkoutStore.getState().startWorkout("Push day", [exercise], undefined);
   });
@@ -89,5 +119,27 @@ describe("ExerciseCard", () => {
     fireEvent.press(screen.getByRole("button", { name: "exercise.addSet" }));
 
     expect(useWorkoutStore.getState().exercises[0]?.sets).toHaveLength(2);
+  });
+
+  it("moves keyboard focus from reps to the next set row", () => {
+    const exerciseWithTwoSets: WorkoutExercise = {
+      ...exercise,
+      sets: [
+        exercise.sets[0]!,
+        {
+          ...exercise.sets[0]!,
+          id: "set-2",
+          kg: "82.5",
+          reps: "5",
+        },
+      ],
+    };
+
+    render(<ExerciseCard exercise={exerciseWithTwoSets} />);
+
+    mockSetRowProps[0]?.onSubmitReps?.();
+
+    expect(mockSetRowHandles.get("set-2")?.focusFirstInput).toHaveBeenCalled();
+    expect(mockSetRowProps[1]?.onSubmitReps).toBeUndefined();
   });
 });
