@@ -3,7 +3,7 @@ import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preferen
 import { ExerciseMenu } from "@/components/workout/exercise-menu";
 import { ProgressionPill } from "@/components/workout/progression-pill";
 import { SetHeader } from "@/components/workout/set-header";
-import { SetRow } from "@/components/workout/set-row";
+import { SetRow, type SetRowHandle } from "@/components/workout/set-row";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
 import {
@@ -15,7 +15,7 @@ import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -36,6 +36,7 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
   const [prefSheetVisible, setPrefSheetVisible] = useState(false);
+  const setRowRefs = useRef(new Map<string, SetRowHandle>());
 
   const { data: preference } = useExercisePreference(exercise.id);
   const setPreferenceMutation = useSetExercisePreference();
@@ -98,6 +99,16 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
       updateNotes(exercise.id, text);
     },
     [updateNotes, exercise.id]
+  );
+
+  const focusNextSet = useCallback(
+    (setIndex: number) => {
+      const nextSet = exercise.sets[setIndex + 1];
+      if (!nextSet || (exercise.exerciseType ?? "weight") === "time") return;
+
+      setRowRefs.current.get(nextSet.id)?.focusFirstInput();
+    },
+    [exercise.exerciseType, exercise.sets]
   );
 
   const formatRestTime = (seconds: number): string => {
@@ -173,12 +184,20 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
 
       {/* Set Table */}
       <SetHeader exerciseType={exercise.exerciseType ?? "weight"} />
-      {exercise.sets.map((set) => {
+      {exercise.sets.map((set, setIndex) => {
         const currentWorkingIndex =
           set.type === "working" ? workingSetIndex++ : 0;
+        const hasNextSet = setIndex < exercise.sets.length - 1;
         return (
           <SetRow
             key={set.id}
+            ref={(row) => {
+              if (row) {
+                setRowRefs.current.set(set.id, row);
+              } else {
+                setRowRefs.current.delete(set.id);
+              }
+            }}
             set={set}
             setIndex={currentWorkingIndex}
             exerciseId={exercise.id}
@@ -192,6 +211,7 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
             }
             onUpdateRpe={(rpe) => updateSetRpe(exercise.id, set.id, rpe)}
             onRemove={() => removeSet(exercise.id, set.id)}
+            onSubmitReps={hasNextSet ? () => focusNextSet(setIndex) : undefined}
           />
         );
       })}
