@@ -113,3 +113,10 @@ npx jest --testNamePattern="test name"
 
 - Husky and lint-staged format staged files on commit.
 - If adding Supabase migrations locally, use `supabase db push --local`.
+
+### General info
+
+## Git
+
+- When working on linear issue name branch ticket-number-short-description that originates from remote/master branch
+- By default create new branch per task unless it's not a programming task just conversation

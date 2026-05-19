@@ -73,6 +73,34 @@ describe("fetchExercises", () => {
     });
   });
 
+  it("trims search filters before calling the localized exercise RPC", async () => {
+    mockRpc([validExercise]);
+
+    await fetchExercises({ search: "  bench  " });
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("get_localized_exercises", {
+      p_language: "en",
+      p_search: "bench",
+      p_muscles: null,
+      p_equipment: null,
+      p_ids: null,
+    });
+  });
+
+  it("passes blank search filters as null", async () => {
+    mockRpc([validExercise]);
+
+    await fetchExercises({ search: "   " });
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("get_localized_exercises", {
+      p_language: "en",
+      p_search: null,
+      p_muscles: null,
+      p_equipment: null,
+      p_ids: null,
+    });
+  });
+
   it("throws when supabase returns an error", async () => {
     mockRpc(null, { message: "connection error" });
 
