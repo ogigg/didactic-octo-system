@@ -1,0 +1,131 @@
+Title,Description,Priority,Status,Labels,Estimate
+"Add loading state to AI exercise home screen","The AI exercise home screen is missing a loading state.
+
+Acceptance criteria:
+- A loading indicator appears while AI exercise content is loading.
+- Empty, loading, error, and loaded states are visually distinct.
+- Loading state matches the app's existing design patterns.
+
+Note: This may duplicate an existing feedback ticket and can be merged if already imported.","Medium","Todo","ai,loading-state,ui",""
+"Localize chart labels","Chart labels are currently displayed in English instead of the active app language.
+
+Acceptance criteria:
+- Chart labels use localized strings.
+- Polish locale displays Polish chart labels.
+- Chart labels remain readable on small screens.","Medium","Todo","i18n,charts",""
+"Fix workout generation failure at step 4 of 5","Workout generation fails when the generation flow reaches step 4 of 5.
+
+Acceptance criteria:
+- Workout generation completes successfully from step 4 to step 5.
+- Failure state is handled with a clear retry path.
+- Relevant error details are logged for debugging.","High","Todo","ai,workout-generation,bug",""
+"Add mocked premium purchase option","Add a mocked option to buy premium so the premium upgrade flow can be tested before real billing is implemented.
+
+Acceptance criteria:
+- User can see a premium purchase entry point.
+- Purchase action is clearly mocked or uses a non-production flow.
+- Mocked premium state can unlock premium UI paths for testing.","Medium","Todo","premium,billing,mock",""
+"Fix inability to add a new exercise","Users may be unable to add a new exercise from the workout flow.
+
+Acceptance criteria:
+- User can add a new exercise during an active workout.
+- Added exercise appears immediately in the workout.
+- Errors are surfaced if adding the exercise fails.","High","Todo","workout,exercise-management,bug",""
+"Improve equipment and muscle filtering for bench press","Selecting barbell equipment and chest muscles did not surface flat bench press, which should be an expected result.
+
+Acceptance criteria:
+- Flat bench press appears for barbell + chest filter combinations.
+- Exercise metadata for equipment and target muscles is reviewed.
+- Filtered results include expected canonical exercises.","High","Todo","exercise-search,exercise-data,bug",""
+"Fix Live Activity for active workout and timer","Live Activity does not work correctly during an active workout or rest timer.
+
+Acceptance criteria:
+- Live Activity starts when expected during an active workout or rest timer.
+- Live Activity updates timer state accurately.
+- Live Activity ends when the workout or timer ends.
+
+Note: This may duplicate an existing feedback ticket and can be merged if already imported.","High","Todo","workout,timer,ios,bug",""
+"Fix Apple Watch connection","The app does not connect correctly with the watch integration.
+
+Acceptance criteria:
+- The mobile app can establish a watch connection when supported.
+- Connection failures show an understandable state.
+- Basic workout or timer data syncs according to the intended watch scope.","High","Todo","watch,integration,bug",""
+"Add explanation for why a workout was generated","Users should be able to understand why a generated workout contains specific exercises or structure.
+
+Acceptance criteria:
+- Generated workout includes an explanation entry point.
+- Explanation references relevant user preferences, constraints, history, or goals.
+- Explanation is concise and understandable during workout review.","Medium","Todo","ai,workout-generation,ux",""
+"Show quick target muscle info for exercises","Users need quick information about what each exercise targets, for example back.
+
+Acceptance criteria:
+- Exercise UI shows primary target muscle or muscle group.
+- Information is visible without opening full exercise details where appropriate.
+- Muscle labels are localized.","Medium","Todo","exercise-data,workout,ui",""
+"Allow limiting the number of exercises in generated workouts","Users should be able to constrain how many exercises are included in a generated workout.
+
+Acceptance criteria:
+- Workout generation preferences include a maximum exercise count.
+- Generated workouts respect the configured limit.
+- The app handles edge cases where too few exercises match the constraints.","Medium","Todo","ai,workout-generation,preferences",""
+"Add default set structure preference for new exercises","When creating or adding a new exercise, the default should be configurable, for example one warm-up set followed by three working sets.
+
+Acceptance criteria:
+- User can configure default set structure for newly added exercises.
+- Defaults support warm-up sets and working sets.
+- New exercises apply the configured default structure.","Medium","Todo","workout,preferences",""
+"Show previous sets in workout table","The workout table does not show previous sets, making progression and logging harder during a session.
+
+Acceptance criteria:
+- Workout table shows previous set values for the same exercise when available.
+- Previous sets are visually distinct from current editable values.
+- Missing history is handled gracefully.","High","Todo","workout,logging,progression",""
+"Use timer input for plank exercises instead of reps","Plank should be tracked with a timer or duration input instead of repetitions.
+
+Acceptance criteria:
+- Plank uses duration-based tracking by default.
+- Duration-based exercises display appropriate inputs during workouts.
+- Saved workout logs preserve duration values correctly.","High","Todo","exercise-data,workout,logging,bug",""
+"Fix exercise deletion","Deleting exercises does not work correctly.
+
+Acceptance criteria:
+- User can delete an exercise from the relevant workout or exercise management flow.
+- Deleted exercise is removed from the UI and persisted state.
+- Deletion handles confirmation or undo according to existing app patterns.","High","Todo","workout,exercise-management,bug",""
+"Fix reversed gestures on exercise detail tabs","Gestures on exercise details feel reversed, and tab transitions should be more polished.
+
+Acceptance criteria:
+- Swipe gestures move between tabs in the expected direction.
+- Tab transition animation feels smooth and intentional.
+- Tapping tabs and swiping stay in sync.","Medium","Todo","exercise-details,gestures,ui",""
+"Show load context for maximum reps","Maximum reps should include information about the load used for that rep count.
+
+Acceptance criteria:
+- Max reps display includes the associated weight or load when available.
+- Empty or unknown load values are handled clearly.
+- Display remains compact in workout history or stats UI.","Medium","Todo","progression,stats,workout",""
+"Support assistance amount input for assisted exercises","Assisted exercises need an input for the amount of assistance used.
+
+Acceptance criteria:
+- Assisted exercises expose an assistance amount input.
+- Assistance amount is saved with the set or workout log.
+- Progression views can distinguish assisted load from regular external load.","Medium","Todo","workout,logging,exercise-data",""
+"Add exercise images","Exercises should include images to make them easier to recognize and perform correctly.
+
+Acceptance criteria:
+- Exercise detail UI supports displaying an exercise image.
+- Exercise list or workout UI uses thumbnails where appropriate.
+- Missing images fall back to a polished placeholder.","Medium","Todo","exercise-data,media,ui",""
+"Copy previous row values when adding a new set","When adding a new set, the new row should start with values from the previous row to speed up logging.
+
+Acceptance criteria:
+- Adding a set copies relevant values from the previous set row.
+- User can immediately edit the copied values.
+- Copying does not apply when there is no previous row.","Medium","Todo","workout,logging,inputs",""
+"Only warn about losing data when data was entered","The warning popup about losing entered data appears even when the user has not entered anything.
+
+Acceptance criteria:
+- Data loss warning appears only when there are unsaved user-entered values.
+- No warning appears for untouched or empty forms.
+- Dirty-state detection covers relevant workout input fields.","Medium","Todo","workout,forms,bug",""

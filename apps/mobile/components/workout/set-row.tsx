@@ -8,7 +8,14 @@ import { parsePreviousWeightDisplay } from "@/lib/workout-previous-sets";
 import type { WorkoutSet } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Dimensions,
@@ -21,7 +28,6 @@ import {
   View,
 } from "react-native";
 import { PanGestureHandler, State } from "react-native-gesture-handler";
-import { useTranslation } from "react-i18next";
 
 interface SetRowProps {
   set: WorkoutSet;
@@ -33,19 +39,27 @@ interface SetRowProps {
   onUpdateDuration: (durationSeconds: number | null) => void;
   onUpdateRpe: (rpe: number | null) => void;
   onRemove: () => void;
+  onSubmitReps?: () => void;
 }
 
-export function SetRow({
-  set,
-  setIndex,
-  exerciseType = "weight",
-  onToggleComplete,
-  onUpdateField,
-  onUpdateDuration,
-  onUpdateRpe,
-  onRemove,
-}: SetRowProps) {
-  const { t } = useTranslation("workout");
+export interface SetRowHandle {
+  focusFirstInput: () => void;
+}
+
+export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
+  {
+    set,
+    setIndex,
+    exerciseType = "weight",
+    onToggleComplete,
+    onUpdateField,
+    onUpdateDuration,
+    onUpdateRpe,
+    onRemove,
+    onSubmitReps,
+  }: SetRowProps,
+  ref
+) {
   const { label: unitLabel } = useWeightUnit();
   const [rpePickerVisible, setRpePickerVisible] = useState(false);
   const [kgFocused, setKgFocused] = useState(false);
@@ -244,6 +258,20 @@ export function SetRow({
     repsRef.current?.focus();
   }, []);
 
+  const handleRepsSubmit = useCallback(() => {
+    onSubmitReps?.();
+  }, [onSubmitReps]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusFirstInput: () => {
+        kgRef.current?.focus();
+      },
+    }),
+    []
+  );
+
   const completeRingScale = completeRing.interpolate({
     inputRange: [0, 1],
     outputRange: [0.6, 1.9],
@@ -338,6 +366,7 @@ export function SetRow({
                   onBlur={() => setKgFocused(false)}
                   onSubmitEditing={handleKgSubmit}
                   returnKeyType="next"
+                  blurOnSubmit={false}
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={textDisabled}
@@ -361,7 +390,9 @@ export function SetRow({
                   onChangeText={handleRepsChange}
                   onFocus={() => setRepsFocused(true)}
                   onBlur={() => setRepsFocused(false)}
-                  returnKeyType="done"
+                  onSubmitEditing={handleRepsSubmit}
+                  returnKeyType={onSubmitReps ? "next" : "done"}
+                  blurOnSubmit={onSubmitReps ? false : undefined}
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={textDisabled}
@@ -435,7 +466,7 @@ export function SetRow({
       </PanGestureHandler>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: {

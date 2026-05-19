@@ -46,6 +46,12 @@ export const workout = {
     remove: "Remove Exercise",
     notImplemented: "This feature will be available soon.",
   },
+  removeExercise: {
+    confirmTitle: "Remove Exercise?",
+    confirmMessage: "Remove {{exerciseName}} from this workout?",
+    confirmRemove: "Remove",
+    cancel: "Cancel",
+  },
   restTimerBar: {
     skip: "Skip",
     adjustDown: "-15s",

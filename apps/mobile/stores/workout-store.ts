@@ -369,6 +369,10 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         removeExercise: (exerciseId) =>
           set((state) => ({
             exercises: state.exercises.filter((ex) => ex.id !== exerciseId),
+            restTimer:
+              state.restTimer?.exerciseId === exerciseId
+                ? null
+                : state.restTimer,
           })),
 
         updateWorkoutName: (name) => set({ workoutName: name }),
