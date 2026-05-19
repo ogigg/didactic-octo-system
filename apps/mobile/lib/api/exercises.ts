@@ -53,9 +53,11 @@ export async function fetchExercises(
   filters?: ExerciseFilters,
   language = "en"
 ): Promise<Exercise[]> {
+  const search = filters?.search?.trim() || null;
+
   const { data, error } = await supabase.rpc("get_localized_exercises", {
     p_language: language,
-    p_search: filters?.search ?? null,
+    p_search: search,
     p_muscles: filters?.muscles?.length ? filters.muscles : null,
     p_equipment: filters?.equipment?.length ? filters.equipment : null,
     p_ids: filters?.ids?.length ? filters.ids : null,
