@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
+import {
+  formatPreviousDurationSet,
+  formatPreviousWeightSet,
+  type PreviousSetValue,
+} from "@/lib/workout-previous-sets";
+import type { WeightUnit } from "@/lib/unit-conversion";
 
 // -----------------------------------------------------------------------------
 // Const Maps (no TS enums per project convention)
@@ -123,6 +129,40 @@ export const workoutDetailSchema = z.object({
 });
 
 export type WorkoutDetail = z.infer<typeof workoutDetailSchema>;
+
+const previousSetLogSchema = z.preprocess(
+  (value) => (Array.isArray(value) ? (value[0] ?? null) : value),
+  z
+    .object({
+      actual_load_kg: z.number().nullable(),
+      actual_reps: z.number().nullable(),
+      actual_duration_seconds: z.number().nullable().optional(),
+      completed: z.boolean(),
+    })
+    .nullable()
+);
+
+const previousSessionSetSchema = z.object({
+  set_number: z.number(),
+  set_type: z.enum(["warmup", "working"]),
+  target_load_kg: z.number().nullable().optional(),
+  target_reps: z.number().nullable().optional(),
+  target_duration_seconds: z.number().nullable().optional(),
+  log: previousSetLogSchema,
+});
+
+const previousSessionExerciseSchema = z.object({
+  exercise_id: z.string().uuid(),
+  exercise: z.object({
+    exercise_type: z.enum(["weight", "time"]).default("weight"),
+  }),
+  workout_session: z.object({
+    completed_at: z.string().nullable(),
+  }),
+  sets: z.array(previousSessionSetSchema),
+});
+
+type PreviousSessionExercise = z.infer<typeof previousSessionExerciseSchema>;
 
 // -----------------------------------------------------------------------------
 // Input Types
@@ -258,6 +298,67 @@ export async function fetchWorkoutDetail(
   return workoutDetailSchema.parse(data);
 }
 
+export async function fetchPreviousSetDisplays(
+  exerciseIds: string[],
+  weightUnit: WeightUnit
+): Promise<Record<string, PreviousSetValue[]>> {
+  await getAuthenticatedUserId();
+
+  const uniqueExerciseIds = Array.from(new Set(exerciseIds));
+  if (uniqueExerciseIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("session_exercises")
+    .select(
+      `
+      exercise_id,
+      exercise:exercises!inner(exercise_type),
+      workout_session:workout_sessions!inner(completed_at),
+      sets:session_sets(
+        set_number,
+        set_type,
+        target_load_kg,
+        target_reps,
+        target_duration_seconds,
+        log:set_logs(
+          actual_load_kg,
+          actual_reps,
+          actual_duration_seconds,
+          completed
+        )
+      )
+    `
+    )
+    .in("exercise_id", uniqueExerciseIds)
+    .eq("workout_session.status", "completed")
+    .not("workout_session.completed_at", "is", null)
+    .order("completed_at", {
+      referencedTable: "workout_sessions",
+      ascending: false,
+    })
+    .limit(100);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = z.array(previousSessionExerciseSchema).parse(data ?? []);
+  const latestByExercise = new Map<string, PreviousSessionExercise>();
+
+  for (const row of rows) {
+    if (!latestByExercise.has(row.exercise_id)) {
+      latestByExercise.set(row.exercise_id, row);
+    }
+  }
+
+  return Object.fromEntries(
+    Array.from(latestByExercise.entries()).map(([exerciseId, row]) => [
+      exerciseId,
+      mapPreviousSets(row, weightUnit),
+    ])
+  );
+}
+
 export interface CalendarSessionRow {
   id: string;
   name: string | null;
@@ -284,6 +385,39 @@ export async function fetchCalendarEntries(
   }
 
   return (data ?? []) as CalendarSessionRow[];
+}
+
+function mapPreviousSets(
+  row: PreviousSessionExercise,
+  weightUnit: WeightUnit
+): PreviousSetValue[] {
+  const exerciseType = row.exercise.exercise_type;
+
+  return row.sets
+    .filter((set) => set.set_type === "working")
+    .sort((a, b) => a.set_number - b.set_number)
+    .map((set) => {
+      const display =
+        exerciseType === "time"
+          ? formatPreviousDurationSet(
+              set.log?.completed
+                ? set.log.actual_duration_seconds
+                : set.target_duration_seconds
+            )
+          : formatPreviousWeightSet(
+              set.log?.completed ? set.log.actual_load_kg : set.target_load_kg,
+              set.log?.completed ? set.log.actual_reps : set.target_reps,
+              weightUnit
+            );
+
+      return display
+        ? {
+            setNumber: set.set_number,
+            display,
+          }
+        : null;
+    })
+    .filter((set): set is PreviousSetValue => set !== null);
 }
 
 export interface SessionDurationRow {

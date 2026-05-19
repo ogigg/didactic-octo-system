@@ -4,6 +4,7 @@ import { RpePicker } from "@/components/workout/rpe-picker";
 import { SetTimerCell } from "@/components/workout/set-timer-cell";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { parseExerciseDuration } from "@/lib/format-exercise-duration";
+import { parsePreviousWeightDisplay } from "@/lib/workout-previous-sets";
 import type { WorkoutSet } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
@@ -163,14 +164,13 @@ export function SetRow({
         onUpdateDuration(seconds);
       }
     } else {
-      // Parse "80×8" or "80x8" format
-      const match = set.previousDisplay.match(/^([\d.]+)[×x]([\d.]+)$/);
-      if (match) {
+      const previous = parsePreviousWeightDisplay(set.previousDisplay);
+      if (previous) {
         if (Platform.OS === "ios") {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
-        onUpdateField("kg", match[1]);
-        onUpdateField("reps", match[2]);
+        onUpdateField("kg", previous.load);
+        onUpdateField("reps", previous.reps);
       }
     }
   }, [set.previousDisplay, exerciseType, onUpdateField, onUpdateDuration]);

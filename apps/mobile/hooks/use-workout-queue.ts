@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 
 import { useAuth } from "@/hooks/use-auth";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
+import { convertPreviousDisplay } from "@/lib/workout-previous-sets";
 import { useProfile, type Profile } from "@/hooks/use-profile-query";
 import {
   deletePendingWorkout,
@@ -40,25 +41,10 @@ import {
   useWorkoutStore,
   type GenerationMeta,
   type WorkoutExercise,
+  type WorkoutSet,
 } from "@/stores/workout-store";
-
-// -----------------------------------------------------------------------------
-// Unit conversion helper
-// -----------------------------------------------------------------------------
-
-function convertPreviousDisplay(
-  display: string | null | undefined,
-  unit: WeightUnit
-): string | null {
-  if (!display || unit === "kg") return display ?? null;
-  // Format is "80×8" or "80x8"
-  const match = display.match(/^([\d.]+)([×x])([\d.]+)$/);
-  if (!match) return display;
-  const kg = parseFloat(match[1]);
-  if (isNaN(kg)) return display;
-  const converted = Math.round(convertWeight(kg, unit) * 10) / 10;
-  return `${converted}${match[2]}${match[3]}`;
-}
+import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
+import type { PreviousSetValue } from "@/lib/workout-previous-sets";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -112,6 +98,29 @@ function getGenerationPreferencesFromProfile(
     difficulty: profile.difficulty_level,
     custom_prompt: profile.training_custom_prompt,
   };
+}
+
+function applyPreviousSetDisplays(
+  sets: WorkoutSet[],
+  previousSets: PreviousSetValue[] | undefined,
+  fallbackDisplay: string | null
+): WorkoutSet[] {
+  let workingIndex = 0;
+
+  return sets.map((set) => {
+    if (set.type !== "working") {
+      return { ...set, previousDisplay: null };
+    }
+
+    const previousDisplay =
+      previousSets?.[workingIndex]?.display ?? fallbackDisplay;
+    workingIndex += 1;
+
+    return {
+      ...set,
+      previousDisplay,
+    };
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -560,16 +569,19 @@ export function useStartPendingWorkout() {
           input.exercises ?? input.pendingWorkout.workout_data.exercises,
       };
 
+      const previousSetDisplays: Record<string, PreviousSetValue[]> =
+        await fetchPreviousSetDisplays(
+          workoutData.exercises.map((ex) => ex.exercise_id),
+          weightUnit
+        ).catch(() => ({}));
+
       const exercises: WorkoutExercise[] = workoutData.exercises.map(
-        (ex, exIndex) => ({
-          id: ex.exercise_id,
-          name: ex.exercise_name,
-          exerciseType: (ex.exercise_type as "weight" | "time") ?? "weight",
-          restDurationSeconds: ex.rest_duration_seconds,
-          notes: ex.notes ?? "",
-          difficultyFeedback: null,
-          progressionType: ex.progression_type ?? null,
-          sets: ex.sets.map((set, setIndex) => ({
+        (ex, exIndex) => {
+          const fallbackPreviousDisplay = convertPreviousDisplay(
+            ex.previous_display,
+            weightUnit
+          );
+          const sets = ex.sets.map((set, setIndex) => ({
             id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
             type: set.set_type,
             kg:
@@ -586,12 +598,24 @@ export function useStartPendingWorkout() {
                 .target_duration_seconds ?? null,
             rpe: null,
             isCompleted: false,
-            previousDisplay:
-              set.set_type === "working"
-                ? convertPreviousDisplay(ex.previous_display, weightUnit)
-                : null,
-          })),
-        })
+            previousDisplay: null,
+          }));
+
+          return {
+            id: ex.exercise_id,
+            name: ex.exercise_name,
+            exerciseType: (ex.exercise_type as "weight" | "time") ?? "weight",
+            restDurationSeconds: ex.rest_duration_seconds,
+            notes: ex.notes ?? "",
+            difficultyFeedback: null,
+            progressionType: ex.progression_type ?? null,
+            sets: applyPreviousSetDisplays(
+              sets,
+              previousSetDisplays[ex.exercise_id],
+              fallbackPreviousDisplay
+            ),
+          };
+        }
       );
 
       const generationMeta: GenerationMeta = {
