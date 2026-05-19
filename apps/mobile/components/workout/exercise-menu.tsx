@@ -11,6 +11,7 @@ interface ExerciseMenuProps {
   currentPreference?: ExercisePreferenceValue | null;
   onClose: () => void;
   onReplace: () => void;
+  onRemove: () => void;
   onPreferenceSelect?: () => void;
 }
 
@@ -20,6 +21,7 @@ export function ExerciseMenu({
   currentPreference,
   onClose,
   onReplace,
+  onRemove,
   onPreferenceSelect,
 }: ExerciseMenuProps) {
   const { t } = useTranslation("workout");
@@ -77,7 +79,10 @@ export function ExerciseMenu({
       label: t("menu.remove"),
       icon: "trash" as const,
       color: errorColor,
-      onPress: handleStub,
+      onPress: () => {
+        onClose();
+        onRemove();
+      },
       destructive: true,
     },
   ];

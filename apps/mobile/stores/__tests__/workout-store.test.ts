@@ -115,4 +115,22 @@ describe("workout store exercise replacement", () => {
     expect(exercises[1]?.sets.every((set) => set.kg === "")).toBe(true);
     expect(exercises[1]?.sets.every((set) => set.reps === "")).toBe(true);
   });
+
+  it("removes an exercise and clears its rest timer", () => {
+    const squat: WorkoutExercise = {
+      ...baseExercise,
+      id: "squat",
+      name: "Squat",
+    };
+    useWorkoutStore
+      .getState()
+      .startWorkout("Full body", [baseExercise, squat], undefined);
+    useWorkoutStore.getState().startRestTimer("bench-press");
+
+    useWorkoutStore.getState().removeExercise("bench-press");
+
+    const state = useWorkoutStore.getState();
+    expect(state.exercises.map((exercise) => exercise.id)).toEqual(["squat"]);
+    expect(state.restTimer).toBeNull();
+  });
 });

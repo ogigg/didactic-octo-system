@@ -16,7 +16,14 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 interface ExerciseCardProps {
   exercise: WorkoutExercise;
@@ -39,6 +46,7 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
   const updateSetRpe = useWorkoutStore((s) => s.updateSetRpe);
   const addSet = useWorkoutStore((s) => s.addSet);
   const removeSet = useWorkoutStore((s) => s.removeSet);
+  const removeExercise = useWorkoutStore((s) => s.removeExercise);
   const updateNotes = useWorkoutStore((s) => s.updateNotes);
 
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
@@ -67,6 +75,21 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
       params: { exerciseId: exercise.id },
     });
   }, [router, exercise.id]);
+
+  const handleRemove = useCallback(() => {
+    Alert.alert(
+      t("removeExercise.confirmTitle"),
+      t("removeExercise.confirmMessage", { exerciseName }),
+      [
+        { text: t("removeExercise.cancel"), style: "cancel" },
+        {
+          text: t("removeExercise.confirmRemove"),
+          style: "destructive",
+          onPress: () => removeExercise(exercise.id),
+        },
+      ]
+    );
+  }, [exercise.id, exerciseName, removeExercise, t]);
 
   const handleNotesChange = useCallback(
     (text: string) => {
@@ -190,6 +213,7 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
         currentPreference={preference ?? null}
         onClose={() => setMenuVisible(false)}
         onReplace={handleReplace}
+        onRemove={handleRemove}
         onPreferenceSelect={() => setPrefSheetVisible(true)}
       />
 
