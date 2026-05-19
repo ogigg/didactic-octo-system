@@ -13,6 +13,7 @@ import {
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -66,6 +67,7 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
   }, [router, exercise.id]);
 
   const handleAddSet = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     addSet(exercise.id);
   }, [addSet, exercise.id]);
 
