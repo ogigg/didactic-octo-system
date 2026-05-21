@@ -101,6 +101,7 @@ interface WorkoutActions {
     id: string;
     name: string;
     exerciseType?: "weight" | "time";
+    previousDisplays?: string[];
   }) => void;
   addExerciseAfter: (
     afterExerciseId: string,
@@ -108,6 +109,7 @@ interface WorkoutActions {
       id: string;
       name: string;
       exerciseType?: "weight" | "time";
+      previousDisplays?: string[];
     }
   ) => void;
   removeExercise: (exerciseId: string) => void;
@@ -141,7 +143,7 @@ function updateExerciseSets(
   );
 }
 
-function makeEmptySet(): WorkoutSet {
+function makeEmptySet(previousDisplay: string | null = null): WorkoutSet {
   return {
     id: generateSetId(),
     type: "working",
@@ -150,7 +152,7 @@ function makeEmptySet(): WorkoutSet {
     durationSeconds: null,
     rpe: null,
     isCompleted: false,
-    previousDisplay: null,
+    previousDisplay,
   };
 }
 
@@ -170,6 +172,7 @@ function makeExercise(exercise: {
   id: string;
   name: string;
   exerciseType?: "weight" | "time";
+  previousDisplays?: string[];
 }): WorkoutExercise {
   return {
     id: exercise.id,
@@ -178,7 +181,9 @@ function makeExercise(exercise: {
     restDurationSeconds: 90,
     notes: "",
     difficultyFeedback: null,
-    sets: Array.from({ length: 3 }, makeEmptySet),
+    sets: Array.from({ length: 3 }, (_, index) =>
+      makeEmptySet(exercise.previousDisplays?.[index] ?? null)
+    ),
   };
 }
 

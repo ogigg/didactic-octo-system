@@ -7,9 +7,13 @@ import {
   useExercise,
   useExercises,
 } from "@/hooks/use-exercises-query";
+import { useProfile } from "@/hooks/use-profile-query";
+import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import type { WeightUnit } from "@/lib/unit-conversion";
+import type { PreviousSetValue } from "@/lib/workout-previous-sets";
 import { Spacing, Typography } from "@/constants/theme";
 import { MUSCLE_GROUPS, EQUIPMENT_TYPES } from "@/constants/exercise-filters";
 import type { Exercise } from "@/lib/api/exercises";
@@ -53,6 +57,8 @@ export default function ExercisePickerScreen() {
   const addExerciseAfter = useWorkoutStore((s) => s.addExerciseAfter);
   const workoutExercises = useWorkoutStore((s) => s.exercises);
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
+  const { data: profile } = useProfile();
+  const weightUnit: WeightUnit = (profile?.weight_unit as WeightUnit) ?? "kg";
   const { labelMaps } = useCatalogLabels();
   const activeExercise = useMemo(
     () => workoutExercises.find((ex) => ex.id === exerciseId),
@@ -172,31 +178,53 @@ export default function ExercisePickerScreen() {
     [exerciseId, replaceExercise, router]
   );
 
+  const getPreviousDisplays = useCallback(
+    async (exercise: Exercise) => {
+      const previousSets: Record<string, PreviousSetValue[]> =
+        await fetchPreviousSetDisplays([exercise.id], weightUnit).catch(
+          (error) => {
+            console.warn(
+              "[exercise-picker] failed to fetch previous set displays",
+              error
+            );
+            return {};
+          }
+        );
+
+      return previousSets[exercise.id]?.map((set) => set.display) ?? [];
+    },
+    [weightUnit]
+  );
+
   const addBelowCurrentExercise = useCallback(
-    (exercise: Exercise) => {
+    async (exercise: Exercise) => {
       if (!exerciseId) return;
+      const previousDisplays = await getPreviousDisplays(exercise);
       addExerciseAfter(exerciseId, {
         id: exercise.id,
         name: exercise.name,
         exerciseType: exercise.exercise_type,
+        previousDisplays,
       });
       router.back();
     },
-    [addExerciseAfter, exerciseId, router]
+    [addExerciseAfter, exerciseId, getPreviousDisplays, router]
   );
 
   const handleSelect = useCallback(
-    (exercise: Exercise) => {
+    async (exercise: Exercise) => {
       if (mode === "pending_swap") {
         setSwapResult({ id: exercise.id, name: exercise.name });
         router.back();
         return;
       }
       if (mode === "add") {
+        const previousDisplays = await getPreviousDisplays(exercise);
         addExercise({
           id: exercise.id,
           name: exercise.name,
           exerciseType: exercise.exercise_type,
+          previousDisplays,
         });
       } else if (exerciseId) {
         if (hasLoggedValues()) {
@@ -223,6 +251,7 @@ export default function ExercisePickerScreen() {
       exerciseId,
       addExercise,
       addBelowCurrentExercise,
+      getPreviousDisplays,
       hasLoggedValues,
       replaceCurrentExercise,
       router,
