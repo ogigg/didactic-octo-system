@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
@@ -20,6 +20,8 @@ import {
 // -----------------------------------------------------------------------------
 
 const RATE_LIMIT_SECONDS = 30;
+
+type AppSupabaseClient = SupabaseClient<any, "public", any>;
 
 // -----------------------------------------------------------------------------
 // Request Schema
@@ -61,7 +63,7 @@ function toDateKeyForOffset(date: Date, timezoneOffsetMinutes: number): string {
 }
 
 async function restorePendingWorkoutAfterFailure(params: {
-  userClient: ReturnType<typeof createClient>;
+  userClient: AppSupabaseClient;
   pendingWorkoutId: string;
   userId: string;
   hadWorkoutData: boolean;
@@ -92,7 +94,7 @@ Deno.serve(async (req: Request) => {
   let pendingWorkoutSnapshot: PendingWorkoutSnapshot | null = null;
   let pendingWorkoutIdForRecovery: string | null = null;
   let userIdForRecovery: string | null = null;
-  let userClientForRecovery: ReturnType<typeof createClient> | null = null;
+  let userClientForRecovery: AppSupabaseClient | null = null;
 
   try {
     // 1. Auth

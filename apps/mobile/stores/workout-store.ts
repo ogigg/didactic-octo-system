@@ -5,6 +5,7 @@ import {
   persist,
   subscribeWithSelector,
 } from "zustand/middleware";
+import type { ExerciseImageData } from "@/lib/exercise-media";
 
 export interface WorkoutSet {
   id: string;
@@ -20,6 +21,7 @@ export interface WorkoutSet {
 export interface WorkoutExercise {
   id: string;
   name: string;
+  image?: ExerciseImageData;
   exerciseType: "weight" | "time";
   restDurationSeconds: number;
   notes: string;
@@ -92,7 +94,12 @@ interface WorkoutActions {
   ) => void;
   replaceExercise: (
     exerciseId: string,
-    newExercise: { id: string; name: string; exerciseType?: "weight" | "time" }
+    newExercise: {
+      id: string;
+      name: string;
+      image?: ExerciseImageData;
+      exerciseType?: "weight" | "time";
+    }
   ) => void;
   startRestTimer: (exerciseId: string) => void;
   adjustRestTimer: (deltaSeconds: number) => void;
@@ -100,6 +107,7 @@ interface WorkoutActions {
   addExercise: (exercise: {
     id: string;
     name: string;
+    image?: ExerciseImageData;
     exerciseType?: "weight" | "time";
   }) => void;
   addExerciseAfter: (
@@ -107,6 +115,7 @@ interface WorkoutActions {
     exercise: {
       id: string;
       name: string;
+      image?: ExerciseImageData;
       exerciseType?: "weight" | "time";
     }
   ) => void;
@@ -169,11 +178,13 @@ function clearSetValues(set: WorkoutSet): WorkoutSet {
 function makeExercise(exercise: {
   id: string;
   name: string;
+  image?: ExerciseImageData;
   exerciseType?: "weight" | "time";
 }): WorkoutExercise {
   return {
     id: exercise.id,
     name: exercise.name,
+    image: exercise.image ?? null,
     exerciseType: exercise.exerciseType ?? "weight",
     restDurationSeconds: 90,
     notes: "",
@@ -303,6 +314,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
                     ...ex,
                     id: newExercise.id,
                     name: newExercise.name,
+                    image: newExercise.image ?? null,
                     exerciseType: newExercise.exerciseType ?? ex.exerciseType,
                     notes: "",
                     difficultyFeedback: null,

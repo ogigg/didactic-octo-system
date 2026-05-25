@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ProgressionPill } from "@/components/workout/progression-pill";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
@@ -40,6 +41,7 @@ import {
 } from "@/hooks/use-workout-queue";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { trackEvent } from "@/lib/track-event";
+import type { ExerciseImageData } from "@/lib/exercise-media";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
 
@@ -50,6 +52,8 @@ import { selectNextWorkout } from "@/stores/pending-workout-store";
 interface LocalExercise {
   exercise_id: string;
   exercise_name: string;
+  exercise_type?: "weight" | "time";
+  image?: ExerciseImageData;
   rest_duration_seconds: number;
   notes: string | null;
   sets: LocalSet[];
@@ -164,6 +168,8 @@ export default function WorkoutPreviewScreen() {
         (editedExercises ?? workout.workout_data.exercises).map((ex) => ({
           exercise_id: ex.exercise_id,
           exercise_name: ex.exercise_name,
+          exercise_type: ex.exercise_type ?? "weight",
+          image: ex.image ?? null,
           rest_duration_seconds: ex.rest_duration_seconds,
           notes: ex.notes,
           progression_type: ex.progression_type ?? null,
@@ -224,6 +230,8 @@ export default function WorkoutPreviewScreen() {
                   ...ex,
                   exercise_id: swapResult.id,
                   exercise_name: swapResult.name,
+                  exercise_type: swapResult.exerciseType ?? ex.exercise_type,
+                  image: swapResult.image ?? null,
                 }
               : ex
           )
@@ -473,6 +481,10 @@ export default function WorkoutPreviewScreen() {
                     exerciseMap.get(exercise.exercise_id)?.name ??
                     exercise.exercise_name
                   }
+                  image={
+                    exercise.image ??
+                    exerciseMap.get(exercise.exercise_id)?.image
+                  }
                   exerciseIndex={exIndex}
                   isEditing={canEdit}
                   preference={preferencesMap?.get(exercise.exercise_id) ?? null}
@@ -581,6 +593,7 @@ export default function WorkoutPreviewScreen() {
 interface ExerciseCardProps {
   exercise: LocalExercise;
   displayName: string;
+  image?: ExerciseImageData;
   exerciseIndex: number;
   isEditing: boolean;
   preference: ExercisePreferenceValue | null | undefined;
@@ -608,6 +621,7 @@ interface ExerciseCardProps {
 function ExerciseCard({
   exercise,
   displayName,
+  image,
   exerciseIndex,
   isEditing,
   preference,
@@ -634,6 +648,11 @@ function ExerciseCard({
     >
       {/* Exercise header */}
       <View style={styles.exerciseHeader}>
+        <ExerciseImage
+          image={image}
+          exerciseName={displayName}
+          size="thumbnail"
+        />
         <View style={styles.exerciseHeaderLeft}>
           <View style={styles.exerciseNameRow}>
             <Text

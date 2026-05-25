@@ -19,6 +19,15 @@ jest.mock("expo-localization", () => ({
   getLocales: () => [{ languageCode: "en" }],
 }));
 
+jest.mock("expo-image", () => {
+  const React = require("react");
+  const { Image } = require("react-native");
+
+  return {
+    Image: (props) => React.createElement(Image, props),
+  };
+});
+
 // Silence console warnings during tests (optional)
 global.console = {
   ...console,

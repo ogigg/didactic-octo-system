@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
 
 import { supabase } from "@/lib/supabase";
+import { exerciseImageSchema } from "@/lib/exercise-media";
 
 // -----------------------------------------------------------------------------
 // Const Maps
@@ -56,6 +57,7 @@ const progressionTypeSchema = z.enum([
 const generatedExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
+  image: exerciseImageSchema.default(null).optional(),
   sets: z.array(generatedSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
@@ -137,6 +139,7 @@ export function mapGeneratedToWorkoutExercises(
   return exercises.map((ex) => ({
     id: ex.exercise_id,
     name: ex.exercise_name,
+    image: ex.image ?? null,
     exerciseType: "weight" as const,
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",

@@ -1,8 +1,21 @@
 import { create } from "zustand";
+import type { ExerciseImageData } from "@/lib/exercise-media";
 
 interface PendingSwapStore {
-  result: { id: string; name: string } | null;
-  setResult: (result: { id: string; name: string } | null) => void;
+  result: {
+    id: string;
+    name: string;
+    image?: ExerciseImageData;
+    exerciseType?: "weight" | "time";
+  } | null;
+  setResult: (
+    result: {
+      id: string;
+      name: string;
+      image?: ExerciseImageData;
+      exerciseType?: "weight" | "time";
+    } | null
+  ) => void;
 }
 
 export const usePendingSwapStore = create<PendingSwapStore>()((set) => ({

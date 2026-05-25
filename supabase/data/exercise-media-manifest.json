@@ -1,0 +1,46 @@
+[
+  {
+    "exercise_name": "Barbell Bench Press",
+    "external_ids": ["fallback-1", "wger-73"],
+    "purpose": "thumbnail",
+    "file": "assets/exercise-media/barbell-bench-press.png",
+    "width": 1254,
+    "height": 1254,
+    "source": "curated",
+    "license": "owned",
+    "alt_text": "Barbell bench press illustration"
+  },
+  {
+    "exercise_name": "Hammer Curl",
+    "external_ids": ["fallback-15", "wger-1567"],
+    "purpose": "thumbnail",
+    "file": "assets/exercise-media/hammer-curl.png",
+    "width": 1254,
+    "height": 1254,
+    "source": "curated",
+    "license": "owned",
+    "alt_text": "Hammer curl illustration"
+  },
+  {
+    "exercise_name": "Tricep Pushdown",
+    "external_ids": ["fallback-16", "wger-805", "wger-1185"],
+    "purpose": "thumbnail",
+    "file": "assets/exercise-media/tricep-pushdown-rope.png",
+    "width": 1254,
+    "height": 1254,
+    "source": "curated",
+    "license": "owned",
+    "alt_text": "Tricep rope pushdown illustration"
+  },
+  {
+    "exercise_name": "Tricep Pushdown",
+    "external_ids": ["fallback-16", "wger-805", "wger-1185"],
+    "purpose": "hero",
+    "file": "assets/exercise-media/tricep-pushdown-seated.png",
+    "width": 1254,
+    "height": 1254,
+    "source": "curated",
+    "license": "owned",
+    "alt_text": "Seated tricep pushdown illustration"
+  }
+]
