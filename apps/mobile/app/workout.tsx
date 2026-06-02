@@ -7,6 +7,10 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import { useWatchBridge } from "@/hooks/use-watch-bridge";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
+import {
+  countLoggedWorkoutSets,
+  hasLoggedWorkoutData,
+} from "@/lib/workout-session-state";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -38,6 +42,7 @@ export default function WorkoutScreen() {
   const exercises = useWorkoutStore((s) => s.exercises);
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
+  const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
   const updateWorkoutName = useWorkoutStore((s) => s.updateWorkoutName);
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -70,7 +75,7 @@ export default function WorkoutScreen() {
       easing: Easing.out(Easing.quad),
       useNativeDriver: false,
     }).start();
-  }, [completedSets, totalSets]);
+  }, [animatedProgress, progressRatio]);
 
   // Scroll to first exercise with incomplete sets on mount
   useEffect(() => {
@@ -103,6 +108,49 @@ export default function WorkoutScreen() {
   }, [router]);
 
   const handleFinish = useCallback(() => {
+    const discardWorkout = () => {
+      clearWorkout();
+      router.replace("/(tabs)");
+    };
+    const confirmDiscardWorkout = () => {
+      const loggedSets = countLoggedWorkoutSets(exercises);
+      Alert.alert(
+        t("finish.discardLoggedTitle"),
+        loggedSets === 1
+          ? t("finish.discardLoggedMessage", { count: loggedSets })
+          : t("finish.discardLoggedMessage_plural", { count: loggedSets }),
+        [
+          { text: t("finish.cancel"), style: "cancel" },
+          {
+            text: t("finish.confirmDiscard"),
+            style: "destructive",
+            onPress: discardWorkout,
+          },
+        ]
+      );
+    };
+    const finishAndSaveWorkout = () => {
+      finishWorkout();
+      router.push("/workout-summary");
+    };
+
+    if (!hasLoggedWorkoutData(exercises)) {
+      Alert.alert(t("finish.emptyTitle"), t("finish.emptyMessage"), [
+        { text: t("finish.cancel"), style: "cancel" },
+        {
+          text: t("finish.confirmDiscard"),
+          style: "destructive",
+          isPreferred: true,
+          onPress: discardWorkout,
+        },
+        {
+          text: t("finish.confirmFinish"),
+          onPress: finishAndSaveWorkout,
+        },
+      ]);
+      return;
+    }
+
     const incompleteSets = totalSets - completedSets;
     if (incompleteSets > 0) {
       Alert.alert(
@@ -113,20 +161,41 @@ export default function WorkoutScreen() {
         [
           { text: t("finish.cancel"), style: "cancel" },
           {
-            text: t("finish.confirmFinish"),
+            text: t("finish.confirmDiscard"),
             style: "destructive",
-            onPress: () => {
-              finishWorkout();
-              router.push("/workout-summary");
-            },
+            onPress: confirmDiscardWorkout,
+          },
+          {
+            text: t("finish.confirmFinish"),
+            isPreferred: true,
+            onPress: finishAndSaveWorkout,
           },
         ]
       );
     } else {
-      finishWorkout();
-      router.push("/workout-summary");
+      Alert.alert(t("finish.completeTitle"), t("finish.completeMessage"), [
+        { text: t("finish.cancel"), style: "cancel" },
+        {
+          text: t("finish.confirmDiscard"),
+          style: "destructive",
+          onPress: confirmDiscardWorkout,
+        },
+        {
+          text: t("finish.confirmFinish"),
+          isPreferred: true,
+          onPress: finishAndSaveWorkout,
+        },
+      ]);
     }
-  }, [totalSets, completedSets, finishWorkout, router, t]);
+  }, [
+    exercises,
+    totalSets,
+    completedSets,
+    clearWorkout,
+    finishWorkout,
+    router,
+    t,
+  ]);
 
   return (
     <GestureHandlerRootView style={styles.root}>

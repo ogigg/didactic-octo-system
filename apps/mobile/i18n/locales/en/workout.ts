@@ -130,7 +130,18 @@ export const workout = {
     confirmTitle: "Finish Workout?",
     confirmMessage: "You have {{count}} incomplete set remaining.",
     confirmMessage_plural: "You have {{count}} incomplete sets remaining.",
-    confirmFinish: "Finish Anyway",
+    completeTitle: "End Workout?",
+    completeMessage: "Save this workout to your history, or discard it.",
+    emptyTitle: "Discard Empty Workout?",
+    emptyMessage:
+      "No sets have been logged yet. Discarding will close this workout without saving it or counting it as completed.",
+    discardLoggedTitle: "Discard Workout?",
+    discardLoggedMessage:
+      "You logged {{count}} set. Discard anyway? This will close the workout without saving it.",
+    discardLoggedMessage_plural:
+      "You logged {{count}} sets. Discard anyway? This will close the workout without saving it.",
+    confirmFinish: "Save Workout",
+    confirmDiscard: "Discard Workout",
     cancel: "Keep Going",
   },
   emptyState: {

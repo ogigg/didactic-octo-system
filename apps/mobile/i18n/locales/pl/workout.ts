@@ -130,7 +130,18 @@ export const workout = {
     confirmTitle: "Zakończyć trening?",
     confirmMessage: "Masz {{count}} nieukończoną serię.",
     confirmMessage_plural: "Masz {{count}} nieukończonych serii.",
-    confirmFinish: "Zakończ mimo to",
+    completeTitle: "Zakończyć trening?",
+    completeMessage: "Zapisz ten trening w historii albo go odrzuć.",
+    emptyTitle: "Odrzucić pusty trening?",
+    emptyMessage:
+      "Nie zapisano jeszcze żadnych serii. Odrzucenie zamknie trening bez zapisywania i bez liczenia go jako ukończony.",
+    discardLoggedTitle: "Odrzucić trening?",
+    discardLoggedMessage:
+      "Zapisano {{count}} serię. Odrzucić mimo to? Trening zostanie zamknięty bez zapisywania.",
+    discardLoggedMessage_plural:
+      "Zapisano {{count}} serii. Odrzucić mimo to? Trening zostanie zamknięty bez zapisywania.",
+    confirmFinish: "Zapisz trening",
+    confirmDiscard: "Odrzuć trening",
     cancel: "Kontynuuj",
   },
   emptyState: {
