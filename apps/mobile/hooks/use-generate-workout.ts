@@ -27,6 +27,7 @@ function mapResponseToWorkoutExercises(
   return response.exercises.map((ex) => ({
     id: ex.exercise_id,
     name: ex.exercise_name,
+    image: ex.image ?? null,
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
     difficultyFeedback: null,

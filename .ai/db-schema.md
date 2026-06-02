@@ -141,6 +141,35 @@ Notes:
 - this table is product-critical because generated workouts should refer to known exercises
 - time-based exercise support means downstream consumers cannot assume every exercise is load/reps based
 - `id` is the stable exercise identity; `name` is canonical English display/fallback text and must not be treated as identity
+- `image_url` and `video_url` are compatibility shortcuts. Rich media metadata lives in `exercise_media_assets`.
+
+### `exercise_media_assets`
+
+Purpose:
+
+- reviewed catalog-owned images and future video metadata for exercise illustrations
+
+Important columns:
+
+- `exercise_id`
+- `kind`: `image` or `video`
+- `purpose`: `thumbnail`, `hero`, `step`, `animated`, or `video`
+- `source`: `curated`, `imported`, `generated`, or `placeholder`
+- `status`: `draft`, `active`, `archived`, or `rejected`
+- `storage_bucket`, `storage_path`, `public_url`
+- `width`, `height`, `content_type`, `file_size_bytes`, `blurhash`
+- `alt_text`, `attribution`, `license`, `source_url`, `checksum_sha256`
+
+Relationships:
+
+- many media assets per `exercises` row
+
+Notes:
+
+- authenticated users can read active media rows
+- service role owns writes/imports
+- only one active thumbnail and one active hero image are allowed per exercise
+- assets are served from the public `exercise-media` Supabase Storage bucket because exercise catalog illustrations are not user-private
 
 ### `exercise_translations`
 

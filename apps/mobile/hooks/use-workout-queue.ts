@@ -45,6 +45,7 @@ import {
 } from "@/stores/workout-store";
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import type { PreviousSetValue } from "@/lib/workout-previous-sets";
+import type { ExerciseImageData } from "@/lib/exercise-media";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -540,6 +541,7 @@ export function useStartPendingWorkout() {
         exercise_id: string;
         exercise_name: string;
         exercise_type?: "weight" | "time";
+        image?: ExerciseImageData;
         rest_duration_seconds: number;
         notes: string | null;
         progression_type?:
@@ -604,6 +606,7 @@ export function useStartPendingWorkout() {
           return {
             id: ex.exercise_id,
             name: ex.exercise_name,
+            image: ex.image ?? null,
             exerciseType: (ex.exercise_type as "weight" | "time") ?? "weight",
             restDurationSeconds: ex.rest_duration_seconds,
             notes: ex.notes ?? "",

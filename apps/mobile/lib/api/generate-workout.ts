@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { exerciseImageSchema } from "@/lib/exercise-media";
 import { z } from "zod";
 
 export type TrainingSplit = "full_body" | "upper_lower" | "push_pull_legs";
@@ -41,6 +42,7 @@ const generatedExerciseSchema = z.object({
   exercise_id: z.string(),
   exercise_name: z.string(),
   exercise_type: z.enum(["weight", "time"]).default("weight"),
+  image: exerciseImageSchema.default(null).optional(),
   rest_duration_seconds: z.number(),
   notes: z.string().nullable(),
   sets: z.array(generatedSetSchema),

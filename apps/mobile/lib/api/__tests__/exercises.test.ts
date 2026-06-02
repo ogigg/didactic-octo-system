@@ -26,6 +26,17 @@ const validExercise = {
   difficulty_level: "intermediate",
   difficulty_label: "Intermediate",
   instructions: "Press the bar up",
+  image: {
+    url: "https://example.com/bench-hero.png",
+    thumbnail_url: "https://example.com/bench-thumb.png",
+    width: 1254,
+    height: 1254,
+    thumbnail_width: 192,
+    thumbnail_height: 192,
+    alt_text: "Bench press illustration",
+    blurhash: null,
+    source: "curated",
+  },
   image_url: "https://example.com/bench.gif",
   video_url: null,
 };
@@ -49,6 +60,17 @@ describe("fetchExercises", () => {
     });
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Bench Press");
+    expect(result[0].image?.thumbnail_url).toBe(
+      "https://example.com/bench-thumb.png"
+    );
+  });
+
+  it("allows exercises without media", async () => {
+    mockRpc([{ ...validExercise, image: null, image_url: null }]);
+
+    const result = await fetchExercises();
+
+    expect(result[0].image).toBeNull();
   });
 
   it("passes language and filters to the localized exercise RPC", async () => {

@@ -226,6 +226,10 @@ export default function WorkoutScreen() {
                           displayName={
                             exerciseMap.get(exercise.id)?.name ?? exercise.name
                           }
+                          image={
+                            exercise.image ??
+                            exerciseMap.get(exercise.id)?.image
+                          }
                         />
                       </View>
                     ))}
