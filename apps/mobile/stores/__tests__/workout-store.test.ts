@@ -116,6 +116,25 @@ describe("workout store exercise replacement", () => {
     expect(exercises[1]?.sets.every((set) => set.reps === "")).toBe(true);
   });
 
+  it("hydrates previous displays when adding an exercise", () => {
+    useWorkoutStore.getState().startWorkout("Empty workout", [], undefined);
+
+    useWorkoutStore.getState().addExercise({
+      id: "bench-press",
+      name: "Bench Press",
+      exerciseType: "weight",
+      previousDisplays: ["80×8", "77.5×10"],
+    });
+
+    const [exercise] = useWorkoutStore.getState().exercises;
+
+    expect(exercise?.sets.map((set) => set.previousDisplay)).toEqual([
+      "80×8",
+      "77.5×10",
+      null,
+    ]);
+  });
+
   it("removes an exercise and clears its rest timer", () => {
     const squat: WorkoutExercise = {
       ...baseExercise,
