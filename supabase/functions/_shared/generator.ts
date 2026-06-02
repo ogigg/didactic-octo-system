@@ -52,6 +52,23 @@ export const generatedSetSchema = z.object({
   target_duration_seconds: z.number().int().min(1).optional(),
 });
 
+export const exerciseImageSchema = z
+  .object({
+    url: z.string().url(),
+    thumbnail_url: z.string().url().nullable().default(null),
+    width: z.number().int().positive().nullable().default(null),
+    height: z.number().int().positive().nullable().default(null),
+    thumbnail_width: z.number().int().positive().nullable().default(null),
+    thumbnail_height: z.number().int().positive().nullable().default(null),
+    alt_text: z.string().nullable().default(null),
+    blurhash: z.string().nullable().default(null),
+    source: z
+      .enum(["curated", "imported", "generated", "placeholder"])
+      .nullable()
+      .default(null),
+  })
+  .nullable();
+
 export const progressionTypeSchema = z.enum([
   "weight_up",
   "reps_up",
@@ -63,6 +80,7 @@ export const generatedExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
   exercise_type: z.enum(["weight", "time"]).default("weight"),
+  image: exerciseImageSchema.default(null).optional(),
   sets: z.array(generatedSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
@@ -99,6 +117,8 @@ export interface ExerciseCatalogEntry {
   secondary_muscles: string[] | null;
   equipment: string[];
   difficulty_level: string | null;
+  image_url?: string | null;
+  image?: z.infer<typeof exerciseImageSchema>;
 }
 
 export interface ProfileData {
@@ -137,6 +157,11 @@ export interface StrengthBaseline {
   reps: number;
 }
 
+export interface ExercisePreference {
+  exercise_id: string;
+  preference: "preferred" | "soft_dislike" | "hard_dislike";
+}
+
 export interface QueueContextItem {
   queue_position: number;
   focus_area: string | null;
@@ -170,6 +195,7 @@ export interface GenerateWorkoutParams {
   customPrompt?: string;
   focusArea?: string;
   strengthBaselines?: StrengthBaseline[];
+  exercisePreferences?: ExercisePreference[];
   queueContext?: QueueContextItem[];
   history?: HistorySession[];
   recentComments?: RecentSessionComment[];
@@ -486,7 +512,7 @@ export async function fetchExerciseCatalog(
   let exerciseQuery = supabaseClient
     .from("exercises")
     .select(
-      "id, name, exercise_type, primary_muscles, secondary_muscles, equipment, difficulty_level"
+      "id, name, exercise_type, primary_muscles, secondary_muscles, equipment, difficulty_level, image_url"
     );
 
   if (equipment === "bodyweight") {
@@ -507,7 +533,56 @@ export async function fetchExerciseCatalog(
 
   const { data, error } = await exerciseQuery.order("name").limit(100);
   if (error || !data?.length) return [];
-  return data as ExerciseCatalogEntry[];
+
+  const catalog = data as ExerciseCatalogEntry[];
+  const exerciseIds = catalog.map((exercise) => exercise.id);
+  const { data: mediaRows } = await supabaseClient
+    .from("exercise_media_assets")
+    .select(
+      "exercise_id, purpose, source, public_url, width, height, blurhash, alt_text, sort_order, created_at"
+    )
+    .in("exercise_id", exerciseIds)
+    .eq("kind", "image")
+    .eq("status", "active");
+
+  const mediaByExercise = new Map<string, typeof mediaRows>();
+  for (const media of mediaRows ?? []) {
+    const current = mediaByExercise.get(media.exercise_id) ?? [];
+    current.push(media);
+    mediaByExercise.set(media.exercise_id, current);
+  }
+
+  return catalog.map((exercise) => {
+    const media = mediaByExercise.get(exercise.id) ?? [];
+    const sorted = [...media].sort((a, b) => {
+      const purposeRank = (purpose: string | null) =>
+        purpose === "hero" ? 0 : purpose === "thumbnail" ? 1 : 2;
+      const rankDiff = purposeRank(a.purpose) - purposeRank(b.purpose);
+      if (rankDiff !== 0) return rankDiff;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+    const primary = sorted[0];
+    const thumbnail = media.find((item) => item.purpose === "thumbnail");
+    const fallbackUrl = exercise.image_url ?? null;
+
+    return {
+      ...exercise,
+      image:
+        primary?.public_url || fallbackUrl
+          ? {
+              url: primary?.public_url ?? fallbackUrl!,
+              thumbnail_url: thumbnail?.public_url ?? null,
+              width: primary?.width ?? null,
+              height: primary?.height ?? null,
+              thumbnail_width: thumbnail?.width ?? null,
+              thumbnail_height: thumbnail?.height ?? null,
+              alt_text: primary?.alt_text ?? null,
+              blurhash: primary?.blurhash ?? null,
+              source: primary?.source ?? null,
+            }
+          : null,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -714,6 +789,7 @@ export async function generateSingleWorkout(
       exercise_type: (catalogEntry?.exercise_type ?? "weight") as
         | "weight"
         | "time",
+      image: catalogEntry?.image ?? null,
       sets: ex.sets,
       rest_duration_seconds: ex.rest_duration_seconds,
       notes: ex.notes,

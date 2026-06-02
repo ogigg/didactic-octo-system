@@ -1,4 +1,5 @@
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { ExerciseMenu } from "@/components/workout/exercise-menu";
 import { ProgressionPill } from "@/components/workout/progression-pill";
@@ -13,6 +14,7 @@ import {
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
+import type { ExerciseImageData } from "@/lib/exercise-media";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -29,9 +31,14 @@ import {
 interface ExerciseCardProps {
   exercise: WorkoutExercise;
   displayName?: string;
+  image?: ExerciseImageData;
 }
 
-export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
+export function ExerciseCard({
+  exercise,
+  displayName,
+  image,
+}: ExerciseCardProps) {
   const { t } = useTranslation("workout");
   const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -56,9 +63,9 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
   const primary = useThemeColor({}, "primary");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
-  const inputFill = useThemeColor({}, "inputFill");
   const textSecondary = useThemeColor({}, "textSecondary");
   const exerciseName = displayName ?? exercise.name;
+  const exerciseImage = image ?? exercise.image ?? null;
 
   const handleExercisePress = useCallback(() => {
     router.push({
@@ -133,8 +140,10 @@ export function ExerciseCard({ exercise, displayName }: ExerciseCardProps) {
     >
       {/* Exercise Header */}
       <View style={styles.header}>
-        <View
-          style={[styles.imagePlaceholder, { backgroundColor: inputFill }]}
+        <ExerciseImage
+          image={exerciseImage}
+          exerciseName={exerciseName}
+          size="thumbnail"
         />
         <Pressable
           onPress={handleExercisePress}
@@ -272,11 +281,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
-  },
-  imagePlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: Radii.sm,
   },
   exerciseName: {
     flex: 1,

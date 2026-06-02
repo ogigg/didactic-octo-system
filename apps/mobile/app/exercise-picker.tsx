@@ -171,6 +171,7 @@ export default function ExercisePickerScreen() {
       replaceExercise(exerciseId, {
         id: exercise.id,
         name: exercise.name,
+        image: exercise.image,
         exerciseType: exercise.exercise_type,
       });
       router.back();
@@ -203,6 +204,7 @@ export default function ExercisePickerScreen() {
       addExerciseAfter(exerciseId, {
         id: exercise.id,
         name: exercise.name,
+        image: exercise.image,
         exerciseType: exercise.exercise_type,
         previousDisplays,
       });
@@ -214,7 +216,12 @@ export default function ExercisePickerScreen() {
   const handleSelect = useCallback(
     async (exercise: Exercise) => {
       if (mode === "pending_swap") {
-        setSwapResult({ id: exercise.id, name: exercise.name });
+        setSwapResult({
+          id: exercise.id,
+          name: exercise.name,
+          image: exercise.image,
+          exerciseType: exercise.exercise_type,
+        });
         router.back();
         return;
       }
@@ -223,6 +230,7 @@ export default function ExercisePickerScreen() {
         addExercise({
           id: exercise.id,
           name: exercise.name,
+          image: exercise.image,
           exerciseType: exercise.exercise_type,
           previousDisplays,
         });

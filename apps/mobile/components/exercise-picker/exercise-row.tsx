@@ -1,6 +1,7 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import type { Exercise } from "@/lib/api/exercises";
 import { memo, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -35,6 +36,11 @@ export const ExerciseRow = memo(function ExerciseRow({
       accessibilityLabel={`${exercise.name}, ${primaryMuscle}`}
       style={[styles.container, { borderBottomColor: border }]}
     >
+      <ExerciseImage
+        image={exercise.image}
+        exerciseName={exercise.name}
+        size="thumbnail"
+      />
       <View style={styles.info}>
         <Text
           style={[Typography.titleSm, { color: textColor }]}
@@ -72,6 +78,7 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
     gap: 2,
+    marginLeft: Spacing.md,
     marginRight: Spacing.md,
   },
 });

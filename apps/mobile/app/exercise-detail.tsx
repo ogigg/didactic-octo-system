@@ -14,6 +14,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
@@ -291,8 +292,6 @@ export default function ExerciseDetailScreen() {
   const { t } = useTranslation("exerciseDetail");
 
   const background = useThemeColor({}, "background");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
-  const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -561,6 +560,13 @@ export default function ExerciseDetailScreen() {
 
     return (
       <View style={styles.sectionStack}>
+        {exercise ? (
+          <ExerciseImage
+            image={exercise.image}
+            exerciseName={exercise.name}
+            size="hero"
+          />
+        ) : null}
         <SectionTitle title={t("howTo.instructions")} />
         <Text
           style={[Typography.body, styles.instructions, { color: textColor }]}

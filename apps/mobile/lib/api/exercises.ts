@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
+import { exerciseImageSchema } from "@/lib/exercise-media";
 
 // -----------------------------------------------------------------------------
 // Schemas
@@ -20,6 +21,7 @@ export const exerciseSchema = z.object({
   difficulty_level: z.string().nullable(),
   difficulty_label: z.string().nullable().default(null),
   instructions: z.string().nullable(),
+  image: exerciseImageSchema.default(null),
   image_url: z.string().nullable(),
   video_url: z.string().nullable(),
 });

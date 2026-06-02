@@ -17,4 +17,7 @@ export const common = {
     sharePressed: "Naciśnięto udostępnianie",
     deletePressed: "Naciśnięto usuwanie",
   },
+  media: {
+    exerciseIllustration: "Ilustracja ćwiczenia {{exerciseName}}",
+  },
 } as const;
