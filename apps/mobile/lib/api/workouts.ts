@@ -130,39 +130,18 @@ export const workoutDetailSchema = z.object({
 
 export type WorkoutDetail = z.infer<typeof workoutDetailSchema>;
 
-const previousSetLogSchema = z.preprocess(
-  (value) => (Array.isArray(value) ? (value[0] ?? null) : value),
-  z
-    .object({
-      actual_load_kg: z.number().nullable(),
-      actual_reps: z.number().nullable(),
-      actual_duration_seconds: z.number().nullable().optional(),
-      completed: z.boolean(),
-    })
-    .nullable()
-);
-
-const previousSessionSetSchema = z.object({
-  set_number: z.number(),
-  set_type: z.enum(["warmup", "working"]),
-  target_load_kg: z.number().nullable().optional(),
-  target_reps: z.number().nullable().optional(),
-  target_duration_seconds: z.number().nullable().optional(),
-  log: previousSetLogSchema,
+const progressionHistoryWorkingSetSchema = z.object({
+  load_kg: z.number().nullable().optional(),
+  reps: z.number().nullable().optional(),
+  duration_seconds: z.number().nullable().optional(),
+  completed: z.boolean(),
 });
 
-const previousSessionExerciseSchema = z.object({
+const progressionHistoryRowSchema = z.object({
   exercise_id: z.string().uuid(),
-  exercise: z.object({
-    exercise_type: z.enum(["weight", "time"]).default("weight"),
-  }),
-  workout_session: z.object({
-    completed_at: z.string().nullable(),
-  }),
-  sets: z.array(previousSessionSetSchema),
+  exercise_type: z.enum(["weight", "time"]).nullable().optional(),
+  working_sets: z.array(progressionHistoryWorkingSetSchema).nullable(),
 });
-
-type PreviousSessionExercise = z.infer<typeof previousSessionExerciseSchema>;
 
 // -----------------------------------------------------------------------------
 // Input Types
@@ -302,59 +281,28 @@ export async function fetchPreviousSetDisplays(
   exerciseIds: string[],
   weightUnit: WeightUnit
 ): Promise<Record<string, PreviousSetValue[]>> {
-  await getAuthenticatedUserId();
-
   const uniqueExerciseIds = Array.from(new Set(exerciseIds));
   if (uniqueExerciseIds.length === 0) return {};
 
-  const { data, error } = await supabase
-    .from("session_exercises")
-    .select(
-      `
-      exercise_id,
-      exercise:exercises!inner(exercise_type),
-      workout_session:workout_sessions!inner(completed_at),
-      sets:session_sets(
-        set_number,
-        set_type,
-        target_load_kg,
-        target_reps,
-        target_duration_seconds,
-        log:set_logs(
-          actual_load_kg,
-          actual_reps,
-          actual_duration_seconds,
-          completed
-        )
-      )
-    `
-    )
-    .in("exercise_id", uniqueExerciseIds)
-    .eq("workout_session.status", "completed")
-    .not("workout_session.completed_at", "is", null)
-    .order("completed_at", {
-      referencedTable: "workout_sessions",
-      ascending: false,
-    })
-    .limit(100);
+  const userId = await getAuthenticatedUserId();
+  const { data, error } = await supabase.rpc(
+    "get_exercise_progression_history",
+    {
+      p_user_id: userId,
+      p_exercise_ids: uniqueExerciseIds,
+    }
+  );
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const rows = z.array(previousSessionExerciseSchema).parse(data ?? []);
-  const latestByExercise = new Map<string, PreviousSessionExercise>();
-
-  for (const row of rows) {
-    if (!latestByExercise.has(row.exercise_id)) {
-      latestByExercise.set(row.exercise_id, row);
-    }
-  }
+  const rows = z.array(progressionHistoryRowSchema).parse(data ?? []);
 
   return Object.fromEntries(
-    Array.from(latestByExercise.entries()).map(([exerciseId, row]) => [
-      exerciseId,
-      mapPreviousSets(row, weightUnit),
+    rows.map((row) => [
+      row.exercise_id,
+      mapProgressionHistorySets(row, weightUnit),
     ])
   );
 }
@@ -387,32 +335,23 @@ export async function fetchCalendarEntries(
   return (data ?? []) as CalendarSessionRow[];
 }
 
-function mapPreviousSets(
-  row: PreviousSessionExercise,
+function mapProgressionHistorySets(
+  row: z.infer<typeof progressionHistoryRowSchema>,
   weightUnit: WeightUnit
 ): PreviousSetValue[] {
-  const exerciseType = row.exercise.exercise_type;
+  const exerciseType = row.exercise_type ?? "weight";
 
-  return row.sets
-    .filter((set) => set.set_type === "working")
-    .sort((a, b) => a.set_number - b.set_number)
-    .map((set) => {
+  return (row.working_sets ?? [])
+    .filter((set) => set.completed)
+    .map((set, index) => {
       const display =
         exerciseType === "time"
-          ? formatPreviousDurationSet(
-              set.log?.completed
-                ? set.log.actual_duration_seconds
-                : set.target_duration_seconds
-            )
-          : formatPreviousWeightSet(
-              set.log?.completed ? set.log.actual_load_kg : set.target_load_kg,
-              set.log?.completed ? set.log.actual_reps : set.target_reps,
-              weightUnit
-            );
+          ? formatPreviousDurationSet(set.duration_seconds)
+          : formatPreviousWeightSet(set.load_kg, set.reps, weightUnit);
 
       return display
         ? {
-            setNumber: set.set_number,
+            setNumber: index + 1,
             display,
           }
         : null;

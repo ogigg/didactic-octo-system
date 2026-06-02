@@ -6,6 +6,7 @@ import {
   GenerateWorkoutRequest,
   GenerateWorkoutResponse,
 } from "@/lib/api/generate-workout";
+import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import {
   updateTrainingPreferences,
   TrainingPreferences,
@@ -14,6 +15,10 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import { trackEvent } from "@/lib/track-event";
+import {
+  convertPreviousDisplay,
+  type PreviousSetValue,
+} from "@/lib/workout-previous-sets";
 
 export interface StartTrainingRequest {
   preferences: TrainingPreferences;
@@ -22,35 +27,55 @@ export interface StartTrainingRequest {
 
 function mapResponseToWorkoutExercises(
   response: GenerateWorkoutResponse,
-  weightUnit: WeightUnit = "kg"
+  weightUnit: WeightUnit = "kg",
+  previousSetDisplays: Record<string, PreviousSetValue[]> = {}
 ): WorkoutExercise[] {
-  return response.exercises.map((ex) => ({
-    id: ex.exercise_id,
-    name: ex.exercise_name,
-    image: ex.image ?? null,
-    restDurationSeconds: ex.rest_duration_seconds,
-    notes: ex.notes ?? "",
-    difficultyFeedback: null,
-    exerciseType: ex.exercise_type ?? "weight",
-    sets: ex.sets.map(
-      (set, i): WorkoutSet => ({
-        id: `set-${ex.exercise_id}-${i}-${Date.now()}`,
-        type: set.set_type,
-        kg:
-          set.target_load_kg != null
-            ? String(
-                Math.round(convertWeight(set.target_load_kg, weightUnit) * 10) /
-                  10
-              )
-            : "",
-        reps: set.target_reps != null ? String(set.target_reps) : "",
-        durationSeconds: set.target_duration_seconds ?? null,
-        rpe: null,
-        isCompleted: false,
-        previousDisplay: null,
-      })
-    ),
-  }));
+  return response.exercises.map((ex) => {
+    const fallbackPreviousDisplay = convertPreviousDisplay(
+      ex.previous_display,
+      weightUnit
+    );
+    const previousSets = previousSetDisplays[ex.exercise_id];
+    let workingIndex = 0;
+
+    return {
+      id: ex.exercise_id,
+      name: ex.exercise_name,
+      image: ex.image ?? null,
+      restDurationSeconds: ex.rest_duration_seconds,
+      notes: ex.notes ?? "",
+      difficultyFeedback: null,
+      exerciseType: ex.exercise_type ?? "weight",
+      sets: ex.sets.map((set, i): WorkoutSet => {
+        const previousDisplay =
+          set.set_type === "working"
+            ? (previousSets?.[workingIndex]?.display ?? fallbackPreviousDisplay)
+            : null;
+
+        if (set.set_type === "working") {
+          workingIndex += 1;
+        }
+
+        return {
+          id: `set-${ex.exercise_id}-${i}-${Date.now()}`,
+          type: set.set_type,
+          kg:
+            set.target_load_kg != null
+              ? String(
+                  Math.round(
+                    convertWeight(set.target_load_kg, weightUnit) * 10
+                  ) / 10
+                )
+              : "",
+          reps: set.target_reps != null ? String(set.target_reps) : "",
+          durationSeconds: set.target_duration_seconds ?? null,
+          rpe: null,
+          isCompleted: false,
+          previousDisplay,
+        };
+      }),
+    };
+  });
 }
 
 export function useGenerateWorkout() {
@@ -64,7 +89,7 @@ export function useGenerateWorkout() {
       await updateTrainingPreferences(preferences);
       return generateWorkout(request);
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       // Track workout generation event
       trackEvent("workout_generated", {
         generation_source: data.generation_source,
@@ -77,7 +102,16 @@ export function useGenerateWorkout() {
         has_custom_prompt: !!variables.request.custom_prompt,
       });
 
-      const exercises = mapResponseToWorkoutExercises(data, weightUnit);
+      const previousSetDisplays: Record<string, PreviousSetValue[]> =
+        await fetchPreviousSetDisplays(
+          data.exercises.map((ex) => ex.exercise_id),
+          weightUnit
+        ).catch(() => ({}));
+      const exercises = mapResponseToWorkoutExercises(
+        data,
+        weightUnit,
+        previousSetDisplays
+      );
       startWorkout(data.workout_name, exercises);
       router.push("/workout");
     },

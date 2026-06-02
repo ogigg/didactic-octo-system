@@ -11,6 +11,7 @@ jest.mock("@/lib/supabase", () => ({
 import { supabase } from "@/lib/supabase";
 import {
   createWorkoutSession,
+  fetchPreviousSetDisplays,
   fetchWorkoutDetail,
   fetchWorkoutSessions,
   updateWorkoutSession,
@@ -144,6 +145,40 @@ describe("fetchWorkoutDetail", () => {
     });
 
     await expect(fetchWorkoutDetail(validSession.id)).rejects.toThrow();
+  });
+});
+
+describe("fetchPreviousSetDisplays", () => {
+  it("returns previous set displays from progression history", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          exercise_id: "550e8400-e29b-41d4-a716-446655440001",
+          exercise_type: "weight",
+          session_completed_at: "2026-03-22T11:00:00Z",
+          difficulty_feedback: null,
+          working_sets: [{ load_kg: 80, reps: 8, completed: true }],
+        },
+      ],
+      error: null,
+    });
+
+    const result = await fetchPreviousSetDisplays(
+      ["550e8400-e29b-41d4-a716-446655440001"],
+      "kg"
+    );
+
+    expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual([
+      { setNumber: 1, display: "80×8" },
+    ]);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "get_exercise_progression_history",
+      {
+        p_user_id: "550e8400-e29b-41d4-a716-446655440000",
+        p_exercise_ids: ["550e8400-e29b-41d4-a716-446655440001"],
+      }
+    );
   });
 });
 
