@@ -11,6 +11,31 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+export interface RestTimerProgress {
+  durationSeconds: number;
+  remainingSeconds: number;
+  progress: number;
+}
+
+export function getRestTimerProgress(
+  startedAtMs: number,
+  durationSeconds: number,
+  nowMs: number
+): RestTimerProgress {
+  const safeDurationSeconds = Math.max(1, durationSeconds);
+  const elapsedSeconds = (nowMs - startedAtMs) / 1000;
+  const remainingSeconds = Math.min(
+    safeDurationSeconds,
+    Math.max(0, safeDurationSeconds - elapsedSeconds)
+  );
+
+  return {
+    durationSeconds: safeDurationSeconds,
+    remainingSeconds,
+    progress: remainingSeconds / safeDurationSeconds,
+  };
+}
+
 export function RestTimerBar() {
   const { t } = useTranslation("workout");
   const restTimer = useWorkoutStore((s) => s.restTimer);
@@ -34,9 +59,15 @@ export function RestTimerBar() {
 
   if (!restTimer) return null;
 
-  const elapsedSeconds = (now - restTimer.startedAtMs) / 1000;
-  const remaining = Math.max(0, restTimer.durationSeconds - elapsedSeconds);
-  const progress = 1 - remaining / restTimer.durationSeconds;
+  const {
+    durationSeconds,
+    remainingSeconds: remaining,
+    progress,
+  } = getRestTimerProgress(
+    restTimer.startedAtMs,
+    restTimer.durationSeconds,
+    now
+  );
 
   // Auto-dismiss when timer reaches 0
   if (remaining <= 0) {
@@ -79,6 +110,12 @@ export function RestTimerBar() {
           </Text>
           <View
             style={[styles.progressTrack, { backgroundColor: borderSubtle }]}
+            accessibilityRole="progressbar"
+            accessibilityValue={{
+              min: 0,
+              max: durationSeconds,
+              now: Math.ceil(remaining),
+            }}
           >
             <View
               style={[
