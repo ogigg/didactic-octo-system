@@ -47,6 +47,12 @@ export function mapWorkoutStoreToDb(
 ): WorkoutDbPayload {
   const session: CreateWorkoutSessionInput = {
     name: summary.workoutName || undefined,
+    warmup: summary.warmup
+      ? {
+          duration_seconds: summary.warmup.durationSeconds,
+          completed: summary.warmup.isCompleted,
+        }
+      : null,
     generation_source: options.generationSource ?? "llm",
     goal_snapshot: options.goalSnapshot,
     custom_goal_snapshot: options.customGoalSnapshot,
@@ -122,6 +128,7 @@ export function mapDbToWorkoutStore(
   weightUnit: WeightUnit = "kg"
 ): {
   workoutName: string;
+  warmup: WorkoutSummary["warmup"];
   exercises: WorkoutExercise[];
 } {
   const exercises: WorkoutExercise[] = detail.exercises.map((ex) => ({
@@ -138,6 +145,12 @@ export function mapDbToWorkoutStore(
 
   return {
     workoutName: detail.name ?? "",
+    warmup: detail.warmup
+      ? {
+          durationSeconds: detail.warmup.duration_seconds,
+          isCompleted: detail.warmup.completed,
+        }
+      : null,
     exercises,
   };
 }

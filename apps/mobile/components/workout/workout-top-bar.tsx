@@ -8,8 +8,9 @@ import { useTranslation } from "react-i18next";
 
 interface WorkoutTopBarProps {
   workoutName: string;
-  completedSets: number;
-  totalSets: number;
+  completedSteps: number;
+  totalSteps: number;
+  hasWarmup?: boolean;
   onDismiss: () => void;
   onFinish: () => void;
   onWorkoutNameChange?: (name: string) => void;
@@ -17,8 +18,9 @@ interface WorkoutTopBarProps {
 
 export function WorkoutTopBar({
   workoutName,
-  completedSets,
-  totalSets,
+  completedSteps,
+  totalSteps,
+  hasWarmup = false,
   onDismiss,
   onFinish,
   onWorkoutNameChange,
@@ -65,7 +67,10 @@ export function WorkoutTopBar({
           </Pressable>
         )}
         <Text style={[Typography.micro, { color: textMuted }]}>
-          {t("topBar.progress", { completed: completedSets, total: totalSets })}
+          {t(hasWarmup ? "topBar.progressSteps" : "topBar.progress", {
+            completed: completedSteps,
+            total: totalSteps,
+          })}
         </Text>
       </View>
 

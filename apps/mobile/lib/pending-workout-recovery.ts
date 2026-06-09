@@ -1,5 +1,5 @@
-import type { GenerateWorkoutResponse } from "@/lib/api/generate-workout";
 import { fetchExercises, type Exercise } from "@/lib/api/exercises";
+import type { GenerateWorkoutResponse } from "@/lib/api/generate-workout";
 import type { FocusArea, PendingWorkout } from "@/lib/api/pending-workouts";
 
 export const STALE_PENDING_WORKOUT_MS = 5 * 60 * 1000;
@@ -140,6 +140,7 @@ export async function buildFallbackPendingWorkoutData(params: {
       training_strategy:
         "It uses familiar movements with conservative targets after repeated generation recovery attempts.",
     },
+    warmup: { duration_seconds: 300 },
     generation_source: "fallback_template",
     goal_snapshot: params.goalSnapshot,
     custom_goal_snapshot: params.customGoalSnapshot,

@@ -1,28 +1,28 @@
-import { useMutation } from "@tanstack/react-query";
 import { useProfile } from "@/hooks/use-profile-query";
-import { useRouter } from "expo-router";
 import {
   generateWorkout,
   GenerateWorkoutRequest,
   GenerateWorkoutResponse,
 } from "@/lib/api/generate-workout";
-import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import {
-  updateTrainingPreferences,
   TrainingPreferences,
+  updateTrainingPreferences,
 } from "@/lib/api/profiles";
-import { useWorkoutStore } from "@/stores/workout-store";
+import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
+import { trackEvent } from "@/lib/track-event";
+import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
+import {
+  convertPreviousDisplay,
+  type PreviousSetValue,
+} from "@/lib/workout-previous-sets";
 import type {
   GenerationMeta,
   WorkoutExercise,
   WorkoutSet,
 } from "@/stores/workout-store";
-import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
-import { trackEvent } from "@/lib/track-event";
-import {
-  convertPreviousDisplay,
-  type PreviousSetValue,
-} from "@/lib/workout-previous-sets";
+import { useWorkoutStore } from "@/stores/workout-store";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 
 export interface StartTrainingRequest {
   preferences: TrainingPreferences;
@@ -124,7 +124,14 @@ export function useGenerateWorkout() {
         reasoning: data.reasoning ?? null,
       };
 
-      startWorkout(data.workout_name, exercises, generationMeta);
+      const warmup = data.warmup
+        ? {
+            durationSeconds: data.warmup.duration_seconds,
+            isCompleted: false,
+          }
+        : null;
+
+      startWorkout(data.workout_name, exercises, generationMeta, warmup);
       router.push("/workout");
     },
   });

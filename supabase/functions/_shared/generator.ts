@@ -54,7 +54,12 @@ export const llmExerciseSchema = z.object({
 export const llmResponseSchema = z.object({
   workout_name: z.string().min(1).max(100),
   reasoning: workoutReasoningSchema.nullable().optional(),
+  warmup: z.object({ duration_seconds: z.number().int().min(60).max(900) }),
   exercises: z.array(llmExerciseSchema).min(1),
+});
+
+export const generatedWarmupSchema = z.object({
+  duration_seconds: z.number().int().min(60).max(900),
 });
 
 export const generatedSetSchema = z.object({
@@ -104,6 +109,7 @@ export const generatedExerciseSchema = z.object({
 export const generateWorkoutResponseSchema = z.object({
   workout_name: z.string(),
   reasoning: workoutReasoningSchema.nullable().optional().default(null),
+  warmup: generatedWarmupSchema.nullable().default(null),
   generation_source: z.enum([
     "llm",
     "fallback_template",
@@ -442,6 +448,8 @@ Response JSON schema:
   "reasoning": {
     "muscle_groups": "string — 1-2 short sentences explaining why this muscle focus fits the split, goal, history, queue context, or custom request",
     "training_strategy": "string — 1-2 short sentences explaining the session structure, intensity, and progression approach"
+  "warmup": {
+    "duration_seconds": "number — timer-only general warmup duration in seconds"
   },
   "exercises": [
     {
@@ -502,6 +510,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 
 ## Constraints
 - Use ONLY exercise IDs from the catalog below
+- Include one timer-only general warmup before the exercises. Use 180 seconds for 15-minute workouts, 300 seconds for 30-60 minute workouts, and 420 seconds for 90-minute workouts.
 - Match exercises to the "${equipment.replace(/_/g, " ")}" equipment level
 - Tailor set/rep schemes to "${trainingStyle}" style (strength: heavy/low reps, hypertrophy: moderate/8-12 reps, endurance: light/high reps, circuit: varied/minimal rest)
 - Adjust complexity and load for "${difficulty}" level
@@ -562,6 +571,10 @@ export function buildFallbackWorkout(
       focusArea,
       hasHistory,
     }),
+    warmup: {
+      duration_seconds:
+        durationMinutes <= 15 ? 180 : durationMinutes >= 90 ? 420 : 300,
+    },
     exercises: selected.map((ex) => {
       if (ex.exercise_type === "time") {
         return {
@@ -1005,6 +1018,7 @@ export async function generateSingleWorkout(
   const response = generateWorkoutResponseSchema.parse({
     workout_name: workoutData.workout_name,
     reasoning: workoutReasoning,
+    warmup: workoutData.warmup,
     generation_source: generationSource,
     goal_snapshot: profileGoal,
     custom_goal_snapshot: profile.custom_goal ?? null,

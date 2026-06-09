@@ -2,6 +2,7 @@ export const workout = {
   topBar: {
     finish: "Finish",
     progress: "{{completed}}/{{total}} sets",
+    progressSteps: "{{completed}}/{{total}} steps",
   },
   timer: {
     elapsed: "Elapsed",
@@ -44,6 +45,17 @@ export const workout = {
   setTimer: {
     start: "Start",
     stop: "Stop",
+  },
+  warmup: {
+    title: "Warmup",
+    subtitle: "{{time}} timer before the first exercise",
+    completed: "Ready for the first exercise",
+    start: "Start warmup timer",
+    pause: "Pause warmup timer",
+    reset: "Reset warmup timer",
+    markComplete: "Mark warmup complete",
+    markIncomplete: "Mark warmup incomplete",
+    timerLabel: "Warmup timer: {{time}} remaining",
   },
   rpe: {
     title: "Rate of Perceived Exertion",
@@ -139,8 +151,8 @@ export const workout = {
   },
   finish: {
     confirmTitle: "Finish Workout?",
-    confirmMessage: "You have {{count}} incomplete set remaining.",
-    confirmMessage_plural: "You have {{count}} incomplete sets remaining.",
+    confirmMessage: "You have {{count}} incomplete step remaining.",
+    confirmMessage_plural: "You have {{count}} incomplete steps remaining.",
     completeTitle: "End Workout?",
     completeMessage: "Save this workout to your history, or discard it.",
     emptyTitle: "Discard Empty Workout?",

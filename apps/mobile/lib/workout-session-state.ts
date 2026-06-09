@@ -1,7 +1,10 @@
-import type { WorkoutExercise } from "@/stores/workout-store";
+import type { WorkoutExercise, WorkoutWarmup } from "@/stores/workout-store";
 
-export function hasLoggedWorkoutData(exercises: WorkoutExercise[]): boolean {
-  return countLoggedWorkoutSets(exercises) > 0;
+export function hasLoggedWorkoutData(
+  exercises: WorkoutExercise[],
+  warmup?: WorkoutWarmup | null
+): boolean {
+  return warmup?.isCompleted === true || countLoggedWorkoutSets(exercises) > 0;
 }
 
 export function countLoggedWorkoutSets(exercises: WorkoutExercise[]): number {
