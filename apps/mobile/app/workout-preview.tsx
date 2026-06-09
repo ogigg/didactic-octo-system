@@ -364,6 +364,7 @@ export default function WorkoutPreviewScreen() {
   );
   const regenerable = regenerationEligibility.canRegenerate && !isRegenerating;
   const canEdit = isEditing && !isRegenerating;
+  const showFooter = isNextUp || regenerable || isRegenerating;
 
   return (
     <KeyboardAvoidingView
@@ -464,7 +465,13 @@ export default function WorkoutPreviewScreen() {
                 </Text>
               </View>
             ) : (
-              <Text style={[Typography.caption, { color: textMuted }]}>
+              <Text
+                style={[
+                  Typography.caption,
+                  styles.regenerationStatusText,
+                  { color: textMuted },
+                ]}
+              >
                 {regenerationEligibility.canRegenerate
                   ? t("actions.regenerationAvailable")
                   : t("actions.regenerationUnavailableToday")}
@@ -539,47 +546,37 @@ export default function WorkoutPreviewScreen() {
           />
 
           {/* Footer actions */}
-          <View style={[styles.footer, { backgroundColor: background }]}>
-            {isNextUp && (
-              <Button
-                label={t("actions.startWorkout")}
-                onPress={handleStart}
-                disabled={isRegenerating}
-                accessibilityLabel={t("actions.startWorkout")}
-              />
-            )}
-            {!isNextUp && <View style={styles.footerSpacer} />}
-            {isRegenerating ? (
-              <View
-                style={[
-                  styles.regenerateDisabled,
-                  { backgroundColor: primaryContainer },
-                ]}
-              >
-                <Text style={[Typography.titleSm, { color: primary }]}>
-                  {t("actions.regenerating")}
-                </Text>
-              </View>
-            ) : regenerable ? (
-              <Button
-                label={t("actions.regenerate")}
-                onPress={handleRegenerate}
-                variant="secondary"
-                accessibilityLabel={t("actions.regenerate")}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.regenerateDisabled,
-                  { backgroundColor: primaryContainer },
-                ]}
-              >
-                <Text style={[Typography.caption, { color: textMuted }]}>
-                  {t("actions.regenerationUnavailableToday")}
-                </Text>
-              </View>
-            )}
-          </View>
+          {showFooter ? (
+            <View style={[styles.footer, { backgroundColor: background }]}>
+              {isNextUp && (
+                <Button
+                  label={t("actions.startWorkout")}
+                  onPress={handleStart}
+                  disabled={isRegenerating}
+                  accessibilityLabel={t("actions.startWorkout")}
+                />
+              )}
+              {isRegenerating ? (
+                <View
+                  style={[
+                    styles.regenerateDisabled,
+                    { backgroundColor: primaryContainer },
+                  ]}
+                >
+                  <Text style={[Typography.titleSm, { color: primary }]}>
+                    {t("actions.regenerating")}
+                  </Text>
+                </View>
+              ) : regenerable ? (
+                <Button
+                  label={t("actions.regenerate")}
+                  onPress={handleRegenerate}
+                  variant="secondary"
+                  accessibilityLabel={t("actions.regenerate")}
+                />
+              ) : null}
+            </View>
+          ) : null}
         </SafeAreaView>
       </SafeAreaProvider>
     </KeyboardAvoidingView>
@@ -815,6 +812,7 @@ function ReadSetsTable({
               },
               styles.colType,
             ]}
+            numberOfLines={1}
           >
             {set.set_type === "warmup"
               ? t("exerciseList.warmup")
@@ -1032,7 +1030,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
-    paddingBottom: Spacing["3xl"],
+    paddingBottom: Spacing.xl,
   },
   emptyContainer: {
     flex: 1,
@@ -1065,6 +1063,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.xl,
   },
+  regenerationStatusText: {
+    marginBottom: Spacing.md,
+    lineHeight: 17,
+  },
   statusCardHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1084,10 +1086,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    gap: Spacing.md,
     marginBottom: Spacing.md,
   },
   exerciseHeaderLeft: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   exerciseNameRow: {
@@ -1100,6 +1104,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   swapButton: {
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
@@ -1129,7 +1134,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   colType: {
-    width: 52,
+    width: 76,
     textAlign: "center",
   },
   colData: {
@@ -1161,12 +1166,9 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
     gap: Spacing.md,
-  },
-  footerSpacer: {
-    height: 0,
   },
   regenerateDisabled: {
     borderRadius: Radii.lg,
@@ -1174,6 +1176,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bottomPadding: {
-    height: Spacing["2xl"],
+    height: Spacing.xl,
   },
 });
