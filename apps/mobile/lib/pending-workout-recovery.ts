@@ -36,6 +36,16 @@ const FALLBACK_SEARCHES: Record<FocusArea, string[]> = {
   full_body: ["Squat", "Bench Press", "Row", "Deadlift", "Overhead Press"],
 };
 
+function formatFocusLabel(value: FocusArea): string {
+  return value
+    .replace("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatMuscleList(muscles: string[]): string {
+  return muscles.map((muscle) => muscle.replace(/_/g, " ")).join(", ");
+}
+
 function getExerciseMatches(
   search: string,
   exercises: Exercise[],
@@ -125,6 +135,11 @@ export async function buildFallbackPendingWorkoutData(params: {
 
   return {
     workout_name: workoutName,
+    reasoning: {
+      muscle_groups: `This recovery plan keeps attention on ${formatFocusLabel(focusArea)} so the weekly queue can stay usable.`,
+      training_strategy:
+        "It uses familiar movements with conservative targets after repeated generation recovery attempts.",
+    },
     generation_source: "fallback_template",
     goal_snapshot: params.goalSnapshot,
     custom_goal_snapshot: params.customGoalSnapshot,
@@ -135,6 +150,11 @@ export async function buildFallbackPendingWorkoutData(params: {
       image: exercise.image,
       rest_duration_seconds: 90,
       notes: "Fallback template generated after repeated recovery attempts.",
+      reasoning: {
+        muscle_groups: `${exercise.name} targets ${formatMuscleList(exercise.primary_muscles)} for this ${focusArea.replace("_", " ")} session.`,
+        exercise_selection:
+          "It was selected from the available exercise catalog as a dependable fallback option.",
+      },
       sets: getSetTargets(focusArea, exercise.name),
     })),
   };

@@ -15,6 +15,17 @@ export const workoutPreview = {
     swap: "Swap",
     rest: "{{seconds}}s rest",
   },
+  reasoning: {
+    planTitle: "Why this plan",
+    exerciseTitle: "Why this exercise",
+    show: "Show",
+    hide: "Hide",
+    muscleGroups: "Muscle groups",
+    trainingStrategy: "Training strategy",
+    exerciseSelection: "Exercise choice",
+    planAccessibility: "Show workout reasoning",
+    exerciseAccessibility: "Show reasoning for {{exerciseName}}",
+  },
   edit: {
     toggle: "Edit",
     done: "Done",

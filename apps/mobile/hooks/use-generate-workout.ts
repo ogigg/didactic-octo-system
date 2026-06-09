@@ -12,7 +12,11 @@ import {
   TrainingPreferences,
 } from "@/lib/api/profiles";
 import { useWorkoutStore } from "@/stores/workout-store";
-import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
+import type {
+  GenerationMeta,
+  WorkoutExercise,
+  WorkoutSet,
+} from "@/stores/workout-store";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import { trackEvent } from "@/lib/track-event";
 import {
@@ -44,6 +48,7 @@ function mapResponseToWorkoutExercises(
       image: ex.image ?? null,
       restDurationSeconds: ex.rest_duration_seconds,
       notes: ex.notes ?? "",
+      reasoning: ex.reasoning ?? null,
       difficultyFeedback: null,
       exerciseType: ex.exercise_type ?? "weight",
       sets: ex.sets.map((set, i): WorkoutSet => {
@@ -112,7 +117,14 @@ export function useGenerateWorkout() {
         weightUnit,
         previousSetDisplays
       );
-      startWorkout(data.workout_name, exercises);
+      const generationMeta: GenerationMeta = {
+        generationSource: data.generation_source,
+        goalSnapshot: data.goal_snapshot,
+        customGoalSnapshot: data.custom_goal_snapshot,
+        reasoning: data.reasoning ?? null,
+      };
+
+      startWorkout(data.workout_name, exercises, generationMeta);
       router.push("/workout");
     },
   });

@@ -13,6 +13,17 @@ export const workout = {
     removeSet: "Usuń serię",
     fillFromPrevious: "Uzupełnij poprzednią",
   },
+  reasoning: {
+    planTitle: "Dlaczego ten plan",
+    exerciseTitle: "Dlaczego to ćwiczenie",
+    show: "Pokaż",
+    hide: "Ukryj",
+    muscleGroups: "Grupy mięśniowe",
+    trainingStrategy: "Strategia treningu",
+    exerciseSelection: "Wybór ćwiczenia",
+    planAccessibility: "Pokaż uzasadnienie treningu",
+    exerciseAccessibility: "Pokaż uzasadnienie dla {{exerciseName}}",
+  },
   setHeader: {
     set: "SERIA",
     previous: "POPRZ.",

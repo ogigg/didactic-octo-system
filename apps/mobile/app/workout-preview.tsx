@@ -22,6 +22,7 @@ import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preferenc
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ProgressionPill } from "@/components/workout/progression-pill";
+import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -33,6 +34,7 @@ import {
   useRemoveExercisePreference,
 } from "@/hooks/use-exercise-preference-mutations";
 import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
+import type { WorkoutExerciseReasoning } from "@/stores/workout-store";
 import {
   useEditPendingWorkout,
   useRegenerateWorkout,
@@ -56,6 +58,7 @@ interface LocalExercise {
   image?: ExerciseImageData;
   rest_duration_seconds: number;
   notes: string | null;
+  reasoning?: WorkoutExerciseReasoning | null;
   sets: LocalSet[];
   progression_type?:
     | "weight_up"
@@ -92,9 +95,6 @@ export default function WorkoutPreviewScreen() {
   const { t } = useTranslation("workoutPreview");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-
-  // Units
-  const wu = useWeightUnit();
 
   // Theme
   const background = useThemeColor({}, "background");
@@ -172,6 +172,7 @@ export default function WorkoutPreviewScreen() {
           image: ex.image ?? null,
           rest_duration_seconds: ex.rest_duration_seconds,
           notes: ex.notes,
+          reasoning: ex.reasoning ?? null,
           progression_type: ex.progression_type ?? null,
           previous_display: ex.previous_display ?? null,
           sets: ex.sets.map((s) => ({
@@ -232,6 +233,7 @@ export default function WorkoutPreviewScreen() {
                   exercise_name: swapResult.name,
                   exercise_type: swapResult.exerciseType ?? ex.exercise_type,
                   image: swapResult.image ?? null,
+                  reasoning: null,
                 }
               : ex
           )
@@ -440,6 +442,24 @@ export default function WorkoutPreviewScreen() {
                 </Text>
               </View>
             </View>
+
+            <ReasoningDisclosure
+              title={t("reasoning.planTitle")}
+              showLabel={t("reasoning.show")}
+              hideLabel={t("reasoning.hide")}
+              accessibilityLabel={t("reasoning.planAccessibility")}
+              style={styles.planReasoning}
+              entries={[
+                {
+                  label: t("reasoning.muscleGroups"),
+                  text: workout.workout_data.reasoning?.muscle_groups,
+                },
+                {
+                  label: t("reasoning.trainingStrategy"),
+                  text: workout.workout_data.reasoning?.training_strategy,
+                },
+              ]}
+            />
 
             {isRegenerating ? (
               <View
@@ -744,6 +764,25 @@ function ExerciseCard({
           </Text>
         </View>
       ) : null}
+
+      <ReasoningDisclosure
+        title={t("reasoning.exerciseTitle")}
+        showLabel={t("reasoning.show")}
+        hideLabel={t("reasoning.hide")}
+        accessibilityLabel={t("reasoning.exerciseAccessibility", {
+          exerciseName: displayName,
+        })}
+        entries={[
+          {
+            label: t("reasoning.muscleGroups"),
+            text: exercise.reasoning?.muscle_groups,
+          },
+          {
+            label: t("reasoning.exerciseSelection"),
+            text: exercise.reasoning?.exercise_selection,
+          },
+        ]}
+      />
     </View>
   );
 }
@@ -1063,7 +1102,11 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
     padding: Spacing.lg,
     gap: Spacing.sm,
+    marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
+  },
+  planReasoning: {
+    marginBottom: Spacing.lg,
   },
   statusCardHeader: {
     flexDirection: "row",

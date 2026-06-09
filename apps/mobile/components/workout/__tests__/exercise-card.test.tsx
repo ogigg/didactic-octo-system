@@ -142,4 +142,34 @@ describe("ExerciseCard", () => {
     expect(mockSetRowHandles.get("set-2")?.focusFirstInput).toHaveBeenCalled();
     expect(mockSetRowProps[1]?.onSubmitReps).toBeUndefined();
   });
+
+  it("reveals exercise reasoning on demand", () => {
+    const exerciseWithReasoning: WorkoutExercise = {
+      ...exercise,
+      reasoning: {
+        muscle_groups: "Targets chest and triceps for today's push focus.",
+        exercise_selection:
+          "Chosen because it fits the available bench setup and strength target.",
+      },
+    };
+
+    render(<ExerciseCard exercise={exerciseWithReasoning} />);
+
+    expect(
+      screen.queryByText("Targets chest and triceps for today's push focus.")
+    ).toBeNull();
+
+    fireEvent.press(
+      screen.getByRole("button", { name: "reasoning.exerciseAccessibility" })
+    );
+
+    expect(
+      screen.getByText("Targets chest and triceps for today's push focus.")
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Chosen because it fits the available bench setup and strength target."
+      )
+    ).toBeTruthy();
+  });
 });

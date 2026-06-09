@@ -1,6 +1,7 @@
 import { WorkoutTopBar } from "@/components/workout/workout-top-bar";
 import { WorkoutTimer } from "@/components/workout/workout-timer";
 import { ExerciseCard } from "@/components/workout/exercise-card";
+import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { RestTimerBar } from "@/components/workout/rest-timer-bar";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -41,6 +42,7 @@ export default function WorkoutScreen() {
 
   const exercises = useWorkoutStore((s) => s.exercises);
   const workoutName = useWorkoutStore((s) => s.workoutName);
+  const generationMeta = useWorkoutStore((s) => s.generationMeta);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
   const updateWorkoutName = useWorkoutStore((s) => s.updateWorkoutName);
@@ -280,6 +282,22 @@ export default function WorkoutScreen() {
                   </View>
                 ) : (
                   <>
+                    <ReasoningDisclosure
+                      title={t("reasoning.planTitle")}
+                      showLabel={t("reasoning.show")}
+                      hideLabel={t("reasoning.hide")}
+                      accessibilityLabel={t("reasoning.planAccessibility")}
+                      entries={[
+                        {
+                          label: t("reasoning.muscleGroups"),
+                          text: generationMeta?.reasoning?.muscle_groups,
+                        },
+                        {
+                          label: t("reasoning.trainingStrategy"),
+                          text: generationMeta?.reasoning?.training_strategy,
+                        },
+                      ]}
+                    />
                     {exercises.map((exercise) => (
                       <View
                         key={exercise.id}

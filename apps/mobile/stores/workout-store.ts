@@ -18,6 +18,16 @@ export interface WorkoutSet {
   previousDisplay: string | null;
 }
 
+export interface WorkoutExerciseReasoning {
+  muscle_groups: string;
+  exercise_selection: string;
+}
+
+export interface WorkoutReasoning {
+  muscle_groups: string;
+  training_strategy: string;
+}
+
 export interface WorkoutExercise {
   id: string;
   name: string;
@@ -25,6 +35,7 @@ export interface WorkoutExercise {
   exerciseType: "weight" | "time";
   restDurationSeconds: number;
   notes: string;
+  reasoning?: WorkoutExerciseReasoning | null;
   difficultyFeedback: "too_easy" | "ok" | "too_hard" | null;
   sets: WorkoutSet[];
   progressionType?:
@@ -45,6 +56,7 @@ export interface GenerationMeta {
   generationSource: "llm" | "fallback_template" | "fallback_substitution";
   goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
   customGoalSnapshot: string | null;
+  reasoning?: WorkoutReasoning | null;
 }
 
 interface WorkoutState {
@@ -110,6 +122,7 @@ interface WorkoutActions {
     image?: ExerciseImageData;
     exerciseType?: "weight" | "time";
     previousDisplays?: string[];
+    reasoning?: WorkoutExerciseReasoning | null;
   }) => void;
   addExerciseAfter: (
     afterExerciseId: string,
@@ -119,6 +132,7 @@ interface WorkoutActions {
       image?: ExerciseImageData;
       exerciseType?: "weight" | "time";
       previousDisplays?: string[];
+      reasoning?: WorkoutExerciseReasoning | null;
     }
   ) => void;
   removeExercise: (exerciseId: string) => void;
@@ -183,6 +197,7 @@ function makeExercise(exercise: {
   image?: ExerciseImageData;
   exerciseType?: "weight" | "time";
   previousDisplays?: string[];
+  reasoning?: WorkoutExerciseReasoning | null;
 }): WorkoutExercise {
   return {
     id: exercise.id,
@@ -191,6 +206,7 @@ function makeExercise(exercise: {
     exerciseType: exercise.exerciseType ?? "weight",
     restDurationSeconds: 90,
     notes: "",
+    reasoning: exercise.reasoning ?? null,
     difficultyFeedback: null,
     sets: Array.from({ length: 3 }, (_, index) =>
       makeEmptySet(exercise.previousDisplays?.[index] ?? null)
@@ -322,6 +338,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
                     image: newExercise.image ?? null,
                     exerciseType: newExercise.exerciseType ?? ex.exerciseType,
                     notes: "",
+                    reasoning: null,
                     difficultyFeedback: null,
                     progressionType: "new_exercise",
                     sets: ex.sets.map(clearSetValues),
@@ -406,11 +423,18 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             state.exercises = state.exercises.map((ex) => ({
               ...ex,
               exerciseType: ex.exerciseType ?? "weight",
+              reasoning: ex.reasoning ?? null,
               sets: ex.sets.map((s) => ({
                 ...s,
                 durationSeconds: s.durationSeconds ?? null,
               })),
             }));
+            state.generationMeta = state.generationMeta
+              ? {
+                  ...state.generationMeta,
+                  reasoning: state.generationMeta.reasoning ?? null,
+                }
+              : null;
           }
         },
       }
