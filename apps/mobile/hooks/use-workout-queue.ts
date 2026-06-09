@@ -628,7 +628,17 @@ export function useStartPendingWorkout() {
       };
 
       await deletePendingWorkout(input.pendingWorkout.id);
-      startWorkout(workoutData.workout_name, exercises, generationMeta);
+      startWorkout(
+        workoutData.workout_name,
+        exercises,
+        generationMeta,
+        workoutData.warmup
+          ? {
+              durationSeconds: workoutData.warmup.duration_seconds,
+              isCompleted: false,
+            }
+          : null
+      );
 
       return input;
     },

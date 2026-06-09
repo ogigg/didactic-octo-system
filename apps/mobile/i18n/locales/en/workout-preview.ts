@@ -7,6 +7,10 @@ export const workoutPreview = {
     duration: "~{{minutes}} min",
     focus: "Focus",
   },
+  warmup: {
+    title: "Warmup",
+    timer: "{{time}} timer",
+  },
   exerciseList: {
     setsReps: "{{sets}} × {{reps}}",
     setsRepsLoad: "{{sets}} × {{reps}} × {{load}}",

@@ -18,6 +18,11 @@ export interface WorkoutSet {
   previousDisplay: string | null;
 }
 
+export interface WorkoutWarmup {
+  durationSeconds: number;
+  isCompleted: boolean;
+}
+
 export interface WorkoutExercise {
   id: string;
   name: string;
@@ -50,6 +55,7 @@ export interface GenerationMeta {
 interface WorkoutState {
   isActive: boolean;
   workoutName: string;
+  warmup: WorkoutWarmup | null;
   exercises: WorkoutExercise[];
   startedAtMs: number | null;
   restTimer: RestTimerState | null;
@@ -59,6 +65,7 @@ interface WorkoutState {
 
 export interface WorkoutSummary {
   workoutName: string;
+  warmup: WorkoutWarmup | null;
   durationMs: number;
   exercises: WorkoutExercise[];
   finishedAtMs: number;
@@ -68,7 +75,8 @@ interface WorkoutActions {
   startWorkout: (
     name: string,
     exercises: WorkoutExercise[],
-    generationMeta?: GenerationMeta
+    generationMeta?: GenerationMeta,
+    warmup?: WorkoutWarmup | null
   ) => void;
   finishWorkout: () => void;
   clearWorkout: () => void;
@@ -85,6 +93,7 @@ interface WorkoutActions {
     durationSeconds: number | null
   ) => void;
   updateSetRpe: (exerciseId: string, setId: string, rpe: number | null) => void;
+  toggleWarmupComplete: () => void;
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateNotes: (exerciseId: string, notes: string) => void;
@@ -128,6 +137,7 @@ interface WorkoutActions {
 const initialState: WorkoutState = {
   isActive: false,
   workoutName: "",
+  warmup: null,
   exercises: [],
   startedAtMs: null,
   restTimer: null,
@@ -204,10 +214,11 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
       (set, get) => ({
         ...initialState,
 
-        startWorkout: (name, exercises, generationMeta) =>
+        startWorkout: (name, exercises, generationMeta, warmup = null) =>
           set({
             isActive: true,
             workoutName: name,
+            warmup,
             exercises,
             startedAtMs: Date.now(),
             restTimer: null,
@@ -216,13 +227,14 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           }),
 
         finishWorkout: () => {
-          const { workoutName, exercises, startedAtMs } = get();
+          const { workoutName, warmup, exercises, startedAtMs } = get();
           const now = Date.now();
           set({
             isActive: false,
             restTimer: null,
             completedWorkoutSummary: {
               workoutName,
+              warmup,
               durationMs: startedAtMs ? now - startedAtMs : 0,
               exercises,
               finishedAtMs: now,
@@ -270,6 +282,16 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
               sets.map((s) => (s.id === setId ? { ...s, rpe } : s))
             ),
+          })),
+
+        toggleWarmupComplete: () =>
+          set((state) => ({
+            warmup: state.warmup
+              ? {
+                  ...state.warmup,
+                  isCompleted: !state.warmup.isCompleted,
+                }
+              : null,
           })),
 
         addSet: (exerciseId) =>
@@ -403,6 +425,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             state?.clearWorkout();
           } else if (state) {
             // Migrate hydrated exercises to ensure new fields exist
+            state.warmup = state.warmup ?? null;
             state.exercises = state.exercises.map((ex) => ({
               ...ex,
               exerciseType: ex.exerciseType ?? "weight",

@@ -112,7 +112,17 @@ export function useGenerateWorkout() {
         weightUnit,
         previousSetDisplays
       );
-      startWorkout(data.workout_name, exercises);
+      startWorkout(
+        data.workout_name,
+        exercises,
+        undefined,
+        data.warmup
+          ? {
+              durationSeconds: data.warmup.duration_seconds,
+              isCompleted: false,
+            }
+          : null
+      );
       router.push("/workout");
     },
   });
