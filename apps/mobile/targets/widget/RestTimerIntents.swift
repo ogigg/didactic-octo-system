@@ -61,10 +61,16 @@ struct AdjustRestIntent: AppIntent {
        let currentEnd = activity.content.state.restEndsAt,
        let currentStart = activity.content.state.restStartedAt {
       var next = activity.content.state
-      let proposedEnd = currentEnd.addingTimeInterval(TimeInterval(deltaSeconds))
-      // Mirror the JS `adjustRestTimer` clamp: total duration ≥ 15 s.
-      let minEnd = currentStart.addingTimeInterval(15)
-      next.restEndsAt = max(proposedEnd, minEnd)
+      let now = Date()
+      let duration = max(1, currentEnd.timeIntervalSince(currentStart))
+      let remaining = min(duration, max(0, currentEnd.timeIntervalSince(now)))
+      let nextRemaining = min(
+        duration,
+        max(0, remaining + TimeInterval(deltaSeconds))
+      )
+      let nextEnd = now.addingTimeInterval(nextRemaining)
+      next.restStartedAt = nextEnd.addingTimeInterval(-duration)
+      next.restEndsAt = nextEnd
       let content = ActivityContent(state: next, staleDate: nil)
       await activity.update(content)
     }
