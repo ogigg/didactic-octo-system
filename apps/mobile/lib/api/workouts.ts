@@ -92,6 +92,14 @@ const exerciseDetailSchema = z.object({
   sets: z.array(setDetailSchema),
 });
 
+const workoutWarmupSchema = z
+  .object({
+    duration_seconds: z.number().int().positive(),
+    completed: z.boolean(),
+  })
+  .nullable()
+  .default(null);
+
 export const workoutHistoryItemSchema = z.object({
   id: z.string().uuid(),
   name: z.string().nullable(),
@@ -125,6 +133,7 @@ export const workoutDetailSchema = z.object({
   started_at: z.string().nullable(),
   completed_at: z.string().nullable(),
   created_at: z.string(),
+  warmup: workoutWarmupSchema,
   exercises: z.array(exerciseDetailSchema),
 });
 
@@ -149,6 +158,10 @@ const progressionHistoryRowSchema = z.object({
 
 export interface CreateWorkoutSessionInput {
   name?: string;
+  warmup?: {
+    duration_seconds: number;
+    completed: boolean;
+  } | null;
   generation_source?: "llm" | "fallback_template" | "fallback_substitution";
   goal_snapshot:
     | "build_strength"
@@ -399,6 +412,8 @@ export async function createWorkoutSession(
     .insert({
       user_id: userId,
       name: input.name ?? null,
+      warmup_duration_seconds: input.warmup?.duration_seconds ?? null,
+      warmup_completed: input.warmup?.completed ?? false,
       generation_source: input.generation_source ?? "llm",
       goal_snapshot: input.goal_snapshot,
       custom_goal_snapshot: input.custom_goal_snapshot ?? null,

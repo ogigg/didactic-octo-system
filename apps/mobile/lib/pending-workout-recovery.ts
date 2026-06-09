@@ -125,6 +125,7 @@ export async function buildFallbackPendingWorkoutData(params: {
 
   return {
     workout_name: workoutName,
+    warmup: { duration_seconds: 300 },
     generation_source: "fallback_template",
     goal_snapshot: params.goalSnapshot,
     custom_goal_snapshot: params.customGoalSnapshot,

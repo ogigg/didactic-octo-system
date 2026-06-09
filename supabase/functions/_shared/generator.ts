@@ -42,7 +42,12 @@ export const llmExerciseSchema = z.object({
 
 export const llmResponseSchema = z.object({
   workout_name: z.string().min(1).max(100),
+  warmup: z.object({ duration_seconds: z.number().int().min(60).max(900) }),
   exercises: z.array(llmExerciseSchema).min(1),
+});
+
+export const generatedWarmupSchema = z.object({
+  duration_seconds: z.number().int().min(60).max(900),
 });
 
 export const generatedSetSchema = z.object({
@@ -90,6 +95,7 @@ export const generatedExerciseSchema = z.object({
 
 export const generateWorkoutResponseSchema = z.object({
   workout_name: z.string(),
+  warmup: generatedWarmupSchema.nullable().default(null),
   generation_source: z.enum([
     "llm",
     "fallback_template",
@@ -356,6 +362,9 @@ Design for progressive overload based on the user's history.
 Response JSON schema:
 {
   "workout_name": "string — creative, motivating workout name",
+  "warmup": {
+    "duration_seconds": "number — timer-only general warmup duration in seconds"
+  },
   "exercises": [
     {
       "exercise_id": "string — UUID from the catalog",
@@ -410,6 +419,7 @@ For exercises with Type: weight, use target_load_kg and target_reps (not target_
 
 ## Constraints
 - Use ONLY exercise IDs from the catalog below
+- Include one timer-only general warmup before the exercises. Use 180 seconds for 15-minute workouts, 300 seconds for 30-60 minute workouts, and 420 seconds for 90-minute workouts.
 - Match exercises to the "${equipment.replace(/_/g, " ")}" equipment level
 - Tailor set/rep schemes to "${trainingStyle}" style (strength: heavy/low reps, hypertrophy: moderate/8-12 reps, endurance: light/high reps, circuit: varied/minimal rest)
 - Adjust complexity and load for "${difficulty}" level
@@ -459,6 +469,10 @@ export function buildFallbackWorkout(
 
   return {
     workout_name: `${splitLabel.charAt(0).toUpperCase() + splitLabel.slice(1)} Workout`,
+    warmup: {
+      duration_seconds:
+        durationMinutes <= 15 ? 180 : durationMinutes >= 90 ? 420 : 300,
+    },
     exercises: selected.map((ex) => {
       if (ex.exercise_type === "time") {
         return {
@@ -856,6 +870,7 @@ export async function generateSingleWorkout(
 
   const response = generateWorkoutResponseSchema.parse({
     workout_name: workoutData.workout_name,
+    warmup: workoutData.warmup,
     generation_source: generationSource,
     goal_snapshot: profileGoal,
     custom_goal_snapshot: profile.custom_goal ?? null,

@@ -2,6 +2,7 @@ export const workout = {
   topBar: {
     finish: "Zakończ",
     progress: "{{completed}}/{{total}} serii",
+    progressSteps: "{{completed}}/{{total}} kroków",
   },
   timer: {
     elapsed: "Czas",
@@ -33,6 +34,17 @@ export const workout = {
   setTimer: {
     start: "Start",
     stop: "Stop",
+  },
+  warmup: {
+    title: "Rozgrzewka",
+    subtitle: "Timer {{time}} przed pierwszym ćwiczeniem",
+    completed: "Gotowe do pierwszego ćwiczenia",
+    start: "Start timera rozgrzewki",
+    pause: "Pauza timera rozgrzewki",
+    reset: "Reset timera rozgrzewki",
+    markComplete: "Oznacz rozgrzewkę jako ukończoną",
+    markIncomplete: "Oznacz rozgrzewkę jako nieukończoną",
+    timerLabel: "Timer rozgrzewki: pozostało {{time}}",
   },
   rpe: {
     title: "Odczuwalny wysiłek",
@@ -128,8 +140,8 @@ export const workout = {
   },
   finish: {
     confirmTitle: "Zakończyć trening?",
-    confirmMessage: "Masz {{count}} nieukończoną serię.",
-    confirmMessage_plural: "Masz {{count}} nieukończonych serii.",
+    confirmMessage: "Masz {{count}} nieukończony krok.",
+    confirmMessage_plural: "Masz {{count}} nieukończonych kroków.",
     completeTitle: "Zakończyć trening?",
     completeMessage: "Zapisz ten trening w historii albo go odrzuć.",
     emptyTitle: "Odrzucić pusty trening?",

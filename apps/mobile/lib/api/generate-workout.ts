@@ -29,6 +29,10 @@ const generatedSetSchema = z.object({
   target_duration_seconds: z.number().optional(),
 });
 
+const generatedWarmupSchema = z.object({
+  duration_seconds: z.number().int().positive(),
+});
+
 export const progressionTypeSchema = z.enum([
   "weight_up",
   "reps_up",
@@ -52,6 +56,7 @@ const generatedExerciseSchema = z.object({
 
 export const generateWorkoutResponseSchema = z.object({
   workout_name: z.string(),
+  warmup: generatedWarmupSchema.nullable().default(null),
   generation_source: z.enum([
     "llm",
     "fallback_template",

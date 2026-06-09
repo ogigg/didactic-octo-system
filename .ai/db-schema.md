@@ -253,6 +253,7 @@ Important columns:
 - `status`: `active`, `completed`, `discarded`
 - `generation_source`
 - `goal_snapshot`, `custom_goal_snapshot`: freeze generation context at session creation time
+- `warmup_duration_seconds`, `warmup_completed`: optional timer-only general warmup shown before session exercises; this is session-level and separate from exercise warmup sets
 - `started_at`, `completed_at`
 - `health_record_id`: linkage to Apple Health / Health Connect mirrored workouts
 

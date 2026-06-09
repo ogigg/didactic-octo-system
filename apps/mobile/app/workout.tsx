@@ -2,6 +2,7 @@ import { WorkoutTopBar } from "@/components/workout/workout-top-bar";
 import { WorkoutTimer } from "@/components/workout/workout-timer";
 import { ExerciseCard } from "@/components/workout/exercise-card";
 import { RestTimerBar } from "@/components/workout/rest-timer-bar";
+import { WarmupCard } from "@/components/workout/warmup-card";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
@@ -40,6 +41,7 @@ export default function WorkoutScreen() {
   useWatchBridge();
 
   const exercises = useWorkoutStore((s) => s.exercises);
+  const warmup = useWorkoutStore((s) => s.warmup);
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
@@ -65,7 +67,9 @@ export default function WorkoutScreen() {
     }
     return { completedSets: completed, totalSets: total };
   }, [exercises]);
-  const progressRatio = totalSets > 0 ? completedSets / totalSets : 0;
+  const completedSteps = completedSets + (warmup?.isCompleted ? 1 : 0);
+  const totalSteps = totalSets + (warmup ? 1 : 0);
+  const progressRatio = totalSteps > 0 ? completedSteps / totalSteps : 0;
   const animatedProgress = useRef(new Animated.Value(progressRatio)).current;
 
   useEffect(() => {
@@ -80,6 +84,8 @@ export default function WorkoutScreen() {
   // Scroll to first exercise with incomplete sets on mount
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (warmup && !warmup.isCompleted) return;
+
       const firstIncomplete = exercises.find((ex) =>
         ex.sets.some((s) => !s.isCompleted)
       );
@@ -134,7 +140,7 @@ export default function WorkoutScreen() {
       router.push("/workout-summary");
     };
 
-    if (!hasLoggedWorkoutData(exercises)) {
+    if (!hasLoggedWorkoutData(exercises, warmup)) {
       Alert.alert(t("finish.emptyTitle"), t("finish.emptyMessage"), [
         { text: t("finish.cancel"), style: "cancel" },
         {
@@ -151,13 +157,13 @@ export default function WorkoutScreen() {
       return;
     }
 
-    const incompleteSets = totalSets - completedSets;
-    if (incompleteSets > 0) {
+    const incompleteSteps = totalSteps - completedSteps;
+    if (incompleteSteps > 0) {
       Alert.alert(
         t("finish.confirmTitle"),
-        incompleteSets === 1
-          ? t("finish.confirmMessage", { count: incompleteSets })
-          : t("finish.confirmMessage_plural", { count: incompleteSets }),
+        incompleteSteps === 1
+          ? t("finish.confirmMessage", { count: incompleteSteps })
+          : t("finish.confirmMessage_plural", { count: incompleteSteps }),
         [
           { text: t("finish.cancel"), style: "cancel" },
           {
@@ -189,8 +195,9 @@ export default function WorkoutScreen() {
     }
   }, [
     exercises,
-    totalSets,
-    completedSets,
+    totalSteps,
+    completedSteps,
+    warmup,
     clearWorkout,
     finishWorkout,
     router,
@@ -204,8 +211,9 @@ export default function WorkoutScreen() {
           <SafeAreaView style={styles.safe}>
             <WorkoutTopBar
               workoutName={workoutName}
-              completedSets={completedSets}
-              totalSets={totalSets}
+              completedSteps={completedSteps}
+              totalSteps={totalSteps}
+              hasWarmup={warmup !== null}
               onDismiss={handleDismiss}
               onFinish={handleFinish}
               onWorkoutNameChange={updateWorkoutName}
@@ -219,8 +227,8 @@ export default function WorkoutScreen() {
                 accessibilityRole="progressbar"
                 accessibilityValue={{
                   min: 0,
-                  max: totalSets,
-                  now: completedSets,
+                  max: totalSteps,
+                  now: completedSteps,
                 }}
               >
                 <Animated.View
@@ -245,7 +253,7 @@ export default function WorkoutScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                {exercises.length === 0 ? (
+                {exercises.length === 0 && !warmup ? (
                   <View style={styles.emptyState}>
                     <Text style={[Typography.titleMd, { color: textColor }]}>
                       {t("emptyState.title")}
@@ -280,6 +288,7 @@ export default function WorkoutScreen() {
                   </View>
                 ) : (
                   <>
+                    <WarmupCard />
                     {exercises.map((exercise) => (
                       <View
                         key={exercise.id}

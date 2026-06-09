@@ -10,6 +10,10 @@ import { mapDbToWorkoutStore, mapWorkoutStoreToDb } from "../workout-mappers";
 
 const mockSummary: WorkoutSummary = {
   workoutName: "Push Day",
+  warmup: {
+    durationSeconds: 300,
+    isCompleted: true,
+  },
   durationMs: 3600000,
   finishedAtMs: 1711108800000,
   exercises: [
@@ -65,6 +69,10 @@ const mockDetail: WorkoutDetail = {
   started_at: "2026-03-22T10:00:00Z",
   completed_at: "2026-03-22T11:00:00Z",
   created_at: "2026-03-22T10:00:00Z",
+  warmup: {
+    duration_seconds: 300,
+    completed: true,
+  },
   exercises: [
     {
       id: "se-1",
@@ -112,6 +120,10 @@ describe("mapWorkoutStoreToDb", () => {
     });
 
     expect(result.session.name).toBe("Push Day");
+    expect(result.session.warmup).toEqual({
+      duration_seconds: 300,
+      completed: true,
+    });
     expect(result.session.goal_snapshot).toBe("build_strength");
     expect(result.session.generation_source).toBe("llm");
     expect(result.exercises).toHaveLength(1);
@@ -226,6 +238,10 @@ describe("mapDbToWorkoutStore", () => {
     const result = mapDbToWorkoutStore(mockDetail);
 
     expect(result.workoutName).toBe("Push Day");
+    expect(result.warmup).toEqual({
+      durationSeconds: 300,
+      isCompleted: true,
+    });
     expect(result.exercises).toHaveLength(1);
     expect(result.exercises[0].name).toBe("Bench Press");
     expect(result.exercises[0].restDurationSeconds).toBe(90);
