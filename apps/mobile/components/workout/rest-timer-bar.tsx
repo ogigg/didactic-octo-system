@@ -1,4 +1,4 @@
-import { useThemeColor } from "@/hooks/use-theme-color";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
   Elevation,
   Fonts,
@@ -6,35 +6,17 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { formatRestCountdown, getRestTimerProgress } from "@/lib/rest-timer";
 import { useWorkoutStore } from "@/stores/workout-store";
-import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import { useCallback, useEffect, useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { RestTimerSheet } from "./rest-timer-sheet";
 
-export interface RestTimerProgress {
-  durationSeconds: number;
-  remainingSeconds: number;
-  progress: number;
-}
-
-export function getRestTimerProgress(
-  startedAtMs: number,
-  durationSeconds: number,
-  nowMs: number
-): RestTimerProgress {
-  const safeDurationSeconds = Math.max(1, durationSeconds);
-  const elapsedSeconds = (nowMs - startedAtMs) / 1000;
-  const remainingSeconds = Math.min(
-    safeDurationSeconds,
-    Math.max(0, safeDurationSeconds - elapsedSeconds)
-  );
-
-  return {
-    durationSeconds: safeDurationSeconds,
-    remainingSeconds,
-    progress: remainingSeconds / safeDurationSeconds,
-  };
-}
+export { getRestTimerProgress } from "@/lib/rest-timer";
+export type { RestTimerProgress } from "@/lib/rest-timer";
 
 export function RestTimerBar() {
   const { t } = useTranslation("workout");
@@ -46,10 +28,12 @@ export function RestTimerBar() {
   const primary = useThemeColor({}, "primary");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
+  const textMuted = useThemeColor({}, "textMuted");
   const borderSubtle = useThemeColor({}, "borderSubtle");
   const border = useThemeColor({}, "border");
 
   const [now, setNow] = useState(Date.now());
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!restTimer) return;
@@ -57,7 +41,37 @@ export function RestTimerBar() {
     return () => clearInterval(interval);
   }, [restTimer]);
 
-  if (!restTimer) return null;
+  // Collapse the sheet whenever the timer goes away (skip, finish, etc.)
+  useEffect(() => {
+    if (!restTimer) setExpanded(false);
+  }, [restTimer]);
+
+  const isFinished = restTimer
+    ? getRestTimerProgress(
+        restTimer.startedAtMs,
+        restTimer.durationSeconds,
+        now
+      ).remainingSeconds <= 0
+    : false;
+
+  useEffect(() => {
+    if (!isFinished) return;
+    if (Platform.OS === "ios") {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    skipRestTimer();
+  }, [isFinished, skipRestTimer]);
+
+  const handleExpand = useCallback(() => {
+    if (Platform.OS === "ios") {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setExpanded(true);
+  }, []);
+
+  const handleCollapse = useCallback(() => setExpanded(false), []);
+
+  if (!restTimer || isFinished) return null;
 
   const {
     durationSeconds,
@@ -69,16 +83,7 @@ export function RestTimerBar() {
     now
   );
 
-  // Auto-dismiss when timer reaches 0
-  if (remaining <= 0) {
-    // Schedule skip for next tick to avoid state update during render
-    setTimeout(() => skipRestTimer(), 0);
-    return null;
-  }
-
-  const minutes = Math.floor(remaining / 60);
-  const seconds = Math.floor(remaining % 60);
-  const display = `${minutes}:${String(seconds).padStart(2, "0")}`;
+  const display = formatRestCountdown(remaining);
 
   return (
     <View
@@ -100,14 +105,22 @@ export function RestTimerBar() {
           </Text>
         </Pressable>
 
-        <View style={styles.timerSection}>
-          <Text
-            style={[styles.countdown, { color: textColor }]}
-            accessibilityRole="timer"
-            accessibilityLabel={`Rest timer: ${display}`}
-          >
-            {display}
-          </Text>
+        <Pressable
+          onPress={handleExpand}
+          accessibilityRole="button"
+          accessibilityLabel={t("restTimerBar.expand")}
+          style={styles.timerSection}
+        >
+          <View style={styles.countdownRow}>
+            <Text
+              style={[styles.countdown, { color: textColor }]}
+              accessibilityRole="timer"
+              accessibilityLabel={`Rest timer: ${display}`}
+            >
+              {display}
+            </Text>
+            <IconSymbol name="chevron.up" size={16} color={textMuted} />
+          </View>
           <View
             style={[styles.progressTrack, { backgroundColor: borderSubtle }]}
             accessibilityRole="progressbar"
@@ -127,7 +140,7 @@ export function RestTimerBar() {
               ]}
             />
           </View>
-        </View>
+        </Pressable>
 
         <Pressable
           onPress={() => adjustRestTimer(15)}
@@ -151,6 +164,8 @@ export function RestTimerBar() {
           </Text>
         </Pressable>
       </View>
+
+      {expanded && <RestTimerSheet onClose={handleCollapse} />}
     </View>
   );
 }
@@ -176,6 +191,11 @@ const styles = StyleSheet.create({
   },
   timerSection: {
     flex: 1,
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  countdownRow: {
+    flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
   },
