@@ -23,6 +23,7 @@ const MAPPING = {
   "chevron.left": "chevron-left",
   "chevron.right": "chevron-right",
   "chevron.down": "keyboard-arrow-down",
+  "chevron.up": "keyboard-arrow-up",
   calendar: "calendar-today",
   "person.fill": "person",
   "chart.bar.fill": "bar-chart",

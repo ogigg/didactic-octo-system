@@ -2,8 +2,13 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
-import { render, screen } from "@testing-library/react-native";
+jest.mock("@/lib/rest-timer-sound", () => ({
+  playRestTimerCompleteSound: jest.fn(),
+}));
+
+import { render, screen, waitFor } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
+import { playRestTimerCompleteSound } from "@/lib/rest-timer-sound";
 import { getRestTimerProgress, RestTimerBar } from "../rest-timer-bar";
 import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
 
@@ -110,6 +115,18 @@ describe("RestTimerBar", () => {
 
   afterEach(() => {
     dateNowSpy.mockRestore();
+    jest.mocked(playRestTimerCompleteSound).mockClear();
+  });
+
+  it("plays the completion sound when rest ends", async () => {
+    dateNowSpy.mockReturnValue(startedAtMs + 120_000);
+
+    render(<RestTimerBar />);
+
+    await waitFor(() => {
+      expect(playRestTimerCompleteSound).toHaveBeenCalledTimes(1);
+    });
+    expect(useWorkoutStore.getState().restTimer).toBeNull();
   });
 
   it("renders the countdown progress as remaining rest time", () => {

@@ -152,4 +152,29 @@ describe("workout store exercise replacement", () => {
     expect(state.exercises.map((exercise) => exercise.id)).toEqual(["squat"]);
     expect(state.restTimer).toBeNull();
   });
+
+  it("adjusts remaining rest time without changing planned rest duration", () => {
+    const startedAtMs = new Date("2026-06-03T10:00:00.000Z").getTime();
+    const dateNowSpy = jest.spyOn(Date, "now");
+
+    try {
+      dateNowSpy.mockReturnValue(startedAtMs);
+      useWorkoutStore
+        .getState()
+        .startWorkout("Push day", [baseExercise], undefined);
+      useWorkoutStore.getState().startRestTimer("bench-press");
+
+      dateNowSpy.mockReturnValue(startedAtMs + 10_000);
+      useWorkoutStore.getState().adjustRestTimer(-15);
+
+      const restTimer = useWorkoutStore.getState().restTimer;
+      expect(restTimer).toMatchObject({
+        exerciseId: "bench-press",
+        durationSeconds: 120,
+        startedAtMs: startedAtMs - 15_000,
+      });
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
 });

@@ -383,13 +383,26 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         adjustRestTimer: (deltaSeconds) =>
           set((state) => {
             if (!state.restTimer) return state;
+            const now = Date.now();
+            const durationSeconds = Math.max(
+              1,
+              state.restTimer.durationSeconds
+            );
+            const elapsedSeconds = (now - state.restTimer.startedAtMs) / 1000;
+            const remainingSeconds = Math.min(
+              durationSeconds,
+              Math.max(0, durationSeconds - elapsedSeconds)
+            );
+            const nextRemainingSeconds = Math.min(
+              durationSeconds,
+              Math.max(0, remainingSeconds + deltaSeconds)
+            );
+            const nextElapsedSeconds = durationSeconds - nextRemainingSeconds;
+
             return {
               restTimer: {
                 ...state.restTimer,
-                durationSeconds: Math.max(
-                  15,
-                  state.restTimer.durationSeconds + deltaSeconds
-                ),
+                startedAtMs: now - nextElapsedSeconds * 1000,
               },
             };
           }),

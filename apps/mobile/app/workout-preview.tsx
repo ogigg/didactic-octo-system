@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,38 +15,38 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-import { ScreenHeader } from "@/components/ui/screen-header";
-import { Button } from "@/components/ui/button";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { AmbientGlow } from "@/components/ambient-glow";
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
-import { ExerciseImage } from "@/components/exercise/exercise-image";
+import { Button } from "@/components/ui/button";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { ProgressionPill } from "@/components/workout/progression-pill";
 import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
-import { AmbientGlow } from "@/components/ambient-glow";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
+import {
+  useRemoveExercisePreference,
+  useSetExercisePreference,
+} from "@/hooks/use-exercise-preference-mutations";
+import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
-import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
-import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
-import {
-  useSetExercisePreference,
-  useRemoveExercisePreference,
-} from "@/hooks/use-exercise-preference-mutations";
-import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
-import type { WorkoutExerciseReasoning } from "@/stores/workout-store";
 import {
   useEditPendingWorkout,
   useRegenerateWorkout,
   useStartPendingWorkout,
   useWorkoutQueueData,
 } from "@/hooks/use-workout-queue";
-import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
-import { trackEvent } from "@/lib/track-event";
+import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
+import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
+import { trackEvent } from "@/lib/track-event";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
+import type { WorkoutExerciseReasoning } from "@/stores/workout-store";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -376,6 +376,7 @@ export default function WorkoutPreviewScreen() {
   );
   const regenerable = regenerationEligibility.canRegenerate && !isRegenerating;
   const canEdit = isEditing && !isRegenerating;
+  const showFooter = isNextUp || regenerable || isRegenerating;
 
   return (
     <KeyboardAvoidingView
@@ -494,7 +495,13 @@ export default function WorkoutPreviewScreen() {
                 </Text>
               </View>
             ) : (
-              <Text style={[Typography.caption, { color: textMuted }]}>
+              <Text
+                style={[
+                  Typography.caption,
+                  styles.regenerationStatusText,
+                  { color: textMuted },
+                ]}
+              >
                 {regenerationEligibility.canRegenerate
                   ? t("actions.regenerationAvailable")
                   : t("actions.regenerationUnavailableToday")}
@@ -600,47 +607,37 @@ export default function WorkoutPreviewScreen() {
           />
 
           {/* Footer actions */}
-          <View style={[styles.footer, { backgroundColor: background }]}>
-            {isNextUp && (
-              <Button
-                label={t("actions.startWorkout")}
-                onPress={handleStart}
-                disabled={isRegenerating}
-                accessibilityLabel={t("actions.startWorkout")}
-              />
-            )}
-            {!isNextUp && <View style={styles.footerSpacer} />}
-            {isRegenerating ? (
-              <View
-                style={[
-                  styles.regenerateDisabled,
-                  { backgroundColor: primaryContainer },
-                ]}
-              >
-                <Text style={[Typography.titleSm, { color: primary }]}>
-                  {t("actions.regenerating")}
-                </Text>
-              </View>
-            ) : regenerable ? (
-              <Button
-                label={t("actions.regenerate")}
-                onPress={handleRegenerate}
-                variant="secondary"
-                accessibilityLabel={t("actions.regenerate")}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.regenerateDisabled,
-                  { backgroundColor: primaryContainer },
-                ]}
-              >
-                <Text style={[Typography.caption, { color: textMuted }]}>
-                  {t("actions.regenerationUnavailableToday")}
-                </Text>
-              </View>
-            )}
-          </View>
+          {showFooter ? (
+            <View style={[styles.footer, { backgroundColor: background }]}>
+              {isNextUp && (
+                <Button
+                  label={t("actions.startWorkout")}
+                  onPress={handleStart}
+                  disabled={isRegenerating}
+                  accessibilityLabel={t("actions.startWorkout")}
+                />
+              )}
+              {isRegenerating ? (
+                <View
+                  style={[
+                    styles.regenerateDisabled,
+                    { backgroundColor: primaryContainer },
+                  ]}
+                >
+                  <Text style={[Typography.titleSm, { color: primary }]}>
+                    {t("actions.regenerating")}
+                  </Text>
+                </View>
+              ) : regenerable ? (
+                <Button
+                  label={t("actions.regenerate")}
+                  onPress={handleRegenerate}
+                  variant="secondary"
+                  accessibilityLabel={t("actions.regenerate")}
+                />
+              ) : null}
+            </View>
+          ) : null}
         </SafeAreaView>
       </SafeAreaProvider>
     </KeyboardAvoidingView>
@@ -895,6 +892,7 @@ function ReadSetsTable({
               },
               styles.colType,
             ]}
+            numberOfLines={1}
           >
             {set.set_type === "warmup"
               ? t("exerciseList.warmup")
@@ -1112,7 +1110,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
-    paddingBottom: Spacing["3xl"],
+    paddingBottom: Spacing.xl,
   },
   emptyContainer: {
     flex: 1,
@@ -1145,6 +1143,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
+  },
+  regenerationStatusText: {
+    marginBottom: Spacing.md,
+    lineHeight: 17,
   },
   planReasoning: {
     marginBottom: Spacing.lg,
@@ -1188,10 +1190,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    gap: Spacing.md,
     marginBottom: Spacing.md,
   },
   exerciseHeaderLeft: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   exerciseNameRow: {
@@ -1204,6 +1208,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   swapButton: {
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
@@ -1233,7 +1238,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   colType: {
-    width: 52,
+    width: 76,
     textAlign: "center",
   },
   colData: {
@@ -1265,12 +1270,9 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
     gap: Spacing.md,
-  },
-  footerSpacer: {
-    height: 0,
   },
   regenerateDisabled: {
     borderRadius: Radii.lg,
@@ -1278,6 +1280,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bottomPadding: {
-    height: Spacing["2xl"],
+    height: Spacing.xl,
   },
 });
