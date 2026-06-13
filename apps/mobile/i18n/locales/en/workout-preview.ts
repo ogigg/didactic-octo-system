@@ -36,6 +36,11 @@ export const workoutPreview = {
     kg: "{{unit}}",
     reps: "reps",
   },
+  setHeader: {
+    set: "SET",
+    type: "TYPE",
+    reps: "REPS",
+  },
   actions: {
     startWorkout: "Start Workout",
     regenerate: "Regenerate",

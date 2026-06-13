@@ -36,6 +36,11 @@ export const workoutPreview = {
     kg: "{{unit}}",
     reps: "powt.",
   },
+  setHeader: {
+    set: "SERIA",
+    type: "TYP",
+    reps: "POWT.",
+  },
   actions: {
     startWorkout: "Zacznij trening",
     regenerate: "Wygeneruj ponownie",

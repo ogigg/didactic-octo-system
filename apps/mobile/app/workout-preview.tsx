@@ -394,6 +394,7 @@ export default function WorkoutPreviewScreen() {
             rightElement={
               <Pressable
                 onPress={handleToggleEdit}
+                style={styles.editHeaderButton}
                 disabled={isRegenerating}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
@@ -494,19 +495,7 @@ export default function WorkoutPreviewScreen() {
                   {t("status.regeneratingMessage")}
                 </Text>
               </View>
-            ) : (
-              <Text
-                style={[
-                  Typography.caption,
-                  styles.regenerationStatusText,
-                  { color: textMuted },
-                ]}
-              >
-                {regenerationEligibility.canRegenerate
-                  ? t("actions.regenerationAvailable")
-                  : t("actions.regenerationUnavailableToday")}
-              </Text>
-            )}
+            ) : null}
 
             {warmup ? (
               <View
@@ -854,16 +843,16 @@ function ReadSetsTable({
       {/* Column headers */}
       <View style={[styles.setColumnHeaders, { borderBottomColor: border }]}>
         <Text style={[Typography.label, { color: textMuted }, styles.colSet]}>
-          SET
+          {t("setHeader.set")}
         </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colType]}>
-          TYPE
+          {t("setHeader.type")}
         </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
           {unitLabel.toUpperCase()}
         </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
-          REPS
+          {t("setHeader.reps")}
         </Text>
       </View>
       {/* Rows */}
@@ -963,7 +952,7 @@ function EditSetsTable({
       {/* Column headers */}
       <View style={[styles.setColumnHeaders, { borderBottomColor: border }]}>
         <Text style={[Typography.label, { color: textMuted }, styles.colSet]}>
-          SET
+          {t("setHeader.set")}
         </Text>
         <Text
           style={[Typography.label, { color: textMuted }, styles.colType]}
@@ -1133,6 +1122,12 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: Radii.full,
   },
+  editHeaderButton: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingLeft: Spacing.sm,
+    paddingRight: Spacing.xl,
+  },
   exerciseList: {
     gap: Spacing.md,
   },
@@ -1143,10 +1138,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
-  },
-  regenerationStatusText: {
-    marginBottom: Spacing.md,
-    lineHeight: 17,
   },
   planReasoning: {
     marginBottom: Spacing.lg,
