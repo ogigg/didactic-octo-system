@@ -3,6 +3,7 @@ import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { ExerciseMenu } from "@/components/workout/exercise-menu";
 import { ProgressionPill } from "@/components/workout/progression-pill";
+import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { SetHeader } from "@/components/workout/set-header";
 import { SetRow, type SetRowHandle } from "@/components/workout/set-row";
 import { Radii, Spacing, Typography } from "@/constants/theme";
@@ -237,6 +238,27 @@ export function ExerciseCard({
         </Text>
       </Pressable>
 
+      <View style={styles.reasoningWrap}>
+        <ReasoningDisclosure
+          title={t("reasoning.exerciseTitle")}
+          showLabel={t("reasoning.show")}
+          hideLabel={t("reasoning.hide")}
+          accessibilityLabel={t("reasoning.exerciseAccessibility", {
+            exerciseName,
+          })}
+          entries={[
+            {
+              label: t("reasoning.muscleGroups"),
+              text: exercise.reasoning?.muscle_groups,
+            },
+            {
+              label: t("reasoning.exerciseSelection"),
+              text: exercise.reasoning?.exercise_selection,
+            },
+          ]}
+        />
+      </View>
+
       {/* Exercise Menu */}
       <ExerciseMenu
         visible={menuVisible}
@@ -302,6 +324,9 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
+  },
+  reasoningWrap: {
+    paddingHorizontal: Spacing.md,
   },
   addSetButton: {
     alignItems: "center",

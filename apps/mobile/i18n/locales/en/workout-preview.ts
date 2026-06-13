@@ -7,6 +7,10 @@ export const workoutPreview = {
     duration: "~{{minutes}} min",
     focus: "Focus",
   },
+  warmup: {
+    title: "Warmup",
+    timer: "{{time}} timer",
+  },
   exerciseList: {
     setsReps: "{{sets}} × {{reps}}",
     setsRepsLoad: "{{sets}} × {{reps}} × {{load}}",
@@ -14,6 +18,17 @@ export const workoutPreview = {
     working: "Working",
     swap: "Swap",
     rest: "{{seconds}}s rest",
+  },
+  reasoning: {
+    planTitle: "Why this plan",
+    exerciseTitle: "Why this exercise",
+    show: "Show",
+    hide: "Hide",
+    muscleGroups: "Muscle groups",
+    trainingStrategy: "Training strategy",
+    exerciseSelection: "Exercise choice",
+    planAccessibility: "Show workout reasoning",
+    exerciseAccessibility: "Show reasoning for {{exerciseName}}",
   },
   edit: {
     toggle: "Edit",

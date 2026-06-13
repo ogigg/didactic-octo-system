@@ -1,5 +1,5 @@
-import { supabase } from "@/lib/supabase";
 import { exerciseImageSchema } from "@/lib/exercise-media";
+import { supabase } from "@/lib/supabase";
 import { z } from "zod";
 
 export type TrainingSplit = "full_body" | "upper_lower" | "push_pull_legs";
@@ -29,6 +29,23 @@ const generatedSetSchema = z.object({
   target_duration_seconds: z.number().optional(),
 });
 
+export const workoutReasoningSchema = z
+  .object({
+    muscle_groups: z.string(),
+    training_strategy: z.string(),
+  })
+  .nullable();
+
+export const exerciseReasoningSchema = z
+  .object({
+    muscle_groups: z.string(),
+    exercise_selection: z.string(),
+  })
+  .nullable();
+const generatedWarmupSchema = z.object({
+  duration_seconds: z.number().int().positive(),
+});
+
 export const progressionTypeSchema = z.enum([
   "weight_up",
   "reps_up",
@@ -45,6 +62,7 @@ const generatedExerciseSchema = z.object({
   image: exerciseImageSchema.default(null).optional(),
   rest_duration_seconds: z.number(),
   notes: z.string().nullable(),
+  reasoning: exerciseReasoningSchema.default(null).optional(),
   sets: z.array(generatedSetSchema),
   progression_type: progressionTypeSchema.nullable().optional(),
   previous_display: z.string().nullable().optional(),
@@ -52,6 +70,8 @@ const generatedExerciseSchema = z.object({
 
 export const generateWorkoutResponseSchema = z.object({
   workout_name: z.string(),
+  reasoning: workoutReasoningSchema.default(null).optional(),
+  warmup: generatedWarmupSchema.nullable().default(null),
   generation_source: z.enum([
     "llm",
     "fallback_template",

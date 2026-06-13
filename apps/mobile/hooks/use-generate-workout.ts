@@ -1,24 +1,28 @@
-import { useMutation } from "@tanstack/react-query";
 import { useProfile } from "@/hooks/use-profile-query";
-import { useRouter } from "expo-router";
 import {
   generateWorkout,
   GenerateWorkoutRequest,
   GenerateWorkoutResponse,
 } from "@/lib/api/generate-workout";
-import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import {
-  updateTrainingPreferences,
   TrainingPreferences,
+  updateTrainingPreferences,
 } from "@/lib/api/profiles";
-import { useWorkoutStore } from "@/stores/workout-store";
-import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
-import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
+import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import { trackEvent } from "@/lib/track-event";
+import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import {
   convertPreviousDisplay,
   type PreviousSetValue,
 } from "@/lib/workout-previous-sets";
+import type {
+  GenerationMeta,
+  WorkoutExercise,
+  WorkoutSet,
+} from "@/stores/workout-store";
+import { useWorkoutStore } from "@/stores/workout-store";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 
 export interface StartTrainingRequest {
   preferences: TrainingPreferences;
@@ -44,6 +48,7 @@ function mapResponseToWorkoutExercises(
       image: ex.image ?? null,
       restDurationSeconds: ex.rest_duration_seconds,
       notes: ex.notes ?? "",
+      reasoning: ex.reasoning ?? null,
       difficultyFeedback: null,
       exerciseType: ex.exercise_type ?? "weight",
       sets: ex.sets.map((set, i): WorkoutSet => {
@@ -112,7 +117,21 @@ export function useGenerateWorkout() {
         weightUnit,
         previousSetDisplays
       );
-      startWorkout(data.workout_name, exercises);
+      const generationMeta: GenerationMeta = {
+        generationSource: data.generation_source,
+        goalSnapshot: data.goal_snapshot,
+        customGoalSnapshot: data.custom_goal_snapshot,
+        reasoning: data.reasoning ?? null,
+      };
+
+      const warmup = data.warmup
+        ? {
+            durationSeconds: data.warmup.duration_seconds,
+            isCompleted: false,
+          }
+        : null;
+
+      startWorkout(data.workout_name, exercises, generationMeta, warmup);
       router.push("/workout");
     },
   });

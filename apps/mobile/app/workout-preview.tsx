@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,35 +15,38 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-import { ScreenHeader } from "@/components/ui/screen-header";
-import { Button } from "@/components/ui/button";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { AmbientGlow } from "@/components/ambient-glow";
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
-import { ExerciseImage } from "@/components/exercise/exercise-image";
+import { Button } from "@/components/ui/button";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { ProgressionPill } from "@/components/workout/progression-pill";
-import { AmbientGlow } from "@/components/ambient-glow";
+import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
+import {
+  useRemoveExercisePreference,
+  useSetExercisePreference,
+} from "@/hooks/use-exercise-preference-mutations";
+import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
+import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
-import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
-import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
-import {
-  useSetExercisePreference,
-  useRemoveExercisePreference,
-} from "@/hooks/use-exercise-preference-mutations";
-import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
 import {
   useEditPendingWorkout,
   useRegenerateWorkout,
   useStartPendingWorkout,
   useWorkoutQueueData,
 } from "@/hooks/use-workout-queue";
+import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
+import type { ExerciseImageData } from "@/lib/exercise-media";
+import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { trackEvent } from "@/lib/track-event";
-import type { ExerciseImageData } from "@/lib/exercise-media";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
+import type { WorkoutExerciseReasoning } from "@/stores/workout-store";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -56,6 +59,7 @@ interface LocalExercise {
   image?: ExerciseImageData;
   rest_duration_seconds: number;
   notes: string | null;
+  reasoning?: WorkoutExerciseReasoning | null;
   sets: LocalSet[];
   progression_type?:
     | "weight_up"
@@ -73,15 +77,23 @@ interface LocalSet {
   target_duration_seconds?: number | null;
 }
 
+interface LocalWarmup {
+  duration_seconds: number;
+}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-function estimateMinutes(exercises: LocalExercise[]): number {
+function estimateMinutes(
+  exercises: LocalExercise[],
+  warmup: LocalWarmup | null
+): number {
   const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
   const avgRest =
     exercises.length > 0 ? exercises[0].rest_duration_seconds : 90;
-  return Math.round((totalSets * 45 + (totalSets - 1) * avgRest) / 60);
+  const exerciseSeconds = totalSets * 45 + (totalSets - 1) * avgRest;
+  return Math.round((exerciseSeconds + (warmup?.duration_seconds ?? 0)) / 60);
 }
 
 // -----------------------------------------------------------------------------
@@ -92,9 +104,6 @@ export default function WorkoutPreviewScreen() {
   const { t } = useTranslation("workoutPreview");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-
-  // Units
-  const wu = useWeightUnit();
 
   // Theme
   const background = useThemeColor({}, "background");
@@ -172,6 +181,7 @@ export default function WorkoutPreviewScreen() {
           image: ex.image ?? null,
           rest_duration_seconds: ex.rest_duration_seconds,
           notes: ex.notes,
+          reasoning: ex.reasoning ?? null,
           progression_type: ex.progression_type ?? null,
           previous_display: ex.previous_display ?? null,
           sets: ex.sets.map((s) => ({
@@ -232,6 +242,7 @@ export default function WorkoutPreviewScreen() {
                   exercise_name: swapResult.name,
                   exercise_type: swapResult.exerciseType ?? ex.exercise_type,
                   image: swapResult.image ?? null,
+                  reasoning: null,
                 }
               : ex
           )
@@ -358,7 +369,8 @@ export default function WorkoutPreviewScreen() {
     );
   }
 
-  const estimatedMinutes = estimateMinutes(localExercises);
+  const warmup = workout.workout_data.warmup;
+  const estimatedMinutes = estimateMinutes(localExercises, warmup);
   const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
     workout.last_regenerated_at
   );
@@ -442,6 +454,24 @@ export default function WorkoutPreviewScreen() {
               </View>
             </View>
 
+            <ReasoningDisclosure
+              title={t("reasoning.planTitle")}
+              showLabel={t("reasoning.show")}
+              hideLabel={t("reasoning.hide")}
+              accessibilityLabel={t("reasoning.planAccessibility")}
+              style={styles.planReasoning}
+              entries={[
+                {
+                  label: t("reasoning.muscleGroups"),
+                  text: workout.workout_data.reasoning?.muscle_groups,
+                },
+                {
+                  label: t("reasoning.trainingStrategy"),
+                  text: workout.workout_data.reasoning?.training_strategy,
+                },
+              ]}
+            />
+
             {isRegenerating ? (
               <View
                 style={[
@@ -477,6 +507,37 @@ export default function WorkoutPreviewScreen() {
                   : t("actions.regenerationUnavailableToday")}
               </Text>
             )}
+
+            {warmup ? (
+              <View
+                style={[
+                  styles.warmupCard,
+                  {
+                    backgroundColor: primaryContainer,
+                    borderColor: border,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.warmupIcon,
+                    { backgroundColor: primarySurface },
+                  ]}
+                >
+                  <IconSymbol name="timer" size={18} color={primary} />
+                </View>
+                <View style={styles.warmupText}>
+                  <Text style={[Typography.titleSm, { color: text }]}>
+                    {t("warmup.title")}
+                  </Text>
+                  <Text style={[Typography.caption, { color: textSecondary }]}>
+                    {t("warmup.timer", {
+                      time: formatExerciseDuration(warmup.duration_seconds),
+                    })}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
             {/* Exercise list */}
             <View style={styles.exerciseList}>
@@ -741,6 +802,25 @@ function ExerciseCard({
           </Text>
         </View>
       ) : null}
+
+      <ReasoningDisclosure
+        title={t("reasoning.exerciseTitle")}
+        showLabel={t("reasoning.show")}
+        hideLabel={t("reasoning.hide")}
+        accessibilityLabel={t("reasoning.exerciseAccessibility", {
+          exerciseName: displayName,
+        })}
+        entries={[
+          {
+            label: t("reasoning.muscleGroups"),
+            text: exercise.reasoning?.muscle_groups,
+          },
+          {
+            label: t("reasoning.exerciseSelection"),
+            text: exercise.reasoning?.exercise_selection,
+          },
+        ]}
+      />
     </View>
   );
 }
@@ -1061,11 +1141,15 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
     padding: Spacing.lg,
     gap: Spacing.sm,
+    marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
   },
   regenerationStatusText: {
     marginBottom: Spacing.md,
     lineHeight: 17,
+  },
+  planReasoning: {
+    marginBottom: Spacing.lg,
   },
   statusCardHeader: {
     flexDirection: "row",
@@ -1076,6 +1160,26 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: Radii.full,
+  },
+  warmupCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: Radii.md,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  warmupIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  warmupText: {
+    flex: 1,
+    gap: 2,
   },
   exerciseCard: {
     borderRadius: Radii.md,

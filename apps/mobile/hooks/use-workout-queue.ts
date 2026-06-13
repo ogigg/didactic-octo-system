@@ -41,6 +41,7 @@ import {
   useWorkoutStore,
   type GenerationMeta,
   type WorkoutExercise,
+  type WorkoutExerciseReasoning,
   type WorkoutSet,
 } from "@/stores/workout-store";
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
@@ -544,6 +545,7 @@ export function useStartPendingWorkout() {
         image?: ExerciseImageData;
         rest_duration_seconds: number;
         notes: string | null;
+        reasoning?: WorkoutExerciseReasoning | null;
         progression_type?:
           | "weight_up"
           | "reps_up"
@@ -610,6 +612,7 @@ export function useStartPendingWorkout() {
             exerciseType: (ex.exercise_type as "weight" | "time") ?? "weight",
             restDurationSeconds: ex.rest_duration_seconds,
             notes: ex.notes ?? "",
+            reasoning: ex.reasoning ?? null,
             difficultyFeedback: null,
             progressionType: ex.progression_type ?? null,
             sets: applyPreviousSetDisplays(
@@ -625,10 +628,21 @@ export function useStartPendingWorkout() {
         generationSource: workoutData.generation_source,
         goalSnapshot: workoutData.goal_snapshot,
         customGoalSnapshot: workoutData.custom_goal_snapshot,
+        reasoning: workoutData.reasoning ?? null,
       };
 
       await deletePendingWorkout(input.pendingWorkout.id);
-      startWorkout(workoutData.workout_name, exercises, generationMeta);
+      startWorkout(
+        workoutData.workout_name,
+        exercises,
+        generationMeta,
+        workoutData.warmup
+          ? {
+              durationSeconds: workoutData.warmup.duration_seconds,
+              isCompleted: false,
+            }
+          : null
+      );
 
       return input;
     },

@@ -1,19 +1,22 @@
-import { WorkoutTopBar } from "@/components/workout/workout-top-bar";
-import { WorkoutTimer } from "@/components/workout/workout-timer";
 import { ExerciseCard } from "@/components/workout/exercise-card";
+import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { RestTimerBar } from "@/components/workout/rest-timer-bar";
-import { useWorkoutStore } from "@/stores/workout-store";
-import { useThemeColor } from "@/hooks/use-theme-color";
-import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
-import { useWatchBridge } from "@/hooks/use-watch-bridge";
+import { WarmupCard } from "@/components/workout/warmup-card";
+import { WorkoutTimer } from "@/components/workout/workout-timer";
+import { WorkoutTopBar } from "@/components/workout/workout-top-bar";
+import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { useWatchBridge } from "@/hooks/use-watch-bridge";
+import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import {
   countLoggedWorkoutSets,
   hasLoggedWorkoutData,
 } from "@/lib/workout-session-state";
-import { Radii, Spacing, Typography } from "@/constants/theme";
+import { useWorkoutStore } from "@/stores/workout-store";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Animated,
@@ -26,9 +29,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useTranslation } from "react-i18next";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function WorkoutScreen() {
   const { t } = useTranslation("workout");
@@ -40,7 +42,9 @@ export default function WorkoutScreen() {
   useWatchBridge();
 
   const exercises = useWorkoutStore((s) => s.exercises);
+  const warmup = useWorkoutStore((s) => s.warmup);
   const workoutName = useWorkoutStore((s) => s.workoutName);
+  const generationMeta = useWorkoutStore((s) => s.generationMeta);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
   const updateWorkoutName = useWorkoutStore((s) => s.updateWorkoutName);
@@ -65,7 +69,9 @@ export default function WorkoutScreen() {
     }
     return { completedSets: completed, totalSets: total };
   }, [exercises]);
-  const progressRatio = totalSets > 0 ? completedSets / totalSets : 0;
+  const completedSteps = completedSets + (warmup?.isCompleted ? 1 : 0);
+  const totalSteps = totalSets + (warmup ? 1 : 0);
+  const progressRatio = totalSteps > 0 ? completedSteps / totalSteps : 0;
   const animatedProgress = useRef(new Animated.Value(progressRatio)).current;
 
   useEffect(() => {
@@ -80,6 +86,8 @@ export default function WorkoutScreen() {
   // Scroll to first exercise with incomplete sets on mount
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (warmup && !warmup.isCompleted) return;
+
       const firstIncomplete = exercises.find((ex) =>
         ex.sets.some((s) => !s.isCompleted)
       );
@@ -134,7 +142,7 @@ export default function WorkoutScreen() {
       router.push("/workout-summary");
     };
 
-    if (!hasLoggedWorkoutData(exercises)) {
+    if (!hasLoggedWorkoutData(exercises, warmup)) {
       Alert.alert(t("finish.emptyTitle"), t("finish.emptyMessage"), [
         { text: t("finish.cancel"), style: "cancel" },
         {
@@ -151,13 +159,13 @@ export default function WorkoutScreen() {
       return;
     }
 
-    const incompleteSets = totalSets - completedSets;
-    if (incompleteSets > 0) {
+    const incompleteSteps = totalSteps - completedSteps;
+    if (incompleteSteps > 0) {
       Alert.alert(
         t("finish.confirmTitle"),
-        incompleteSets === 1
-          ? t("finish.confirmMessage", { count: incompleteSets })
-          : t("finish.confirmMessage_plural", { count: incompleteSets }),
+        incompleteSteps === 1
+          ? t("finish.confirmMessage", { count: incompleteSteps })
+          : t("finish.confirmMessage_plural", { count: incompleteSteps }),
         [
           { text: t("finish.cancel"), style: "cancel" },
           {
@@ -189,8 +197,9 @@ export default function WorkoutScreen() {
     }
   }, [
     exercises,
-    totalSets,
-    completedSets,
+    totalSteps,
+    completedSteps,
+    warmup,
     clearWorkout,
     finishWorkout,
     router,
@@ -204,8 +213,9 @@ export default function WorkoutScreen() {
           <SafeAreaView style={styles.safe}>
             <WorkoutTopBar
               workoutName={workoutName}
-              completedSets={completedSets}
-              totalSets={totalSets}
+              completedSteps={completedSteps}
+              totalSteps={totalSteps}
+              hasWarmup={warmup !== null}
               onDismiss={handleDismiss}
               onFinish={handleFinish}
               onWorkoutNameChange={updateWorkoutName}
@@ -219,8 +229,8 @@ export default function WorkoutScreen() {
                 accessibilityRole="progressbar"
                 accessibilityValue={{
                   min: 0,
-                  max: totalSets,
-                  now: completedSets,
+                  max: totalSteps,
+                  now: completedSteps,
                 }}
               >
                 <Animated.View
@@ -245,7 +255,7 @@ export default function WorkoutScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                {exercises.length === 0 ? (
+                {exercises.length === 0 && !warmup ? (
                   <View style={styles.emptyState}>
                     <Text style={[Typography.titleMd, { color: textColor }]}>
                       {t("emptyState.title")}
@@ -280,6 +290,23 @@ export default function WorkoutScreen() {
                   </View>
                 ) : (
                   <>
+                    <ReasoningDisclosure
+                      title={t("reasoning.planTitle")}
+                      showLabel={t("reasoning.show")}
+                      hideLabel={t("reasoning.hide")}
+                      accessibilityLabel={t("reasoning.planAccessibility")}
+                      entries={[
+                        {
+                          label: t("reasoning.muscleGroups"),
+                          text: generationMeta?.reasoning?.muscle_groups,
+                        },
+                        {
+                          label: t("reasoning.trainingStrategy"),
+                          text: generationMeta?.reasoning?.training_strategy,
+                        },
+                      ]}
+                    />
+                    <WarmupCard />
                     {exercises.map((exercise) => (
                       <View
                         key={exercise.id}

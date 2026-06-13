@@ -54,6 +54,20 @@ const progressionTypeSchema = z.enum([
   "new_exercise",
 ]);
 
+const workoutReasoningSchema = z
+  .object({
+    muscle_groups: z.string(),
+    training_strategy: z.string(),
+  })
+  .nullable();
+
+const exerciseReasoningSchema = z
+  .object({
+    muscle_groups: z.string(),
+    exercise_selection: z.string(),
+  })
+  .nullable();
+
 const generatedExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
@@ -61,12 +75,14 @@ const generatedExerciseSchema = z.object({
   sets: z.array(generatedSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
+  reasoning: exerciseReasoningSchema.default(null).optional(),
   progression_type: progressionTypeSchema.nullable().optional(),
   previous_display: z.string().nullable().optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
   workout_name: z.string(),
+  reasoning: workoutReasoningSchema.default(null).optional(),
   generation_source: z.enum([
     "llm",
     "fallback_template",
@@ -143,6 +159,7 @@ export function mapGeneratedToWorkoutExercises(
     exerciseType: "weight" as const,
     restDurationSeconds: ex.rest_duration_seconds,
     notes: ex.notes ?? "",
+    reasoning: ex.reasoning ?? null,
     difficultyFeedback: null,
     progressionType: ex.progression_type ?? null,
     sets: ex.sets.map(

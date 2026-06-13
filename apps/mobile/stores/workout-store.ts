@@ -1,3 +1,4 @@
+import type { ExerciseImageData } from "@/lib/exercise-media";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import {
@@ -5,7 +6,6 @@ import {
   persist,
   subscribeWithSelector,
 } from "zustand/middleware";
-import type { ExerciseImageData } from "@/lib/exercise-media";
 
 export interface WorkoutSet {
   id: string;
@@ -18,6 +18,20 @@ export interface WorkoutSet {
   previousDisplay: string | null;
 }
 
+export interface WorkoutExerciseReasoning {
+  muscle_groups: string;
+  exercise_selection: string;
+}
+
+export interface WorkoutReasoning {
+  muscle_groups: string;
+  training_strategy: string;
+}
+export interface WorkoutWarmup {
+  durationSeconds: number;
+  isCompleted: boolean;
+}
+
 export interface WorkoutExercise {
   id: string;
   name: string;
@@ -25,6 +39,7 @@ export interface WorkoutExercise {
   exerciseType: "weight" | "time";
   restDurationSeconds: number;
   notes: string;
+  reasoning?: WorkoutExerciseReasoning | null;
   difficultyFeedback: "too_easy" | "ok" | "too_hard" | null;
   sets: WorkoutSet[];
   progressionType?:
@@ -45,11 +60,13 @@ export interface GenerationMeta {
   generationSource: "llm" | "fallback_template" | "fallback_substitution";
   goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
   customGoalSnapshot: string | null;
+  reasoning?: WorkoutReasoning | null;
 }
 
 interface WorkoutState {
   isActive: boolean;
   workoutName: string;
+  warmup: WorkoutWarmup | null;
   exercises: WorkoutExercise[];
   startedAtMs: number | null;
   restTimer: RestTimerState | null;
@@ -59,6 +76,7 @@ interface WorkoutState {
 
 export interface WorkoutSummary {
   workoutName: string;
+  warmup: WorkoutWarmup | null;
   durationMs: number;
   exercises: WorkoutExercise[];
   finishedAtMs: number;
@@ -68,7 +86,8 @@ interface WorkoutActions {
   startWorkout: (
     name: string,
     exercises: WorkoutExercise[],
-    generationMeta?: GenerationMeta
+    generationMeta?: GenerationMeta,
+    warmup?: WorkoutWarmup | null
   ) => void;
   finishWorkout: () => void;
   clearWorkout: () => void;
@@ -85,6 +104,7 @@ interface WorkoutActions {
     durationSeconds: number | null
   ) => void;
   updateSetRpe: (exerciseId: string, setId: string, rpe: number | null) => void;
+  toggleWarmupComplete: () => void;
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateNotes: (exerciseId: string, notes: string) => void;
@@ -110,6 +130,7 @@ interface WorkoutActions {
     image?: ExerciseImageData;
     exerciseType?: "weight" | "time";
     previousDisplays?: string[];
+    reasoning?: WorkoutExerciseReasoning | null;
   }) => void;
   addExerciseAfter: (
     afterExerciseId: string,
@@ -119,6 +140,7 @@ interface WorkoutActions {
       image?: ExerciseImageData;
       exerciseType?: "weight" | "time";
       previousDisplays?: string[];
+      reasoning?: WorkoutExerciseReasoning | null;
     }
   ) => void;
   removeExercise: (exerciseId: string) => void;
@@ -128,6 +150,7 @@ interface WorkoutActions {
 const initialState: WorkoutState = {
   isActive: false,
   workoutName: "",
+  warmup: null,
   exercises: [],
   startedAtMs: null,
   restTimer: null,
@@ -183,6 +206,7 @@ function makeExercise(exercise: {
   image?: ExerciseImageData;
   exerciseType?: "weight" | "time";
   previousDisplays?: string[];
+  reasoning?: WorkoutExerciseReasoning | null;
 }): WorkoutExercise {
   return {
     id: exercise.id,
@@ -191,6 +215,7 @@ function makeExercise(exercise: {
     exerciseType: exercise.exerciseType ?? "weight",
     restDurationSeconds: 90,
     notes: "",
+    reasoning: exercise.reasoning ?? null,
     difficultyFeedback: null,
     sets: Array.from({ length: 3 }, (_, index) =>
       makeEmptySet(exercise.previousDisplays?.[index] ?? null)
@@ -204,10 +229,11 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
       (set, get) => ({
         ...initialState,
 
-        startWorkout: (name, exercises, generationMeta) =>
+        startWorkout: (name, exercises, generationMeta, warmup = null) =>
           set({
             isActive: true,
             workoutName: name,
+            warmup,
             exercises,
             startedAtMs: Date.now(),
             restTimer: null,
@@ -216,13 +242,14 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           }),
 
         finishWorkout: () => {
-          const { workoutName, exercises, startedAtMs } = get();
+          const { workoutName, warmup, exercises, startedAtMs } = get();
           const now = Date.now();
           set({
             isActive: false,
             restTimer: null,
             completedWorkoutSummary: {
               workoutName,
+              warmup,
               durationMs: startedAtMs ? now - startedAtMs : 0,
               exercises,
               finishedAtMs: now,
@@ -270,6 +297,16 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
               sets.map((s) => (s.id === setId ? { ...s, rpe } : s))
             ),
+          })),
+
+        toggleWarmupComplete: () =>
+          set((state) => ({
+            warmup: state.warmup
+              ? {
+                  ...state.warmup,
+                  isCompleted: !state.warmup.isCompleted,
+                }
+              : null,
           })),
 
         addSet: (exerciseId) =>
@@ -322,6 +359,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
                     image: newExercise.image ?? null,
                     exerciseType: newExercise.exerciseType ?? ex.exerciseType,
                     notes: "",
+                    reasoning: null,
                     difficultyFeedback: null,
                     progressionType: "new_exercise",
                     sets: ex.sets.map(clearSetValues),
@@ -416,14 +454,22 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             state?.clearWorkout();
           } else if (state) {
             // Migrate hydrated exercises to ensure new fields exist
+            state.warmup = state.warmup ?? null;
             state.exercises = state.exercises.map((ex) => ({
               ...ex,
               exerciseType: ex.exerciseType ?? "weight",
+              reasoning: ex.reasoning ?? null,
               sets: ex.sets.map((s) => ({
                 ...s,
                 durationSeconds: s.durationSeconds ?? null,
               })),
             }));
+            state.generationMeta = state.generationMeta
+              ? {
+                  ...state.generationMeta,
+                  reasoning: state.generationMeta.reasoning ?? null,
+                }
+              : null;
           }
         },
       }

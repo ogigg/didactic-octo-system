@@ -33,16 +33,33 @@ export const llmSetSchema = z.object({
   target_duration_seconds: z.number().int().min(1).optional(),
 });
 
+export const workoutReasoningSchema = z.object({
+  muscle_groups: z.string().min(1).max(360),
+  training_strategy: z.string().min(1).max(360),
+});
+
+export const exerciseReasoningSchema = z.object({
+  muscle_groups: z.string().min(1).max(280),
+  exercise_selection: z.string().min(1).max(320),
+});
+
 export const llmExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   sets: z.array(llmSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
+  reasoning: exerciseReasoningSchema.nullable().optional(),
 });
 
 export const llmResponseSchema = z.object({
   workout_name: z.string().min(1).max(100),
+  reasoning: workoutReasoningSchema.nullable().optional(),
+  warmup: z.object({ duration_seconds: z.number().int().min(60).max(900) }),
   exercises: z.array(llmExerciseSchema).min(1),
+});
+
+export const generatedWarmupSchema = z.object({
+  duration_seconds: z.number().int().min(60).max(900),
 });
 
 export const generatedSetSchema = z.object({
@@ -84,12 +101,15 @@ export const generatedExerciseSchema = z.object({
   sets: z.array(generatedSetSchema).min(1),
   rest_duration_seconds: z.number().int().min(15).max(300),
   notes: z.string().nullable(),
+  reasoning: exerciseReasoningSchema.nullable().optional().default(null),
   progression_type: progressionTypeSchema.nullable().optional(),
   previous_display: z.string().nullable().optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
   workout_name: z.string(),
+  reasoning: workoutReasoningSchema.nullable().optional().default(null),
+  warmup: generatedWarmupSchema.nullable().default(null),
   generation_source: z.enum([
     "llm",
     "fallback_template",
@@ -304,6 +324,75 @@ function formatQueueContext(context: QueueContextItem[]): string {
   ].join("\n");
 }
 
+function formatFocusLabel(value: string | undefined): string {
+  return (value ?? "full_body")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatMuscleList(muscles: string[] | null | undefined): string {
+  if (!muscles?.length) return "the planned target muscles";
+  return muscles.map((muscle) => muscle.replace(/_/g, " ")).join(", ");
+}
+
+function clampReasoningText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 3).trim()}...`;
+}
+
+function buildDefaultWorkoutReasoning(params: {
+  trainingSplit: string;
+  trainingStyle: string;
+  difficulty: string;
+  focusArea?: string;
+  hasHistory: boolean;
+}): z.infer<typeof workoutReasoningSchema> {
+  const focusLabel = formatFocusLabel(params.focusArea ?? params.trainingSplit);
+  const splitLabel = params.trainingSplit.replace(/_/g, " ");
+
+  return {
+    muscle_groups: clampReasoningText(
+      `This session focuses on ${focusLabel} because it fits the ${splitLabel} split and keeps the weekly plan balanced.`,
+      360
+    ),
+    training_strategy: clampReasoningText(
+      `The plan uses ${params.trainingStyle} targets at a ${params.difficulty} level${params.hasHistory ? " while accounting for recent workout history and progression." : " with conservative starting targets because there is limited recent history."}`,
+      360
+    ),
+  };
+}
+
+function buildDefaultExerciseReasoning(params: {
+  exercise: ExerciseCatalogEntry;
+  trainingStyle: string;
+  focusArea?: string;
+  progressionType?: string | null;
+  previousDisplay?: string | null;
+}): z.infer<typeof exerciseReasoningSchema> {
+  const primary = formatMuscleList(params.exercise.primary_muscles);
+  const secondary = formatMuscleList(params.exercise.secondary_muscles);
+  const hasSecondary = !!params.exercise.secondary_muscles?.length;
+  const focusLabel = formatFocusLabel(params.focusArea);
+  const equipment = params.exercise.equipment.length
+    ? params.exercise.equipment.join(", ")
+    : "bodyweight";
+  const progressionNote =
+    params.progressionType && params.progressionType !== "new_exercise"
+      ? ` The target also reflects the user's previous best of ${params.previousDisplay ?? "recent completed sets"}.`
+      : "";
+
+  return {
+    muscle_groups: clampReasoningText(
+      `${params.exercise.name} targets ${primary}${hasSecondary ? ` with support from ${secondary}` : ""}, which matches the ${focusLabel} emphasis.`,
+      280
+    ),
+    exercise_selection: clampReasoningText(
+      `It fits the available ${equipment} setup and gives a useful ${params.trainingStyle} stimulus without adding unnecessary complexity.${progressionNote}`,
+      320
+    ),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Prompt Builder
 // ---------------------------------------------------------------------------
@@ -356,6 +445,12 @@ Design for progressive overload based on the user's history.
 Response JSON schema:
 {
   "workout_name": "string — creative, motivating workout name",
+  "reasoning": {
+    "muscle_groups": "string — 1-2 short sentences explaining why this muscle focus fits the split, goal, history, queue context, or custom request",
+    "training_strategy": "string — 1-2 short sentences explaining the session structure, intensity, and progression approach"
+  "warmup": {
+    "duration_seconds": "number — timer-only general warmup duration in seconds"
+  },
   "exercises": [
     {
       "exercise_id": "string — UUID from the catalog",
@@ -370,13 +465,18 @@ Response JSON schema:
         }
       ],
       "rest_duration_seconds": "number — rest between sets (30-180)",
-      "notes": "string | null — brief coaching tip if technique matters"
+      "notes": "string | null — brief coaching tip if technique matters",
+      "reasoning": {
+        "muscle_groups": "string — concise reason this exercise targets the intended muscles",
+        "exercise_selection": "string — concise reason this specific exercise was selected over alternatives, referencing equipment, preferences, progression, or safety"
+      }
     }
   ]
 }
 
 IMPORTANT: For exercises with Type: time, use target_duration_seconds (not target_load_kg/target_reps).
-For exercises with Type: weight, use target_load_kg and target_reps (not target_duration_seconds).`;
+For exercises with Type: weight, use target_load_kg and target_reps (not target_duration_seconds).
+Keep every reasoning field specific, plain-language, and under 35 words. Do not reveal hidden chain-of-thought; provide short user-facing rationale only.`;
 
   const splitLabel = trainingSplit.replace(/_/g, " ");
   const customSection = customPrompt
@@ -410,6 +510,7 @@ For exercises with Type: weight, use target_load_kg and target_reps (not target_
 
 ## Constraints
 - Use ONLY exercise IDs from the catalog below
+- Include one timer-only general warmup before the exercises. Use 180 seconds for 15-minute workouts, 300 seconds for 30-60 minute workouts, and 420 seconds for 90-minute workouts.
 - Match exercises to the "${equipment.replace(/_/g, " ")}" equipment level
 - Tailor set/rep schemes to "${trainingStyle}" style (strength: heavy/low reps, hypertrophy: moderate/8-12 reps, endurance: light/high reps, circuit: varied/minimal rest)
 - Adjust complexity and load for "${difficulty}" level
@@ -419,6 +520,7 @@ For exercises with Type: weight, use target_load_kg and target_reps (not target_
 - If feedback was "too_hard", maintain or slightly reduce load/duration
 - For new exercises (no history), use moderate starting weights or durations (20-45s for time exercises)
 - Generate a creative, motivating workout name
+- Explain why the chosen muscle groups and each exercise fit today's plan using concise user-facing reasoning
 - For time exercises (Type: time), use target_duration_seconds instead of target_load_kg/target_reps
 
 ## Recent Workout History
@@ -438,7 +540,10 @@ export function buildFallbackWorkout(
   catalog: ExerciseCatalogEntry[],
   trainingSplit: string,
   durationMinutes: number,
-  trainingStyle: string
+  trainingStyle: string,
+  difficulty = "intermediate",
+  focusArea?: string,
+  hasHistory = false
 ): z.infer<typeof llmResponseSchema> {
   const counts = EXERCISE_COUNTS[durationMinutes] ?? { min: 5, max: 7 };
 
@@ -459,6 +564,17 @@ export function buildFallbackWorkout(
 
   return {
     workout_name: `${splitLabel.charAt(0).toUpperCase() + splitLabel.slice(1)} Workout`,
+    reasoning: buildDefaultWorkoutReasoning({
+      trainingSplit,
+      trainingStyle,
+      difficulty,
+      focusArea,
+      hasHistory,
+    }),
+    warmup: {
+      duration_seconds:
+        durationMinutes <= 15 ? 180 : durationMinutes >= 90 ? 420 : 300,
+    },
     exercises: selected.map((ex) => {
       if (ex.exercise_type === "time") {
         return {
@@ -469,6 +585,11 @@ export function buildFallbackWorkout(
           })),
           rest_duration_seconds: scheme.rest,
           notes: null,
+          reasoning: buildDefaultExerciseReasoning({
+            exercise: ex,
+            trainingStyle,
+            focusArea,
+          }),
         };
       }
 
@@ -496,6 +617,11 @@ export function buildFallbackWorkout(
         sets: [...warmupSets, ...workingSets],
         rest_duration_seconds: scheme.rest,
         notes: null,
+        reasoning: buildDefaultExerciseReasoning({
+          exercise: ex,
+          trainingStyle,
+          focusArea,
+        }),
       };
     }),
   };
@@ -719,7 +845,7 @@ export async function generateSingleWorkout(
           ],
           response_format: { type: "json_object" },
           temperature: 0.7,
-          max_tokens: 2000,
+          max_tokens: 2800,
         }),
         signal: controller.signal,
       });
@@ -752,6 +878,7 @@ export async function generateSingleWorkout(
           workoutData.exercises[i] = {
             ...workoutData.exercises[i],
             exercise_id: replacement.id,
+            reasoning: null,
           };
           hasSubstitutions = true;
         }
@@ -766,7 +893,10 @@ export async function generateSingleWorkout(
         catalog,
         trainingSplit,
         durationMinutes,
-        trainingStyle
+        trainingStyle,
+        difficulty,
+        focusArea,
+        history.length > 0
       );
       generationSource = "fallback_template";
     }
@@ -775,7 +905,10 @@ export async function generateSingleWorkout(
       catalog,
       trainingSplit,
       durationMinutes,
-      trainingStyle
+      trainingStyle,
+      difficulty,
+      focusArea,
+      history.length > 0
     );
     generationSource = "fallback_template";
   }
@@ -793,6 +926,7 @@ export async function generateSingleWorkout(
       sets: ex.sets,
       rest_duration_seconds: ex.rest_duration_seconds,
       notes: ex.notes,
+      reasoning: ex.reasoning ?? null,
       progression_type: null as string | null,
       previous_display: null as string | null,
     };
@@ -853,13 +987,42 @@ export async function generateSingleWorkout(
   }
 
   const profileGoal = profile.goal ?? "improve_fitness";
+  const workoutReasoning =
+    workoutData.reasoning ??
+    buildDefaultWorkoutReasoning({
+      trainingSplit,
+      trainingStyle,
+      difficulty,
+      focusArea,
+      hasHistory: history.length > 0,
+    });
+
+  const exercisesWithReasoning = enrichedExercises.map((ex) => {
+    if (ex.reasoning) return ex;
+
+    const catalogEntry = catalogMap.get(ex.exercise_id);
+    if (!catalogEntry) return ex;
+
+    return {
+      ...ex,
+      reasoning: buildDefaultExerciseReasoning({
+        exercise: catalogEntry,
+        trainingStyle,
+        focusArea,
+        progressionType: ex.progression_type,
+        previousDisplay: ex.previous_display,
+      }),
+    };
+  });
 
   const response = generateWorkoutResponseSchema.parse({
     workout_name: workoutData.workout_name,
+    reasoning: workoutReasoning,
+    warmup: workoutData.warmup,
     generation_source: generationSource,
     goal_snapshot: profileGoal,
     custom_goal_snapshot: profile.custom_goal ?? null,
-    exercises: enrichedExercises,
+    exercises: exercisesWithReasoning,
   });
 
   return { success: true, data: response, generationSource };
