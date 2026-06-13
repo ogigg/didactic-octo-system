@@ -428,22 +428,29 @@ export function useRegenerateWorkout() {
   const openPaywall = usePaywallStore((s) => s.open);
 
   return useMutation({
-    mutationFn: async (pendingWorkout: PendingWorkout) => {
+    mutationFn: async (input: {
+      pendingWorkout: PendingWorkout;
+      feedback?: string;
+    }) => {
       const preferences = getGenerationPreferencesFromProfile(profile);
 
       if (!preferences) {
         throw new Error("Training preferences are incomplete");
       }
 
-      await setPendingWorkoutStatus(pendingWorkout.id, "regenerating");
+      await setPendingWorkoutStatus(input.pendingWorkout.id, "regenerating");
 
       return triggerRegeneration(
-        pendingWorkout.id,
+        input.pendingWorkout.id,
         preferences,
-        getCurrentTimezoneOffsetMinutes()
+        getCurrentTimezoneOffsetMinutes(),
+        input.feedback
       );
     },
-    onMutate: async (pendingWorkout) => {
+    onMutate: async (input) => {
+      const feedback = input.feedback?.trim();
+      const pendingWorkout = input.pendingWorkout;
+
       await queryClient.cancelQueries({ queryKey: pendingWorkoutKeys.list() });
 
       const previousQueue = queryClient.getQueryData<PendingWorkout[]>(
@@ -466,23 +473,32 @@ export function useRegenerateWorkout() {
         queue_position: pendingWorkout.queue_position,
         focus_area: pendingWorkout.focus_area,
         previous_generation_source: pendingWorkout.generation_source,
+        has_feedback: !!feedback,
+        feedback_length: feedback?.length ?? 0,
       });
 
       return { previousQueue };
     },
-    onSuccess: (_data, pendingWorkout) => {
+    onSuccess: (_data, input) => {
+      const feedback = input.feedback?.trim();
+      const pendingWorkout = input.pendingWorkout;
+
       clearWorkoutRegenerating(pendingWorkout.id);
       trackEvent("pending_workout_regenerated", {
         phase: "completed",
         queue_position: pendingWorkout.queue_position,
         focus_area: pendingWorkout.focus_area,
         previous_generation_source: pendingWorkout.generation_source,
+        has_feedback: !!feedback,
+        feedback_length: feedback?.length ?? 0,
       });
 
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
-    onError: (error, pendingWorkout, context) => {
+    onError: (error, input, context) => {
+      const pendingWorkout = input.pendingWorkout;
+
       clearWorkoutRegenerating(pendingWorkout.id);
 
       if (context?.previousQueue) {
@@ -502,8 +518,8 @@ export function useRegenerateWorkout() {
 
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
     },
-    onSettled: (_data, _error, pendingWorkout) => {
-      clearWorkoutRegenerating(pendingWorkout.id);
+    onSettled: (_data, _error, input) => {
+      clearWorkoutRegenerating(input.pendingWorkout.id);
     },
   });
 }

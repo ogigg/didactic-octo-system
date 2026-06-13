@@ -229,6 +229,7 @@ Important columns:
 - `generation_source`
 - `focus_area`
 - `regeneration_count`
+- `regeneration_feedback`: JSON array of manual regeneration attempts and optional user feedback
 - `user_edits`
 
 Relationships:

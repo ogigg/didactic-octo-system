@@ -3,8 +3,8 @@ import type { TFunction } from "i18next";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -138,6 +138,8 @@ export default function WorkoutPreviewScreen() {
   const [prefSheetExerciseId, setPrefSheetExerciseId] = useState<string | null>(
     null
   );
+  const [regenerateSheetVisible, setRegenerateSheetVisible] = useState(false);
+  const [regenerationFeedback, setRegenerationFeedback] = useState("");
   const swapIndexRef = useRef<number | null>(null);
   const openedAtRef = useRef(Date.now());
   const swapResult = usePendingSwapStore((s) => s.result);
@@ -273,15 +275,23 @@ export default function WorkoutPreviewScreen() {
 
   const handleRegenerate = useCallback(() => {
     if (!workout || isRegenerating) return;
-    Alert.alert(t("regenerate.confirmTitle"), t("regenerate.confirmMessage"), [
-      { text: t("regenerate.cancel"), style: "cancel" },
-      {
-        text: t("regenerate.confirm"),
-        style: "destructive",
-        onPress: () => regenerateMutation.mutate(workout),
-      },
-    ]);
-  }, [isRegenerating, workout, regenerateMutation, t]);
+    setRegenerationFeedback("");
+    setRegenerateSheetVisible(true);
+  }, [isRegenerating, workout]);
+
+  const submitRegeneration = useCallback(
+    (feedback?: string) => {
+      if (!workout || isRegenerating) return;
+
+      const trimmedFeedback = feedback?.trim();
+      setRegenerateSheetVisible(false);
+      regenerateMutation.mutate({
+        pendingWorkout: workout,
+        feedback: trimmedFeedback ? trimmedFeedback : undefined,
+      });
+    },
+    [isRegenerating, regenerateMutation, workout]
+  );
 
   const persistEdits = useCallback(() => {
     if (!workout || dirtyEditTypes.length === 0 || isRegenerating) return;
@@ -606,6 +616,24 @@ export default function WorkoutPreviewScreen() {
             }}
           />
 
+          <RegenerationFeedbackSheet
+            visible={regenerateSheetVisible}
+            feedback={regenerationFeedback}
+            onFeedbackChange={setRegenerationFeedback}
+            onClose={() => setRegenerateSheetVisible(false)}
+            onSubmit={() => submitRegeneration(regenerationFeedback)}
+            onSkip={() => submitRegeneration()}
+            text={text}
+            textSecondary={textSecondary}
+            textMuted={textMuted}
+            background={backgroundElevated}
+            border={border}
+            inputFill={inputFill}
+            primary={primary}
+            primarySurface={primarySurface}
+            t={t}
+          />
+
           {/* Footer actions */}
           {showFooter ? (
             <View style={[styles.footer, { backgroundColor: background }]}>
@@ -641,6 +669,176 @@ export default function WorkoutPreviewScreen() {
         </SafeAreaView>
       </SafeAreaProvider>
     </KeyboardAvoidingView>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// RegenerationFeedbackSheet
+// -----------------------------------------------------------------------------
+
+interface RegenerationFeedbackSheetProps {
+  visible: boolean;
+  feedback: string;
+  onFeedbackChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+  onSkip: () => void;
+  text: string;
+  textSecondary: string;
+  textMuted: string;
+  background: string;
+  border: string;
+  inputFill: string;
+  primary: string;
+  primarySurface: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  t: TFunction<any, any>;
+}
+
+function RegenerationFeedbackSheet({
+  visible,
+  feedback,
+  onFeedbackChange,
+  onClose,
+  onSubmit,
+  onSkip,
+  text,
+  textSecondary,
+  textMuted,
+  background,
+  border,
+  inputFill,
+  primary,
+  primarySurface,
+  t,
+}: RegenerationFeedbackSheetProps) {
+  const trimmedFeedback = feedback.trim();
+  const hasFeedback = trimmedFeedback.length > 0;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        style={styles.regenerationBackdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel={t("regenerate.dismiss")}
+      >
+        <Pressable
+          style={[styles.regenerationSheet, { backgroundColor: background }]}
+          onPress={(event) => event.stopPropagation()}
+          accessibilityViewIsModal
+        >
+          <View style={[styles.sheetHandle, { backgroundColor: textMuted }]} />
+
+          <View
+            style={[
+              styles.regenerationIcon,
+              { backgroundColor: primarySurface },
+            ]}
+          >
+            <IconSymbol name="sparkles" size={20} color={primary} />
+          </View>
+
+          <Text style={[Typography.titleMd, { color: text }]}>
+            {t("regenerate.sheetTitle")}
+          </Text>
+          <Text
+            style={[
+              Typography.caption,
+              styles.regenerationSheetCopy,
+              { color: textSecondary },
+            ]}
+          >
+            {t("regenerate.sheetMessage")}
+          </Text>
+
+          <TextInput
+            value={feedback}
+            onChangeText={onFeedbackChange}
+            placeholder={t("regenerate.feedbackPlaceholder")}
+            placeholderTextColor={textMuted}
+            multiline
+            maxLength={300}
+            textAlignVertical="top"
+            style={[
+              styles.feedbackInput,
+              {
+                backgroundColor: inputFill,
+                borderColor: hasFeedback ? primary : border,
+                color: text,
+              },
+            ]}
+            accessibilityLabel={t("regenerate.feedbackAccessibilityLabel")}
+          />
+
+          <Text style={[Typography.micro, { color: textMuted }]}>
+            {t("regenerate.feedbackCount", {
+              count: trimmedFeedback.length,
+              max: 300,
+            })}
+          </Text>
+
+          <View style={styles.regenerationActions}>
+            <Pressable
+              onPress={onSubmit}
+              accessibilityRole="button"
+              accessibilityLabel={t("regenerate.confirm")}
+              style={({ pressed }) => [
+                styles.regenerationPrimaryAction,
+                {
+                  backgroundColor: primary,
+                  opacity: pressed ? Opacity.pressed : 1,
+                },
+              ]}
+            >
+              <IconSymbol name="arrow.clockwise" size={16} color="#FFFFFF" />
+              <Text
+                style={[
+                  Typography.titleSm,
+                  styles.regenerationPrimaryActionText,
+                ]}
+              >
+                {hasFeedback
+                  ? t("regenerate.confirmWithFeedback")
+                  : t("regenerate.confirm")}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onSkip}
+              accessibilityRole="button"
+              accessibilityLabel={t("regenerate.skipFeedback")}
+              style={({ pressed }) => [
+                styles.regenerationSecondaryAction,
+                {
+                  borderColor: border,
+                  opacity: pressed ? Opacity.pressed : 1,
+                },
+              ]}
+            >
+              <Text style={[Typography.titleSm, { color: textSecondary }]}>
+                {t("regenerate.skipFeedback")}
+              </Text>
+            </Pressable>
+          </View>
+
+          <Text
+            style={[
+              Typography.micro,
+              styles.regenerationLimitNote,
+              { color: textMuted },
+            ]}
+          >
+            {t("regenerate.limitNote")}
+          </Text>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -1273,6 +1471,73 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
     gap: Spacing.md,
+  },
+  regenerationBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.42)",
+    justifyContent: "flex-end",
+  },
+  regenerationSheet: {
+    borderTopLeftRadius: Radii.lg,
+    borderTopRightRadius: Radii.lg,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing["4xl"],
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: Radii.full,
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
+  },
+  regenerationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  regenerationSheetCopy: {
+    lineHeight: 18,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
+  },
+  feedbackInput: {
+    minHeight: 112,
+    borderWidth: 1.5,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    ...Typography.body,
+    lineHeight: 20,
+  },
+  regenerationActions: {
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  regenerationPrimaryAction: {
+    minHeight: 50,
+    borderRadius: Radii.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  regenerationPrimaryActionText: {
+    color: "#FFFFFF",
+  },
+  regenerationSecondaryAction: {
+    minHeight: 48,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  regenerationLimitNote: {
+    textAlign: "center",
+    marginTop: Spacing.md,
   },
   regenerateDisabled: {
     borderRadius: Radii.lg,

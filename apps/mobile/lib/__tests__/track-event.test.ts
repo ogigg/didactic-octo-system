@@ -74,9 +74,12 @@ describe("trackEvent", () => {
 
     expect(() =>
       trackEvent("pending_workout_regenerated", {
+        phase: "started",
         queue_position: 2,
         focus_area: "lower",
         previous_generation_source: "fallback_template",
+        has_feedback: true,
+        feedback_length: 42,
       })
     ).not.toThrow();
 

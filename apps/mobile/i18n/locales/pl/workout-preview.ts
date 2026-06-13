@@ -50,7 +50,19 @@ export const workoutPreview = {
     confirmMessage:
       "To zastąpi obecny trening. Możesz wygenerować go ponownie tylko raz dziennie.",
     confirm: "Wygeneruj ponownie",
+    confirmWithFeedback: "Wygeneruj z uwagą",
     cancel: "Anuluj",
+    dismiss: "Zamknij uwagi do regeneracji",
+    sheetTitle: "Co zmienić?",
+    sheetMessage:
+      "Dodaj krótką uwagę do kolejnej wersji albo pomiń ją i odśwież plan bez zmian.",
+    feedbackPlaceholder:
+      "Np. mniej pracy dla odcinka lędźwiowego, zostaw wyciskanie, skróć trening...",
+    feedbackAccessibilityLabel: "Uwagi do ponownego generowania",
+    feedbackCount: "{{count}}/{{max}}",
+    skipFeedback: "Pomiń uwagę",
+    limitNote:
+      "Ponowne generowanie zastępuje ten trening i jest dostępne raz dziennie.",
   },
   empty: {
     title: "Brak danych treningu",
