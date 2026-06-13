@@ -62,7 +62,14 @@
           "healthUpdatePermission": "Allow Sweaty to save your completed workouts to Apple Health."
         }
       ],
-      "react-native-health-connect"
+      "react-native-health-connect",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

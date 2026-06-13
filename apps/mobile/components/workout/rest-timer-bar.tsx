@@ -8,6 +8,7 @@ import {
 } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { formatRestCountdown, getRestTimerProgress } from "@/lib/rest-timer";
+import { playRestTimerCompleteSound } from "@/lib/rest-timer-sound";
 import { useWorkoutStore } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useState } from "react";
@@ -56,6 +57,7 @@ export function RestTimerBar() {
 
   useEffect(() => {
     if (!isFinished) return;
+    void playRestTimerCompleteSound();
     if (Platform.OS === "ios") {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
