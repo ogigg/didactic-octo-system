@@ -34,6 +34,7 @@ interface SetRowProps {
   setIndex: number;
   exerciseId: string;
   exerciseType?: "weight" | "time";
+  isRecord?: boolean;
   onToggleComplete: () => void;
   onUpdateField: (field: "kg" | "reps", value: string) => void;
   onUpdateDuration: (durationSeconds: number | null) => void;
@@ -51,6 +52,7 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
     set,
     setIndex,
     exerciseType = "weight",
+    isRecord = false,
     onToggleComplete,
     onUpdateField,
     onUpdateDuration,
@@ -93,6 +95,11 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
   const success = useThemeColor({}, "success");
   const warning = useThemeColor({}, "warning");
   const errorColor = useThemeColor({}, "error");
+  const gold = useThemeColor({}, "gold");
+  const goldSurface = useThemeColor({}, "goldSurface");
+
+  const showRecord = set.isCompleted && isRecord;
+  const completeColor = showRecord ? gold : success;
 
   const isWarmup = set.type === "warmup";
   const workingIndex = set.type === "working" ? setIndex + 1 : null;
@@ -316,7 +323,16 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
           />
 
           {/* Row content */}
-          <View style={[styles.row, set.isCompleted && styles.completedRow]}>
+          <View
+            style={[
+              styles.row,
+              set.isCompleted && styles.completedRow,
+              showRecord && [
+                styles.recordRow,
+                { backgroundColor: goldSurface, borderLeftColor: gold },
+              ],
+            ]}
+          >
             <Text
               style={[
                 Typography.caption,
@@ -424,7 +440,7 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
                 style={[
                   styles.completeRing,
                   {
-                    borderColor: success,
+                    borderColor: completeColor,
                     opacity: completeRingOpacity,
                     transform: [{ scale: completeRingScale }],
                   },
@@ -436,21 +452,32 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
                   onPressIn={handleCompletePressIn}
                   onPressOut={handleCompletePressOut}
                   accessibilityRole="checkbox"
-                  accessibilityLabel={`Set ${setLabel}: ${set.isCompleted ? "completed" : "not completed"}`}
+                  accessibilityLabel={`Set ${setLabel}: ${set.isCompleted ? "completed" : "not completed"}${showRecord ? ", personal record" : ""}`}
                   accessibilityState={{ checked: set.isCompleted }}
                   style={[
                     styles.checkbox,
                     {
                       backgroundColor: set.isCompleted
-                        ? success
+                        ? completeColor
                         : "transparent",
-                      borderColor: set.isCompleted ? success : textDisabled,
+                      borderColor: set.isCompleted
+                        ? completeColor
+                        : textDisabled,
                     },
+                    showRecord && styles.recordCheckbox,
+                    showRecord && { shadowColor: gold },
                   ]}
                 >
-                  {set.isCompleted && (
-                    <IconSymbol name="checkmark" size={14} color="#FFFFFF" />
-                  )}
+                  {set.isCompleted &&
+                    (showRecord ? (
+                      <IconSymbol
+                        name="trophy.fill"
+                        size={14}
+                        color="#4A3200"
+                      />
+                    ) : (
+                      <IconSymbol name="checkmark" size={14} color="#FFFFFF" />
+                    ))}
                 </Pressable>
               </Animated.View>
             </View>
@@ -478,6 +505,12 @@ const styles = StyleSheet.create({
   },
   completedRow: {
     opacity: 0.7,
+  },
+  recordRow: {
+    opacity: 1,
+    borderLeftWidth: 3,
+    borderTopRightRadius: Radii.sm,
+    borderBottomRightRadius: Radii.sm,
   },
   setCol: {
     width: 32,
@@ -514,6 +547,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 4,
+  },
+  recordCheckbox: {
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    elevation: 6,
   },
   checkboxWrapper: {
     width: 32,

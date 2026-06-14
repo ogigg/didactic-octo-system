@@ -223,4 +223,10 @@ export const workout = {
     repsUp: "Reps up",
     maintained: "Maintained",
   },
+  celebration: {
+    record: "New PR!",
+    weightRecord: "New Weight PR!",
+    repsRecord: "New Reps PR!",
+    repsDetail: "{{reps}} reps",
+  },
 } as const;

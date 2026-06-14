@@ -6,7 +6,16 @@ import { ProgressionPill } from "@/components/workout/progression-pill";
 import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { SetHeader } from "@/components/workout/set-header";
 import { SetRow, type SetRowHandle } from "@/components/workout/set-row";
+import { useCelebration } from "@/components/workout/celebration/celebration-provider";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { usePersonalRecords } from "@/hooks/use-stats-queries";
+import { useWeightUnit } from "@/hooks/use-weight-unit";
+import {
+  evaluateExerciseRecords,
+  isRecordStatus,
+  parseNumericField,
+  type SetRecordInput,
+} from "@/lib/workout-records";
 import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
 import {
   useSetExercisePreference,
@@ -18,7 +27,7 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -49,6 +58,40 @@ export function ExerciseCard({
   const { data: preference } = useExercisePreference(exercise.id);
   const setPreferenceMutation = useSetExercisePreference();
   const removePreferenceMutation = useRemoveExercisePreference();
+
+  const { celebrate } = useCelebration();
+  const { label: unitLabel, toKg } = useWeightUnit();
+  const { data: personalRecords } = usePersonalRecords();
+
+  const isTimeExercise = (exercise.exerciseType ?? "weight") === "time";
+
+  const baseline = useMemo(() => {
+    const record = personalRecords?.find((r) => r.exercise_id === exercise.id);
+    return {
+      maxWeightKg: record?.max_weight_kg ?? 0,
+      maxReps: record?.max_reps ?? 0,
+    };
+  }, [personalRecords, exercise.id]);
+
+  const buildRecordInputs = useCallback(
+    (completedOverrideId?: string): SetRecordInput[] =>
+      exercise.sets.map((s) => {
+        const weight = parseNumericField(s.kg);
+        return {
+          id: s.id,
+          weightKg: weight == null ? null : toKg(weight),
+          reps: parseNumericField(s.reps),
+          isCompleted: s.id === completedOverrideId ? true : s.isCompleted,
+          isWorking: s.type === "working",
+        };
+      }),
+    [exercise.sets, toKg]
+  );
+
+  const recordStatuses = useMemo(() => {
+    if (isTimeExercise) return new Map();
+    return evaluateExerciseRecords(buildRecordInputs(), baseline);
+  }, [isTimeExercise, buildRecordInputs, baseline]);
 
   const toggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
   const updateSetField = useWorkoutStore((s) => s.updateSetField);
@@ -107,6 +150,51 @@ export function ExerciseCard({
       updateNotes(exercise.id, text);
     },
     [updateNotes, exercise.id]
+  );
+
+  const handleToggleComplete = useCallback(
+    (set: WorkoutExercise["sets"][number]) => {
+      const willComplete = !set.isCompleted;
+      toggleSetComplete(exercise.id, set.id);
+
+      if (!willComplete || isTimeExercise) return;
+
+      const status = evaluateExerciseRecords(
+        buildRecordInputs(set.id),
+        baseline
+      ).get(set.id);
+      if (!status || !isRecordStatus(status)) return;
+
+      const label =
+        status.isWeightRecord && status.isRepsRecord
+          ? t("celebration.record")
+          : status.isWeightRecord
+            ? t("celebration.weightRecord")
+            : t("celebration.repsRecord");
+
+      const weight = set.kg.trim();
+      const reps = set.reps.trim();
+      const detail =
+        weight && reps
+          ? `${weight}${unitLabel} × ${reps}`
+          : weight
+            ? `${weight}${unitLabel}`
+            : reps
+              ? t("celebration.repsDetail", { reps })
+              : undefined;
+
+      celebrate({ label, detail });
+    },
+    [
+      toggleSetComplete,
+      exercise.id,
+      isTimeExercise,
+      buildRecordInputs,
+      baseline,
+      celebrate,
+      t,
+      unitLabel,
+    ]
   );
 
   const focusNextSet = useCallback(
@@ -212,7 +300,13 @@ export function ExerciseCard({
             setIndex={currentWorkingIndex}
             exerciseId={exercise.id}
             exerciseType={exercise.exerciseType ?? "weight"}
-            onToggleComplete={() => toggleSetComplete(exercise.id, set.id)}
+            isRecord={isRecordStatus(
+              recordStatuses.get(set.id) ?? {
+                isWeightRecord: false,
+                isRepsRecord: false,
+              }
+            )}
+            onToggleComplete={() => handleToggleComplete(set)}
             onUpdateField={(field, value) =>
               updateSetField(exercise.id, set.id, field, value)
             }

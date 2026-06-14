@@ -20,6 +20,11 @@ export const Colors = {
     warning: "#FFAC30",
     error: "#FF3B30",
     destructiveSurface: "#FFF0F0",
+    // Personal-record gold — used for record set styling & celebrations.
+    gold: "#E3A50B",
+    goldBright: "#FFC53D",
+    goldSurface: "rgba(227,165,11,0.12)",
+    goldGlow: "rgba(227,165,11,0.30)",
     glow: "rgba(56,152,216,0.07)",
     // Gradient pairs — top-left → bottom-right. Keep deltas small; gradients
     // are atmospheric, not decorative.
@@ -49,6 +54,11 @@ export const Colors = {
     warning: "#FFD60A",
     error: "#FF453A",
     destructiveSurface: "#2A1215",
+    // Personal-record gold — used for record set styling & celebrations.
+    gold: "#FFC53D",
+    goldBright: "#FFD970",
+    goldSurface: "rgba(255,197,61,0.14)",
+    goldGlow: "rgba(255,197,61,0.28)",
     glow: "rgba(56,152,216,0.05)",
     surfaceGradientStart: "#1C1F22",
     surfaceGradientEnd: "#141618",

@@ -224,4 +224,10 @@ export const workout = {
     repsUp: "Powtórzenia w górę",
     maintained: "Utrzymane",
   },
+  celebration: {
+    record: "Nowy rekord!",
+    weightRecord: "Rekord ciężaru!",
+    repsRecord: "Rekord powtórzeń!",
+    repsDetail: "{{reps}} powt.",
+  },
 } as const;
