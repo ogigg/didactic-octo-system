@@ -2,14 +2,16 @@ import { AppState, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 const REST_TIMER_NOTIFICATION_CHANNEL_ID = "rest-timer-alerts";
+const REST_TIMER_NOTIFICATION_ID = "rest-timer-complete";
 const REST_TIMER_NOTIFICATION_KIND = "rest-timer-complete";
 
-let scheduledRestTimerNotificationId: string | null = null;
 let channelPromise: Promise<void> | null = null;
 let isNotificationHandlerConfigured = false;
+let scheduleGeneration = 0;
 
 export type RestTimerNotificationScheduleStatus =
   | "scheduled"
+  | "canceled"
   | "permission-denied"
   | "unavailable";
 
@@ -21,7 +23,9 @@ export interface RestTimerNotificationContent {
 }
 
 function isRestTimerNotification(notification: Notifications.Notification) {
-  return notification.request.content.data?.kind === REST_TIMER_NOTIFICATION_KIND;
+  return (
+    notification.request.content.data?.kind === REST_TIMER_NOTIFICATION_KIND
+  );
 }
 
 export function configureRestTimerNotificationHandler() {
@@ -31,7 +35,8 @@ export function configureRestTimerNotificationHandler() {
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
       const shouldPresent =
-        isRestTimerNotification(notification) && AppState.currentState !== "active";
+        isRestTimerNotification(notification) &&
+        AppState.currentState !== "active";
 
       return {
         shouldShowBanner: shouldPresent,
@@ -46,7 +51,9 @@ export function configureRestTimerNotificationHandler() {
 function hasAudiblePermission(
   permissions: Notifications.NotificationPermissionsStatus
 ) {
-  return permissions.status === "granted" && permissions.ios?.allowsSound !== false;
+  return (
+    permissions.status === "granted" && permissions.ios?.allowsSound !== false
+  );
 }
 
 async function ensureAndroidChannel(channelName: string) {
@@ -83,16 +90,22 @@ export async function ensureRestTimerNotificationPermission() {
 }
 
 export async function cancelScheduledRestTimerNotification() {
-  if (!scheduledRestTimerNotificationId) return;
-
-  const notificationId = scheduledRestTimerNotificationId;
-  scheduledRestTimerNotificationId = null;
+  scheduleGeneration += 1;
 
   try {
-    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    await Notifications.cancelScheduledNotificationAsync(
+      REST_TIMER_NOTIFICATION_ID
+    );
   } catch (error) {
-    console.warn("[rest-timer] failed to cancel completion notification:", error);
+    console.warn(
+      "[rest-timer] failed to cancel completion notification:",
+      error
+    );
   }
+}
+
+function isCurrentSchedule(generation: number) {
+  return generation === scheduleGeneration;
 }
 
 export async function scheduleRestTimerCompletionNotification({
@@ -101,38 +114,54 @@ export async function scheduleRestTimerCompletionNotification({
   body,
   endsAtMs,
 }: RestTimerNotificationContent): Promise<RestTimerNotificationScheduleStatus> {
+  const generation = scheduleGeneration + 1;
+  scheduleGeneration = generation;
+
   try {
-    await cancelScheduledRestTimerNotification();
+    await Notifications.cancelScheduledNotificationAsync(
+      REST_TIMER_NOTIFICATION_ID
+    );
     await ensureAndroidChannel(channelName);
 
     const hasPermission = await ensureRestTimerNotificationPermission();
     if (!hasPermission) return "permission-denied";
+    if (!isCurrentSchedule(generation)) return "canceled";
 
     const secondsUntilCompletion = Math.max(
       1,
       Math.ceil((endsAtMs - Date.now()) / 1000)
     );
 
-    scheduledRestTimerNotificationId =
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          sound: true,
-          data: {
-            kind: REST_TIMER_NOTIFICATION_KIND,
-          },
+    await Notifications.scheduleNotificationAsync({
+      identifier: REST_TIMER_NOTIFICATION_ID,
+      content: {
+        title,
+        body,
+        sound: true,
+        data: {
+          kind: REST_TIMER_NOTIFICATION_KIND,
         },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: secondsUntilCompletion,
-          channelId: REST_TIMER_NOTIFICATION_CHANNEL_ID,
-        },
-      });
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secondsUntilCompletion,
+        channelId: REST_TIMER_NOTIFICATION_CHANNEL_ID,
+      },
+    });
+
+    if (!isCurrentSchedule(generation)) {
+      await Notifications.cancelScheduledNotificationAsync(
+        REST_TIMER_NOTIFICATION_ID
+      );
+      return "canceled";
+    }
 
     return "scheduled";
   } catch (error) {
-    console.warn("[rest-timer] failed to schedule completion notification:", error);
+    console.warn(
+      "[rest-timer] failed to schedule completion notification:",
+      error
+    );
     return "unavailable";
   }
 }

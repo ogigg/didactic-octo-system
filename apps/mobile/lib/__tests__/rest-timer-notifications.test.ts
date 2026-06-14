@@ -62,6 +62,7 @@ describe("rest timer notifications", () => {
     ).resolves.toBe("scheduled");
 
     expect(notificationsMock.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: "rest-timer-complete",
       content: {
         title: "Rest complete",
         body: "Time for your next set.",
@@ -129,6 +130,55 @@ describe("rest timer notifications", () => {
 
     expect(
       notificationsMock.cancelScheduledNotificationAsync
-    ).toHaveBeenCalledWith("rest-notification-1");
+    ).toHaveBeenCalledWith("rest-timer-complete");
+  });
+
+  it("cancels the stable notification ID before scheduling after a restart", async () => {
+    const notificationsMock = makeNotificationsMock();
+    notificationsMock.getPermissionsAsync.mockResolvedValue({
+      status: "granted",
+    });
+    const { scheduleRestTimerCompletionNotification } =
+      await loadSubject(notificationsMock);
+
+    await scheduleRestTimerCompletionNotification({
+      channelName: "Rest timer",
+      title: "Rest complete",
+      body: "Time for your next set.",
+      endsAtMs: startedAtMs + 90_000,
+    });
+
+    expect(
+      notificationsMock.cancelScheduledNotificationAsync
+    ).toHaveBeenCalledWith("rest-timer-complete");
+  });
+
+  it("does not schedule a stale notification after cleanup wins the race", async () => {
+    const notificationsMock = makeNotificationsMock();
+    let resolvePermission:
+      | ((permissions: { status: string }) => void)
+      | undefined;
+    notificationsMock.getPermissionsAsync.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePermission = resolve;
+      })
+    );
+    const {
+      cancelScheduledRestTimerNotification,
+      scheduleRestTimerCompletionNotification,
+    } = await loadSubject(notificationsMock);
+
+    const schedulePromise = scheduleRestTimerCompletionNotification({
+      channelName: "Rest timer",
+      title: "Rest complete",
+      body: "Time for your next set.",
+      endsAtMs: startedAtMs + 90_000,
+    });
+
+    await cancelScheduledRestTimerNotification();
+    resolvePermission?.({ status: "granted" });
+
+    await expect(schedulePromise).resolves.toBe("canceled");
+    expect(notificationsMock.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 });
