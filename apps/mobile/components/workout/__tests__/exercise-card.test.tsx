@@ -11,6 +11,17 @@ jest.mock("@/hooks/use-exercise-preference-mutations", () => ({
   useRemoveExercisePreference: jest.fn(() => ({ mutate: jest.fn() })),
 }));
 
+jest.mock("@/hooks/use-stats-queries", () => ({
+  usePersonalRecords: jest.fn(() => ({ data: [] })),
+}));
+
+jest.mock("@/hooks/use-weight-unit", () => ({
+  useWeightUnit: jest.fn(() => ({
+    label: "kg",
+    toKg: (value: number) => value,
+  })),
+}));
+
 jest.mock("expo-haptics", () => ({
   ImpactFeedbackStyle: { Light: "light" },
   impactAsync: jest.fn(() => Promise.resolve()),
