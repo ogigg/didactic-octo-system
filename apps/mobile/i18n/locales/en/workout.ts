@@ -89,6 +89,13 @@ export const workout = {
     allDone: "All sets done — finish strong!",
     skipRest: "Skip Rest",
   },
+  restTimerNotification: {
+    channelName: "Rest timer",
+    title: "Rest complete",
+    body: "Time for your next set.",
+    permissionDenied:
+      "Enable notification sounds to hear rest timer alerts in the background.",
+  },
   miniBar: {
     resume: "Tap to resume workout",
   },

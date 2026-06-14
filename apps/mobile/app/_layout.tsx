@@ -23,12 +23,14 @@ import { useLiveActivityActions } from "@/hooks/use-live-activity-actions";
 import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
+import { configureRestTimerNotificationHandler } from "@/lib/rest-timer-notifications";
 import { registerSyncHandlers } from "@/lib/sync-handlers";
 import { syncQueue } from "@/lib/sync-queue";
 import { useAuthStore } from "@/stores/auth-store";
 import NetInfo from "@react-native-community/netinfo";
 
 SplashScreen.preventAutoHideAsync();
+configureRestTimerNotificationHandler();
 
 export const unstable_settings = {
   anchor: "(tabs)",
