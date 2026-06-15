@@ -1,0 +1,222 @@
+[
+  {
+    "index": 41,
+    "exercise_name": "Standing Dumbbell Biceps Curl",
+    "slug": "standing-dumbbell-biceps-curl",
+    "required_equipment": "Pair of dumbbells",
+    "primary_position_or_phase": "Standing mid-curl with elbows tucked and palms facing upward as dumbbells travel toward the shoulders",
+    "camera_angle": "Three-quarter front view at chest height, full body visible",
+    "motion_arrow_description": "Two subtle electric blue curved arrows rise from the dumbbells toward the shoulders to show the curling path",
+    "primary_target_muscles": ["biceps"],
+    "secondary_target_muscles": ["forearms"],
+    "form_details": [
+      "Stand tall with feet hip-width apart and core gently braced.",
+      "Keep upper arms close to the sides without letting elbows drift forward.",
+      "Curl both dumbbells upward with palms facing up.",
+      "Keep wrists straight and shoulders relaxed.",
+      "Show soft electric blue highlight on the front of the upper arms.",
+      "Include a faint 10-15% opacity ghost pose at the lower starting position, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a standing dumbbell biceps curl. The person stands tall with feet hip-width apart, holding one dumbbell in each hand, palms up, elbows tucked near the ribs, curling the dumbbells toward the shoulders in the mid-curl phase. Use realistic approachable proportions, calm focused expression, fitted neutral workout clothing, and only the required equipment: a pair of dumbbells. Show a light studio background with no clutter. Add subtle electric blue curved motion arrows from each dumbbell upward toward the shoulders. Add a soft electric blue target-muscle highlight on the biceps, with very faint electric blue forearm emphasis. Include a faint ghost pose at about 10-15% opacity showing the lower starting position, clearly secondary to the main figure and not crowded. No text, logos, watermarks, extra equipment, mirrors, gym crowd, or decorative clutter.",
+    "file": "assets/exercise-media/generated-2026-06/standing-dumbbell-biceps-curl.png",
+    "alt_text": "Athletic adult standing and curling two dumbbells upward with palms facing up, electric blue biceps highlights, arrows, and a faint starting-position ghost pose."
+  },
+  {
+    "index": 42,
+    "exercise_name": "Dumbbell Hammer Curl",
+    "slug": "dumbbell-hammer-curl",
+    "required_equipment": "Pair of dumbbells",
+    "primary_position_or_phase": "Standing mid-curl with neutral grip and thumbs pointing upward",
+    "camera_angle": "Three-quarter front view at chest height, full body visible",
+    "motion_arrow_description": "Two subtle electric blue vertical curved arrows rise from the dumbbells while the thumbs remain upward",
+    "primary_target_muscles": ["biceps", "brachialis", "forearms"],
+    "secondary_target_muscles": [],
+    "form_details": [
+      "Stand upright with feet hip-width apart and shoulders relaxed.",
+      "Hold dumbbells with neutral grip, thumbs pointing upward.",
+      "Keep elbows close to the torso through the curl.",
+      "Curl without swinging the torso or shrugging.",
+      "Show soft electric blue highlights on the front and outer upper arms and forearms.",
+      "Include a faint 10-15% opacity ghost pose at the lower starting position, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a dumbbell hammer curl. The person stands upright with feet hip-width apart, holding one dumbbell in each hand with a neutral grip, thumbs upward, elbows tucked, curling the dumbbells toward the shoulders in a controlled mid-curl phase. Use realistic approachable proportions, fitted neutral workout clothing, and only the required equipment: a pair of dumbbells. Place the figure on a light studio background with clean open space. Add subtle electric blue curved upward motion arrows beside the dumbbells. Add soft electric blue target-muscle highlights on the biceps, brachialis area, and forearms. Include a faint ghost pose at about 10-15% opacity showing the lower starting position, clearly secondary to the main figure and not crowded. No text, logos, watermarks, extra equipment, gym crowd, mirrors, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/dumbbell-hammer-curl.png",
+    "alt_text": "Athletic adult doing a hammer curl with neutral-grip dumbbells, electric blue arm highlights, arrows, and a faint starting-position ghost pose."
+  },
+  {
+    "index": 43,
+    "exercise_name": "Preacher Curl Machine or Preacher Bench Curl",
+    "slug": "preacher-curl",
+    "required_equipment": "Preacher bench and EZ-bar",
+    "primary_position_or_phase": "Seated or braced at preacher bench with upper arms supported on angled pad while curling the EZ-bar upward",
+    "camera_angle": "Three-quarter front view slightly above pad height, torso and bench clearly visible",
+    "motion_arrow_description": "Subtle electric blue curved arrow follows the EZ-bar upward from lower arms toward the chest",
+    "primary_target_muscles": ["biceps"],
+    "secondary_target_muscles": ["forearms"],
+    "form_details": [
+      "Upper arms rest fully on the angled preacher pad.",
+      "Chest stays close to the bench with shoulders stable.",
+      "Curl the EZ-bar upward without lifting elbows from the pad.",
+      "Keep wrists neutral and movement controlled.",
+      "Show soft electric blue highlight on the biceps.",
+      "Include a faint 10-15% opacity ghost pose with arms extended lower on the pad, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a preacher bench curl. The person is positioned at an angled preacher bench with upper arms supported on the pad, chest close to the bench, hands holding an EZ-bar, curling the bar upward in a controlled mid-rep phase. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a preacher bench with angled pad and an EZ-bar. Use a light studio background with minimal shadows. Add one subtle electric blue curved motion arrow following the EZ-bar upward toward the chest. Add a soft electric blue target-muscle highlight on the biceps with a faint electric blue forearm highlight. Include a faint ghost pose at about 10-15% opacity showing the lower arms-extended position on the pad, clearly secondary to the main figure and not crowded. No text, logos, watermarks, extra plates scattered around, other machines, gym crowd, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/preacher-curl.png",
+    "alt_text": "Athletic adult curling an EZ-bar on a preacher bench with electric blue biceps highlight, arrow, and faint lower-position ghost pose."
+  },
+  {
+    "index": 44,
+    "exercise_name": "Cable Biceps Curl with Straight Bar",
+    "slug": "cable-biceps-curl-straight-bar",
+    "required_equipment": "Cable machine with low pulley and straight bar attachment",
+    "primary_position_or_phase": "Standing facing low pulley while curling straight bar upward with elbows tucked",
+    "camera_angle": "Three-quarter front view from cable side, full body and low pulley visible",
+    "motion_arrow_description": "Subtle electric blue curved arrow rises from the straight bar toward the upper chest",
+    "primary_target_muscles": ["biceps"],
+    "secondary_target_muscles": ["forearms"],
+    "form_details": [
+      "Stand facing the low pulley with feet stable and torso upright.",
+      "Hold the straight bar with palms up.",
+      "Keep elbows pinned near the sides.",
+      "Curl the bar upward without leaning back.",
+      "Show soft electric blue highlight on the biceps.",
+      "Include a faint 10-15% opacity ghost pose at the lower cable-start position, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a cable biceps curl with a straight bar. The person stands facing a low pulley cable machine, feet stable, torso upright, holding a straight bar attachment with palms up, elbows tucked close to the sides, curling the bar upward toward the upper chest in a mid-rep phase. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a simple cable machine section with low pulley, cable, and straight bar attachment. Use a clean light studio background. Add a subtle electric blue curved motion arrow from the straight bar upward. Add a soft electric blue target-muscle highlight on the biceps and a faint electric blue forearm highlight. Include a faint ghost pose at about 10-15% opacity showing the lower cable-start position, clearly secondary to the main figure and not crowded. No text, logos, watermarks, extra attachments, weight stacks dominating the scene, people, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/cable-biceps-curl-straight-bar.png",
+    "alt_text": "Athletic adult standing at a low pulley cable machine curling a straight bar with electric blue biceps highlight, arrow, and faint starting-position ghost pose."
+  },
+  {
+    "index": 45,
+    "exercise_name": "Cable Triceps Pushdown with Rope or Bar",
+    "slug": "cable-triceps-pushdown",
+    "required_equipment": "Cable machine with high pulley and rope attachment",
+    "primary_position_or_phase": "Standing facing high pulley while pushing rope attachment downward until arms are nearly straight",
+    "camera_angle": "Three-quarter front view from cable side, upper body and high pulley visible",
+    "motion_arrow_description": "Two subtle electric blue downward arrows follow the rope ends from chest height toward the thighs",
+    "primary_target_muscles": ["triceps"],
+    "secondary_target_muscles": ["forearms"],
+    "form_details": [
+      "Stand facing the cable machine with knees softly bent.",
+      "Keep elbows tucked beside the ribs.",
+      "Push the rope downward until arms are nearly straight.",
+      "Keep shoulders down and torso steady.",
+      "Show soft electric blue highlight on the back of the upper arms.",
+      "Include a faint 10-15% opacity ghost pose with elbows bent and rope higher, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a cable triceps pushdown with a rope. The person stands facing a high pulley cable machine, knees softly bent, torso steady, elbows tucked near the ribs, hands gripping the rope attachment, pushing the rope ends downward toward the thighs with arms nearly straight. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a simple cable machine section with high pulley, cable, and rope attachment. Use a light studio background with no clutter. Add two subtle electric blue downward motion arrows following the rope ends. Add a soft electric blue target-muscle highlight on the triceps at the back of the upper arms, with faint electric blue forearm emphasis. Include a faint ghost pose at about 10-15% opacity showing elbows bent and the rope higher near chest level, clearly secondary to the main figure and not crowded. No text, logos, watermarks, extra attachments, people, mirrors, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/cable-triceps-pushdown.png",
+    "alt_text": "Athletic adult pushing a rope down from a high cable pulley with electric blue triceps highlight, arrows, and faint higher-position ghost pose."
+  },
+  {
+    "index": 46,
+    "exercise_name": "Overhead Cable Triceps Extension",
+    "slug": "overhead-cable-triceps-extension",
+    "required_equipment": "Cable machine with high pulley and rope attachment",
+    "primary_position_or_phase": "Facing away from cable machine with rope overhead, extending elbows forward and upward",
+    "camera_angle": "Three-quarter rear-side view showing cable behind the body and arms overhead",
+    "motion_arrow_description": "Subtle electric blue forward-up arrows extend from bent elbows toward straight arms overhead",
+    "primary_target_muscles": ["triceps"],
+    "secondary_target_muscles": ["core", "shoulders"],
+    "form_details": [
+      "Face away from the cable machine in a staggered stance.",
+      "Hold the rope overhead with elbows bent and pointing forward.",
+      "Extend elbows forward and upward until arms are nearly straight.",
+      "Keep ribs down and torso stable.",
+      "Show soft electric blue highlight on the triceps.",
+      "Include a faint 10-15% opacity ghost pose with elbows more bent behind the head, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing an overhead cable triceps extension. The person faces away from a high pulley cable machine in a staggered stance, rope attachment held overhead, elbows bent and pointing forward, extending the elbows forward and upward until the arms are nearly straight. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a simple cable machine section with high pulley, cable, and rope attachment behind the person. Use a clean light studio background. Add subtle electric blue forward-up motion arrows from the rope handles along the extension path. Add soft electric blue target-muscle highlights on the triceps, with very faint electric blue core and shoulder stabilization emphasis. Include a faint ghost pose at about 10-15% opacity showing elbows more bent behind the head, clearly secondary to the main figure and not crowded. No text, logos, watermarks, extra equipment, people, mirrors, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/overhead-cable-triceps-extension.png",
+    "alt_text": "Athletic adult facing away from a cable machine extending a rope overhead with electric blue triceps highlights, arrows, and faint bent-elbow ghost pose."
+  },
+  {
+    "index": 47,
+    "exercise_name": "EZ-Bar Skull Crusher / Lying Triceps Extension",
+    "slug": "ez-bar-skull-crusher",
+    "required_equipment": "Flat bench and EZ-bar",
+    "primary_position_or_phase": "Lying on flat bench with EZ-bar lowered toward forehead and elbows bent",
+    "camera_angle": "Three-quarter side view at bench height, full bench and arm position visible",
+    "motion_arrow_description": "Subtle electric blue curved arrow shows the EZ-bar path from above the forehead back toward straight arms",
+    "primary_target_muscles": ["triceps"],
+    "secondary_target_muscles": ["forearms", "shoulders"],
+    "form_details": [
+      "Lie flat on the bench with feet planted.",
+      "Hold the EZ-bar above the face with upper arms mostly vertical.",
+      "Bend elbows to lower the bar toward the forehead.",
+      "Keep elbows narrow and shoulders steady.",
+      "Show soft electric blue highlight on the triceps.",
+      "Include a faint 10-15% opacity ghost pose with arms straighter above the face, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing an EZ-bar skull crusher, also known as a lying triceps extension. The person lies on a flat bench with feet planted, holding an EZ-bar above the face, elbows bent, bar lowered toward the forehead, upper arms mostly vertical and elbows kept narrow. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a flat bench and an EZ-bar. Use a light studio background with clean space around the bench. Add a subtle electric blue curved motion arrow showing the EZ-bar path from the lowered position back toward straight arms. Add soft electric blue target-muscle highlights on the triceps, with faint electric blue forearm and shoulder stabilization emphasis. Include a faint ghost pose at about 10-15% opacity showing arms straighter above the face, clearly secondary to the main figure and not crowded. No text, logos, watermarks, spotter, plates on the floor, other gym equipment, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/ez-bar-skull-crusher.png",
+    "alt_text": "Athletic adult lying on a flat bench lowering an EZ-bar with electric blue triceps highlight, arrow, and faint straight-arm ghost pose."
+  },
+  {
+    "index": 48,
+    "exercise_name": "Close-Grip Barbell Bench Press",
+    "slug": "close-grip-barbell-bench-press",
+    "required_equipment": "Flat bench and barbell",
+    "primary_position_or_phase": "Lying on flat bench pressing barbell with hands closer than shoulder-width",
+    "camera_angle": "Three-quarter side view at bench height, full body, bench, and bar path visible",
+    "motion_arrow_description": "Subtle electric blue upward arrow shows the barbell pressing path from lower chest toward arm lockout",
+    "primary_target_muscles": ["triceps", "chest"],
+    "secondary_target_muscles": ["shoulders"],
+    "form_details": [
+      "Lie on a flat bench with feet planted and back stable.",
+      "Grip the barbell slightly closer than shoulder-width, not extremely narrow.",
+      "Lower the bar toward the lower chest with elbows close to the body.",
+      "Press upward until arms are nearly straight.",
+      "Show soft electric blue highlights on triceps and chest.",
+      "Include a faint 10-15% opacity ghost pose with the bar lower near the chest, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a close-grip barbell bench press. The person lies on a flat bench with feet planted, holding a barbell with hands closer than shoulder-width but not extremely narrow, elbows close to the body, pressing the bar upward from the lower chest toward near lockout. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a flat bench and barbell. Use a clean light studio background. Add a subtle electric blue upward motion arrow along the bar path. Add soft electric blue target-muscle highlights on the triceps and chest, with faint electric blue shoulder stabilization emphasis. Include a faint ghost pose at about 10-15% opacity showing the lower bar position near the chest, clearly secondary to the main figure and not crowded. No text, logos, watermarks, rack dominating the scene, spotter, loose plates, other equipment, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/close-grip-barbell-bench-press.png",
+    "alt_text": "Athletic adult close-grip bench pressing a barbell with electric blue triceps and chest highlights, arrow, and faint lower-bar ghost pose."
+  },
+  {
+    "index": 49,
+    "exercise_name": "Hanging Leg Raise",
+    "slug": "hanging-leg-raise",
+    "required_equipment": "Pull-up bar",
+    "primary_position_or_phase": "Hanging from pull-up bar with legs raised forward in front of the body",
+    "camera_angle": "Three-quarter front view, full body and pull-up bar visible",
+    "motion_arrow_description": "Subtle electric blue upward arc arrow follows the legs from vertical hang toward the front-raised position",
+    "primary_target_muscles": ["abs", "hip flexors"],
+    "secondary_target_muscles": ["forearms", "lats"],
+    "form_details": [
+      "Hang from a pull-up bar with shoulders active.",
+      "Keep torso controlled without swinging.",
+      "Raise straight or slightly bent legs forward.",
+      "Keep feet together and ribs down.",
+      "Show soft electric blue highlights on the abs and front hips.",
+      "Include a faint 10-15% opacity ghost pose with legs hanging lower, clearly secondary and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a hanging leg raise. The person hangs from a simple pull-up bar with both hands, shoulders active, torso controlled, legs straight or slightly bent and raised forward in front of the body. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a clean pull-up bar. Use a light studio background with open space and no clutter. Add a subtle electric blue upward arc motion arrow near the legs showing the raise from hanging downward to forward. Add soft electric blue target-muscle highlights on the abs and hip flexors, with faint electric blue forearm and lat stabilization emphasis. Include a faint ghost pose at about 10-15% opacity showing the legs hanging lower, clearly secondary to the main figure and not crowded. No text, logos, watermarks, straps, bench, other equipment, people, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/hanging-leg-raise.png",
+    "alt_text": "Athletic adult hanging from a pull-up bar raising the legs with electric blue abs and hip highlights, arc arrow, and faint lower-leg ghost pose."
+  },
+  {
+    "index": 50,
+    "exercise_name": "Forearm Plank",
+    "slug": "forearm-plank",
+    "required_equipment": "Exercise mat",
+    "primary_position_or_phase": "Holding a straight forearm plank on forearms and toes",
+    "camera_angle": "Three-quarter side view at low height, full body alignment visible",
+    "motion_arrow_description": "Subtle electric blue straight alignment guide from shoulders through hips to heels with no directional movement",
+    "primary_target_muscles": ["core"],
+    "secondary_target_muscles": ["shoulders", "glutes"],
+    "form_details": [
+      "Support the body on forearms and toes, not hands.",
+      "Keep elbows under shoulders.",
+      "Maintain a straight line from shoulders through hips to heels.",
+      "Brace the core without letting hips sag or pike.",
+      "Show soft electric blue highlight around the abdominal core.",
+      "Do not include a ghost pose because this is a static hold; use the electric blue alignment guide for clarity."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult holding a forearm plank. The person is on an exercise mat, supported on forearms and toes, elbows under shoulders, body in a straight line from shoulders through hips to heels, core braced, hips neither sagging nor piked. Use realistic approachable proportions and fitted neutral workout clothing. Include only the required equipment: a simple exercise mat. Use a clean light studio background. Add a subtle electric blue straight alignment guide from shoulders to heels instead of a movement arrow. Add a soft electric blue target-muscle highlight around the abdominal core, with faint electric blue shoulder and glute stabilization emphasis. Do not include a ghost pose because this is a static hold. No text, logos, watermarks, dumbbells, bench, other equipment, people, or clutter.",
+    "file": "assets/exercise-media/generated-2026-06/forearm-plank.png",
+    "alt_text": "Athletic adult holding a straight forearm plank on a mat with electric blue core highlight and alignment guide."
+  }
+]

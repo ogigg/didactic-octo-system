@@ -1,0 +1,212 @@
+[
+  {
+    "index": 1,
+    "exercise_name": "Barbell Back Squat",
+    "slug": "barbell-back-squat",
+    "required_equipment": ["barbell"],
+    "primary_position_or_phase": "bottom squat position with hips back, knees bent, and barbell across upper back and traps",
+    "camera_angle": "front three-quarter view at slightly low eye level, full body visible",
+    "motion_arrow_description": "subtle electric blue/accent blue downward and upward curved arrow beside the hips showing the squat path",
+    "primary_target_muscles": ["quadriceps", "glutes"],
+    "secondary_target_muscles": ["hamstrings", "core"],
+    "form_details": [
+      "barbell rests across the upper back and traps, not on the neck",
+      "feet shoulder-width apart with toes slightly turned out",
+      "hips pushed back and down with knees tracking over toes",
+      "chest lifted, spine neutral, and torso controlled",
+      "heels planted and weight balanced through midfoot"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a barbell back squat in the bottom squat position. Show a barbell resting across the upper back and traps, not on the neck, with feet shoulder-width apart, toes slightly turned out, hips back, knees bent, knees tracking over toes, chest lifted, neutral spine, heels planted, and weight balanced through the midfoot. Use a front three-quarter view at slightly low eye level with the full body visible. Add a subtle electric blue/accent blue downward and upward curved motion arrow beside the hips showing the squat path. Add soft translucent electric blue/accent blue primary muscle highlights on the quadriceps and glutes, with lighter secondary emphasis on hamstrings and core. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: barbell. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/barbell-back-squat.png",
+    "alt_text": "Athletic adult performing a barbell back squat with the bar across the upper back, hips back, knees bent, and quadriceps and glutes highlighted."
+  },
+  {
+    "index": 2,
+    "exercise_name": "Barbell Front Squat",
+    "slug": "barbell-front-squat",
+    "required_equipment": ["barbell"],
+    "primary_position_or_phase": "bottom squat position with barbell across front shoulders and clavicles, elbows high, and torso upright",
+    "camera_angle": "front three-quarter view at chest height, full body visible",
+    "motion_arrow_description": "subtle electric blue/accent blue vertical arrow beside the torso and hips showing controlled descent and rise",
+    "primary_target_muscles": ["quadriceps", "core"],
+    "secondary_target_muscles": ["glutes", "upper back"],
+    "form_details": [
+      "barbell rests across the front shoulders and clavicles, not on the back",
+      "elbows stay high with upper arms nearly parallel to the floor",
+      "torso remains upright through the squat",
+      "feet shoulder-width apart with knees tracking over toes",
+      "heels planted and spine neutral"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a barbell front squat in the bottom squat position. Show the barbell resting across the front shoulders and clavicles, not on the back, with elbows high, upper arms nearly parallel to the floor, torso upright, feet shoulder-width apart, knees bent and tracking over toes, heels planted, and neutral spine. Use a front three-quarter view at chest height with the full body visible. Add a subtle electric blue/accent blue vertical motion arrow beside the torso and hips showing controlled descent and rise. Add soft translucent electric blue/accent blue primary muscle highlights on the quadriceps and core, with lighter secondary emphasis on glutes and upper back. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: barbell. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/barbell-front-squat.png",
+    "alt_text": "Athletic adult performing a barbell front squat with elbows high, bar on the front shoulders, upright torso, and quadriceps and core highlighted."
+  },
+  {
+    "index": 3,
+    "exercise_name": "Leg Press Machine",
+    "slug": "leg-press-machine",
+    "required_equipment": ["leg press machine"],
+    "primary_position_or_phase": "seated pressing phase with both feet on the sled platform and knees bent",
+    "camera_angle": "side three-quarter view clearly showing the 45-degree leg press machine and seated body position",
+    "motion_arrow_description": "subtle electric blue/accent blue arrow along the sled rails showing the platform moving away from the body",
+    "primary_target_muscles": ["quadriceps", "glutes"],
+    "secondary_target_muscles": ["hamstrings", "calves"],
+    "form_details": [
+      "person is seated with back supported against the pad",
+      "both feet are placed shoulder-width on the platform",
+      "knees are bent and aligned with toes",
+      "platform and rails clearly indicate a 45-degree or horizontal leg press machine",
+      "hands hold the side handles and hips stay against the seat"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a leg press on a clearly visible 45-degree leg press machine. Show the person seated with the back supported against the pad, hips against the seat, hands holding side handles, both feet shoulder-width on the sled platform, knees bent and aligned with toes, and the weighted sled/platform being pressed away from the body. Use a side three-quarter view that clearly shows the 45-degree machine rails and seated body position. Add a subtle electric blue/accent blue motion arrow along the sled rails showing the platform moving away from the body. Add soft translucent electric blue/accent blue primary muscle highlights on the quadriceps and glutes, with lighter secondary emphasis on hamstrings and calves. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: leg press machine. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/leg-press-machine.png",
+    "alt_text": "Athletic adult seated in a leg press machine pressing the platform with both feet, with quadriceps and glutes highlighted."
+  },
+  {
+    "index": 4,
+    "exercise_name": "Walking Dumbbell Lunge",
+    "slug": "walking-dumbbell-lunge",
+    "required_equipment": ["dumbbells"],
+    "primary_position_or_phase": "forward lunge position with front knee bent and back knee close to the floor",
+    "camera_angle": "front three-quarter view with slight side visibility, full body visible",
+    "motion_arrow_description": "subtle electric blue/accent blue forward arrow near the lead foot showing the walking step direction",
+    "primary_target_muscles": ["quadriceps", "glutes"],
+    "secondary_target_muscles": ["hamstrings", "core"],
+    "form_details": [
+      "dumbbells are held at the sides with straight relaxed arms",
+      "front foot is planted with front knee bent about 90 degrees",
+      "back knee is close to the floor without touching",
+      "torso stays tall and balanced",
+      "front knee tracks over the toes without collapsing inward"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a walking dumbbell lunge in a forward lunge position. Show dumbbells held at the sides with straight relaxed arms, front foot planted, front knee bent about 90 degrees and tracking over toes, back knee close to the floor without touching, torso tall, spine neutral, and body balanced as if stepping forward. Use a front three-quarter view with slight side visibility and the full body visible. Add a subtle electric blue/accent blue forward motion arrow near the lead foot showing the walking step direction. Add soft translucent electric blue/accent blue primary muscle highlights on the quadriceps and glutes, with lighter secondary emphasis on hamstrings and core. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: dumbbells. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/walking-dumbbell-lunge.png",
+    "alt_text": "Athletic adult stepping into a walking dumbbell lunge with dumbbells at the sides and quadriceps and glutes highlighted."
+  },
+  {
+    "index": 5,
+    "exercise_name": "Bulgarian Split Squat",
+    "slug": "bulgarian-split-squat",
+    "required_equipment": ["bench"],
+    "primary_position_or_phase": "lowered single-leg squat position with rear foot elevated on a bench behind the body",
+    "camera_angle": "side three-quarter view showing front leg alignment and rear foot on bench",
+    "motion_arrow_description": "subtle electric blue/accent blue vertical arrow beside the hips showing the lowering and rising path",
+    "primary_target_muscles": ["quadriceps", "glutes"],
+    "secondary_target_muscles": ["hamstrings", "core"],
+    "form_details": [
+      "rear foot is elevated on a bench behind the body",
+      "front foot is planted flat on the floor",
+      "front knee is bent and tracks over toes",
+      "hips lower straight down with torso slightly inclined but controlled",
+      "spine remains neutral and balance is steady"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a Bulgarian split squat in the lowered single-leg squat position. Show the rear foot elevated on a bench behind the body, front foot planted flat on the floor, front knee bent and tracking over toes, hips lowered straight down, torso slightly inclined but controlled, neutral spine, and steady balance. Use a side three-quarter view that clearly shows front leg alignment and the rear foot on the bench. Add a subtle electric blue/accent blue vertical motion arrow beside the hips showing the lowering and rising path. Add soft translucent electric blue/accent blue primary muscle highlights on the quadriceps and glutes, with lighter secondary emphasis on hamstrings and core. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: bench. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/bulgarian-split-squat.png",
+    "alt_text": "Athletic adult performing a Bulgarian split squat with rear foot elevated on a bench and quadriceps and glutes highlighted."
+  },
+  {
+    "index": 6,
+    "exercise_name": "Barbell Romanian Deadlift",
+    "slug": "barbell-romanian-deadlift",
+    "required_equipment": ["barbell"],
+    "primary_position_or_phase": "hip hinge position with barbell in front of thighs, hips pushed backward, slight knee bend, and flat back",
+    "camera_angle": "side three-quarter view emphasizing the hip hinge and bar path",
+    "motion_arrow_description": "subtle electric blue/accent blue backward arrow at the hips and short vertical arrow along the thighs showing hinge motion",
+    "primary_target_muscles": ["hamstrings", "glutes"],
+    "secondary_target_muscles": ["lower back", "core"],
+    "form_details": [
+      "barbell stays close to the front of the thighs",
+      "hips move backward into a hinge rather than a squat",
+      "knees have only a slight bend",
+      "back stays flat with neutral neck",
+      "shins stay mostly vertical and shoulders stay pulled back"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a barbell Romanian deadlift in a hip hinge position. Show the barbell close to the front of the thighs, hips pushed backward, knees only slightly bent, shins mostly vertical, flat back, neutral neck, shoulders pulled back, and torso angled forward from the hips. Make it clearly a hip hinge, not a full squat and not a barbell from the floor. Use a side three-quarter view emphasizing the hip hinge and bar path. Add a subtle electric blue/accent blue backward motion arrow at the hips and a short vertical motion arrow along the thighs showing the hinge motion. Add soft translucent electric blue/accent blue primary muscle highlights on the hamstrings and glutes, with lighter secondary emphasis on lower back and core. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: barbell. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/barbell-romanian-deadlift.png",
+    "alt_text": "Athletic adult performing a barbell Romanian deadlift with hips hinged back, bar near the thighs, and hamstrings and glutes highlighted."
+  },
+  {
+    "index": 7,
+    "exercise_name": "Conventional Barbell Deadlift",
+    "slug": "conventional-barbell-deadlift",
+    "required_equipment": ["barbell"],
+    "primary_position_or_phase": "starting pull position with barbell on the floor, hands outside knees, feet hip-width, and flat back",
+    "camera_angle": "front three-quarter low view showing barbell on floor, hand placement, and leg position",
+    "motion_arrow_description": "subtle electric blue/accent blue upward arrow beside the barbell showing the lift from the floor",
+    "primary_target_muscles": ["hamstrings", "glutes"],
+    "secondary_target_muscles": ["lower back", "quadriceps", "core"],
+    "form_details": [
+      "barbell starts on the floor over the midfoot",
+      "feet are hip-width apart",
+      "hands grip the bar outside the knees",
+      "back is flat with chest up and hips set back",
+      "shoulders are slightly in front of the bar and neck remains neutral"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a conventional barbell deadlift in the starting pull position. Show the barbell on the floor over the midfoot, feet hip-width apart, hands gripping outside the knees, hips set back, knees bent, chest up, flat back, neutral neck, and shoulders slightly in front of the bar. Use a front three-quarter low view that clearly shows the barbell on the floor, hand placement outside the knees, and hip-width stance. Add a subtle electric blue/accent blue upward motion arrow beside the barbell showing the lift from the floor. Add soft translucent electric blue/accent blue primary muscle highlights on the hamstrings and glutes, with lighter secondary emphasis on lower back, quadriceps, and core. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: barbell. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/conventional-barbell-deadlift.png",
+    "alt_text": "Athletic adult setting up for a conventional barbell deadlift with hands outside the knees and hamstrings and glutes highlighted."
+  },
+  {
+    "index": 8,
+    "exercise_name": "Sumo Barbell Deadlift",
+    "slug": "sumo-barbell-deadlift",
+    "required_equipment": ["barbell"],
+    "primary_position_or_phase": "starting pull position with wide stance, toes outward, hands inside knees, and barbell on the floor",
+    "camera_angle": "front three-quarter low view emphasizing wide stance and hands inside knees",
+    "motion_arrow_description": "subtle electric blue/accent blue upward arrow beside the barbell showing the pull from the floor",
+    "primary_target_muscles": ["glutes", "hamstrings", "adductors"],
+    "secondary_target_muscles": ["quadriceps", "lower back", "core"],
+    "form_details": [
+      "feet are set wide with toes turned outward",
+      "hands grip the bar inside the knees",
+      "barbell starts on the floor close to the shins",
+      "chest is lifted with back flat and hips lowered",
+      "knees track outward in line with toes"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a sumo barbell deadlift in the starting pull position. Show a wide stance with toes turned outward, knees tracking outward in line with toes, hands gripping the bar inside the knees, barbell on the floor close to the shins, chest lifted, back flat, neutral neck, and hips lowered for the pull. Use a front three-quarter low view emphasizing the wide stance and hands inside the knees. Add a subtle electric blue/accent blue upward motion arrow beside the barbell showing the pull from the floor. Add soft translucent electric blue/accent blue primary muscle highlights on the glutes, hamstrings, and adductors, with lighter secondary emphasis on quadriceps, lower back, and core. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: barbell. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/sumo-barbell-deadlift.png",
+    "alt_text": "Athletic adult setting up for a sumo barbell deadlift with wide stance, hands inside the knees, and glutes, hamstrings, and adductors highlighted."
+  },
+  {
+    "index": 9,
+    "exercise_name": "Seated Leg Curl Machine",
+    "slug": "seated-leg-curl-machine",
+    "required_equipment": ["seated leg curl machine"],
+    "primary_position_or_phase": "seated curl phase with knees forward and lower legs pulling the padded lever downward and backward",
+    "camera_angle": "side three-quarter view showing seat, thigh pad, lower-leg pad, and lever movement",
+    "motion_arrow_description": "subtle electric blue/accent blue curved arrow near the lower legs showing the pad curling downward and backward",
+    "primary_target_muscles": ["hamstrings"],
+    "secondary_target_muscles": ["calves"],
+    "form_details": [
+      "person is seated upright with back supported",
+      "knees point forward and align with the machine pivot",
+      "lower legs contact the padded lever",
+      "padded lever curls downward and backward under control",
+      "thigh pad holds the upper legs steady"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a seated leg curl on a clearly visible seated leg curl machine. Show the person seated upright with back supported, knees extended forward and aligned with the machine pivot, thighs secured under the thigh pad, lower legs against the padded lever, and the padded lever curling downward and backward under control. Use a side three-quarter view showing the seat, back support, thigh pad, lower-leg pad, and lever movement. Add a subtle electric blue/accent blue curved motion arrow near the lower legs showing the pad curling downward and backward. Add soft translucent electric blue/accent blue primary muscle highlights on the hamstrings, with lighter secondary emphasis on calves. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: seated leg curl machine. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/seated-leg-curl-machine.png",
+    "alt_text": "Athletic adult using a seated leg curl machine with lower legs curling the padded lever and hamstrings highlighted."
+  },
+  {
+    "index": 10,
+    "exercise_name": "Lying Leg Curl Machine",
+    "slug": "lying-leg-curl-machine",
+    "required_equipment": ["lying leg curl machine"],
+    "primary_position_or_phase": "face-down curl phase with heels under the pad and knees bending to bring the pad toward the glutes",
+    "camera_angle": "side three-quarter view showing prone body position and knee flexion",
+    "motion_arrow_description": "subtle electric blue/accent blue curved arrow near the heels showing the pad moving toward the glutes",
+    "primary_target_muscles": ["hamstrings"],
+    "secondary_target_muscles": ["calves"],
+    "form_details": [
+      "person lies face down on the bench pad",
+      "knees align with the machine pivot",
+      "heels and lower calves sit under the padded roller",
+      "knees bend to curl the pad toward the glutes",
+      "hips stay pressed into the bench with controlled movement"
+    ],
+    "prompt": "Clean premium exercise demonstration illustration of one athletic adult with realistic approachable proportions performing a lying leg curl on a clearly visible lying leg curl machine. Show the person lying face down on the bench pad, knees aligned with the machine pivot, heels and lower calves under the padded roller, knees bending to curl the pad toward the glutes, hips pressed into the bench, and movement controlled. Use a side three-quarter view showing the prone body position, bench, roller pad, and knee flexion. Add a subtle electric blue/accent blue curved motion arrow near the heels showing the pad moving toward the glutes. Add soft translucent electric blue/accent blue primary muscle highlights on the hamstrings, with lighter secondary emphasis on calves. Include a faint secondary ghost pose at 10-15% opacity to clarify the movement path, clearly behind or offset from the main figure, not crowded, and visually secondary. All motion arrows and muscle highlights must use the same consistent electric blue/accent blue. Simple fitted fitness apparel, premium mobile fitness app illustration style, soft 3D vector look, white/light warm gray studio background, only required equipment: lying leg curl machine. No logos, no text, no watermarks, no clutter, no unsafe form.",
+    "file": "assets/exercise-media/generated-2026-06/lying-leg-curl-machine.png",
+    "alt_text": "Athletic adult lying face down on a leg curl machine and curling the heel pad toward the glutes with hamstrings highlighted."
+  }
+]
