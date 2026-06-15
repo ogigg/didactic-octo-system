@@ -38,6 +38,7 @@ export function PeriodSelector({
           <TouchableOpacity
             key={period.key}
             accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
             onPress={() => onChange(period.key)}
             style={[
               styles.pill,

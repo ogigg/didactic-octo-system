@@ -1,45 +1,44 @@
 import { StyleSheet, View, Text } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
+import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 
 interface VolumeWeek {
   week_start: string;
   volume_kg: number;
+  total_duration_seconds?: number | null;
 }
 
 interface VolumeBarChartProps {
   data: VolumeWeek[];
   chartHeight?: number;
+  metric?: "volume" | "duration";
+  labels?: {
+    total: string;
+    average: string;
+    perWeek: string;
+  };
 }
-
-const MONTH_ABBREVS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-// formatVolume is now handled by useWeightUnit().formatVolume
 
 function getMonthLabel(
   dateStr: string,
   prevDateStr: string | undefined
 ): string {
   const date = new Date(dateStr);
-  if (!prevDateStr) return MONTH_ABBREVS[date.getMonth()];
+  if (Number.isNaN(date.getTime())) return "";
+  const monthLabel = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+  }).format(date);
+  if (!prevDateStr) return monthLabel;
   const prevDate = new Date(prevDateStr);
-  if (date.getMonth() !== prevDate.getMonth()) {
-    return MONTH_ABBREVS[date.getMonth()];
+  if (
+    Number.isNaN(prevDate.getTime()) ||
+    date.getMonth() !== prevDate.getMonth()
+  ) {
+    return monthLabel;
   }
   return "";
 }
@@ -47,7 +46,10 @@ function getMonthLabel(
 export function VolumeBarChart({
   data,
   chartHeight = 120,
+  metric = "volume",
+  labels,
 }: VolumeBarChartProps) {
+  const { t } = useTranslation("stats");
   const { formatVolume } = useWeightUnit();
   const primaryColor = useThemeColor({}, "primary");
   const borderColor = useThemeColor({}, "border");
@@ -57,9 +59,21 @@ export function VolumeBarChart({
 
   if (data.length === 0) return null;
 
-  const maxVolume = Math.max(...data.map((d) => d.volume_kg), 1);
-  const totalVolume = data.reduce((sum, d) => sum + d.volume_kg, 0);
-  const weeklyAvg = data.length > 0 ? totalVolume / data.length : 0;
+  const values = data.map((item) =>
+    metric === "duration" ? (item.total_duration_seconds ?? 0) : item.volume_kg
+  );
+  const maxValue = Math.max(...values, 1);
+  const totalValue = values.reduce((sum, value) => sum + value, 0);
+  const weeklyAvg = data.length > 0 ? totalValue / data.length : 0;
+  const formatValue =
+    metric === "duration"
+      ? (value: number) => formatExerciseDuration(Math.round(value))
+      : formatVolume;
+  const chartLabels = labels ?? {
+    total: t("volume.total"),
+    average: t("volume.weeklyAvg"),
+    perWeek: t("volume.perWeek"),
+  };
 
   // Determine label interval (~every 4 weeks)
   const labelEvery = Math.max(1, Math.floor(data.length / 10) * 4 || 4);
@@ -69,15 +83,15 @@ export function VolumeBarChart({
       {/* Summary row */}
       <View style={styles.summaryRow}>
         <Text style={[styles.summaryText, { color: textColor }]}>
-          {"Total: "}
-          <Text style={{ color: primaryColor }}>
-            {formatVolume(totalVolume)}
-          </Text>
+          {chartLabels.total}
+          {": "}
+          <Text style={{ color: primaryColor }}>{formatValue(totalValue)}</Text>
         </Text>
         <Text style={[styles.summaryText, { color: textSecondary }]}>
-          {"Avg: "}
-          <Text style={{ color: primaryColor }}>{formatVolume(weeklyAvg)}</Text>
-          {"/wk"}
+          {chartLabels.average}
+          {": "}
+          <Text style={{ color: primaryColor }}>{formatValue(weeklyAvg)}</Text>
+          {chartLabels.perWeek}
         </Text>
       </View>
 
@@ -85,10 +99,11 @@ export function VolumeBarChart({
       <View style={[styles.chartArea, { height: chartHeight }]}>
         {data.map((week, index) => {
           const isCurrentWeek = index === data.length - 1;
-          const isEmpty = week.volume_kg === 0;
+          const value = values[index] ?? 0;
+          const isEmpty = value === 0;
           const barHeight = isEmpty
             ? 3
-            : Math.max(6, (week.volume_kg / maxVolume) * chartHeight);
+            : Math.max(6, (value / maxValue) * chartHeight);
 
           return (
             <View key={week.week_start} style={styles.barWrapper}>
