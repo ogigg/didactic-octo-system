@@ -36,6 +36,18 @@ npm run test:watch
 npm run test:coverage
 ```
 
+Native iOS development builds:
+
+```bash
+npx expo run:ios
+npx expo run:ios --device
+```
+
+- `npx expo run:ios` builds and opens the app in the iOS simulator.
+- `npx expo run:ios --device` builds and opens the app on a connected physical iPhone.
+
+For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mobile-app.md`.
+
 ## Structure
 
 - `app` - route files and screen entry points
@@ -68,3 +80,4 @@ npm run test:coverage
 - `../../AGENTS.md` for canonical agent guidance
 - `../../.ai/architecture.md` for architecture details
 - `../../.ai/i18n.md` for translation workflow
+- `../../project-wiki/guides/running-and-releasing-mobile-app.md` for running and release commands

@@ -26,6 +26,16 @@ From `apps/mobile`, you can also run:
 - `npm test`
 - `npm run lint`
 
+For native iOS development builds:
+
+```bash
+cd apps/mobile
+npx expo run:ios
+npx expo run:ios --device
+```
+
+See `project-wiki/guides/running-and-releasing-mobile-app.md` for the full running and App Store archive guide.
+
 ## Repository Structure
 
 - `apps/mobile` - Expo / React Native app
@@ -44,6 +54,7 @@ From `apps/mobile`, you can also run:
 - `.ai/db-schema.md` - curated database schema reference
 - `.ai/tech-stack.md` - technology overview
 - `apps/mobile/README.md` - mobile-specific development guide
+- `project-wiki/guides/running-and-releasing-mobile-app.md` - local run commands and App Store archive workflow
 
 ## Tech Snapshot
 
