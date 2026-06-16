@@ -8,11 +8,24 @@ import {
 } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { formatRestCountdown, getRestTimerProgress } from "@/lib/rest-timer";
+import {
+  cancelScheduledRestTimerNotification,
+  scheduleRestTimerCompletionNotification,
+  type RestTimerNotificationScheduleStatus,
+} from "@/lib/rest-timer-notifications";
 import { playRestTimerCompleteSound } from "@/lib/rest-timer-sound";
 import { useWorkoutStore } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  AppState,
+  type AppStateStatus,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { RestTimerSheet } from "./rest-timer-sheet";
 
@@ -35,12 +48,67 @@ export function RestTimerBar() {
 
   const [now, setNow] = useState(Date.now());
   const [expanded, setExpanded] = useState(false);
+  const [notificationStatus, setNotificationStatus] =
+    useState<RestTimerNotificationScheduleStatus | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const backgroundedUntilCompletionRef = useRef(false);
 
   useEffect(() => {
     if (!restTimer) return;
     const interval = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(interval);
   }, [restTimer]);
+
+  useEffect(() => {
+    if (!restTimer) {
+      backgroundedUntilCompletionRef.current = false;
+      return;
+    }
+
+    backgroundedUntilCompletionRef.current = false;
+    const endsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      appStateRef.current = nextState;
+
+      if (nextState !== "active") {
+        backgroundedUntilCompletionRef.current = true;
+        return;
+      }
+
+      if (Date.now() < endsAtMs) {
+        backgroundedUntilCompletionRef.current = false;
+      }
+    });
+
+    return () => subscription.remove();
+  }, [restTimer]);
+
+  useEffect(() => {
+    if (!restTimer) {
+      setNotificationStatus(null);
+      void cancelScheduledRestTimerNotification();
+      return;
+    }
+
+    let isDisposed = false;
+    const endsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
+    setNotificationStatus(null);
+
+    scheduleRestTimerCompletionNotification({
+      channelName: t("restTimerNotification.channelName"),
+      title: t("restTimerNotification.title"),
+      body: t("restTimerNotification.body"),
+      endsAtMs,
+    }).then((status) => {
+      if (!isDisposed) setNotificationStatus(status);
+    });
+
+    return () => {
+      isDisposed = true;
+      void cancelScheduledRestTimerNotification();
+    };
+  }, [restTimer, t]);
 
   // Collapse the sheet whenever the timer goes away (skip, finish, etc.)
   useEffect(() => {
@@ -57,8 +125,18 @@ export function RestTimerBar() {
 
   useEffect(() => {
     if (!isFinished) return;
-    void playRestTimerCompleteSound();
-    if (Platform.OS === "ios") {
+    void cancelScheduledRestTimerNotification();
+
+    const shouldPlayForegroundAlert =
+      appStateRef.current !== "background" &&
+      appStateRef.current !== "inactive" &&
+      !backgroundedUntilCompletionRef.current;
+
+    if (shouldPlayForegroundAlert) {
+      void playRestTimerCompleteSound();
+    }
+
+    if (shouldPlayForegroundAlert && Platform.OS === "ios") {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     skipRestTimer();
@@ -167,6 +245,12 @@ export function RestTimerBar() {
         </Pressable>
       </View>
 
+      {notificationStatus === "permission-denied" && (
+        <Text style={[styles.permissionText, { color: textSecondary }]}>
+          {t("restTimerNotification.permissionDenied")}
+        </Text>
+      )}
+
       {expanded && <RestTimerSheet onClose={handleCollapse} />}
     </View>
   );
@@ -219,5 +303,11 @@ const styles = StyleSheet.create({
   skipButton: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
+  },
+  permissionText: {
+    ...Typography.caption,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    textAlign: "center",
   },
 });
