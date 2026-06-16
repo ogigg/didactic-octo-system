@@ -40,6 +40,7 @@ const requestSchema = z.object({
   training_style: z.enum(["strength", "hypertrophy", "endurance", "circuit"]),
   difficulty: z.enum(["beginner", "intermediate", "advanced"]),
   custom_prompt: z.string().max(500).optional(),
+  regeneration_feedback: z.string().trim().min(1).max(300).optional(),
   // Regeneration: identifies a pending workout slot to replace
   pending_workout_id: z.string().uuid().optional(),
   timezone_offset_minutes: z.number().int().min(-840).max(840).optional(),
@@ -48,6 +49,7 @@ const requestSchema = z.object({
 interface PendingWorkoutSnapshot {
   id: string;
   regeneration_count: number | null;
+  regeneration_feedback: Record<string, unknown>[] | null;
   last_regenerated_at: string | null;
   workout_data: Record<string, unknown> | null;
   status: string;
@@ -140,6 +142,7 @@ Deno.serve(async (req: Request) => {
       training_style,
       difficulty,
       custom_prompt,
+      regeneration_feedback,
       pending_workout_id,
       timezone_offset_minutes,
     } = parsed.data;
@@ -200,7 +203,7 @@ Deno.serve(async (req: Request) => {
       const { data: pendingWorkout } = await userClient
         .from("pending_workouts")
         .select(
-          "id, regeneration_count, last_regenerated_at, workout_data, status"
+          "id, regeneration_count, regeneration_feedback, last_regenerated_at, workout_data, status"
         )
         .eq("id", pending_workout_id)
         .eq("user_id", user.id)
@@ -335,6 +338,7 @@ Deno.serve(async (req: Request) => {
       trainingStyle: training_style,
       difficulty,
       customPrompt: custom_prompt,
+      regenerationFeedback: regeneration_feedback,
       strengthBaselines:
         strengthBaselines.length > 0 ? strengthBaselines : undefined,
       queueContext,
@@ -359,16 +363,28 @@ Deno.serve(async (req: Request) => {
 
     // 12. If regenerating a pending workout, update it
     if (pending_workout_id) {
+      const submittedAt = new Date().toISOString();
+      const previousFeedback =
+        pendingWorkoutSnapshot?.regeneration_feedback ?? [];
+      const regenerationFeedbackEntry = {
+        feedback: regeneration_feedback ?? null,
+        has_feedback: !!regeneration_feedback,
+        submitted_at: submittedAt,
+      };
       const { error: updateError } = await userClient
         .from("pending_workouts")
         .update({
           workout_data: result.data as unknown as Record<string, unknown>,
           generation_source: result.generationSource,
           status: "ready",
-          last_regenerated_at: new Date().toISOString(),
+          last_regenerated_at: submittedAt,
           regeneration_count:
             (pendingWorkoutSnapshot?.regeneration_count ?? 0) + 1,
-          generated_at: new Date().toISOString(),
+          regeneration_feedback: [
+            ...previousFeedback,
+            regenerationFeedbackEntry,
+          ],
+          generated_at: submittedAt,
         })
         .eq("id", pending_workout_id)
         .eq("user_id", user.id);
