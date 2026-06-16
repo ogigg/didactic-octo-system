@@ -1,0 +1,206 @@
+[
+  {
+    "index": 21,
+    "exercise_name": "Standard Push-Up",
+    "slug": "standard-push-up",
+    "required_equipment": "none",
+    "primary_position_or_phase": "Bottom phase of a straight-body plank on hands and toes, chest lowered close to the floor.",
+    "camera_angle": "Front three-quarter low angle at floor level, showing full body alignment from head to heels.",
+    "motion_arrow_description": "Subtle electric blue curved vertical arrow beside the torso showing the chest lowering toward the floor and pressing back up, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["chest", "triceps", "shoulders"],
+    "secondary_target_muscles": ["core", "serratus anterior"],
+    "form_details": [
+      "Hands slightly wider than shoulder width with fingers spread on the floor.",
+      "Body forms one straight line from head through hips to heels.",
+      "Elbows bend back at a moderate angle rather than flaring straight out.",
+      "Chest is close to the floor with neck neutral and gaze slightly forward."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Standard Push-Up, no equipment, straight-body plank on hands and toes with chest lowered close to the floor, hands slightly wider than shoulders, elbows bent back at a moderate angle, body aligned from head to heels, neutral neck. Front three-quarter low floor-level camera angle with the full body visible. Add a subtle electric blue curved vertical motion arrow beside the torso showing the lowering and pressing path. Add a faint 10-15% opacity ghost pose of the alternate push-up position, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on chest, triceps, and shoulders, with very light secondary emphasis on core. Realistic approachable proportions, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/standard-push-up.png",
+    "alt_text": "Athletic adult in the bottom phase of a standard push-up with chest, triceps, and shoulders highlighted."
+  },
+  {
+    "index": 22,
+    "exercise_name": "Parallel Bar Dip",
+    "slug": "parallel-bar-dip",
+    "required_equipment": "parallel bars",
+    "primary_position_or_phase": "Lowering phase suspended between parallel bars, elbows bending with a slight forward lean.",
+    "camera_angle": "Front three-quarter view from slightly below chest height, showing both bars, torso angle, and elbow bend.",
+    "motion_arrow_description": "Subtle electric blue vertical arrow next to the torso showing the body lowering between the bars and pressing upward, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["chest", "triceps"],
+    "secondary_target_muscles": ["front deltoids", "core"],
+    "form_details": [
+      "Hands grip parallel bars firmly with wrists stacked over the bars.",
+      "Torso leans slightly forward while shoulders stay controlled.",
+      "Elbows bend behind the body as the torso lowers between the bars.",
+      "Legs are tucked slightly back with feet off the floor and body stable."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Parallel Bar Dip on parallel bars, suspended between the bars in the lowering phase, elbows bent behind the body, slight forward torso lean, shoulders controlled, wrists stacked over the bars, legs tucked slightly back with feet off the floor. Front three-quarter camera angle from slightly below chest height, both bars visible. Add a subtle electric blue vertical motion arrow beside the torso showing the body lowering and pressing up. Add a faint 10-15% opacity ghost pose of the higher dip position, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on chest and triceps, with light secondary emphasis on front deltoids. Realistic approachable proportions, only parallel bars as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/parallel-bar-dip.png",
+    "alt_text": "Athletic adult lowering into a parallel bar dip with chest and triceps highlighted."
+  },
+  {
+    "index": 23,
+    "exercise_name": "Standing Barbell Overhead Press",
+    "slug": "standing-barbell-overhead-press",
+    "required_equipment": "barbell",
+    "primary_position_or_phase": "Mid-to-top press phase standing tall as the barbell travels from shoulder height to directly overhead.",
+    "camera_angle": "Front three-quarter full-body view at standing height, clearly showing the bar path over the midfoot.",
+    "motion_arrow_description": "Subtle electric blue straight upward arrow beside the barbell showing the vertical press from shoulders to overhead, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["shoulders", "triceps"],
+    "secondary_target_muscles": ["upper chest", "core", "upper back"],
+    "form_details": [
+      "Feet are about hip width with knees locked softly and no leg drive.",
+      "Barbell starts near shoulder height with forearms vertical.",
+      "Torso is upright with ribs down and core braced.",
+      "Bar finishes overhead above the shoulders with arms extended."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Standing Barbell Overhead Press with a barbell, standing tall with feet hip width, no leg drive, torso upright, ribs down, core braced. Show the barbell moving from shoulder height toward a locked-out overhead position, forearms vertical, arms extended overhead above the shoulders. Front three-quarter full-body camera angle at standing height with the vertical bar path over the midfoot visible. Add a subtle electric blue straight upward motion arrow beside the barbell. Add a faint 10-15% opacity ghost pose of the barbell at shoulder height, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on shoulders and triceps, with light secondary emphasis on core and upper back. Realistic approachable proportions, only the barbell as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/standing-barbell-overhead-press.png",
+    "alt_text": "Athletic adult pressing a barbell overhead while standing, with shoulders and triceps highlighted."
+  },
+  {
+    "index": 24,
+    "exercise_name": "Seated Dumbbell Shoulder Press",
+    "slug": "seated-dumbbell-shoulder-press",
+    "required_equipment": "dumbbells and seated bench with back support",
+    "primary_position_or_phase": "Pressing phase seated against back support, dumbbells moving from shoulder level to overhead.",
+    "camera_angle": "Front three-quarter seated view, slightly above waist height, showing the bench back, both dumbbells, and arm path.",
+    "motion_arrow_description": "Two subtle electric blue upward arrows near the dumbbells showing the press from shoulder level to overhead, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["shoulders", "triceps"],
+    "secondary_target_muscles": ["upper chest", "upper back"],
+    "form_details": [
+      "Back rests against the bench support with torso upright.",
+      "Dumbbells start at shoulder level with palms facing forward.",
+      "Elbows stay slightly in front of the body and under the wrists.",
+      "Dumbbells press overhead without clashing together at the top."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Seated Dumbbell Shoulder Press on a seated bench with back support, holding two dumbbells. Torso upright against the bench, dumbbells pressing from shoulder level to overhead, palms facing forward, elbows slightly in front of the body and stacked under wrists, dumbbells separated at the top. Front three-quarter seated camera angle from slightly above waist height, bench back and both dumbbells visible. Add two subtle electric blue upward motion arrows near the dumbbells. Add a faint 10-15% opacity ghost pose of the dumbbells at shoulder level, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on shoulders and triceps, with light secondary emphasis on upper chest. Realistic approachable proportions, only dumbbells and supported bench as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/seated-dumbbell-shoulder-press.png",
+    "alt_text": "Athletic adult seated on a supported bench pressing dumbbells overhead with shoulders and triceps highlighted."
+  },
+  {
+    "index": 25,
+    "exercise_name": "Arnold Dumbbell Press",
+    "slug": "arnold-dumbbell-press",
+    "required_equipment": "dumbbells and seated bench",
+    "primary_position_or_phase": "Mid-press seated phase, dumbbells rotating from palms facing the body toward palms forward as they travel overhead.",
+    "camera_angle": "Front three-quarter seated view at chest height, emphasizing hand rotation and overhead press path.",
+    "motion_arrow_description": "Subtle electric blue spiral-up arrows near each dumbbell showing rotation from inward-facing palms to forward-facing palms while pressing overhead, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["shoulders"],
+    "secondary_target_muscles": ["triceps", "upper chest"],
+    "form_details": [
+      "Seated tall on a bench with feet planted and torso upright.",
+      "Dumbbells begin in front of the shoulders with palms facing the body.",
+      "Hands rotate outward as the dumbbells press overhead.",
+      "Elbows travel smoothly from in front of the torso to slightly out to the sides."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing an Arnold Dumbbell Press seated on a bench with two dumbbells, torso upright and feet planted. Show the mid-press rotation: dumbbells moving upward from in front of the shoulders, palms turning from facing the body toward facing forward, elbows traveling smoothly from in front of the torso to slightly out to the sides. Front three-quarter seated camera angle at chest height, hand rotation clearly visible. Add subtle electric blue spiral-up motion arrows near each dumbbell showing rotation and press path. Add a faint 10-15% opacity ghost pose of the dumbbells in the palms-facing-body bottom position, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on shoulders, with light secondary emphasis on triceps and upper chest. Realistic approachable proportions, only dumbbells and seated bench as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/arnold-dumbbell-press.png",
+    "alt_text": "Athletic adult seated on a bench doing an Arnold dumbbell press with shoulder muscles highlighted."
+  },
+  {
+    "index": 26,
+    "exercise_name": "Dumbbell Lateral Raise",
+    "slug": "dumbbell-lateral-raise",
+    "required_equipment": "dumbbells",
+    "primary_position_or_phase": "Top phase standing with dumbbells raised out to the sides to shoulder height and elbows slightly bent.",
+    "camera_angle": "Front full-body view with a slight three-quarter turn, showing both arms reaching shoulder height.",
+    "motion_arrow_description": "Two subtle electric blue outward-and-upward arc arrows beside the arms showing the lift from thighs to shoulder height, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["side deltoids"],
+    "secondary_target_muscles": ["upper traps", "core"],
+    "form_details": [
+      "Feet are hip width with torso tall and stable.",
+      "Dumbbells are raised to the sides at shoulder height.",
+      "Elbows have a slight bend and wrists stay neutral.",
+      "Shoulders stay down without shrugging excessively."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Dumbbell Lateral Raise with two dumbbells, standing tall with feet hip width and torso stable. Show the top phase with both arms raised out to the sides to shoulder height, slight bend in the elbows, neutral wrists, shoulders controlled without excessive shrugging. Front full-body camera angle with a slight three-quarter turn, both arms clearly visible. Add two subtle electric blue outward-and-upward arc motion arrows beside the arms showing the lift from thighs to shoulder height. Add a faint 10-15% opacity ghost pose of the arms down by the thighs, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on side deltoids, with light secondary emphasis on upper traps. Realistic approachable proportions, only dumbbells as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/dumbbell-lateral-raise.png",
+    "alt_text": "Athletic adult standing with dumbbells raised to the sides and side deltoids highlighted."
+  },
+  {
+    "index": 27,
+    "exercise_name": "Single-Arm Cable Lateral Raise",
+    "slug": "single-arm-cable-lateral-raise",
+    "required_equipment": "low cable pulley and single handle",
+    "primary_position_or_phase": "Top phase standing beside a low pulley, working arm raised out to the side to shoulder height.",
+    "camera_angle": "Front three-quarter view from the working-arm side, showing the low pulley, cable line, handle, and raised arm.",
+    "motion_arrow_description": "Subtle electric blue outward-and-upward arc arrow beside the working arm showing the cable handle lifting from low across the body to shoulder height, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["side deltoids"],
+    "secondary_target_muscles": ["upper traps", "core"],
+    "form_details": [
+      "Athlete stands beside the low pulley with the cable crossing slightly in front of the body.",
+      "Working hand holds a single handle and raises out to the side.",
+      "Elbow stays slightly bent with wrist neutral.",
+      "Torso remains upright without leaning away from the cable."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Single-Arm Cable Lateral Raise beside a low cable pulley with one handle. Show the top phase with the working arm raised out to the side to shoulder height, cable crossing slightly in front of the body from the low pulley, elbow slightly bent, wrist neutral, torso upright without leaning away. Front three-quarter camera angle from the working-arm side, low pulley, cable line, handle, and raised arm visible. Add a subtle electric blue outward-and-upward arc motion arrow beside the working arm. Add a faint 10-15% opacity ghost pose of the working arm down across the body near the low cable start, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on the working-side side deltoid, with light secondary emphasis on upper trap and core. Realistic approachable proportions, only low cable pulley and single handle as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/single-arm-cable-lateral-raise.png",
+    "alt_text": "Athletic adult beside a low pulley raising one cable handle to the side with the side deltoid highlighted."
+  },
+  {
+    "index": 28,
+    "exercise_name": "Dumbbell Front Raise",
+    "slug": "dumbbell-front-raise",
+    "required_equipment": "dumbbells",
+    "primary_position_or_phase": "Top phase standing with dumbbells lifted forward to shoulder height.",
+    "camera_angle": "Front three-quarter full-body view, slightly offset to show forward arm position and both dumbbells.",
+    "motion_arrow_description": "Two subtle electric blue forward-and-upward arc arrows in front of the body showing the dumbbells lifting from thighs to shoulder height, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["front deltoids"],
+    "secondary_target_muscles": ["upper chest", "core"],
+    "form_details": [
+      "Feet are hip width with torso tall and ribs down.",
+      "Dumbbells lift forward to shoulder height with arms nearly straight.",
+      "Elbows keep a small soft bend and wrists remain neutral.",
+      "Shoulders stay controlled without leaning backward."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Dumbbell Front Raise with two dumbbells, standing tall with feet hip width, ribs down, and torso stable. Show the top phase with both dumbbells lifted forward to shoulder height, arms nearly straight with a small soft elbow bend, neutral wrists, shoulders controlled without leaning backward. Front three-quarter full-body camera angle slightly offset to show the forward arm position and both dumbbells. Add two subtle electric blue forward-and-upward arc motion arrows in front of the body showing the lift from thighs to shoulder height. Add a faint 10-15% opacity ghost pose of the arms down by the thighs, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on front deltoids, with light secondary emphasis on upper chest. Realistic approachable proportions, only dumbbells as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/dumbbell-front-raise.png",
+    "alt_text": "Athletic adult standing with dumbbells raised forward to shoulder height and front deltoids highlighted."
+  },
+  {
+    "index": 29,
+    "exercise_name": "Bent-Over Rear Delt Fly",
+    "slug": "bent-over-rear-delt-fly",
+    "required_equipment": "dumbbells",
+    "primary_position_or_phase": "Top phase hinged at the hips with dumbbells raised out to the sides, emphasizing rear shoulders rather than a row.",
+    "camera_angle": "Rear three-quarter view from slightly above hip height, showing the hip hinge, neutral spine, and arms moving wide.",
+    "motion_arrow_description": "Two subtle electric blue outward arc arrows beside the arms showing the dumbbells sweeping away from the midline, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["rear deltoids"],
+    "secondary_target_muscles": ["upper back", "middle traps", "rhomboids"],
+    "form_details": [
+      "Athlete hinges at the hips with a flat back and soft knees.",
+      "Dumbbells move out to the sides with elbows softly bent.",
+      "Arms stay wide rather than pulling the elbows back into a row.",
+      "Neck remains neutral with gaze toward the floor."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Bent-Over Rear Delt Fly with two dumbbells, hinged at the hips with soft knees, flat back, neutral neck, and gaze toward the floor. Show the top phase with dumbbells raised out wide to the sides, elbows softly bent, arms sweeping away from the midline, clearly not a rowing motion. Rear three-quarter camera angle from slightly above hip height, showing the hip hinge, neutral spine, and wide arm position. Add two subtle electric blue outward arc motion arrows beside the arms. Add a faint 10-15% opacity ghost pose of the arms hanging below the shoulders at the start position, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on rear deltoids, with light secondary emphasis on upper back, middle traps, and rhomboids. Realistic approachable proportions, only dumbbells as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/bent-over-rear-delt-fly.png",
+    "alt_text": "Athletic adult hinged forward performing a rear delt fly with rear shoulders highlighted."
+  },
+  {
+    "index": 30,
+    "exercise_name": "Cable Face Pull with Rope",
+    "slug": "cable-face-pull-with-rope",
+    "required_equipment": "cable machine and rope attachment",
+    "primary_position_or_phase": "End pull phase standing, rope pulled toward the face with elbows high and hands separating near the forehead.",
+    "camera_angle": "Front three-quarter view from cable-machine side, showing the cable line, rope attachment, high elbows, and separated hands.",
+    "motion_arrow_description": "Subtle electric blue backward arrow along the cable path plus small electric blue outward arrows near the rope ends showing the pull toward the face and hand separation, with a faint 10-15% opacity ghost pose to clarify the movement.",
+    "primary_target_muscles": ["rear deltoids", "upper back"],
+    "secondary_target_muscles": [
+      "middle traps",
+      "rhomboids",
+      "external rotators"
+    ],
+    "form_details": [
+      "Cable is set around upper chest to face height with rope attachment.",
+      "Elbows stay high and flare out to the sides during the pull.",
+      "Hands separate near the forehead with rope ends moving around the face.",
+      "Torso remains tall and stable without leaning backward."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a Cable Face Pull with Rope using a cable machine and rope attachment. Show the end pull phase standing tall and stable, cable set around upper chest to face height, rope pulled toward the face, elbows high and flared out to the sides, hands separating near the forehead with rope ends moving around the face, no backward lean. Front three-quarter camera angle from the cable-machine side, cable line, rope attachment, high elbows, and separated hands visible. Add a subtle electric blue backward motion arrow along the cable path plus small electric blue outward arrows near the rope ends. Add a faint 10-15% opacity ghost pose of the arms extended toward the cable start position, clearly secondary to the main figure and not crowded. Use a consistent electric blue/accent blue for all motion arrows and soft target-muscle highlights. Soft electric blue target-muscle highlight on rear deltoids and upper back, with light secondary emphasis on middle traps, rhomboids, and external rotators. Realistic approachable proportions, only cable machine and rope attachment as equipment, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/cable-face-pull-with-rope.png",
+    "alt_text": "Athletic adult pulling a rope cable toward the face with rear deltoids and upper back highlighted."
+  }
+]

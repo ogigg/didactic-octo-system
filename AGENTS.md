@@ -107,6 +107,7 @@ npx jest --testNamePattern="test name"
 - Keep changes focused and maintainable.
 - Prefer improvements that strengthen the main training loop instead of widening scope by default.
 - When product intent is unclear, ask instead of guessing.
+- After every code or behavior change, check whether docs need updates. Update the relevant README, `project-wiki`, `.ai`, or `PROJECT.md` documentation in the same change when the behavior, commands, setup, architecture, database shape, or user-facing workflow changes.
 - If you add or materially change important database tables, columns, relationships, or invariants, update `.ai/db-schema.md` in the same change.
 
 ## Pre-commit And Tooling Notes

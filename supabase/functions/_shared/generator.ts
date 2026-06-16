@@ -635,27 +635,24 @@ export async function fetchExerciseCatalog(
   supabaseClient: SupabaseClient,
   equipment: string
 ): Promise<ExerciseCatalogEntry[]> {
+  const equipmentFilters: Record<string, string[] | null> = {
+    bodyweight: ["bodyweight", "Body weight"],
+    dumbbells: ["bodyweight", "Body weight", "Dumbbell", "Dumbbells"],
+    barbell: ["bodyweight", "Body weight", "Dumbbell", "Dumbbells", "Barbell"],
+    full_gym: null,
+  };
+
   let exerciseQuery = supabaseClient
     .from("exercises")
     .select(
       "id, name, exercise_type, primary_muscles, secondary_muscles, equipment, difficulty_level, image_url"
-    );
+    )
+    .eq("catalog_status", "active");
 
-  if (equipment === "bodyweight") {
-    exerciseQuery = exerciseQuery.contains("equipment", ["bodyweight"]);
-  } else if (equipment === "dumbbells") {
-    exerciseQuery = exerciseQuery.overlaps("equipment", [
-      "bodyweight",
-      "dumbbells",
-    ]);
-  } else if (equipment === "barbell") {
-    exerciseQuery = exerciseQuery.overlaps("equipment", [
-      "bodyweight",
-      "dumbbells",
-      "barbell",
-    ]);
+  const filter = equipmentFilters[equipment];
+  if (filter) {
+    exerciseQuery = exerciseQuery.overlaps("equipment", filter);
   }
-  // "full_gym" — no filter needed
 
   const { data, error } = await exerciseQuery.order("name").limit(100);
   if (error || !data?.length) return [];
