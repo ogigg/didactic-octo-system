@@ -986,7 +986,7 @@ export default function ExerciseDetailScreen() {
                 style={[
                   styles.pagerViewport,
                   activeTabHeight > 0 ? { minHeight: activeTabHeight } : null,
-                  pagerViewportStyle,
+                  activeTabHeight > 0 ? pagerViewportStyle : null,
                 ]}
               >
                 <Animated.View
@@ -1002,7 +1002,7 @@ export default function ExerciseDetailScreen() {
                     style={[
                       styles.pagerPanel,
                       {
-                        width: pagerWidth,
+                        width: pagerWidth || "100%",
                         minHeight: activeTabHeight || undefined,
                       },
                     ]}
@@ -1019,7 +1019,7 @@ export default function ExerciseDetailScreen() {
                     style={[
                       styles.pagerPanel,
                       {
-                        width: pagerWidth,
+                        width: pagerWidth || "100%",
                         minHeight: activeTabHeight || undefined,
                       },
                     ]}
@@ -1036,7 +1036,7 @@ export default function ExerciseDetailScreen() {
                     style={[
                       styles.pagerPanel,
                       {
-                        width: pagerWidth,
+                        width: pagerWidth || "100%",
                         minHeight: activeTabHeight || undefined,
                       },
                     ]}
