@@ -89,6 +89,13 @@ export const workout = {
     allDone: "Wszystkie serie zrobione — mocne zakończenie!",
     skipRest: "Pomiń odpoczynek",
   },
+  restTimerNotification: {
+    channelName: "Minutnik odpoczynku",
+    title: "Odpoczynek zakończony",
+    body: "Czas na następną serię.",
+    permissionDenied:
+      "Włącz dźwięki powiadomień, aby słyszeć alerty minutnika w tle.",
+  },
   miniBar: {
     resume: "Dotknij, aby wznowić trening",
   },

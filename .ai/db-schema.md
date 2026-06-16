@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Explain the current database model at a level that is useful for humans and AI agents, while treating `supabase/migrations` as the authoritative schema source.
-> **Last reviewed:** 2026-04-11
+> **Last reviewed:** 2026-06-15
 
 ## Source Of Truth
 
@@ -128,6 +128,9 @@ Important columns:
 - `equipment`
 - `difficulty_level`
 - `exercise_type`: `weight` or `time`
+- `catalog_status`: `active` or `retired`. Active exercises are available for generation and picker browsing; retired exercises remain resolvable for exact-ID history/detail lookups.
+- `retired_at`: when the exercise left the active catalog
+- `replacement_exercise_id`: optional pointer to a preferred replacement exercise when a retired movement has a curated successor
 - `instructions`, `image_url`, `video_url`
 - `external_id`: useful for seeded / imported data lineage
 
@@ -143,6 +146,7 @@ Notes:
 - `id` is the stable exercise identity; `name` is canonical English display/fallback text and must not be treated as identity
 - `image_url` and `video_url` are compatibility shortcuts. Rich media metadata lives in `exercise_media_assets`.
 - exercise picker filter options are derived from active `primary_muscles` and `equipment` values in this table, then localized through `catalog_label_translations`
+- exercises should be retired rather than deleted once referenced by workout history, preferences, or pending workout data. This keeps old workouts stable while allowing the active generation catalog to change over time.
 
 ### `exercise_media_assets`
 
@@ -230,6 +234,7 @@ Important columns:
 - `generation_source`
 - `focus_area`
 - `regeneration_count`
+- `regeneration_feedback`: JSON array of manual regeneration attempts and optional user feedback
 - `user_edits`
 
 Relationships:

@@ -1,8 +1,15 @@
-import { useLocalSearchParams } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  LayoutChangeEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,22 +17,28 @@ import {
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
-import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useExerciseDetail } from "@/hooks/use-exercise-detail-query";
-import { useExercise } from "@/hooks/use-exercises-query";
-import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
 import {
-  useSetExercisePreference,
   useRemoveExercisePreference,
+  useSetExercisePreference,
 } from "@/hooks/use-exercise-preference-mutations";
+import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
+import { useExercise } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import type {
@@ -52,7 +65,8 @@ function formatValue(value: number | null | undefined, suffix = ""): string {
 }
 
 function formatLongDate(date: string | null | undefined): string | null {
-  if (!date) {
+  const parsedDate = parseDisplayDate(date);
+  if (!parsedDate) {
     return null;
   }
 
@@ -60,19 +74,41 @@ function formatLongDate(date: string | null | undefined): string | null {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(parsedDate);
 }
 
-function formatShortDate(date: string): string {
+function formatShortDate(date: string): string | null {
+  const parsedDate = parseDisplayDate(date);
+  if (!parsedDate) {
+    return null;
+  }
+
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(parsedDate);
+}
+
+function parseDisplayDate(date: string | null | undefined): Date | null {
+  if (!date) {
+    return null;
+  }
+
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const parsedDate = dateOnlyMatch
+    ? new Date(
+        Number(dateOnlyMatch[1]!),
+        Number(dateOnlyMatch[2]!) - 1,
+        Number(dateOnlyMatch[3]!)
+      )
+    : new Date(date);
+
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 }
 
 function getAchievedLabel(
-  t: ReturnType<typeof useTranslation>["t"],
+  t: (key: string, options?: Record<string, string>) => string,
   date: string | null | undefined
 ): string {
   const formattedDate = formatLongDate(date);
@@ -125,6 +161,47 @@ function LoadingPlaceholder() {
   return (
     <View style={styles.loadingRow}>
       <ActivityIndicator size="small" color={primary} />
+    </View>
+  );
+}
+
+function ErrorState({
+  title,
+  message,
+  retryLabel,
+  onRetry,
+}: {
+  title: string;
+  message: string;
+  retryLabel: string;
+  onRetry?: () => void;
+}) {
+  const textColor = useThemeColor({}, "text");
+  const textMuted = useThemeColor({}, "textMuted");
+  const primary = useThemeColor({}, "primary");
+  const primarySurface = useThemeColor({}, "primarySurface");
+
+  return (
+    <View style={styles.emptyState}>
+      <Text
+        style={[Typography.titleSm, styles.emptyText, { color: textColor }]}
+      >
+        {title}
+      </Text>
+      <Text style={[Typography.body, styles.emptyText, { color: textMuted }]}>
+        {message}
+      </Text>
+      {onRetry ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRetry}
+          style={[styles.retryButton, { backgroundColor: primarySurface }]}
+        >
+          <Text style={[Typography.label, { color: primary }]}>
+            {retryLabel}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -224,11 +301,13 @@ function SessionRow({
   session,
   setLabel,
   completedSetsLabel,
+  isTimeExercise,
   wu,
 }: {
   session: ExerciseSessionHistory;
   setLabel: (number: number) => string;
   completedSetsLabel: string;
+  isTimeExercise: boolean;
   wu: ReturnType<typeof useWeightUnit>;
 }) {
   const border = useThemeColor({}, "border");
@@ -238,6 +317,7 @@ function SessionRow({
   const primary = useThemeColor({}, "primary");
 
   const sets = session.sets ?? [];
+  const formattedDate = formatShortDate(session.date);
 
   return (
     <View style={[styles.sessionRow, { borderBottomColor: border }]}>
@@ -260,7 +340,7 @@ function SessionRow({
         <Text
           style={[Typography.micro, styles.sessionDate, { color: primary }]}
         >
-          {formatShortDate(session.date)}
+          {formattedDate ?? session.date}
         </Text>
       </View>
 
@@ -277,7 +357,11 @@ function SessionRow({
                 { color: textColor },
               ]}
             >
-              {set.load_kg ? wu.format(set.load_kg) : "-"} x {set.reps ?? "-"}
+              {isTimeExercise && set.duration_seconds
+                ? formatExerciseDuration(set.duration_seconds)
+                : `${set.load_kg != null ? wu.format(set.load_kg) : "-"} x ${
+                    set.reps ?? "-"
+                  }`}
               {set.rpe != null ? ` @${set.rpe}` : ""}
             </Text>
           </View>
@@ -289,9 +373,23 @@ function SessionRow({
 
 export default function ExerciseDetailScreen() {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
+  const router = useRouter();
   const { t } = useTranslation("exerciseDetail");
+  const tString = useCallback(
+    (key: string, options?: Record<string, string>) =>
+      String(
+        (
+          t as unknown as (
+            key: string,
+            options?: Record<string, string>
+          ) => unknown
+        )(key, options)
+      ),
+    [t]
+  );
 
   const background = useThemeColor({}, "background");
+  const primary = useThemeColor({}, "primary");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -299,11 +397,27 @@ export default function ExerciseDetailScreen() {
   const wu = useWeightUnit();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [prefSheetVisible, setPrefSheetVisible] = useState(false);
+  const [pagerWidth, setPagerWidth] = useState(0);
+  const [tabHeights, setTabHeights] = useState<Record<Tab, number>>({
+    overview: 0,
+    history: 0,
+    howTo: 0,
+  });
+  const tabOffsetX = useSharedValue(0);
+  const tabDragX = useSharedValue(0);
 
-  const { data: exercise } = useExercise(exerciseId ?? "");
-  const { data: detail, isLoading: detailLoading } = useExerciseDetail(
-    exerciseId ?? ""
-  );
+  const {
+    data: exercise,
+    isLoading: exerciseLoading,
+    isError: exerciseError,
+    refetch: refetchExercise,
+  } = useExercise(exerciseId ?? "");
+  const {
+    data: detail,
+    isLoading: detailLoading,
+    isError: detailError,
+    refetch: refetchDetail,
+  } = useExerciseDetail(exerciseId ?? "");
   const { data: preference } = useExercisePreference(exerciseId ?? "");
   const setPreferenceMutation = useSetExercisePreference();
   const removePreferenceMutation = useRemoveExercisePreference();
@@ -321,22 +435,135 @@ export default function ExerciseDetailScreen() {
     { key: "history", label: t("tabs.history") },
     { key: "howTo", label: t("tabs.howTo") },
   ];
+  const activeTabIndex = TAB_ORDER.indexOf(activeTab);
+  const activeTabHeight = tabHeights[activeTab];
+  const activeTabIndexRef = useRef(activeTabIndex);
+  const pagerHeight = useSharedValue(0);
 
-  const handleTabChange = useCallback((tab: string) => {
-    setActiveTab(tab as Tab);
-  }, []);
+  activeTabIndexRef.current = activeTabIndex;
 
-  const handleSwipe = useCallback((direction: "left" | "right") => {
-    setActiveTab((current) => {
-      const currentIndex = TAB_ORDER.indexOf(current);
-      const nextIndex =
-        direction === "right"
-          ? Math.min(TAB_ORDER.length - 1, currentIndex + 1)
-          : Math.max(0, currentIndex - 1);
+  useEffect(() => {
+    if (pagerWidth <= 0) {
+      return;
+    }
 
-      return TAB_ORDER[nextIndex];
+    tabDragX.value = 0;
+    tabOffsetX.value = -activeTabIndexRef.current * pagerWidth;
+  }, [pagerWidth, tabDragX, tabOffsetX]);
+
+  useEffect(() => {
+    if (activeTabHeight <= 0) {
+      return;
+    }
+
+    pagerHeight.value = withTiming(activeTabHeight, {
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
     });
+  }, [activeTabHeight, pagerHeight]);
+
+  const handlePagerLayout = useCallback((event: LayoutChangeEvent) => {
+    setPagerWidth(event.nativeEvent.layout.width);
   }, []);
+
+  const handleTabPanelLayout = useCallback(
+    (tab: Tab, event: LayoutChangeEvent) => {
+      const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+      setTabHeights((current) => {
+        if (current[tab] === nextHeight) {
+          return current;
+        }
+
+        return { ...current, [tab]: nextHeight };
+      });
+    },
+    []
+  );
+
+  const animateTabChange = useCallback(
+    (nextTab: Tab) => {
+      const nextIndex = TAB_ORDER.indexOf(nextTab);
+
+      if (activeTabIndex === nextIndex || nextIndex === -1) {
+        return;
+      }
+
+      if (pagerWidth <= 0) {
+        setActiveTab(nextTab);
+        return;
+      }
+
+      const currentVisualOffset = tabOffsetX.value + tabDragX.value;
+      tabDragX.value = 0;
+      tabOffsetX.value = currentVisualOffset;
+      setActiveTab(nextTab);
+      const nextHeight = tabHeights[nextTab] || activeTabHeight;
+      if (nextHeight > 0) {
+        pagerHeight.value = withTiming(nextHeight, {
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+        });
+      }
+      tabOffsetX.value = withTiming(-nextIndex * pagerWidth, {
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+      });
+    },
+    [
+      activeTabHeight,
+      activeTabIndex,
+      pagerHeight,
+      pagerWidth,
+      tabDragX,
+      tabHeights,
+      tabOffsetX,
+    ]
+  );
+
+  const handleTabChange = useCallback(
+    (tab: string) => {
+      if (!TAB_ORDER.includes(tab as Tab)) {
+        return;
+      }
+
+      animateTabChange(tab as Tab);
+    },
+    [animateTabChange]
+  );
+
+  const handleSwipe = useCallback(
+    (direction: "left" | "right") => {
+      const nextIndex =
+        direction === "left"
+          ? Math.min(TAB_ORDER.length - 1, activeTabIndex + 1)
+          : Math.max(0, activeTabIndex - 1);
+      const nextTab = TAB_ORDER[nextIndex];
+
+      if (nextTab && nextIndex !== activeTabIndex) {
+        animateTabChange(nextTab);
+        return;
+      }
+
+      tabDragX.value = withTiming(0, {
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+      });
+      if (activeTabHeight > 0) {
+        pagerHeight.value = withTiming(activeTabHeight, {
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+        });
+      }
+    },
+    [activeTabHeight, activeTabIndex, animateTabChange, pagerHeight, tabDragX]
+  );
+
+  const pagerRowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tabOffsetX.value + tabDragX.value }],
+  }));
+  const pagerViewportStyle = useAnimatedStyle(() => ({
+    height: pagerHeight.value,
+  }));
 
   const swipeGesture = useMemo(
     () =>
@@ -344,6 +571,33 @@ export default function ExerciseDetailScreen() {
         .runOnJS(true)
         .activeOffsetX([-24, 24])
         .failOffsetY([-14, 14])
+        .onUpdate(({ translationX }) => {
+          const isAtStart = activeTabIndex === 0;
+          const isAtEnd = activeTabIndex === TAB_ORDER.length - 1;
+          const isPullingPastStart = isAtStart && translationX > 0;
+          const isPullingPastEnd = isAtEnd && translationX < 0;
+          const resistance = isPullingPastStart || isPullingPastEnd ? 0.18 : 1;
+
+          tabDragX.value = Math.max(
+            -pagerWidth,
+            Math.min(pagerWidth, translationX * resistance)
+          );
+
+          const targetIndex =
+            translationX < 0
+              ? Math.min(TAB_ORDER.length - 1, activeTabIndex + 1)
+              : Math.max(0, activeTabIndex - 1);
+          const targetTab = TAB_ORDER[targetIndex];
+          const targetHeight = targetTab
+            ? tabHeights[targetTab] || activeTabHeight
+            : activeTabHeight;
+
+          if (activeTabHeight > 0 && targetHeight > 0 && pagerWidth > 0) {
+            const progress = Math.min(1, Math.abs(translationX) / pagerWidth);
+            pagerHeight.value =
+              activeTabHeight + (targetHeight - activeTabHeight) * progress;
+          }
+        })
         .onEnd(({ translationX, velocityX }) => {
           if (translationX > 48 || velocityX > 650) {
             handleSwipe("right");
@@ -352,132 +606,209 @@ export default function ExerciseDetailScreen() {
 
           if (translationX < -48 || velocityX < -650) {
             handleSwipe("left");
+            return;
+          }
+
+          tabDragX.value = withTiming(0, {
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+          });
+          if (activeTabHeight > 0) {
+            pagerHeight.value = withTiming(activeTabHeight, {
+              duration: 180,
+              easing: Easing.out(Easing.cubic),
+            });
           }
         }),
-    [handleSwipe]
+    [
+      activeTabHeight,
+      activeTabIndex,
+      handleSwipe,
+      pagerHeight,
+      pagerWidth,
+      tabDragX,
+      tabHeights,
+    ]
   );
 
   const renderOverview = () => {
+    if (!exerciseId) {
+      return (
+        <ErrorState
+          title={t("error.title")}
+          message={t("error.missingExercise")}
+          retryLabel={t("error.retry")}
+        />
+      );
+    }
+
     if (detailLoading) {
       return <LoadingPlaceholder />;
     }
 
+    if (detailError) {
+      return (
+        <ErrorState
+          title={t("error.title")}
+          message={t("error.detail")}
+          retryLabel={t("error.retry")}
+          onRetry={() => {
+            refetchDetail();
+          }}
+        />
+      );
+    }
+
     const records = detail?.records;
-    const isTimeExercise = exercise?.exercise_type === "time";
+    const isTimeExercise =
+      (detail?.exercise_type ?? exercise?.exercise_type) === "time";
+    const hasRecordData = hasAnyRecord(records, isTimeExercise);
+    const hasVolumeData =
+      detail?.volume_weeks?.some((week) =>
+        isTimeExercise
+          ? (week.total_duration_seconds ?? 0) > 0
+          : week.volume_kg > 0
+      ) ?? false;
+    const hasTrackedData =
+      hasRecordData || hasVolumeData || sessions.length > 0;
+
+    const renderIntro = () =>
+      exercise ? (
+        <View style={styles.introSection}>
+          <View style={styles.metaPillRow}>
+            {sessions.length > 0 ? (
+              <MetaPill
+                label={t("overview.sessionsCount", {
+                  count: sessions.length,
+                })}
+              />
+            ) : null}
+            {exercise.primary_muscles.map((muscle, index) => (
+              <MetaPill
+                key={muscle}
+                label={exercise.primary_muscle_labels[index] ?? muscle}
+                primary
+              />
+            ))}
+            {(exercise.secondary_muscles ?? []).map((muscle, index) => (
+              <MetaPill
+                key={muscle}
+                label={exercise.secondary_muscle_labels[index] ?? muscle}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null;
+
+    if (!hasTrackedData) {
+      return (
+        <View style={styles.sectionStack}>
+          {renderIntro()}
+          <View style={styles.emptyOverview}>
+            <Text
+              style={[
+                Typography.titleMd,
+                styles.emptyText,
+                { color: textColor },
+              ]}
+            >
+              {t("overview.emptyTitle")}
+            </Text>
+            <Text
+              style={[
+                Typography.body,
+                styles.emptyText,
+                { color: textSecondary },
+              ]}
+            >
+              {t("overview.emptyBody")}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/generate-workout")}
+              style={[styles.primaryButton, { backgroundColor: primary }]}
+            >
+              <Text style={[Typography.label, styles.primaryButtonText]}>
+                {t("overview.emptyAction")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.sectionStack}>
-        {exercise ? (
-          <View style={styles.introSection}>
-            <View style={styles.introHeader}>
-              <View style={styles.introText}>
-                <Text
-                  style={[
-                    Typography.displaySm,
-                    styles.exerciseName,
-                    { color: textColor },
-                  ]}
-                >
-                  {exercise.name}
-                </Text>
+        {renderIntro()}
+
+        {hasRecordData ? (
+          <>
+            <Divider />
+            <View style={styles.sectionBlock}>
+              <SectionTitle title={t("overview.records")} />
+              {hasTrackedData ? (
                 <Text style={[Typography.body, { color: textSecondary }]}>
                   {t("overview.recordsHint")}
                 </Text>
-              </View>
-              <Text
-                style={[
-                  Typography.micro,
-                  styles.sessionCount,
-                  { color: textMuted },
-                ]}
-              >
-                {t("overview.sessionsCount", { count: sessions.length })}
-              </Text>
-            </View>
-
-            <View style={styles.metaPillRow}>
-              {exercise.primary_muscles.map((muscle, index) => (
-                <MetaPill
-                  key={muscle}
-                  label={exercise.primary_muscle_labels[index] ?? muscle}
-                  primary
-                />
-              ))}
-              {(exercise.secondary_muscles ?? []).map((muscle, index) => (
-                <MetaPill
-                  key={muscle}
-                  label={exercise.secondary_muscle_labels[index] ?? muscle}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        <Divider />
-
-        <View style={styles.sectionBlock}>
-          <SectionTitle title={t("overview.records")} />
-          {hasAnyRecord(records, isTimeExercise) ? (
-            <View style={styles.recordList}>
-              {isTimeExercise ? (
-                <RecordRow
-                  label={t("overview.bestDuration")}
-                  value={
-                    records?.max_duration_seconds != null
-                      ? formatExerciseDuration(records.max_duration_seconds)
-                      : "-"
-                  }
-                  dateLabel={getAchievedLabel(t, records?.max_duration_date)}
-                />
-              ) : (
-                <>
+              ) : null}
+              <View style={styles.recordList}>
+                {isTimeExercise ? (
                   <RecordRow
-                    label={t("overview.maxWeight")}
+                    label={t("overview.bestDuration")}
                     value={
-                      records?.max_weight_kg
-                        ? wu.format(records.max_weight_kg)
-                        : "-"
-                    }
-                    dateLabel={getAchievedLabel(t, records?.max_weight_date)}
-                  />
-                  <Divider />
-                  <RecordRow
-                    label={t("overview.maxReps")}
-                    value={formatValue(records?.max_reps)}
-                    dateLabel={getAchievedLabel(t, records?.max_reps_date)}
-                  />
-                  <Divider />
-                  <RecordRow
-                    label={t("overview.bestSet")}
-                    value={
-                      records?.max_volume_set_kg
-                        ? wu.format(records.max_volume_set_kg)
+                      records?.max_duration_seconds != null
+                        ? formatExerciseDuration(records.max_duration_seconds)
                         : "-"
                     }
                     dateLabel={getAchievedLabel(
-                      t,
-                      records?.max_volume_set_date
+                      tString,
+                      records?.max_duration_date
                     )}
                   />
-                </>
-              )}
+                ) : (
+                  <>
+                    <RecordRow
+                      label={t("overview.maxWeight")}
+                      value={
+                        records?.max_weight_kg
+                          ? wu.format(records.max_weight_kg)
+                          : "-"
+                      }
+                      dateLabel={getAchievedLabel(
+                        tString,
+                        records?.max_weight_date
+                      )}
+                    />
+                    <Divider />
+                    <RecordRow
+                      label={t("overview.maxReps")}
+                      value={formatValue(records?.max_reps)}
+                      dateLabel={getAchievedLabel(
+                        tString,
+                        records?.max_reps_date
+                      )}
+                    />
+                    <Divider />
+                    <RecordRow
+                      label={t("overview.bestSet")}
+                      value={
+                        records?.max_volume_set_kg
+                          ? wu.format(records.max_volume_set_kg)
+                          : "-"
+                      }
+                      dateLabel={getAchievedLabel(
+                        tString,
+                        records?.max_volume_set_date
+                      )}
+                    />
+                  </>
+                )}
+              </View>
             </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text
-                style={[
-                  Typography.body,
-                  styles.emptyText,
-                  { color: textMuted },
-                ]}
-              >
-                {t("overview.noData")}
-              </Text>
-            </View>
-          )}
-        </View>
+          </>
+        ) : null}
 
-        {!isTimeExercise && (
+        {!isTimeExercise && (records?.est_1rm_kg || records?.max_rpe) ? (
           <>
             <Divider />
             <View style={styles.sectionBlock}>
@@ -495,36 +826,63 @@ export default function ExerciseDetailScreen() {
               </View>
             </View>
           </>
-        )}
+        ) : null}
 
-        <Divider />
-
-        <View style={styles.sectionBlock}>
-          <SectionTitle title={t("overview.volume")} />
-          {detail?.volume_weeks && detail.volume_weeks.length > 0 ? (
-            <VolumeBarChart data={detail.volume_weeks} />
-          ) : (
-            <View style={styles.emptyState}>
-              <Text
-                style={[
-                  Typography.body,
-                  styles.emptyText,
-                  { color: textMuted },
-                ]}
-              >
-                {t("overview.noData")}
-              </Text>
+        {hasVolumeData && detail?.volume_weeks ? (
+          <>
+            <Divider />
+            <View style={styles.sectionBlock}>
+              <SectionTitle title={t("overview.volume")} />
+              <VolumeBarChart
+                data={detail.volume_weeks}
+                metric={isTimeExercise ? "duration" : "volume"}
+                labels={{
+                  total: isTimeExercise
+                    ? t("overview.durationTotal")
+                    : t("overview.volumeTotal"),
+                  average: isTimeExercise
+                    ? t("overview.durationWeeklyAvg")
+                    : t("overview.volumeWeeklyAvg"),
+                  perWeek: t("overview.perWeek"),
+                }}
+              />
             </View>
-          )}
-        </View>
+          </>
+        ) : null}
       </View>
     );
   };
 
   const renderHistory = () => {
+    if (!exerciseId) {
+      return (
+        <ErrorState
+          title={t("error.title")}
+          message={t("error.missingExercise")}
+          retryLabel={t("error.retry")}
+        />
+      );
+    }
+
     if (detailLoading) {
       return <LoadingPlaceholder />;
     }
+
+    if (detailError) {
+      return (
+        <ErrorState
+          title={t("error.title")}
+          message={t("error.detail")}
+          retryLabel={t("error.retry")}
+          onRetry={() => {
+            refetchDetail();
+          }}
+        />
+      );
+    }
+
+    const isTimeExercise =
+      (detail?.exercise_type ?? exercise?.exercise_type) === "time";
 
     if (sessions.length === 0) {
       return (
@@ -548,6 +906,7 @@ export default function ExerciseDetailScreen() {
             completedSetsLabel={t("history.completedSets", {
               count: session.sets?.length ?? 0,
             })}
+            isTimeExercise={isTimeExercise}
             wu={wu}
           />
         ))}
@@ -556,6 +915,33 @@ export default function ExerciseDetailScreen() {
   };
 
   const renderHowTo = () => {
+    if (!exerciseId) {
+      return (
+        <ErrorState
+          title={t("error.title")}
+          message={t("error.missingExercise")}
+          retryLabel={t("error.retry")}
+        />
+      );
+    }
+
+    if (exerciseLoading) {
+      return <LoadingPlaceholder />;
+    }
+
+    if (exerciseError) {
+      return (
+        <ErrorState
+          title={t("error.title")}
+          message={t("error.exercise")}
+          retryLabel={t("error.retry")}
+          onRetry={() => {
+            refetchExercise();
+          }}
+        />
+      );
+    }
+
     const instructions = exercise?.instructions;
 
     return (
@@ -592,11 +978,13 @@ export default function ExerciseDetailScreen() {
             rightElement={
               <Pressable
                 onPress={() => setPrefSheetVisible(true)}
+                disabled={!exerciseId || !exercise}
                 accessibilityRole="button"
                 accessibilityLabel={t("header.accessibilityLabel", {
                   ns: "exercisePreference",
                 })}
                 hitSlop={8}
+                style={!exerciseId || !exercise ? styles.disabledAction : null}
               >
                 <ExercisePreferenceIcon preference={preference ?? null} />
               </Pressable>
@@ -611,11 +999,77 @@ export default function ExerciseDetailScreen() {
                 selected={activeTab}
                 onChange={handleTabChange}
                 periods={tabOptions}
+                compact
               />
 
-              {activeTab === "overview" ? renderOverview() : null}
-              {activeTab === "history" ? renderHistory() : null}
-              {activeTab === "howTo" ? renderHowTo() : null}
+              <Animated.View
+                onLayout={handlePagerLayout}
+                style={[
+                  styles.pagerViewport,
+                  activeTabHeight > 0 ? { minHeight: activeTabHeight } : null,
+                  activeTabHeight > 0 ? pagerViewportStyle : null,
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.pagerRow,
+                    pagerWidth > 0
+                      ? { width: pagerWidth * TAB_ORDER.length }
+                      : null,
+                    pagerRowStyle,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.pagerPanel,
+                      {
+                        width: pagerWidth || "100%",
+                        minHeight: activeTabHeight || undefined,
+                      },
+                    ]}
+                  >
+                    <View
+                      onLayout={(event) =>
+                        handleTabPanelLayout("overview", event)
+                      }
+                    >
+                      {renderOverview()}
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.pagerPanel,
+                      {
+                        width: pagerWidth || "100%",
+                        minHeight: activeTabHeight || undefined,
+                      },
+                    ]}
+                  >
+                    <View
+                      onLayout={(event) =>
+                        handleTabPanelLayout("history", event)
+                      }
+                    >
+                      {renderHistory()}
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.pagerPanel,
+                      {
+                        width: pagerWidth || "100%",
+                        minHeight: activeTabHeight || undefined,
+                      },
+                    ]}
+                  >
+                    <View
+                      onLayout={(event) => handleTabPanelLayout("howTo", event)}
+                    >
+                      {renderHowTo()}
+                    </View>
+                  </View>
+                </Animated.View>
+              </Animated.View>
             </ScrollView>
           </GestureDetector>
           <ExercisePreferenceSheet
@@ -625,12 +1079,16 @@ export default function ExerciseDetailScreen() {
             onClose={() => setPrefSheetVisible(false)}
             onSelect={(pref) => {
               if (pref === null) {
-                removePreferenceMutation.mutate(exerciseId ?? "");
+                if (exerciseId) {
+                  removePreferenceMutation.mutate(exerciseId);
+                }
               } else {
-                setPreferenceMutation.mutate({
-                  exerciseId: exerciseId ?? "",
-                  preference: pref,
-                });
+                if (exerciseId) {
+                  setPreferenceMutation.mutate({
+                    exerciseId,
+                    preference: pref,
+                  });
+                }
               }
             }}
           />
@@ -660,6 +1118,17 @@ const styles = StyleSheet.create({
   },
   sectionStack: {
     gap: Spacing.lg,
+  },
+  pagerViewport: {
+    overflow: "hidden",
+    width: "100%",
+  },
+  pagerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  pagerPanel: {
+    flexShrink: 0,
   },
   sectionBlock: {
     gap: Spacing.lg,
@@ -743,8 +1212,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: Spacing["2xl"],
   },
+  emptyOverview: {
+    alignItems: "center",
+    gap: Spacing.md,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing["4xl"],
+  },
   emptyText: {
     textAlign: "center",
+  },
+  primaryButton: {
+    borderRadius: Radii.full,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+  },
+  retryButton: {
+    borderRadius: Radii.full,
+    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  disabledAction: {
+    opacity: 0.4,
   },
   sessionRow: {
     gap: Spacing.md,

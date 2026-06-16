@@ -12,6 +12,7 @@ interface PeriodSelectorProps {
   selected: string;
   onChange: (period: string) => void;
   periods?: Period[];
+  compact?: boolean;
 }
 
 const DEFAULT_PERIODS: Period[] = [
@@ -25,6 +26,7 @@ export function PeriodSelector({
   selected,
   onChange,
   periods = DEFAULT_PERIODS,
+  compact = false,
 }: PeriodSelectorProps) {
   const primaryColor = useThemeColor({}, "primary");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
@@ -38,9 +40,11 @@ export function PeriodSelector({
           <TouchableOpacity
             key={period.key}
             accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
             onPress={() => onChange(period.key)}
             style={[
               styles.pill,
+              compact && styles.pillCompact,
               {
                 backgroundColor: isActive ? primaryColor : backgroundSubtle,
               },
@@ -49,6 +53,7 @@ export function PeriodSelector({
             <Text
               style={[
                 styles.pillText,
+                compact && styles.pillTextCompact,
                 { color: isActive ? "#FFFFFF" : textSecondary },
               ]}
             >
@@ -71,7 +76,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
   },
+  pillCompact: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
   pillText: {
     ...Typography.label,
+  },
+  pillTextCompact: {
+    ...Typography.caption,
   },
 });

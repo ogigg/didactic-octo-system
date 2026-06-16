@@ -30,6 +30,7 @@ function createPendingWorkout(
     generated_at: null,
     last_regenerated_at: null,
     regeneration_count: 0,
+    regeneration_feedback: [],
     user_edits: null,
     created_at: "2026-04-05T08:00:00.000Z",
     updated_at: "2026-04-05T08:00:00.000Z",

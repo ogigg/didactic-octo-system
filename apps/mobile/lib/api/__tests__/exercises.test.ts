@@ -161,6 +161,14 @@ describe("fetchExercise", () => {
 
     await expect(fetchExercise("bad-id")).rejects.toThrow("not found");
   });
+
+  it("throws a clear error when the exercise no longer exists", async () => {
+    mockRpc({});
+
+    await expect(fetchExercise(validExercise.id)).rejects.toThrow(
+      "Exercise not found"
+    );
+  });
 });
 
 describe("fetchCatalogLabels", () => {

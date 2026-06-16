@@ -108,9 +108,13 @@ resetUser();
   - `edit_count`: number of unique edit types applied
 
 - **pending_workout_regenerated**: User manually regenerated a queued workout
+  - `phase`: started | completed
   - `queue_position`: queue slot
   - `focus_area`: push | pull | legs | upper | lower | full_body
   - `previous_generation_source`: llm | fallback_template | fallback_substitution
+  - `has_feedback`: boolean
+  - `feedback_length`: number of characters supplied in regeneration feedback
+  - Raw optional feedback is retained in `pending_workouts.regeneration_feedback` for product analytics; PostHog receives metadata only.
 
 - **pending_workout_edited**: A queued workout draft was changed and persisted
   - `edit_type`: swap_exercise | change_sets | change_load | multiple

@@ -1,0 +1,222 @@
+[
+  {
+    "index": 11,
+    "exercise_name": "Leg Extension Machine",
+    "slug": "leg-extension-machine",
+    "required_equipment": "Leg extension machine",
+    "primary_position_or_phase": "Seated upright with shins behind the padded lever, knees extending until both legs are straight.",
+    "camera_angle": "Front three-quarter view at seated knee height, showing the torso, machine seat, thigh pad, shin roller, and straightening legs.",
+    "motion_arrow_description": "Subtle electric blue curved motion arrow arcs upward from the shins to show knee extension. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Quadriceps"],
+    "secondary_target_muscles": [],
+    "form_details": [
+      "Athletic adult seated tall with back against the pad and chest relaxed.",
+      "Knees aligned with the machine pivot and thighs secured under the seat position.",
+      "Shins placed behind the padded lever just above the ankles.",
+      "Legs shown near full extension with toes neutral and knees straight but not hyperextended.",
+      "Soft electric blue target-muscle highlight over the front thighs.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a leg extension machine exercise. The person is seated upright with back against the pad, hands lightly holding the side handles, shins behind the padded lever, and knees extending until both legs are straight. Show only the required leg extension machine with a simple seat, back pad, and shin roller. Use a front three-quarter camera angle at seated knee height. Add a subtle electric blue curved motion arrow rising from the lower legs to communicate knee extension. Add a soft electric blue target-muscle highlight on the quadriceps. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, calm focused expression, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/leg-extension-machine.png",
+    "alt_text": "Athletic adult seated on a leg extension machine extending the knees with quadriceps highlighted."
+  },
+  {
+    "index": 12,
+    "exercise_name": "Standing Calf Raise Machine",
+    "slug": "standing-calf-raise-machine",
+    "required_equipment": "Standing calf raise machine",
+    "primary_position_or_phase": "Standing with shoulders under pads, balls of feet on a raised platform, and heels lifted.",
+    "camera_angle": "Side three-quarter view at lower-body height, showing shoulder pads, platform, ankles, and raised heels.",
+    "motion_arrow_description": "Subtle electric blue vertical motion arrow beside the heels shows upward heel lift. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Calves"],
+    "secondary_target_muscles": [],
+    "form_details": [
+      "Athletic adult standing tall with shoulders under the machine pads.",
+      "Balls of the feet stay planted on the raised platform.",
+      "Heels lifted high with ankles extended and knees softly straight.",
+      "Torso remains upright without leaning forward.",
+      "Soft electric blue target-muscle highlight over both calf muscles.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a standing calf raise machine exercise. The person stands tall with shoulders under padded supports, hands lightly stabilizing on the machine handles, balls of the feet on a raised platform, and heels lifted upward. Show only the required standing calf raise machine with shoulder pads and foot platform. Use a side three-quarter camera angle at lower-body height so the raised heels and ankle extension are clear. Add a subtle electric blue vertical motion arrow beside the heels to show the upward lift. Add a soft electric blue target-muscle highlight on the calves. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, clean mobile app composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/standing-calf-raise-machine.png",
+    "alt_text": "Athletic adult using a standing calf raise machine with heels lifted and calves highlighted."
+  },
+  {
+    "index": 13,
+    "exercise_name": "Seated Calf Raise Machine",
+    "slug": "seated-calf-raise-machine",
+    "required_equipment": "Seated calf raise machine",
+    "primary_position_or_phase": "Seated with knees bent, thigh pads over the knees, balls of feet on platform, and heels raised.",
+    "camera_angle": "Side three-quarter view at bench height, clearly showing bent knees, thigh pads, foot platform, and lifted heels.",
+    "motion_arrow_description": "Subtle electric blue short upward motion arrow near the heels shows plantar flexion. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Calves"],
+    "secondary_target_muscles": [],
+    "form_details": [
+      "Athletic adult seated upright with knees bent under the thigh pads.",
+      "Thigh pads rest securely over the lower thighs near the knees.",
+      "Balls of the feet stay on the platform while heels rise.",
+      "Ankles are extended with controlled posture and no bouncing.",
+      "Soft electric blue target-muscle highlight over both calves.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a seated calf raise machine exercise. The person sits upright with knees bent, thigh pads over the knees, balls of the feet planted on the platform, and heels raised upward. Show only the required seated calf raise machine with bench, thigh pads, lever, and foot platform. Use a side three-quarter camera angle at bench height to make the bent knees, pads, and lifted heels easy to read. Add a subtle electric blue short upward motion arrow near the heels to show calf raise movement. Add a soft electric blue target-muscle highlight on the calves. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/seated-calf-raise-machine.png",
+    "alt_text": "Athletic adult seated on a calf raise machine lifting the heels with calves highlighted."
+  },
+  {
+    "index": 14,
+    "exercise_name": "Barbell Hip Thrust",
+    "slug": "barbell-hip-thrust",
+    "required_equipment": "Barbell and flat bench",
+    "primary_position_or_phase": "Upper back against bench, barbell across hips, feet planted, and hips lifted into a bridge.",
+    "camera_angle": "Side view at hip height, showing bench contact, planted feet, barbell across hips, and straight torso line.",
+    "motion_arrow_description": "Subtle electric blue upward arc from the hips shows the thrust into bridge position. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Glutes"],
+    "secondary_target_muscles": ["Hamstrings", "Core"],
+    "form_details": [
+      "Athletic adult with upper back supported on the bench edge.",
+      "Barbell rests across the hips with hands lightly stabilizing it.",
+      "Feet are flat and planted about hip-width apart.",
+      "Hips are lifted into a strong bridge with torso roughly parallel to the floor.",
+      "Soft electric blue target-muscle highlight over the glutes.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a barbell hip thrust. The person has the upper back against a flat bench, feet planted flat, knees bent, barbell across the hips, and hips lifted into a strong bridge position. Show only the required flat bench and barbell with simple plates. Use a clean side camera angle at hip height so the bench contact, planted feet, bar path, and lifted hips are clear. Add a subtle electric blue upward arc motion arrow from the hips to show the thrust. Add a soft electric blue target-muscle highlight on the glutes, with a very subtle electric blue secondary emphasis on hamstrings and core. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/barbell-hip-thrust.png",
+    "alt_text": "Athletic adult doing a barbell hip thrust with upper back on a bench and glutes highlighted."
+  },
+  {
+    "index": 15,
+    "exercise_name": "Bodyweight Glute Bridge",
+    "slug": "bodyweight-glute-bridge",
+    "required_equipment": "None",
+    "primary_position_or_phase": "Lying on back on the floor with knees bent, feet flat, and hips raised.",
+    "camera_angle": "Side view near floor height, showing shoulders on floor, bent knees, flat feet, and lifted hips.",
+    "motion_arrow_description": "Subtle electric blue upward arc from the hips shows the bridge lift. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Glutes"],
+    "secondary_target_muscles": ["Hamstrings", "Core"],
+    "form_details": [
+      "Athletic adult lying on the back on the floor with arms relaxed at sides.",
+      "Knees are bent and feet are flat, hip-width apart.",
+      "Hips are raised until shoulders, hips, and knees form a clean diagonal line.",
+      "No bench or equipment is present.",
+      "Soft electric blue target-muscle highlight over the glutes.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a bodyweight glute bridge. The person lies on the back on the floor with knees bent, feet flat, arms relaxed at the sides, and hips raised into a bridge so shoulders, hips, and knees form a clean diagonal line. No equipment, no bench, and no props. Use a side camera angle near floor height to clearly show the raised hips and planted feet. Add a subtle electric blue upward arc motion arrow from the hips to show the bridge lift. Add a soft electric blue target-muscle highlight on the glutes, with very subtle electric blue secondary emphasis on hamstrings and core. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, clean mobile fitness app composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/bodyweight-glute-bridge.png",
+    "alt_text": "Athletic adult lying on the floor in a bodyweight glute bridge with glutes highlighted."
+  },
+  {
+    "index": 16,
+    "exercise_name": "Flat Barbell Bench Press",
+    "slug": "flat-barbell-bench-press",
+    "required_equipment": "Flat bench and barbell",
+    "primary_position_or_phase": "Lying on a flat bench, gripping a barbell above the chest, and pressing upward.",
+    "camera_angle": "Front three-quarter view from above chest height, showing flat bench, grip width, bar above chest, and pressing path.",
+    "motion_arrow_description": "Subtle electric blue upward motion arrow above the bar shows the press from chest to lockout. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Chest"],
+    "secondary_target_muscles": ["Triceps", "Front deltoids"],
+    "form_details": [
+      "Athletic adult lying flat on the bench with feet planted.",
+      "Hands grip the bar slightly wider than shoulder width.",
+      "Barbell is positioned above the mid chest during the upward press.",
+      "Wrists are stacked over elbows with controlled shoulder position.",
+      "Soft electric blue target-muscle highlight over the chest, with secondary highlights on triceps and front deltoids.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a flat barbell bench press. The person lies on a flat bench with feet planted, hands gripping a barbell slightly wider than shoulder width, and the bar pressing upward above the chest. Show only the required flat bench and barbell with simple plates. Use a front three-quarter camera angle from slightly above chest height so the flat bench, grip, chest position, and bar path are clear. Add a subtle electric blue upward motion arrow above the bar to show the press. Add a soft electric blue target-muscle highlight on the chest, with subtle electric blue secondary highlights on the triceps and front deltoids. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/flat-barbell-bench-press.png",
+    "alt_text": "Athletic adult lying on a flat bench pressing a barbell upward with chest highlighted."
+  },
+  {
+    "index": 17,
+    "exercise_name": "Incline Dumbbell Press",
+    "slug": "incline-dumbbell-press",
+    "required_equipment": "Incline bench and two dumbbells",
+    "primary_position_or_phase": "Lying on a 30 to 45 degree incline bench and pressing two dumbbells upward over the upper chest.",
+    "camera_angle": "Front three-quarter view from upper-body height, showing incline angle, dumbbells, and upward press path.",
+    "motion_arrow_description": "Subtle electric blue paired upward motion arrows above each dumbbell show the pressing motion. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Upper chest"],
+    "secondary_target_muscles": ["Front deltoids", "Triceps"],
+    "form_details": [
+      "Athletic adult reclined on an incline bench set around 30 to 45 degrees.",
+      "Feet are planted and back stays supported by the bench.",
+      "Two dumbbells press upward over the upper chest.",
+      "Elbows track slightly below shoulder level with wrists stacked.",
+      "Soft electric blue target-muscle highlight over the upper chest, with secondary highlights on front deltoids.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing an incline dumbbell press. The person lies on an incline bench set around 30 to 45 degrees, feet planted, back supported, and presses two dumbbells upward over the upper chest. Show only the required incline bench and two dumbbells. Use a front three-quarter camera angle from upper-body height so the incline angle, dumbbells, elbows, and upper chest focus are clear. Add subtle electric blue paired upward motion arrows above the dumbbells to show the press. Add a soft electric blue target-muscle highlight on the upper chest, with subtle electric blue secondary highlights on the front deltoids and triceps. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, clean mobile fitness app illustration, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/incline-dumbbell-press.png",
+    "alt_text": "Athletic adult on an incline bench pressing two dumbbells with upper chest highlighted."
+  },
+  {
+    "index": 18,
+    "exercise_name": "Decline Barbell Bench Press",
+    "slug": "decline-barbell-bench-press",
+    "required_equipment": "Decline bench and barbell",
+    "primary_position_or_phase": "Lying on a decline bench with feet secured, pressing a barbell upward from the lower chest.",
+    "camera_angle": "Side three-quarter view from chest height, showing decline bench angle, secured feet, barbell, and lower chest path.",
+    "motion_arrow_description": "Subtle electric blue upward motion arrow above the bar shows the press away from the lower chest. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Lower chest"],
+    "secondary_target_muscles": ["Triceps", "Front deltoids"],
+    "form_details": [
+      "Athletic adult lying on a decline bench with feet secured under rollers.",
+      "Hands grip the barbell slightly wider than shoulder width.",
+      "Barbell moves upward from the lower chest area.",
+      "Shoulders stay controlled against the bench and wrists stay stacked.",
+      "Soft electric blue target-muscle highlight over the lower chest.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a decline barbell bench press. The person lies on a decline bench with feet secured under rollers, grips a barbell slightly wider than shoulder width, and presses the bar upward from the lower chest. Show only the required decline bench with foot rollers and barbell with simple plates. Use a side three-quarter camera angle from chest height so the decline angle, secured feet, lower chest position, and bar path are clear. Add a subtle electric blue upward motion arrow above the bar to show the press. Add a soft electric blue target-muscle highlight on the lower chest, with subtle electric blue secondary highlights on triceps and front deltoids. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/decline-barbell-bench-press.png",
+    "alt_text": "Athletic adult on a decline bench pressing a barbell from the lower chest with lower chest highlighted."
+  },
+  {
+    "index": 19,
+    "exercise_name": "Flat Dumbbell Fly",
+    "slug": "flat-dumbbell-fly",
+    "required_equipment": "Flat bench and two dumbbells",
+    "primary_position_or_phase": "Lying on a flat bench with two dumbbells, arms wide and slightly bent, bringing the dumbbells together above the chest.",
+    "camera_angle": "Front three-quarter view from above torso height, showing wide arm arc and dumbbells moving together over the chest.",
+    "motion_arrow_description": "Subtle electric blue inward curved motion arrows from each dumbbell show the fly arc toward center. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Chest"],
+    "secondary_target_muscles": ["Front deltoids"],
+    "form_details": [
+      "Athletic adult lying flat on the bench with feet planted.",
+      "Arms are wide with a slight elbow bend, clearly not in a pressing position.",
+      "Two dumbbells move along a broad arc toward each other above the chest.",
+      "Chest stays open and shoulders remain controlled on the bench.",
+      "Soft electric blue target-muscle highlight over the chest.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a flat dumbbell fly, not a press. The person lies on a flat bench with feet planted, holding two dumbbells with arms wide and slightly bent, bringing the dumbbells together above the chest along a broad arc. Show only the required flat bench and two dumbbells. Use a front three-quarter camera angle from above torso height to clearly show the wide arm position and inward fly path. Add subtle electric blue inward curved motion arrows from each dumbbell toward the center above the chest. Add a soft electric blue target-muscle highlight on the chest, with very subtle electric blue secondary emphasis on front deltoids. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, clean composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/flat-dumbbell-fly.png",
+    "alt_text": "Athletic adult lying on a flat bench performing a dumbbell fly with chest highlighted."
+  },
+  {
+    "index": 20,
+    "exercise_name": "Standing Cable Chest Fly",
+    "slug": "standing-cable-chest-fly",
+    "required_equipment": "Cable machine with two handles",
+    "primary_position_or_phase": "Standing between two cable machines with handles in both hands, arms slightly bent, and hands together in front of the chest.",
+    "camera_angle": "Front three-quarter view at chest height, showing both cable lines, handle position, and hands meeting in front of the chest.",
+    "motion_arrow_description": "Subtle electric blue inward curved motion arrows from both sides show the handles moving together. Use a consistent electric blue/accent blue.",
+    "primary_target_muscles": ["Chest"],
+    "secondary_target_muscles": ["Front deltoids", "Biceps"],
+    "form_details": [
+      "Athletic adult standing centered between two cable columns.",
+      "Hands hold cable handles together in front of the chest with arms slightly bent.",
+      "Torso stays upright with a small stable stance.",
+      "Cable lines angle from both sides toward the hands.",
+      "Soft electric blue target-muscle highlight over the chest.",
+      "Include a faint ghost pose at about 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded."
+    ],
+    "prompt": "Premium soft 3D vector mobile fitness app illustration of one athletic adult performing a standing cable chest fly. The person stands between two cable machine columns, holding cable handles in both hands with arms slightly bent, bringing the hands together in front of the chest. Show only the required cable machine columns, cables, and two handles. Use a front three-quarter camera angle at chest height so both cable lines, handle position, and chest-focused fly motion are clear. Add subtle electric blue inward curved motion arrows from both sides toward the hands to show the fly movement. Add a soft electric blue target-muscle highlight on the chest, with subtle electric blue secondary highlights on the front deltoids. Use the same consistent electric blue/accent blue for all motion arrows and muscle highlights. Include a faint ghost pose around 10-15% opacity when it improves movement clarity, clearly secondary to the main figure and not crowded. Realistic approachable proportions, light studio background, clean mobile fitness app composition, no text, no logos, no watermarks, no clutter.",
+    "file": "assets/exercise-media/generated-2026-06/standing-cable-chest-fly.png",
+    "alt_text": "Athletic adult standing between cable machines performing a chest fly with chest highlighted."
+  }
+]

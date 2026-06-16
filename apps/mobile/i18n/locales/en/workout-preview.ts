@@ -55,7 +55,19 @@ export const workoutPreview = {
     confirmMessage:
       "This will replace the current workout. You can only regenerate once per day.",
     confirm: "Regenerate",
+    confirmWithFeedback: "Regenerate with feedback",
     cancel: "Cancel",
+    dismiss: "Close regeneration feedback",
+    sheetTitle: "What should change?",
+    sheetMessage:
+      "Add a short note for the next version, or skip feedback to refresh the plan as-is.",
+    feedbackPlaceholder:
+      "Example: less lower back work, keep bench press, make it shorter...",
+    feedbackAccessibilityLabel: "Regeneration feedback",
+    feedbackCount: "{{count}}/{{max}}",
+    skipFeedback: "Skip feedback",
+    limitNote:
+      "Regeneration replaces this workout and is available once per day.",
   },
   empty: {
     title: "No workout data",

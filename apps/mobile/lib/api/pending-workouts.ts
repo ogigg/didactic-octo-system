@@ -59,6 +59,7 @@ export interface PendingWorkout {
   generated_at: string | null;
   last_regenerated_at: string | null;
   regeneration_count: number;
+  regeneration_feedback: Record<string, unknown>[] | null;
   user_edits: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -83,6 +84,7 @@ const pendingWorkoutSchema = z.object({
   generated_at: z.string().nullable(),
   last_regenerated_at: z.string().nullable(),
   regeneration_count: z.number(),
+  regeneration_feedback: z.array(z.record(z.unknown())).nullable().default([]),
   user_edits: z.record(z.unknown()).nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -216,7 +218,8 @@ export async function triggerQueueGeneration(
 export async function triggerRegeneration(
   pendingWorkoutId: string,
   preferences: WorkoutGenerationPreferences,
-  timezoneOffsetMinutes: number
+  timezoneOffsetMinutes: number,
+  feedback?: string
 ): Promise<z.infer<typeof generateWorkoutResponseSchema>> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: {
@@ -228,6 +231,7 @@ export async function triggerRegeneration(
       difficulty: preferences.difficulty,
       custom_prompt: preferences.custom_prompt ?? undefined,
       timezone_offset_minutes: timezoneOffsetMinutes,
+      regeneration_feedback: feedback,
     },
   });
 

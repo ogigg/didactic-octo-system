@@ -6,8 +6,19 @@ jest.mock("@/lib/rest-timer-sound", () => ({
   playRestTimerCompleteSound: jest.fn(),
 }));
 
+jest.mock("@/lib/rest-timer-notifications", () => ({
+  cancelScheduledRestTimerNotification: jest.fn(() => Promise.resolve()),
+  scheduleRestTimerCompletionNotification: jest.fn(() =>
+    Promise.resolve("scheduled")
+  ),
+}));
+
 import { render, screen, waitFor } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
+import {
+  cancelScheduledRestTimerNotification,
+  scheduleRestTimerCompletionNotification,
+} from "@/lib/rest-timer-notifications";
 import { playRestTimerCompleteSound } from "@/lib/rest-timer-sound";
 import { getRestTimerProgress, RestTimerBar } from "../rest-timer-bar";
 import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
@@ -116,6 +127,11 @@ describe("RestTimerBar", () => {
   afterEach(() => {
     dateNowSpy.mockRestore();
     jest.mocked(playRestTimerCompleteSound).mockClear();
+    jest.mocked(cancelScheduledRestTimerNotification).mockClear();
+    jest.mocked(scheduleRestTimerCompletionNotification).mockReset();
+    jest
+      .mocked(scheduleRestTimerCompletionNotification)
+      .mockResolvedValue("scheduled");
   });
 
   it("plays the completion sound when rest ends", async () => {
@@ -126,7 +142,35 @@ describe("RestTimerBar", () => {
     await waitFor(() => {
       expect(playRestTimerCompleteSound).toHaveBeenCalledTimes(1);
     });
+    expect(cancelScheduledRestTimerNotification).toHaveBeenCalled();
     expect(useWorkoutStore.getState().restTimer).toBeNull();
+  });
+
+  it("schedules a background completion notification when rest starts", async () => {
+    render(<RestTimerBar />);
+
+    await waitFor(() => {
+      expect(scheduleRestTimerCompletionNotification).toHaveBeenCalledWith({
+        channelName: "Rest timer",
+        title: "Rest complete",
+        body: "Time for your next set.",
+        endsAtMs: startedAtMs + 120_000,
+      });
+    });
+  });
+
+  it("shows a permission state when background alert sounds are denied", async () => {
+    jest
+      .mocked(scheduleRestTimerCompletionNotification)
+      .mockResolvedValue("permission-denied");
+
+    render(<RestTimerBar />);
+
+    expect(
+      await screen.findByText(
+        "Enable notification sounds to hear rest timer alerts in the background."
+      )
+    ).toBeTruthy();
   });
 
   it("renders the countdown progress as remaining rest time", () => {

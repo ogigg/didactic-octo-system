@@ -1,9 +1,9 @@
 /**
  * Exercise seeding script.
  *
- * Fetches exercises from the free WGER API and inserts them into the
- * `exercises` table. Falls back to a local JSON file when the API is
- * unavailable.
+ * Seeds the reviewed local exercise catalog into the `exercises` table.
+ * Exercises that are no longer in the reviewed catalog are retired, not
+ * deleted, so historical workout rows can keep resolving their exercise IDs.
  *
  * Usage:
  *   npx tsx supabase/seed-exercises.ts
@@ -32,43 +32,16 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-const WGER_BASE = "https://wger.de/api/v2";
 const BATCH_SIZE = 50;
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface WgerTranslation {
-  language: number;
-  name: string;
-  description: string;
-}
-
-interface WgerMuscleObj {
-  id: number;
-  name: string;
-  name_en: string;
-}
-
-interface WgerEquipmentObj {
-  id: number;
-  name: string;
-}
-
-interface WgerExerciseInfo {
-  id: number;
-  uuid: string;
-  muscles: WgerMuscleObj[];
-  muscles_secondary: WgerMuscleObj[];
-  equipment: WgerEquipmentObj[];
-  translations: WgerTranslation[];
-}
-
 interface ExerciseRow {
   name: string;
   external_id: string;
-  exercise_type: "weight";
+  exercise_type: "weight" | "time";
   primary_muscles: string[];
   secondary_muscles: string[];
   equipment: string[];
@@ -77,6 +50,12 @@ interface ExerciseRow {
   image_url: string | null;
   video_url: string | null;
 }
+
+type ExerciseUpsertRow = ExerciseRow & {
+  catalog_status?: "active";
+  retired_at?: null;
+  replacement_exercise_id?: null;
+};
 
 interface ExerciseTranslationSeed {
   external_id?: string;
@@ -100,82 +79,19 @@ interface ExerciseLookupRow {
   name: string;
 }
 
-// ---------------------------------------------------------------------------
-// WGER API helpers
-// ---------------------------------------------------------------------------
-
-async function fetchAllPages<T>(endpoint: string): Promise<T[]> {
-  const results: T[] = [];
-  let url: string | null = `${WGER_BASE}${endpoint}`;
-
-  while (url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`WGER API error: ${res.status} ${url}`);
-    const json = await res.json();
-    results.push(...json.results);
-    url = json.next;
-  }
-
-  return results;
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim();
+interface SupabaseErrorLike {
+  code?: string;
+  message?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
-const ENGLISH_LANGUAGE_ID = 2;
-
-async function seedFromApi(): Promise<ExerciseRow[]> {
-  console.log("Fetching exercises from WGER exerciseinfo...");
-  const exercises = await fetchAllPages<WgerExerciseInfo>(
-    "/exerciseinfo/?format=json&language=2&limit=100"
-  );
-
-  console.log(`Fetched ${exercises.length} exercises from WGER.`);
-
-  const valid = exercises.filter((e) => {
-    const translation = e.translations.find(
-      (t) => t.language === ENGLISH_LANGUAGE_ID && t.name?.trim().length > 0
-    );
-    return translation && e.muscles.length > 0;
-  });
-
-  console.log(`${valid.length} exercises have names and muscle data.`);
-
-  return valid.map((e) => {
-    const translation = e.translations.find(
-      (t) => t.language === ENGLISH_LANGUAGE_ID
-    )!;
-    return {
-      name: translation.name.trim(),
-      external_id: `wger-${e.id}`,
-      exercise_type: "weight",
-      primary_muscles: e.muscles.map((m) => m.name_en || m.name),
-      secondary_muscles: e.muscles_secondary.map((m) => m.name_en || m.name),
-      equipment: e.equipment.map((eq) => eq.name),
-      difficulty_level: null,
-      instructions: translation.description
-        ? stripHtml(translation.description)
-        : null,
-      image_url: null,
-      video_url: null,
-    };
-  });
-}
-
-function loadFallback(): ExerciseRow[] {
+function loadReviewedCatalog(): ExerciseRow[] {
   const filePath = path.join(__dirname, "data", "exercises.json");
   if (!fs.existsSync(filePath)) {
-    console.error(`Fallback file not found: ${filePath}`);
+    console.error(`Reviewed exercise catalog file not found: ${filePath}`);
     process.exit(1);
   }
   const raw = fs.readFileSync(filePath, "utf-8");
@@ -245,14 +161,48 @@ async function upsertExercises(rows: ExerciseRow[]): Promise<void> {
     `Upserting ${rows.length} exercises in batches of ${BATCH_SIZE}...`
   );
 
+  let supportsCatalogLifecycle = true;
   let inserted = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
+    const lifecycleBatch = batch.map(
+      (row): ExerciseUpsertRow => ({
+        ...row,
+        catalog_status: "active",
+        retired_at: null,
+        replacement_exercise_id: null,
+      })
+    );
     const { error } = await supabase
       .from("exercises")
-      .upsert(batch, { onConflict: "external_id" });
+      .upsert(supportsCatalogLifecycle ? lifecycleBatch : batch, {
+        onConflict: "external_id",
+      });
 
     if (error) {
+      if (supportsCatalogLifecycle && isMissingCatalogLifecycleColumn(error)) {
+        supportsCatalogLifecycle = false;
+        console.warn(
+          "Remote exercises table is missing catalog lifecycle columns. Upserting catalog rows without active/retired metadata; apply migrations before relying on catalog retirement."
+        );
+
+        const retry = await supabase
+          .from("exercises")
+          .upsert(batch, { onConflict: "external_id" });
+
+        if (!retry.error) {
+          inserted += batch.length;
+          console.log(`  ${inserted}/${rows.length} done`);
+          continue;
+        }
+
+        console.error(
+          `Batch ${i / BATCH_SIZE + 1} retry failed:`,
+          retry.error.message
+        );
+        throw retry.error;
+      }
+
       console.error(`Batch ${i / BATCH_SIZE + 1} failed:`, error.message);
       throw error;
     }
@@ -261,6 +211,70 @@ async function upsertExercises(rows: ExerciseRow[]): Promise<void> {
   }
 
   console.log(`Successfully upserted ${inserted} exercises.`);
+}
+
+function isMissingCatalogLifecycleColumn(error: SupabaseErrorLike): boolean {
+  return (
+    error.code === "PGRST204" &&
+    typeof error.message === "string" &&
+    (error.message.includes("'catalog_status'") ||
+      error.message.includes("'retired_at'") ||
+      error.message.includes("'replacement_exercise_id'"))
+  );
+}
+
+async function retireExercisesOutsideCatalog(
+  rows: ExerciseRow[]
+): Promise<void> {
+  const activeExternalIds = rows.map((row) => row.external_id);
+  const now = new Date().toISOString();
+  const retiredValues = {
+    catalog_status: "retired",
+    retired_at: now,
+    replacement_exercise_id: null,
+  };
+  const notInFilter = `(${activeExternalIds
+    .map((externalId) => `"${externalId}"`)
+    .join(",")})`;
+
+  console.log(
+    "Retiring exercises that are no longer in the reviewed catalog..."
+  );
+
+  const { error: nonCatalogError } = await supabase
+    .from("exercises")
+    .update(retiredValues)
+    .eq("catalog_status", "active")
+    .not("external_id", "in", notInFilter);
+
+  if (nonCatalogError) {
+    if (isMissingCatalogLifecycleColumn(nonCatalogError)) {
+      console.warn(
+        "Skipping exercise retirement because the remote schema is missing catalog lifecycle columns."
+      );
+      return;
+    }
+
+    console.error(
+      "Retiring non-catalog exercises failed:",
+      nonCatalogError.message
+    );
+    throw nonCatalogError;
+  }
+
+  const { error: missingExternalIdError } = await supabase
+    .from("exercises")
+    .update(retiredValues)
+    .eq("catalog_status", "active")
+    .is("external_id", null);
+
+  if (missingExternalIdError) {
+    console.error(
+      "Retiring exercises without external IDs failed:",
+      missingExternalIdError.message
+    );
+    throw missingExternalIdError;
+  }
 }
 
 async function upsertPolishTranslations(
@@ -414,14 +428,7 @@ async function upsertPolishTranslations(
 }
 
 async function main(): Promise<void> {
-  let exercises: ExerciseRow[];
-
-  try {
-    exercises = await seedFromApi();
-  } catch (err) {
-    console.warn("WGER API failed, falling back to local JSON:", err);
-    exercises = loadFallback();
-  }
+  const exercises = loadReviewedCatalog();
 
   if (exercises.length === 0) {
     console.error("No exercises to seed.");
@@ -429,6 +436,7 @@ async function main(): Promise<void> {
   }
 
   await upsertExercises(exercises);
+  await retireExercisesOutsideCatalog(exercises);
   await upsertPolishTranslations(loadPolishTranslations());
 }
 

@@ -85,6 +85,15 @@ export async function fetchExercise(
     throw new Error(error.message);
   }
 
+  if (
+    data == null ||
+    (typeof data === "object" &&
+      !Array.isArray(data) &&
+      Object.keys(data).length === 0)
+  ) {
+    throw new Error("Exercise not found");
+  }
+
   return exerciseSchema.parse(data);
 }
 

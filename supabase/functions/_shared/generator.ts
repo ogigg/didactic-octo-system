@@ -219,6 +219,7 @@ export interface GenerateWorkoutParams {
   queueContext?: QueueContextItem[];
   history?: HistorySession[];
   recentComments?: RecentSessionComment[];
+  regenerationFeedback?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -413,6 +414,17 @@ function formatRecentComments(comments: RecentSessionComment[]): string {
   ].join("\n");
 }
 
+function formatRegenerationFeedback(feedback: string | undefined): string {
+  const trimmed = feedback?.trim();
+  if (!trimmed) return "";
+
+  return [
+    "## Regeneration Feedback",
+    "The user is replacing the current pending workout and specifically asked for this change. Prioritize it when it does not conflict with safety, available equipment, or the exercise catalog.",
+    trimmed.replace(/"/g, "'"),
+  ].join("\n");
+}
+
 export function buildPrompt(
   profile: ProfileData,
   trainingSplit: string,
@@ -426,7 +438,8 @@ export function buildPrompt(
   focusArea?: string,
   strengthBaselines?: StrengthBaseline[],
   queueContext?: QueueContextItem[],
-  recentComments?: RecentSessionComment[]
+  recentComments?: RecentSessionComment[],
+  regenerationFeedback?: string
 ): { system: string; user: string } {
   const counts = EXERCISE_COUNTS[durationMinutes] ?? { min: 5, max: 7 };
 
@@ -494,6 +507,9 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
   const recentCommentsSection = recentComments?.length
     ? `\n\n${formatRecentComments(recentComments)}`
     : "";
+  const regenerationFeedbackSection = regenerationFeedback
+    ? `\n\n${formatRegenerationFeedback(regenerationFeedback)}`
+    : "";
 
   const user = `## User Profile
 - Goal: ${profile.goal}${profile.custom_goal ? ` (${profile.custom_goal})` : ""}
@@ -527,7 +543,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 ${summarizeHistory(history)}
 
 ## Exercise Catalog
-${exerciseList}${baselinesSection}${queueContextSection}${recentCommentsSection}${customSection}`;
+${exerciseList}${baselinesSection}${queueContextSection}${recentCommentsSection}${regenerationFeedbackSection}${customSection}`;
 
   return { system, user };
 }
@@ -635,27 +651,24 @@ export async function fetchExerciseCatalog(
   supabaseClient: SupabaseClient,
   equipment: string
 ): Promise<ExerciseCatalogEntry[]> {
+  const equipmentFilters: Record<string, string[] | null> = {
+    bodyweight: ["bodyweight", "Body weight"],
+    dumbbells: ["bodyweight", "Body weight", "Dumbbell", "Dumbbells"],
+    barbell: ["bodyweight", "Body weight", "Dumbbell", "Dumbbells", "Barbell"],
+    full_gym: null,
+  };
+
   let exerciseQuery = supabaseClient
     .from("exercises")
     .select(
       "id, name, exercise_type, primary_muscles, secondary_muscles, equipment, difficulty_level, image_url"
-    );
+    )
+    .eq("catalog_status", "active");
 
-  if (equipment === "bodyweight") {
-    exerciseQuery = exerciseQuery.contains("equipment", ["bodyweight"]);
-  } else if (equipment === "dumbbells") {
-    exerciseQuery = exerciseQuery.overlaps("equipment", [
-      "bodyweight",
-      "dumbbells",
-    ]);
-  } else if (equipment === "barbell") {
-    exerciseQuery = exerciseQuery.overlaps("equipment", [
-      "bodyweight",
-      "dumbbells",
-      "barbell",
-    ]);
+  const filter = equipmentFilters[equipment];
+  if (filter) {
+    exerciseQuery = exerciseQuery.overlaps("equipment", filter);
   }
-  // "full_gym" — no filter needed
 
   const { data, error } = await exerciseQuery.order("name").limit(100);
   if (error || !data?.length) return [];
@@ -792,6 +805,7 @@ export async function generateSingleWorkout(
     queueContext,
     history = [],
     recentComments,
+    regenerationFeedback,
   } = params;
 
   // Fetch exercise catalog
@@ -825,7 +839,8 @@ export async function generateSingleWorkout(
         focusArea,
         strengthBaselines,
         queueContext,
-        recentComments
+        recentComments,
+        regenerationFeedback
       );
 
       const controller = new AbortController();

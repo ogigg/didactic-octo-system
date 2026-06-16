@@ -57,7 +57,7 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
 
   const handleRetry = useCallback(
     (workout: PendingWorkout) => {
-      regenerateMutation.mutate(workout);
+      regenerateMutation.mutate({ pendingWorkout: workout });
     },
     [regenerateMutation]
   );
