@@ -548,5 +548,16 @@
     "source": "generated",
     "license": "owned",
     "alt_text": "Athletic adult holding a straight forearm plank on a mat with electric blue core highlight and alignment guide."
+  },
+  {
+    "exercise_name": "Seated Machine Triceps Press",
+    "external_ids": ["curated-seated-machine-triceps-press"],
+    "purpose": "thumbnail",
+    "file": "assets/exercise-media/generated-2026-06/seated-machine-triceps-press.png",
+    "width": 1254,
+    "height": 1254,
+    "source": "generated",
+    "license": "owned",
+    "alt_text": "Athletic adult seated on a triceps press machine pressing the side handles down with triceps highlighted."
   }
 ]
