@@ -110,3 +110,20 @@ export async function fetchCatalogLabels(
 
   return z.array(catalogLabelSchema).parse(data);
 }
+
+export async function fetchExerciseFilterOptions(
+  language = "en"
+): Promise<CatalogLabel[]> {
+  const { data, error } = await supabase.rpc(
+    "get_localized_exercise_filter_options",
+    {
+      p_language: language,
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z.array(catalogLabelSchema).parse(data);
+}

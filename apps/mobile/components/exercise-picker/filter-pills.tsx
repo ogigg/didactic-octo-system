@@ -26,11 +26,11 @@ export function FilterPills({
   const equipmentActive = selectedEquipment.length > 0;
 
   const musclesLabel = musclesActive
-    ? `${selectedMuscles.length} Muscles`
+    ? t("filters.musclesSelected", { count: selectedMuscles.length })
     : t("filters.allMuscles");
 
   const equipmentLabel = equipmentActive
-    ? `${selectedEquipment.length} Equipment`
+    ? t("filters.equipmentSelected", { count: selectedEquipment.length })
     : t("filters.allEquipment");
 
   return (

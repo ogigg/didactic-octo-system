@@ -3,8 +3,8 @@ import { FilterPills } from "@/components/exercise-picker/filter-pills";
 import { FilterSheet } from "@/components/exercise-picker/filter-sheet";
 import { ExerciseRow } from "@/components/exercise-picker/exercise-row";
 import {
-  useCatalogLabels,
   useExercise,
+  useExerciseFilterOptions,
   useExercises,
 } from "@/hooks/use-exercises-query";
 import { useProfile } from "@/hooks/use-profile-query";
@@ -15,7 +15,6 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { PreviousSetValue } from "@/lib/workout-previous-sets";
 import { Spacing, Typography } from "@/constants/theme";
-import { MUSCLE_GROUPS, EQUIPMENT_TYPES } from "@/constants/exercise-filters";
 import type { Exercise } from "@/lib/api/exercises";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -59,7 +58,7 @@ export default function ExercisePickerScreen() {
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
   const { data: profile } = useProfile();
   const weightUnit: WeightUnit = (profile?.weight_unit as WeightUnit) ?? "kg";
-  const { labelMaps } = useCatalogLabels();
+  const { filterOptions, labelMaps } = useExerciseFilterOptions();
   const activeExercise = useMemo(
     () => workoutExercises.find((ex) => ex.id === exerciseId),
     [exerciseId, workoutExercises]
@@ -382,8 +381,8 @@ export default function ExercisePickerScreen() {
           <FilterSheet
             visible={muscleSheetVisible}
             onClose={() => setMuscleSheetVisible(false)}
-            title="Muscle Group"
-            options={MUSCLE_GROUPS}
+            title={t("filters.muscleSheetTitle")}
+            options={filterOptions.muscles}
             selected={selectedMuscles}
             displayLabels={labelMaps.muscle}
             onToggle={toggleMuscle}
@@ -391,8 +390,8 @@ export default function ExercisePickerScreen() {
           <FilterSheet
             visible={equipmentSheetVisible}
             onClose={() => setEquipmentSheetVisible(false)}
-            title="Equipment"
-            options={EQUIPMENT_TYPES}
+            title={t("filters.equipmentSheetTitle")}
+            options={filterOptions.equipment}
             selected={selectedEquipment}
             displayLabels={labelMaps.equipment}
             onToggle={toggleEquipment}

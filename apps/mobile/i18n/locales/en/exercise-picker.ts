@@ -10,6 +10,12 @@ export const exercisePicker = {
   filters: {
     allEquipment: "All Equipment",
     allMuscles: "All Muscles",
+    equipmentSelected_one: "{{count}} Equipment",
+    equipmentSelected_other: "{{count}} Equipment",
+    equipmentSheetTitle: "Equipment",
+    musclesSelected_one: "{{count}} Muscle",
+    musclesSelected_other: "{{count}} Muscles",
+    muscleSheetTitle: "Muscle Group",
   },
   sections: {
     suggested: "Suggested",

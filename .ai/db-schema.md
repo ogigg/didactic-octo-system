@@ -145,6 +145,7 @@ Notes:
 - time-based exercise support means downstream consumers cannot assume every exercise is load/reps based
 - `id` is the stable exercise identity; `name` is canonical English display/fallback text and must not be treated as identity
 - `image_url` and `video_url` are compatibility shortcuts. Rich media metadata lives in `exercise_media_assets`.
+- exercise picker filter options are derived from active `primary_muscles` and `equipment` values in this table, then localized through `catalog_label_translations`
 - exercises should be retired rather than deleted once referenced by workout history, preferences, or pending workout data. This keeps old workouts stable while allowing the active generation catalog to change over time.
 
 ### `exercise_media_assets`

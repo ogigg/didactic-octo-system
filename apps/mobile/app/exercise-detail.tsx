@@ -108,7 +108,7 @@ function parseDisplayDate(date: string | null | undefined): Date | null {
 }
 
 function getAchievedLabel(
-  t: ReturnType<typeof useTranslation>["t"],
+  t: (key: string, options?: Record<string, string>) => string,
   date: string | null | undefined
 ): string {
   const formattedDate = formatLongDate(date);
@@ -375,6 +375,18 @@ export default function ExerciseDetailScreen() {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
   const router = useRouter();
   const { t } = useTranslation("exerciseDetail");
+  const tString = useCallback(
+    (key: string, options?: Record<string, string>) =>
+      String(
+        (
+          t as unknown as (
+            key: string,
+            options?: Record<string, string>
+          ) => unknown
+        )(key, options)
+      ),
+    [t]
+  );
 
   const background = useThemeColor({}, "background");
   const primary = useThemeColor({}, "primary");
@@ -748,7 +760,10 @@ export default function ExerciseDetailScreen() {
                         ? formatExerciseDuration(records.max_duration_seconds)
                         : "-"
                     }
-                    dateLabel={getAchievedLabel(t, records?.max_duration_date)}
+                    dateLabel={getAchievedLabel(
+                      tString,
+                      records?.max_duration_date
+                    )}
                   />
                 ) : (
                   <>
@@ -759,13 +774,19 @@ export default function ExerciseDetailScreen() {
                           ? wu.format(records.max_weight_kg)
                           : "-"
                       }
-                      dateLabel={getAchievedLabel(t, records?.max_weight_date)}
+                      dateLabel={getAchievedLabel(
+                        tString,
+                        records?.max_weight_date
+                      )}
                     />
                     <Divider />
                     <RecordRow
                       label={t("overview.maxReps")}
                       value={formatValue(records?.max_reps)}
-                      dateLabel={getAchievedLabel(t, records?.max_reps_date)}
+                      dateLabel={getAchievedLabel(
+                        tString,
+                        records?.max_reps_date
+                      )}
                     />
                     <Divider />
                     <RecordRow
@@ -776,7 +797,7 @@ export default function ExerciseDetailScreen() {
                           : "-"
                       }
                       dateLabel={getAchievedLabel(
-                        t,
+                        tString,
                         records?.max_volume_set_date
                       )}
                     />

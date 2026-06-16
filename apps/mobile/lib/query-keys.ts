@@ -13,6 +13,8 @@ export const exerciseKeys = {
     [...exerciseKeys.all, "detail", language, id] as const,
   labels: (language = "en") =>
     [...exerciseKeys.all, "labels", language] as const,
+  filterOptions: (language = "en") =>
+    [...exerciseKeys.all, "filter-options", language] as const,
 };
 
 export const workoutKeys = {

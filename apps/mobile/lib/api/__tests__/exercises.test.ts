@@ -8,7 +8,12 @@ jest.mock("@/lib/supabase", () => ({
 }));
 
 import { supabase } from "@/lib/supabase";
-import { fetchExercise, fetchExercises } from "../exercises";
+import {
+  fetchCatalogLabels,
+  fetchExercise,
+  fetchExerciseFilterOptions,
+  fetchExercises,
+} from "../exercises";
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
@@ -163,5 +168,54 @@ describe("fetchExercise", () => {
     await expect(fetchExercise(validExercise.id)).rejects.toThrow(
       "Exercise not found"
     );
+  });
+});
+
+describe("fetchCatalogLabels", () => {
+  it("returns validated catalog labels", async () => {
+    mockRpc([
+      {
+        label_type: "muscle",
+        label_key: "Pectoralis major",
+        display_name: "Klatka piersiowa",
+      },
+    ]);
+
+    const result = await fetchCatalogLabels("pl");
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "get_localized_catalog_labels",
+      {
+        p_language: "pl",
+      }
+    );
+    expect(result[0].display_name).toBe("Klatka piersiowa");
+  });
+});
+
+describe("fetchExerciseFilterOptions", () => {
+  it("returns active filter options from the localized filter options RPC", async () => {
+    mockRpc([
+      {
+        label_type: "equipment",
+        label_key: "Barbell",
+        display_name: "Sztanga",
+      },
+      {
+        label_type: "muscle",
+        label_key: "Pectoralis major",
+        display_name: "Klatka piersiowa",
+      },
+    ]);
+
+    const result = await fetchExerciseFilterOptions("pl");
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "get_localized_exercise_filter_options",
+      {
+        p_language: "pl",
+      }
+    );
+    expect(result).toHaveLength(2);
   });
 });

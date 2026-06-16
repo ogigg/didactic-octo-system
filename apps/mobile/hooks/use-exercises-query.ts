@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { ExerciseFilters, Exercise } from "@/lib/api/exercises";
 import {
   fetchCatalogLabels,
+  fetchExerciseFilterOptions,
   fetchExercise,
   fetchExercises,
 } from "@/lib/api/exercises";
@@ -93,5 +94,46 @@ export function useCatalogLabels() {
   return {
     ...result,
     labelMaps,
+  };
+}
+
+export function useExerciseFilterOptions() {
+  const language = useAppCatalogLanguage();
+
+  const result = useQuery({
+    queryKey: exerciseKeys.filterOptions(language),
+    queryFn: () => fetchExerciseFilterOptions(language),
+    staleTime: 60_000,
+  });
+
+  const filterOptions = useMemo(() => {
+    const options = {
+      muscles: [] as string[],
+      equipment: [] as string[],
+    };
+    const labelMaps = {
+      muscle: new Map<string, string>(),
+      equipment: new Map<string, string>(),
+    };
+
+    for (const option of result.data ?? []) {
+      if (option.label_type === "muscle") {
+        options.muscles.push(option.label_key);
+        labelMaps.muscle.set(option.label_key, option.display_name);
+      }
+
+      if (option.label_type === "equipment") {
+        options.equipment.push(option.label_key);
+        labelMaps.equipment.set(option.label_key, option.display_name);
+      }
+    }
+
+    return { options, labelMaps };
+  }, [result.data]);
+
+  return {
+    ...result,
+    filterOptions: filterOptions.options,
+    labelMaps: filterOptions.labelMaps,
   };
 }
