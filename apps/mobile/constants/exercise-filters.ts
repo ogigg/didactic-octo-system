@@ -64,5 +64,6 @@ export const EQUIPMENT_TYPES = [
   "Squat rack",
   "T-bar or landmine",
   "Triceps machine",
+  "Triceps press machine",
   "Weight plate",
 ] as const;

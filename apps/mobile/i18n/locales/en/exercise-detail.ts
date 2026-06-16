@@ -6,8 +6,10 @@ export const exerciseDetail = {
   },
   overview: {
     records: "Personal Records",
-    recordsHint: "Peak lifts, cleanly tracked.",
+    recordsHint: "Your best results for this exercise.",
     sessionsCount: "{{count}} sessions",
+    sessionsCount_one: "{{count}} session",
+    sessionsCount_other: "{{count}} sessions",
     maxWeight: "Max Weight",
     maxReps: "Max Reps",
     bestSet: "Best Set",
@@ -15,14 +17,25 @@ export const exerciseDetail = {
     est1rm: "Est. 1RM",
     maxRpe: "Max RPE",
     volume: "Volume Over Time",
+    volumeTotal: "Total",
+    volumeWeeklyAvg: "Weekly avg",
+    durationTotal: "Total time",
+    durationWeeklyAvg: "Weekly avg",
+    perWeek: "/wk",
     achievedOn: "Hit on {{date}}",
     noDate: "Date unavailable",
     noData: "Complete workouts with this exercise to see stats.",
+    emptyTitle: "No history yet",
+    emptyBody:
+      "Complete this exercise in a workout to start tracking records, volume, and progress.",
+    emptyAction: "Generate workout",
   },
   history: {
     noSessions: "No sessions recorded yet.",
     set: "Set {{number}}",
     completedSets: "{{count}} completed sets",
+    completedSets_one: "{{count}} completed set",
+    completedSets_other: "{{count}} completed sets",
   },
   howTo: {
     instructions: "Instructions",
@@ -33,5 +46,12 @@ export const exerciseDetail = {
   muscles: {
     primary: "Primary",
     secondary: "Secondary",
+  },
+  error: {
+    title: "Could not load exercise",
+    detail: "Exercise stats are unavailable right now.",
+    exercise: "Exercise details are unavailable right now.",
+    missingExercise: "This screen is missing an exercise to load.",
+    retry: "Try again",
   },
 } as const;

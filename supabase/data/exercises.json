@@ -1020,6 +1020,18 @@
     "video_url": null
   },
   {
+    "name": "Seated Machine Triceps Press",
+    "external_id": "curated-seated-machine-triceps-press",
+    "exercise_type": "weight",
+    "primary_muscles": ["Triceps brachii"],
+    "secondary_muscles": ["Anterior deltoid", "Pectoralis major"],
+    "equipment": ["Triceps press machine"],
+    "difficulty_level": "beginner",
+    "instructions": "Sit with your back against the pad, grip the side handles, and keep your elbows close to your body. Press the handles down by extending your elbows, squeeze your triceps, then return with control.",
+    "image_url": null,
+    "video_url": null
+  },
+  {
     "name": "Plank",
     "external_id": "curated-plank",
     "exercise_type": "time",

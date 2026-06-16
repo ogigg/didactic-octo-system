@@ -15,6 +15,7 @@ export const stats = {
   volume: {
     total: "Razem",
     weeklyAvg: "Śr. tygodniowa",
+    perWeek: "/tydz.",
     unitTonnes: "t",
     unitKg: "kg",
   },
