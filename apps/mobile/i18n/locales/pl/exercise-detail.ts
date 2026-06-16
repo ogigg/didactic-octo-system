@@ -27,6 +27,10 @@ export const exerciseDetail = {
     achievedOn: "Osiągnięto {{date}}",
     noDate: "Data niedostępna",
     noData: "Ukończ treningi z tym ćwiczeniem, aby zobaczyć statystyki.",
+    emptyTitle: "Brak historii",
+    emptyBody:
+      "Ukończ to ćwiczenie w treningu, aby zacząć śledzić rekordy, objętość i postępy.",
+    emptyAction: "Wygeneruj trening",
   },
   history: {
     noSessions: "Nie zapisano jeszcze żadnych sesji.",

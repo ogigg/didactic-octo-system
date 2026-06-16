@@ -25,6 +25,10 @@ export const exerciseDetail = {
     achievedOn: "Hit on {{date}}",
     noDate: "Date unavailable",
     noData: "Complete workouts with this exercise to see stats.",
+    emptyTitle: "No history yet",
+    emptyBody:
+      "Complete this exercise in a workout to start tracking records, volume, and progress.",
+    emptyAction: "Generate workout",
   },
   history: {
     noSessions: "No sessions recorded yet.",

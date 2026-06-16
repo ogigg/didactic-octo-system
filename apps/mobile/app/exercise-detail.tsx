@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -25,20 +25,20 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
-import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useExerciseDetail } from "@/hooks/use-exercise-detail-query";
-import { useExercise } from "@/hooks/use-exercises-query";
-import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
 import {
-  useSetExercisePreference,
   useRemoveExercisePreference,
+  useSetExercisePreference,
 } from "@/hooks/use-exercise-preference-mutations";
+import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
+import { useExercise } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import type {
@@ -373,9 +373,11 @@ function SessionRow({
 
 export default function ExerciseDetailScreen() {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
+  const router = useRouter();
   const { t } = useTranslation("exerciseDetail");
 
   const background = useThemeColor({}, "background");
+  const primary = useThemeColor({}, "primary");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -648,120 +650,144 @@ export default function ExerciseDetailScreen() {
     const records = detail?.records;
     const isTimeExercise =
       (detail?.exercise_type ?? exercise?.exercise_type) === "time";
+    const hasRecordData = hasAnyRecord(records, isTimeExercise);
+    const hasVolumeData =
+      detail?.volume_weeks?.some((week) =>
+        isTimeExercise
+          ? (week.total_duration_seconds ?? 0) > 0
+          : week.volume_kg > 0
+      ) ?? false;
+    const hasTrackedData =
+      hasRecordData || hasVolumeData || sessions.length > 0;
+
+    const renderIntro = () =>
+      exercise ? (
+        <View style={styles.introSection}>
+          <View style={styles.metaPillRow}>
+            {sessions.length > 0 ? (
+              <MetaPill
+                label={t("overview.sessionsCount", {
+                  count: sessions.length,
+                })}
+              />
+            ) : null}
+            {exercise.primary_muscles.map((muscle, index) => (
+              <MetaPill
+                key={muscle}
+                label={exercise.primary_muscle_labels[index] ?? muscle}
+                primary
+              />
+            ))}
+            {(exercise.secondary_muscles ?? []).map((muscle, index) => (
+              <MetaPill
+                key={muscle}
+                label={exercise.secondary_muscle_labels[index] ?? muscle}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null;
+
+    if (!hasTrackedData) {
+      return (
+        <View style={styles.sectionStack}>
+          {renderIntro()}
+          <View style={styles.emptyOverview}>
+            <Text
+              style={[
+                Typography.titleMd,
+                styles.emptyText,
+                { color: textColor },
+              ]}
+            >
+              {t("overview.emptyTitle")}
+            </Text>
+            <Text
+              style={[
+                Typography.body,
+                styles.emptyText,
+                { color: textSecondary },
+              ]}
+            >
+              {t("overview.emptyBody")}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/generate-workout")}
+              style={[styles.primaryButton, { backgroundColor: primary }]}
+            >
+              <Text style={[Typography.label, styles.primaryButtonText]}>
+                {t("overview.emptyAction")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.sectionStack}>
-        {exercise ? (
-          <View style={styles.introSection}>
-            <View style={styles.introHeader}>
-              <View style={styles.introText}>
-                <Text
-                  style={[
-                    Typography.displaySm,
-                    styles.exerciseName,
-                    { color: textColor },
-                  ]}
-                >
-                  {exercise.name}
-                </Text>
+        {renderIntro()}
+
+        {hasRecordData ? (
+          <>
+            <Divider />
+            <View style={styles.sectionBlock}>
+              <SectionTitle title={t("overview.records")} />
+              {hasTrackedData ? (
                 <Text style={[Typography.body, { color: textSecondary }]}>
                   {t("overview.recordsHint")}
                 </Text>
+              ) : null}
+              <View style={styles.recordList}>
+                {isTimeExercise ? (
+                  <RecordRow
+                    label={t("overview.bestDuration")}
+                    value={
+                      records?.max_duration_seconds != null
+                        ? formatExerciseDuration(records.max_duration_seconds)
+                        : "-"
+                    }
+                    dateLabel={getAchievedLabel(t, records?.max_duration_date)}
+                  />
+                ) : (
+                  <>
+                    <RecordRow
+                      label={t("overview.maxWeight")}
+                      value={
+                        records?.max_weight_kg
+                          ? wu.format(records.max_weight_kg)
+                          : "-"
+                      }
+                      dateLabel={getAchievedLabel(t, records?.max_weight_date)}
+                    />
+                    <Divider />
+                    <RecordRow
+                      label={t("overview.maxReps")}
+                      value={formatValue(records?.max_reps)}
+                      dateLabel={getAchievedLabel(t, records?.max_reps_date)}
+                    />
+                    <Divider />
+                    <RecordRow
+                      label={t("overview.bestSet")}
+                      value={
+                        records?.max_volume_set_kg
+                          ? wu.format(records.max_volume_set_kg)
+                          : "-"
+                      }
+                      dateLabel={getAchievedLabel(
+                        t,
+                        records?.max_volume_set_date
+                      )}
+                    />
+                  </>
+                )}
               </View>
-              <Text
-                style={[
-                  Typography.micro,
-                  styles.sessionCount,
-                  { color: textMuted },
-                ]}
-              >
-                {t("overview.sessionsCount", { count: sessions.length })}
-              </Text>
             </View>
-
-            <View style={styles.metaPillRow}>
-              {exercise.primary_muscles.map((muscle, index) => (
-                <MetaPill
-                  key={muscle}
-                  label={exercise.primary_muscle_labels[index] ?? muscle}
-                  primary
-                />
-              ))}
-              {(exercise.secondary_muscles ?? []).map((muscle, index) => (
-                <MetaPill
-                  key={muscle}
-                  label={exercise.secondary_muscle_labels[index] ?? muscle}
-                />
-              ))}
-            </View>
-          </View>
+          </>
         ) : null}
 
-        <Divider />
-
-        <View style={styles.sectionBlock}>
-          <SectionTitle title={t("overview.records")} />
-          {hasAnyRecord(records, isTimeExercise) ? (
-            <View style={styles.recordList}>
-              {isTimeExercise ? (
-                <RecordRow
-                  label={t("overview.bestDuration")}
-                  value={
-                    records?.max_duration_seconds != null
-                      ? formatExerciseDuration(records.max_duration_seconds)
-                      : "-"
-                  }
-                  dateLabel={getAchievedLabel(t, records?.max_duration_date)}
-                />
-              ) : (
-                <>
-                  <RecordRow
-                    label={t("overview.maxWeight")}
-                    value={
-                      records?.max_weight_kg
-                        ? wu.format(records.max_weight_kg)
-                        : "-"
-                    }
-                    dateLabel={getAchievedLabel(t, records?.max_weight_date)}
-                  />
-                  <Divider />
-                  <RecordRow
-                    label={t("overview.maxReps")}
-                    value={formatValue(records?.max_reps)}
-                    dateLabel={getAchievedLabel(t, records?.max_reps_date)}
-                  />
-                  <Divider />
-                  <RecordRow
-                    label={t("overview.bestSet")}
-                    value={
-                      records?.max_volume_set_kg
-                        ? wu.format(records.max_volume_set_kg)
-                        : "-"
-                    }
-                    dateLabel={getAchievedLabel(
-                      t,
-                      records?.max_volume_set_date
-                    )}
-                  />
-                </>
-              )}
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text
-                style={[
-                  Typography.body,
-                  styles.emptyText,
-                  { color: textMuted },
-                ]}
-              >
-                {t("overview.noData")}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {!isTimeExercise && (
+        {!isTimeExercise && (records?.est_1rm_kg || records?.max_rpe) ? (
           <>
             <Divider />
             <View style={styles.sectionBlock}>
@@ -779,40 +805,29 @@ export default function ExerciseDetailScreen() {
               </View>
             </View>
           </>
-        )}
+        ) : null}
 
-        <Divider />
-
-        <View style={styles.sectionBlock}>
-          <SectionTitle title={t("overview.volume")} />
-          {detail?.volume_weeks && detail.volume_weeks.length > 0 ? (
-            <VolumeBarChart
-              data={detail.volume_weeks}
-              metric={isTimeExercise ? "duration" : "volume"}
-              labels={{
-                total: isTimeExercise
-                  ? t("overview.durationTotal")
-                  : t("overview.volumeTotal"),
-                average: isTimeExercise
-                  ? t("overview.durationWeeklyAvg")
-                  : t("overview.volumeWeeklyAvg"),
-                perWeek: t("overview.perWeek"),
-              }}
-            />
-          ) : (
-            <View style={styles.emptyState}>
-              <Text
-                style={[
-                  Typography.body,
-                  styles.emptyText,
-                  { color: textMuted },
-                ]}
-              >
-                {t("overview.noData")}
-              </Text>
+        {hasVolumeData && detail?.volume_weeks ? (
+          <>
+            <Divider />
+            <View style={styles.sectionBlock}>
+              <SectionTitle title={t("overview.volume")} />
+              <VolumeBarChart
+                data={detail.volume_weeks}
+                metric={isTimeExercise ? "duration" : "volume"}
+                labels={{
+                  total: isTimeExercise
+                    ? t("overview.durationTotal")
+                    : t("overview.volumeTotal"),
+                  average: isTimeExercise
+                    ? t("overview.durationWeeklyAvg")
+                    : t("overview.volumeWeeklyAvg"),
+                  perWeek: t("overview.perWeek"),
+                }}
+              />
             </View>
-          )}
-        </View>
+          </>
+        ) : null}
       </View>
     );
   };
@@ -963,9 +978,10 @@ export default function ExerciseDetailScreen() {
                 selected={activeTab}
                 onChange={handleTabChange}
                 periods={tabOptions}
+                compact
               />
 
-              <View
+              <Animated.View
                 onLayout={handlePagerLayout}
                 style={[
                   styles.pagerViewport,
@@ -1032,7 +1048,7 @@ export default function ExerciseDetailScreen() {
                     </View>
                   </View>
                 </Animated.View>
-              </View>
+              </Animated.View>
             </ScrollView>
           </GestureDetector>
           <ExercisePreferenceSheet
@@ -1175,8 +1191,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: Spacing["2xl"],
   },
+  emptyOverview: {
+    alignItems: "center",
+    gap: Spacing.md,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing["4xl"],
+  },
   emptyText: {
     textAlign: "center",
+  },
+  primaryButton: {
+    borderRadius: Radii.full,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
   },
   retryButton: {
     borderRadius: Radii.full,
