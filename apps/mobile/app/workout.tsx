@@ -15,6 +15,7 @@ import {
   hasLoggedWorkoutData,
 } from "@/lib/workout-session-state";
 import { useWorkoutStore } from "@/stores/workout-store";
+import { useKeepAwake } from "expo-keep-awake";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,8 @@ export default function WorkoutScreen() {
   useWorkoutLiveActivity();
   // Apple Watch companion sync
   useWatchBridge();
+  // Keep the phone display awake while the active workout screen is open.
+  useKeepAwake();
 
   const exercises = useWorkoutStore((s) => s.exercises);
   const warmup = useWorkoutStore((s) => s.warmup);
