@@ -1,5 +1,12 @@
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { HeartRateChart } from "@/components/workout/heart-rate-chart";
+import {
+  SHARE_STORY_IMAGE_HEIGHT,
+  SHARE_STORY_IMAGE_WIDTH,
+  SHARE_STORY_VIEW_HEIGHT,
+  SHARE_STORY_VIEW_WIDTH,
+  WorkoutShareStory,
+} from "@/components/workout/workout-share-story";
 import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
@@ -28,6 +35,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -53,12 +61,15 @@ import {
   getBestDurationSeconds,
   formatDuration,
 } from "@/lib/workout-summary-utils";
+import { getWorkoutShareHighlights } from "@/lib/workout-share-utils";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { trackEvent } from "@/lib/track-event";
 import { useCreateWorkoutSessionComment } from "@/hooks/use-workout-session-comments";
 import { MAX_COMMENT_LENGTH } from "@/lib/api/workout-session-comments";
+import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -129,7 +140,6 @@ interface ExerciseRowProps {
   primary: string;
   primarySurface: string;
   primaryContainer: string;
-  border: string;
   onFeedbackChange: (exerciseId: string, feedback: DifficultyValue) => void;
   formatWeight: (kg: number) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,7 +167,6 @@ function ExerciseRow({
   primary,
   primarySurface,
   primaryContainer,
-  border,
   onFeedbackChange,
   formatWeight,
   t,
@@ -589,7 +598,6 @@ export default function WorkoutSummaryScreen() {
       {
         onSuccess: () => {
           // Track workout completion events after successful save
-          const sessionStats = computeSessionStats(summary.exercises);
           const totalVolume = computeTotalVolume(summary.exercises);
 
           // Track workout completion
@@ -619,6 +627,9 @@ export default function WorkoutSummaryScreen() {
 
   // Save template
   const [saved, setSaved] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareStoryRef = useRef<View>(null);
+
   const handleSaveTemplate = useCallback(() => {
     if (!summary) return;
     addTemplate({
@@ -630,6 +641,111 @@ export default function WorkoutSummaryScreen() {
     });
     setSaved(true);
   }, [summary, addTemplate, exerciseMap]);
+
+  const shareHighlights = useMemo(
+    () =>
+      summary
+        ? getWorkoutShareHighlights(summary.exercises, {
+            formatWeight: wu.format,
+            getExerciseName: (exercise) =>
+              exerciseMap.get(exercise.id)?.name ?? exercise.name,
+          })
+        : [],
+    [exerciseMap, summary, wu.format]
+  );
+
+  const shareDateLabel = useMemo(
+    () =>
+      summary
+        ? new Date(summary.finishedAtMs).toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "",
+    [summary]
+  );
+  const shareVolumeLabel =
+    totalVolume > 0
+      ? wu.formatVolume(totalVolume)
+      : t("summary.share.bodyweight");
+  const shareSetsLabel = t("summary.share.setsValue", {
+    completed: stats.completedSets,
+    total: stats.totalSets,
+  });
+  const shareCompletionLabel = `${stats.completionRate}%`;
+  const shareStreakLabel = streakWeeks != null ? String(streakWeeks) : null;
+
+  const handleShareWorkout = useCallback(async () => {
+    if (!summary || isSharing) return;
+
+    const eventPayload = {
+      exercise_count: stats.exerciseCount,
+      completed_sets: stats.completedSets,
+      total_sets: stats.totalSets,
+      completion_rate: stats.completionRate,
+      total_volume_kg: totalVolume,
+      duration_seconds: Math.floor(summary.durationMs / 1000),
+      highlight_count: shareHighlights.length,
+    };
+
+    setIsSharing(true);
+    trackEvent("workout_summary_share_requested", eventPayload);
+
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        trackEvent("workout_summary_share_unavailable", eventPayload);
+        Alert.alert(
+          t("summary.share.unavailableTitle"),
+          t("summary.share.unavailableMessage")
+        );
+        return;
+      }
+
+      if (!shareStoryRef.current) {
+        throw new Error("Workout share story renderer is not ready.");
+      }
+
+      const uri = await captureRef(shareStoryRef, {
+        fileName: "sweaty-workout-story",
+        format: "png",
+        height: SHARE_STORY_IMAGE_HEIGHT,
+        quality: 1,
+        result: "tmpfile",
+        width: SHARE_STORY_IMAGE_WIDTH,
+      });
+
+      await Sharing.shareAsync(uri, {
+        UTI: "public.png",
+        dialogTitle: t("summary.share.dialogTitle"),
+        mimeType: "image/png",
+      });
+
+      trackEvent("workout_summary_share_completed", eventPayload);
+    } catch (error) {
+      trackEvent("workout_summary_share_failed", {
+        ...eventPayload,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      Alert.alert(
+        t("summary.share.errorTitle"),
+        t("summary.share.errorMessage")
+      );
+    } finally {
+      setIsSharing(false);
+    }
+  }, [
+    isSharing,
+    shareHighlights.length,
+    stats.completedSets,
+    stats.completionRate,
+    stats.exerciseCount,
+    stats.totalSets,
+    summary,
+    t,
+    totalVolume,
+  ]);
 
   const handleReturnHome = useCallback(() => {
     clearWorkout();
@@ -672,6 +788,24 @@ export default function WorkoutSummaryScreen() {
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
       <AmbientGlow variant="subtle" />
+      <View
+        pointerEvents="none"
+        style={styles.shareCaptureHost}
+        collapsable={false}
+      >
+        <View ref={shareStoryRef} collapsable={false}>
+          <WorkoutShareStory
+            workoutName={summary.workoutName}
+            dateLabel={shareDateLabel}
+            durationLabel={formatDuration(summary.durationMs)}
+            volumeLabel={shareVolumeLabel}
+            setsLabel={shareSetsLabel}
+            completionLabel={shareCompletionLabel}
+            streakLabel={shareStreakLabel}
+            highlights={shareHighlights}
+          />
+        </View>
+      </View>
       <SafeAreaProvider>
         <SafeAreaView style={styles.safe}>
           <KeyboardAvoidingView
@@ -947,7 +1081,6 @@ export default function WorkoutSummaryScreen() {
                       primary={primary}
                       primarySurface={primarySurface}
                       primaryContainer={primaryContainer}
-                      border={border}
                       onFeedbackChange={setExerciseDifficultyFeedback}
                       formatWeight={wu.format}
                       t={t}
@@ -993,6 +1126,18 @@ export default function WorkoutSummaryScreen() {
 
           {/* ── FOOTER ── */}
           <View style={styles.footer}>
+            <Button
+              label={
+                isSharing
+                  ? t("summary.share.preparing")
+                  : t("summary.share.button")
+              }
+              onPress={handleShareWorkout}
+              variant="secondary"
+              icon="square.and.arrow.up"
+              disabled={isSharing}
+              accessibilityLabel={t("summary.share.button")}
+            />
             {summary && (
               <Button
                 label={saved ? t("saveTemplate.saved") : t("saveTemplate.save")}
@@ -1020,6 +1165,13 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
   flex: { flex: 1 },
+  shareCaptureHost: {
+    position: "absolute",
+    left: -10000,
+    top: 0,
+    width: SHARE_STORY_VIEW_WIDTH,
+    height: SHARE_STORY_VIEW_HEIGHT,
+  },
 
   commentCard: {
     borderRadius: Radii.lg,

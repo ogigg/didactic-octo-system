@@ -1,11 +1,14 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
-import { Pressable, StyleSheet, Text, ViewStyle } from "react-native";
+import type { ComponentProps } from "react";
+import { Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
 
 interface ButtonProps {
   label: string;
   onPress: () => void;
   variant?: "primary" | "secondary" | "ghost" | "destructive" | "success";
+  icon?: ComponentProps<typeof IconSymbol>["name"];
   disabled?: boolean;
   accessibilityLabel?: string;
   style?: ViewStyle;
@@ -15,6 +18,7 @@ export function Button({
   label,
   onPress,
   variant = "primary",
+  icon,
   disabled = false,
   accessibilityLabel,
   style,
@@ -62,7 +66,10 @@ export function Button({
         style,
       ]}
     >
-      <Text style={[styles.label, { color: textColor }]}>{label}</Text>
+      <View style={styles.content}>
+        {icon && <IconSymbol name={icon} size={18} color={textColor} />}
+        <Text style={[styles.label, { color: textColor }]}>{label}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -72,6 +79,12 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
     paddingVertical: Spacing.lg,
     alignItems: "center",
+  },
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
   },
   label: {
     ...Typography.titleSm,

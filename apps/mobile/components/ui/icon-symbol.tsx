@@ -63,6 +63,7 @@ const MAPPING = {
   "exclamationmark.triangle.fill": "warning",
   "person.crop.circle.badge.xmark": "person-off",
   "questionmark.circle.fill": "help",
+  "square.and.arrow.up": "share",
 } as IconMapping;
 
 /**
