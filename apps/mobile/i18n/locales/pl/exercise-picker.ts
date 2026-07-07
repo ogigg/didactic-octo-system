@@ -6,6 +6,7 @@ export const exercisePicker = {
   },
   search: {
     placeholder: "Szukaj ćwiczeń...",
+    clear: "Wyczyść wyszukiwanie ćwiczeń",
   },
   filters: {
     allEquipment: "Cały sprzęt",

@@ -86,6 +86,12 @@ export default function ExercisePickerScreen() {
     timerRef.current = setTimeout(() => setDebouncedSearch(text), 300);
   }, []);
 
+  const handleClearSearch = useCallback(() => {
+    clearTimeout(timerRef.current);
+    setSearchText("");
+    setDebouncedSearch("");
+  }, []);
+
   // Filter state
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
@@ -353,7 +359,9 @@ export default function ExercisePickerScreen() {
           <SearchBar
             value={searchText}
             onChangeText={handleSearchChange}
+            onClear={handleClearSearch}
             placeholder={t("search.placeholder")}
+            clearAccessibilityLabel={t("search.clear")}
           />
 
           {/* Filter Pills */}
