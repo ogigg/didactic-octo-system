@@ -20,6 +20,7 @@ import { feedback } from "./locales/en/feedback";
 import { subscription } from "./locales/en/subscription";
 import { healthSync } from "./locales/en/health-sync";
 import { deleteAccount } from "./locales/en/delete-account";
+import { streakProtection } from "./locales/en/streak-protection";
 import { auth as authPl } from "./locales/pl/auth";
 import { common as commonPl } from "./locales/pl/common";
 import { home as homePl } from "./locales/pl/home";
@@ -42,6 +43,7 @@ import { feedback as feedbackPl } from "./locales/pl/feedback";
 import { subscription as subscriptionPl } from "./locales/pl/subscription";
 import { healthSync as healthSyncPl } from "./locales/pl/health-sync";
 import { deleteAccount as deleteAccountPl } from "./locales/pl/delete-account";
+import { streakProtection as streakProtectionPl } from "./locales/pl/streak-protection";
 
 export const resources = {
   en: {
@@ -67,6 +69,7 @@ export const resources = {
     subscription,
     healthSync,
     deleteAccount,
+    streakProtection,
   },
   pl: {
     auth: authPl,
@@ -91,6 +94,7 @@ export const resources = {
     subscription: subscriptionPl,
     healthSync: healthSyncPl,
     deleteAccount: deleteAccountPl,
+    streakProtection: streakProtectionPl,
   },
 } as const;
 

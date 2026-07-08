@@ -565,11 +565,18 @@
     "external_ids": ["curated-dumbbell-bench-press"],
     "purpose": "thumbnail",
     "file": "assets/exercise-media/generated-2026-07/dumbbell-bench-press.png",
+    "alt_text": "Athletic adult performing Dumbbell Bench Press with Pectoralis major highlighted."
+  },
+  {
+    "exercise_name": "Machine Abdominal Crunch",
+    "external_ids": ["curated-machine-abdominal-crunch"],
+    "purpose": "thumbnail",
+    "file": "assets/exercise-media/generated-2026-06/machine-abdominal-crunch.png",
     "width": 1254,
     "height": 1254,
     "source": "generated",
     "license": "owned",
-    "alt_text": "Athletic adult performing Dumbbell Bench Press with Pectoralis major highlighted."
+    "alt_text": "Athletic adult seated on an abdominal crunch machine curling the torso forward with rectus abdominis highlighted."
   },
   {
     "exercise_name": "Incline Barbell Bench Press",

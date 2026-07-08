@@ -165,6 +165,48 @@ resetUser();
   - `total_count`: total queued workouts
   - `has_active_workout`: boolean
 
+### Streak Protection Events
+
+- **streak_status_viewed**: Streak status was loaded on a user-facing screen
+  - `tier`: free | pro
+  - `is_pro_active`: boolean
+  - `streak_weeks`: current protected streak length
+  - `missed_weeks`: number of missed weeks currently needing protection
+  - `days_since_last_workout`: integer or null
+  - `prompt_state`: none | at_risk | free_earned_freeze | free_lifetime_rescue | free_comeback | pro_auto_applied | pro_available_freeze | pro_comeback
+  - `pro_freezes_available`: integer
+  - `earned_freezes_available`: integer
+  - `lifetime_rescue_available`: boolean
+  - `auto_apply_enabled`: boolean
+
+- **streak_prompt_shown**: Streak protection sheet became visible
+  - Same payload as `streak_status_viewed`
+
+- **streak_prompt_dismissed**: User dismissed the streak protection sheet without taking a primary action
+  - Same payload as `streak_status_viewed`
+
+- **streak_protection_applied**: User spent an eligible restore/freeze
+  - Same payload as `streak_status_viewed`
+  - `protection_type`: lifetime_rescue | earned_freeze | pro_freeze
+
+- **streak_lifetime_rescue_used**: User spent the one lifetime free restore
+  - Same payload as `streak_status_viewed`
+
+- **streak_freeze_earned**: User earned a free streak freeze
+  - Same payload as `streak_status_viewed`
+
+- **streak_restarted**: User chose to restart the streak instead of protecting it
+  - Same payload as `streak_status_viewed`
+
+- **comeback_workout_started**: User began a return-to-training flow from the streak sheet
+  - Same payload as `streak_status_viewed`
+
+- **comeback_workout_completed**: User completed a comeback workout
+  - Same payload as `streak_status_viewed`
+
+- **streak_upgrade_tapped**: User tapped upgrade from a streak protection context
+  - Same payload as `streak_status_viewed`
+
 ## Adding New Events
 
 1. **Update Event Type**: Add the new event to the `EventName` type in `apps/mobile/lib/track-event.ts`

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { useStreakStatus } from "@/hooks/use-streak-protection";
 import { getISOWeekKey } from "@/lib/iso-week";
 import { supabase } from "@/lib/supabase";
 import { workoutStatsKeys } from "@/lib/query-keys";
@@ -77,19 +78,27 @@ export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
     queryFn: fetchWorkoutStatsBase,
     staleTime: Infinity,
   });
+  const streakStatusQuery = useStreakStatus();
 
-  const streakWeeks = useMemo(
-    () =>
+  const streakWeeks = useMemo(() => {
+    const protectedStreak =
+      streakStatusQuery.data?.current_streak_weeks ?? null;
+    const localStreak =
       data != null
         ? computeStreakWeeks(data.completedAtDates, currentWorkoutFinishedAtMs)
-        : null,
-    [data, currentWorkoutFinishedAtMs]
-  );
+        : null;
+
+    if (currentWorkoutFinishedAtMs !== undefined) {
+      return Math.max(localStreak ?? 0, protectedStreak ?? 0);
+    }
+
+    return protectedStreak ?? localStreak;
+  }, [currentWorkoutFinishedAtMs, data, streakStatusQuery.data]);
 
   return {
     totalWorkouts: data?.totalWorkouts ?? null,
     streakWeeks,
-    isLoading,
+    isLoading: isLoading || streakStatusQuery.isLoading,
     refetch,
   };
 }

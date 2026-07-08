@@ -152,6 +152,38 @@ describe("trackEvent", () => {
       })
     ).not.toThrow();
   });
+
+  it("does not throw for streak protection events", () => {
+    const payload = {
+      tier: "free",
+      is_pro_active: false,
+      streak_weeks: 4,
+      missed_weeks: 1,
+      days_since_last_workout: 9,
+      prompt_state: "free_lifetime_rescue",
+      pro_freezes_available: 0,
+      earned_freezes_available: 0,
+      lifetime_rescue_available: true,
+      auto_apply_enabled: true,
+    };
+
+    expect(() => trackEvent("streak_status_viewed", payload)).not.toThrow();
+    expect(() => trackEvent("streak_prompt_shown", payload)).not.toThrow();
+    expect(() =>
+      trackEvent("streak_protection_applied", {
+        ...payload,
+        protection_type: "lifetime_rescue",
+      })
+    ).not.toThrow();
+    expect(() =>
+      trackEvent("comeback_workout_completed", {
+        prompt_state: "free_lifetime_rescue",
+        had_ready_workout: true,
+        time_since_comeback_started_ms: 1800000,
+        duration_seconds: 1200,
+      })
+    ).not.toThrow();
+  });
 });
 
 describe("setUserProperties", () => {

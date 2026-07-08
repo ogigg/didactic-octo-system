@@ -661,5 +661,18 @@
     "license": "owned",
     "alt_text": "Athletic adult seated on a triceps press machine pressing the side handles down with triceps highlighted.",
     "prompt_file": null
+  },
+  {
+    "index": 52,
+    "exercise_name": "Machine Abdominal Crunch",
+    "slug": "machine-abdominal-crunch",
+    "purpose": "thumbnail",
+    "file": "assets/exercise-media/generated-2026-06/machine-abdominal-crunch.png",
+    "width": 1254,
+    "height": 1254,
+    "source": "generated",
+    "license": "owned",
+    "alt_text": "Athletic adult seated on an abdominal crunch machine curling the torso forward with rectus abdominis highlighted.",
+    "prompt_file": null
   }
 ]
