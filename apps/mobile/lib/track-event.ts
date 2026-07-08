@@ -21,7 +21,18 @@ export type EventName =
   | "difficulty_feedback_given"
   | "workout_comment_submitted"
   | "training_preferences_changed"
-  | "queue_state_on_open";
+  | "queue_state_on_open"
+  // Streak protection events
+  | "streak_status_viewed"
+  | "streak_prompt_shown"
+  | "streak_prompt_dismissed"
+  | "streak_protection_applied"
+  | "streak_lifetime_rescue_used"
+  | "streak_freeze_earned"
+  | "streak_restarted"
+  | "comeback_workout_started"
+  | "comeback_workout_completed"
+  | "streak_upgrade_tapped";
 // Future events can be added here
 
 type Primitive = string | number | boolean | null;
