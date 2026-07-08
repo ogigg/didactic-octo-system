@@ -28,6 +28,26 @@ jest.mock("expo-image", () => {
   };
 });
 
+jest.mock("expo-linear-gradient", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+
+  return {
+    LinearGradient: ({ children, style }) =>
+      React.createElement(View, { style }, children),
+  };
+});
+
+jest.mock("expo-sharing", () => ({
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("react-native-view-shot", () => ({
+  captureRef: jest.fn(() => Promise.resolve("file://workout-share.png")),
+  releaseCapture: jest.fn(),
+}));
+
 // Silence console warnings during tests (optional)
 global.console = {
   ...console,

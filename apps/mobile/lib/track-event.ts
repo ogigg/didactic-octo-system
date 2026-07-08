@@ -20,6 +20,10 @@ export type EventName =
   | "feedback_given"
   | "difficulty_feedback_given"
   | "workout_comment_submitted"
+  | "workout_summary_share_requested"
+  | "workout_summary_share_unavailable"
+  | "workout_summary_share_completed"
+  | "workout_summary_share_failed"
   | "training_preferences_changed"
   | "queue_state_on_open"
   // Streak protection events
