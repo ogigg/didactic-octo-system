@@ -13,6 +13,7 @@ export const workout = {
     addSet: "+ Dodaj serię",
     removeSet: "Usuń serię",
     fillFromPrevious: "Uzupełnij poprzednią",
+    openDetails: "Otwórz szczegóły ćwiczenia {{exerciseName}}",
   },
   reasoning: {
     planTitle: "Dlaczego ten plan",

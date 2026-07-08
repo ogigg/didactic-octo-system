@@ -27,8 +27,10 @@ jest.mock("expo-haptics", () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
 }));
 
+const mockRouterPush = jest.fn();
+
 jest.mock("expo-router", () => ({
-  useRouter: jest.fn(() => ({ push: jest.fn() })),
+  useRouter: jest.fn(() => ({ push: mockRouterPush })),
 }));
 
 const mockSetRowProps: {
@@ -130,6 +132,17 @@ describe("ExerciseCard", () => {
     fireEvent.press(screen.getByRole("button", { name: "exercise.addSet" }));
 
     expect(useWorkoutStore.getState().exercises[0]?.sets).toHaveLength(2);
+  });
+
+  it("opens exercise details when pressing the exercise image", () => {
+    render(<ExerciseCard exercise={exercise} />);
+
+    fireEvent.press(screen.getByRole("link", { name: "exercise.openDetails" }));
+
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: "/exercise-detail",
+      params: { exerciseId: "bench-press" },
+    });
   });
 
   it("moves keyboard focus from reps to the next set row", () => {

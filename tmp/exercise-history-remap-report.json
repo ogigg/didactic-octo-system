@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-06-16T17:07:58.430Z",
+  "mode": "dry-run",
+  "summary": {
+    "profiles": 4,
+    "workout_sessions": 32,
+    "completed_workout_sessions": 30,
+    "exercises_total": 758,
+    "exercises_active": 101,
+    "exercises_retired": 657,
+    "used_exercises": 49,
+    "used_old_or_missing_exercises": 0,
+    "auto_mapped_old_exercises": 0,
+    "unmapped_old_exercises": 0,
+    "session_exercise_rows_to_update": 0,
+    "set_logs_behind_rows_to_update": 0,
+    "exercise_preferences_to_map": 0,
+    "pending_workouts_with_old_ids": 0,
+    "duplicate_conflicts": 0
+  },
+  "old_exercise_usage": [],
+  "duplicate_conflicts": [],
+  "pending_workout_hits": [],
+  "exercise_preferences_to_map": []
+}

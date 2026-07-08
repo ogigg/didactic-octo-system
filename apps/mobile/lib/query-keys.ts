@@ -87,3 +87,9 @@ export const subscriptionKeys = {
   all: ["subscription"] as const,
   usage: () => [...subscriptionKeys.all, "usage"] as const,
 };
+
+export const streakProtectionKeys = {
+  all: ["streak-protection"] as const,
+  status: (userId: string) =>
+    [...streakProtectionKeys.all, "status", userId] as const,
+};

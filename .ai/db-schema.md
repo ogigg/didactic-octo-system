@@ -376,6 +376,58 @@ Notes:
 - columns are nullable so a user can log partial measurements
 - this table is optimized for trend/history style features rather than workout generation
 
+### `streak_protection_balances`
+
+Purpose:
+
+- stores the current spendable streak protection balance for a user
+- supports free lifetime rescue, earned free freeze, Pro monthly freeze grants, and Pro auto-apply preferences
+
+Important columns:
+
+- `user_id`
+- `lifetime_rescue_used_at`: when non-null, the user's one lifetime rescue has been spent
+- `earned_freezes_available`: free earned freeze balance, capped at 1
+- `pro_freezes_available`: Pro freeze balance, capped at 3
+- `pro_freezes_granted_through_month`: month through which the Pro monthly grant has been processed
+- `auto_apply_enabled`: whether Pro freezes may be applied automatically for missed streak weeks
+- `streak_restarted_at`: anchor timestamp after which workout history counts toward the current streak
+- `last_prompt_dismissed_at`, `last_prompt_state`: cooldown state for the mobile streak protection prompt
+
+Relationships:
+
+- one balance row per profile
+
+Notes:
+
+- users can read their own balance, but writes are intended to happen through streak protection RPCs
+- `get_streak_status` lazily creates this row when needed and performs idempotent entitlement maintenance
+
+### `streak_protection_events`
+
+Purpose:
+
+- ledger of streak protection grants, uses, restarts, comeback events, and prompt dismissals
+- provides auditability for monetization-sensitive streak restores and freezes
+
+Important columns:
+
+- `user_id`
+- `event_type`: `lifetime_rescue_used`, `earned_freeze_granted`, `earned_freeze_used`, `pro_freeze_granted`, `pro_freeze_used`, `pro_auto_freeze_used`, `streak_restarted`, `comeback_started`, `comeback_completed`, or `prompt_dismissed`
+- `covered_week_start`, `covered_week_end`: the week protected by a restore/freeze event
+- `streak_weeks_before`, `streak_weeks_after`
+- `metadata`: contextual JSON for product analysis and debugging
+
+Relationships:
+
+- many events per profile
+
+Notes:
+
+- a partial unique index allows only one protection event per user + covered week
+- protected weeks are counted alongside qualifying completed workout weeks by `get_streak_status`
+- qualifying workout weeks require a completed `workout_sessions` row with at least one completed `set_logs` row
+
 ## Operational / Product Support
 
 ### `feedback`
@@ -440,6 +492,8 @@ profiles
   -> exercise_preferences
   -> body_measurements
   -> generation_usage
+  -> streak_protection_balances
+  -> streak_protection_events
 
 exercises
   -> session_exercises
@@ -455,5 +509,6 @@ When database-related work touches behavior, also inspect `supabase/migrations` 
 - exercise detail RPCs
 - measurement history RPCs
 - generation allowance / subscription RPCs
+- streak protection RPCs
 
 Those functions are part of the practical database interface even though they are not tables.

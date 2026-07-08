@@ -229,11 +229,19 @@ export function ExerciseCard({
     >
       {/* Exercise Header */}
       <View style={styles.header}>
-        <ExerciseImage
-          image={exerciseImage}
-          exerciseName={exerciseName}
-          size="thumbnail"
-        />
+        <Pressable
+          onPress={handleExercisePress}
+          accessibilityRole="link"
+          accessibilityLabel={t("exercise.openDetails", { exerciseName })}
+          hitSlop={4}
+          style={styles.exerciseImageLink}
+        >
+          <ExerciseImage
+            image={exerciseImage}
+            exerciseName={exerciseName}
+            size="thumbnail"
+          />
+        </Pressable>
         <Pressable
           onPress={handleExercisePress}
           accessibilityRole="link"
@@ -400,6 +408,9 @@ const styles = StyleSheet.create({
   },
   exerciseName: {
     flex: 1,
+  },
+  exerciseImageLink: {
+    flexShrink: 0,
   },
   menuButton: {
     width: 44,
