@@ -6,6 +6,7 @@ export const exercisePicker = {
   },
   search: {
     placeholder: "Search exercises...",
+    clear: "Clear exercise search",
   },
   filters: {
     allEquipment: "All Equipment",

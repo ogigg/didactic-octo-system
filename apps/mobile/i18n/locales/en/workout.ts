@@ -13,6 +13,7 @@ export const workout = {
     addSet: "+ Add Set",
     removeSet: "Remove set",
     fillFromPrevious: "Fill from previous",
+    openDetails: "Open details for {{exerciseName}}",
   },
   reasoning: {
     planTitle: "Why this plan",
