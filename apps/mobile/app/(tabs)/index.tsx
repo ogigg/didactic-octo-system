@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,23 +16,37 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutQueue } from "@/components/workout-queue";
 import { UsageIndicator } from "@/components/subscription/usage-indicator";
 import { Paywall } from "@/components/subscription/paywall";
+import { StreakProtectionSheet } from "@/components/streak/streak-protection-sheet";
 import { WorkoutTemplateCard } from "@/components/workout-template-card";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useWorkoutQueue } from "@/hooks/use-workout-queue";
+import {
+  useStartPendingWorkout,
+  useWorkoutQueue,
+} from "@/hooks/use-workout-queue";
+import {
+  useApplyStreakProtection,
+  useDismissStreakPrompt,
+  useRecordComebackEvent,
+  useRestartStreak,
+  useStreakStatus,
+} from "@/hooks/use-streak-protection";
 import { useProfile } from "@/hooks/use-profile-query";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { getTargetQueueCount } from "@/lib/pending-workout-queue";
 import { fetchWorkoutHistoryForDayRange } from "@/lib/api/workouts";
 import { getMondayLocal } from "@/lib/iso-week";
+import { selectNextWorkout } from "@/stores/pending-workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import type { WorkoutTemplate } from "@/stores/workout-templates-store";
-import { trackEvent } from "@/lib/track-event";
+import { trackEvent, type EventPayload } from "@/lib/track-event";
+import type { StreakStatus } from "@/lib/api/streak-protection";
+import { markComebackWorkoutStarted } from "@/lib/comeback-workout";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -47,6 +62,21 @@ function getGreetingKey():
   return "greeting.evening";
 }
 
+function streakAnalyticsPayload(status: StreakStatus): EventPayload {
+  return {
+    tier: status.tier,
+    is_pro_active: status.is_pro_active,
+    streak_weeks: status.current_streak_weeks,
+    missed_weeks: status.missed_week_count,
+    days_since_last_workout: status.days_since_last_workout,
+    prompt_state: status.prompt_state,
+    pro_freezes_available: status.pro_freezes_available,
+    earned_freezes_available: status.earned_freezes_available,
+    lifetime_rescue_available: status.lifetime_rescue_available,
+    auto_apply_enabled: status.auto_apply_enabled,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // HomeScreen
 // -----------------------------------------------------------------------------
@@ -54,11 +84,23 @@ function getGreetingKey():
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation("home");
+  const { t: tStreak } = useTranslation("streakProtection");
 
   // Data
   const { data: profile } = useProfile();
   const { refetch, queue } = useWorkoutQueue();
+  const streakStatusQuery = useStreakStatus();
+  const applyStreakProtection = useApplyStreakProtection();
+  const dismissStreakPrompt = useDismissStreakPrompt();
+  const restartStreak = useRestartStreak();
+  const recordComebackEvent = useRecordComebackEvent();
+  const startPendingWorkout = useStartPendingWorkout();
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [locallyHiddenPromptState, setLocallyHiddenPromptState] = useState<
+    string | null
+  >(null);
+  const shownPromptRef = useRef<string | null>(null);
+  const earnedFreezeTrackedRef = useRef(false);
   const handleRefresh = useCallback(async () => {
     setIsManualRefreshing(true);
     await refetch();
@@ -106,6 +148,23 @@ export default function HomeScreen() {
     frequency,
     completedWorkoutsQuery.data?.length ?? 0
   );
+  const progressSegmentIds = useMemo(
+    () => Array.from({ length: frequency }, (_, index) => `week-${index + 1}`),
+    [frequency]
+  );
+  const nextQueuedWorkout = useMemo(() => selectNextWorkout(queue), [queue]);
+  const streakStatus = streakStatusQuery.data;
+  const shouldShowStreakSheet =
+    !!streakStatus &&
+    streakStatus.should_show_prompt &&
+    streakStatus.prompt_state !== "none" &&
+    locallyHiddenPromptState !== streakStatus.prompt_state;
+  const isStreakActionPending =
+    applyStreakProtection.isPending ||
+    dismissStreakPrompt.isPending ||
+    restartStreak.isPending ||
+    recordComebackEvent.isPending ||
+    startPendingWorkout.isPending;
 
   // Colors
   const primary = useThemeColor({}, "primary");
@@ -153,6 +212,132 @@ export default function HomeScreen() {
     router.push("/workout");
   }, [router]);
 
+  const handleStreakError = useCallback(
+    (error: unknown) => {
+      console.warn("Streak protection action failed:", error);
+      Alert.alert(tStreak("errors.title"), tStreak("errors.message"));
+    },
+    [tStreak]
+  );
+
+  const handleDismissStreakPrompt = useCallback(() => {
+    if (!streakStatus) return;
+
+    setLocallyHiddenPromptState(streakStatus.prompt_state);
+    trackEvent("streak_prompt_dismissed", streakAnalyticsPayload(streakStatus));
+    dismissStreakPrompt.mutate(streakStatus.prompt_state, {
+      onError: handleStreakError,
+    });
+  }, [dismissStreakPrompt, handleStreakError, streakStatus]);
+
+  const handleApplyStreakProtection = useCallback(
+    (type: "lifetime_rescue" | "earned_freeze" | "pro_freeze") => {
+      if (!streakStatus) return;
+
+      applyStreakProtection.mutate(type, {
+        onSuccess: () => {
+          setLocallyHiddenPromptState(streakStatus.prompt_state);
+          trackEvent("streak_protection_applied", {
+            ...streakAnalyticsPayload(streakStatus),
+            protection_type: type,
+          });
+
+          if (type === "lifetime_rescue") {
+            trackEvent(
+              "streak_lifetime_rescue_used",
+              streakAnalyticsPayload(streakStatus)
+            );
+          }
+        },
+        onError: handleStreakError,
+      });
+    },
+    [applyStreakProtection, handleStreakError, streakStatus]
+  );
+
+  const handleStartComeback = useCallback(() => {
+    if (!streakStatus) return;
+
+    setLocallyHiddenPromptState(streakStatus.prompt_state);
+    trackEvent(
+      "comeback_workout_started",
+      streakAnalyticsPayload(streakStatus)
+    );
+    markComebackWorkoutStarted({
+      promptState: streakStatus.prompt_state,
+      startedAtMs: Date.now(),
+      hadReadyWorkout: nextQueuedWorkout != null,
+    }).catch(console.warn);
+    dismissStreakPrompt.mutate(streakStatus.prompt_state, {
+      onError: handleStreakError,
+    });
+    recordComebackEvent.mutate(
+      {
+        eventType: "comeback_started",
+        metadata: {
+          prompt_state: streakStatus.prompt_state,
+          has_ready_workout: nextQueuedWorkout != null,
+        },
+      },
+      { onError: handleStreakError }
+    );
+
+    if (isWorkoutActive) {
+      router.push("/workout");
+      return;
+    }
+
+    if (nextQueuedWorkout) {
+      startPendingWorkout.mutate({ pendingWorkout: nextQueuedWorkout });
+      return;
+    }
+
+    router.push("/training-preferences" as never);
+  }, [
+    dismissStreakPrompt,
+    handleStreakError,
+    isWorkoutActive,
+    nextQueuedWorkout,
+    recordComebackEvent,
+    router,
+    startPendingWorkout,
+    streakStatus,
+  ]);
+
+  const handleAdjustPlan = useCallback(() => {
+    if (streakStatus) {
+      setLocallyHiddenPromptState(streakStatus.prompt_state);
+      dismissStreakPrompt.mutate(streakStatus.prompt_state, {
+        onError: handleStreakError,
+      });
+    }
+
+    router.push("/training-preferences" as never);
+  }, [dismissStreakPrompt, handleStreakError, router, streakStatus]);
+
+  const handleUpgradeFromStreak = useCallback(() => {
+    if (!streakStatus) return;
+
+    setLocallyHiddenPromptState(streakStatus.prompt_state);
+    trackEvent("streak_upgrade_tapped", streakAnalyticsPayload(streakStatus));
+    dismissStreakPrompt.mutate(streakStatus.prompt_state, {
+      onError: handleStreakError,
+    });
+    router.push("/subscription" as never);
+  }, [dismissStreakPrompt, handleStreakError, router, streakStatus]);
+
+  const handleRestartStreak = useCallback(() => {
+    if (!streakStatus) return;
+
+    restartStreak.mutate(undefined, {
+      onSuccess: () => {
+        setLocallyHiddenPromptState(streakStatus.prompt_state);
+        trackEvent("streak_restarted", streakAnalyticsPayload(streakStatus));
+      },
+      onError: handleStreakError,
+    });
+  }, [handleStreakError, restartStreak, streakStatus]);
+
   const activeExercises = useMemo(
     () =>
       workoutExercises.map((ex) => ({
@@ -182,6 +367,32 @@ export default function HomeScreen() {
       });
     }, [isWorkoutActive, queue])
   );
+
+  useEffect(() => {
+    if (!streakStatus) return;
+
+    trackEvent("streak_status_viewed", streakAnalyticsPayload(streakStatus));
+  }, [streakStatus]);
+
+  useEffect(() => {
+    if (!streakStatus || !shouldShowStreakSheet) return;
+
+    if (shownPromptRef.current === streakStatus.prompt_state) {
+      return;
+    }
+
+    shownPromptRef.current = streakStatus.prompt_state;
+    trackEvent("streak_prompt_shown", streakAnalyticsPayload(streakStatus));
+
+    if (
+      streakStatus.prompt_state === "free_earned_freeze" &&
+      streakStatus.earned_freezes_available > 0 &&
+      !earnedFreezeTrackedRef.current
+    ) {
+      earnedFreezeTrackedRef.current = true;
+      trackEvent("streak_freeze_earned", streakAnalyticsPayload(streakStatus));
+    }
+  }, [shouldShowStreakSheet, streakStatus]);
 
   return (
     <View style={styles.root}>
@@ -234,9 +445,9 @@ export default function HomeScreen() {
                 now: completedCount,
               }}
             >
-              {Array.from({ length: frequency }).map((_, i) => (
+              {progressSegmentIds.map((segmentId, i) => (
                 <View
-                  key={i}
+                  key={segmentId}
                   style={[
                     styles.progressSegment,
                     {
@@ -317,6 +528,19 @@ export default function HomeScreen() {
         </ScrollView>
       </SafeAreaView>
       <Paywall />
+      {streakStatus && (
+        <StreakProtectionSheet
+          visible={shouldShowStreakSheet}
+          status={streakStatus}
+          isPending={isStreakActionPending}
+          onApplyProtection={handleApplyStreakProtection}
+          onComeback={handleStartComeback}
+          onAdjustPlan={handleAdjustPlan}
+          onUpgrade={handleUpgradeFromStreak}
+          onRestart={handleRestartStreak}
+          onDismiss={handleDismissStreakPrompt}
+        />
+      )}
     </View>
   );
 }

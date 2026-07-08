@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/hooks/use-auth";
+import { recordComebackEvent } from "@/lib/api/streak-protection";
 import { mapWorkoutStoreToDb } from "@/lib/api/workout-mappers";
 import type { SetLogInput } from "@/lib/api/workouts";
 import {
@@ -10,14 +11,17 @@ import {
   upsertSessionSets,
   upsertSetLog,
 } from "@/lib/api/workouts";
+import { consumeComebackWorkoutMarker } from "@/lib/comeback-workout";
 import { promptAndSyncWorkout } from "@/lib/health/prompt";
 import {
   calendarKeys,
   statsKeys,
+  streakProtectionKeys,
   workoutKeys,
   workoutStatsKeys,
 } from "@/lib/query-keys";
 import { syncQueue } from "@/lib/sync-queue";
+import { trackEvent } from "@/lib/track-event";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
 
@@ -66,6 +70,7 @@ export function useSaveCompletedWorkout() {
       queryClient.invalidateQueries({ queryKey: calendarKeys.all });
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
+      queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
 
       // Mirror to Apple Health / Health Connect (write-only, best-effort).
       // Prompts the user on first run, no-ops if denied or unavailable.
@@ -78,6 +83,27 @@ export function useSaveCompletedWorkout() {
         // Never surfaces to user — Health sync is best-effort.
         console.warn("Health sync failed:", error);
       });
+
+      consumeComebackWorkoutMarker()
+        .then((marker) => {
+          if (!marker) return;
+
+          const comebackPayload = {
+            prompt_state: marker.promptState,
+            had_ready_workout: marker.hadReadyWorkout,
+            time_since_comeback_started_ms: Math.max(
+              0,
+              Date.now() - marker.startedAtMs
+            ),
+            duration_seconds: Math.round(durationMs / 1000),
+          };
+
+          trackEvent("comeback_workout_completed", comebackPayload);
+          return recordComebackEvent("comeback_completed", comebackPayload);
+        })
+        .catch((error) => {
+          console.warn("Comeback completion tracking failed:", error);
+        });
     },
     onError: (_error: unknown, variables: SaveWorkoutInput) => {
       if (user) {
@@ -113,6 +139,7 @@ export function useUpdateWorkoutSession() {
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
       queryClient.invalidateQueries({ queryKey: calendarKeys.all });
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
     },
   });
 }
