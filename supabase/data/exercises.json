@@ -1032,6 +1032,18 @@
     "video_url": null
   },
   {
+    "name": "Machine Abdominal Crunch",
+    "external_id": "curated-machine-abdominal-crunch",
+    "exercise_type": "weight",
+    "primary_muscles": ["Rectus abdominis"],
+    "secondary_muscles": ["Obliques"],
+    "equipment": ["Abdominal crunch machine"],
+    "difficulty_level": "beginner",
+    "instructions": "Sit in the machine with your hips anchored and hold the handles lightly. Curl your ribs toward your pelvis without pulling with your arms or neck, then return upright with control.",
+    "image_url": null,
+    "video_url": null
+  },
+  {
     "name": "Plank",
     "external_id": "curated-plank",
     "exercise_type": "time",
