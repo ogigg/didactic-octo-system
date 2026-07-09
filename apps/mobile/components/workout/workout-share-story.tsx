@@ -36,12 +36,8 @@ export function WorkoutShareStory({
   return (
     <View style={styles.story} collapsable={false} testID="workout-share-story">
       <LinearGradient
-        colors={[
-          Colors.dark.primarySurface,
-          Colors.dark.background,
-          Colors.dark.background,
-        ]}
-        locations={[0, 0.32, 1]}
+        colors={["#162738", Colors.dark.background, "#0E1012"]}
+        locations={[0, 0.38, 1]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -69,7 +65,17 @@ export function WorkoutShareStory({
         </Text>
       </View>
 
-      <View style={styles.summaryPanel}>
+      <LinearGradient
+        colors={[
+          Colors.dark.heroGradientStart,
+          "#3B83CC",
+          Colors.dark.heroGradientEnd,
+        ]}
+        locations={[0, 0.58, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.summaryPanel}
+      >
         <View style={styles.volumeBlock}>
           <Text style={styles.panelLabel}>
             {t("summary.share.volumeLabel")}
@@ -89,7 +95,7 @@ export function WorkoutShareStory({
           </Text>
           <Text style={styles.completionValue}>{completionLabel}</Text>
         </View>
-      </View>
+      </LinearGradient>
 
       <View style={styles.metricsGrid}>
         <MetricTile
@@ -109,7 +115,13 @@ export function WorkoutShareStory({
         </Text>
         {highlights.length > 0 ? (
           highlights.map((highlight, index) => (
-            <View key={highlight.id} style={styles.highlightRow}>
+            <View
+              key={highlight.id}
+              style={[
+                styles.highlightRow,
+                index === 0 && styles.featuredHighlightRow,
+              ]}
+            >
               <View style={styles.highlightIndex}>
                 <Text style={styles.highlightIndexText}>{index + 1}</Text>
               </View>
@@ -117,17 +129,38 @@ export function WorkoutShareStory({
                 <Text style={styles.highlightName} numberOfLines={1}>
                   {highlight.name}
                 </Text>
-                <Text style={styles.highlightMeta} numberOfLines={1}>
-                  {highlight.metric
-                    ? `${t("summary.share.bestLabel")}: ${highlight.metric}`
-                    : t("summary.share.setsCompleted", {
-                        count: highlight.completedSets,
-                      })}
+                <View style={styles.highlightDetailRow}>
+                  <Text style={styles.highlightMeta} numberOfLines={1}>
+                    {highlight.metric
+                      ? `${t("summary.share.bestLabel")}: ${highlight.metric}`
+                      : t("summary.share.setsCompleted", {
+                          count: highlight.completedSets,
+                        })}
+                  </Text>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              (highlight.completedSets /
+                                Math.max(1, highlight.totalSets)) *
+                                100
+                            )
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+              <View style={styles.highlightSetsPill}>
+                <Text style={styles.highlightSets}>
+                  {highlight.completedSets}/{highlight.totalSets}
                 </Text>
               </View>
-              <Text style={styles.highlightSets}>
-                {highlight.completedSets}/{highlight.totalSets}
-              </Text>
             </View>
           ))
         ) : (
@@ -138,6 +171,26 @@ export function WorkoutShareStory({
           </View>
         )}
       </View>
+
+      <LinearGradient
+        colors={[Colors.dark.primaryContainer, Colors.dark.primarySurface]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.joinCard}
+      >
+        <View style={styles.joinBrandMark}>
+          <Text style={styles.joinBrandInitial}>S</Text>
+        </View>
+        <View style={styles.joinCopy}>
+          <Text style={styles.joinTitle}>{t("summary.share.footer")}</Text>
+          <Text style={styles.joinSubtitle}>
+            {t("summary.share.footerSubtitle")}
+          </Text>
+        </View>
+        <View style={styles.joinArrow}>
+          <Text style={styles.joinArrowText}>→</Text>
+        </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -226,12 +279,9 @@ const styles = StyleSheet.create({
   summaryPanel: {
     marginTop: 18,
     minHeight: 82,
-    borderRadius: 14,
+    borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.dark.backgroundSubtle,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.dark.border,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -241,9 +291,14 @@ const styles = StyleSheet.create({
   },
   completionBlock: {
     alignItems: "flex-end",
+    minWidth: 78,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 13,
+    backgroundColor: "rgba(12, 18, 25, 0.24)",
   },
   panelLabel: {
-    color: Colors.dark.textSecondary,
+    color: "rgba(255, 255, 255, 0.72)",
     fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.8,
@@ -251,7 +306,7 @@ const styles = StyleSheet.create({
   },
   volumeValue: {
     marginTop: 3,
-    color: Colors.dark.text,
+    color: "#FFFFFF",
     fontFamily: Fonts?.rounded,
     fontSize: 36,
     lineHeight: 40,
@@ -260,7 +315,7 @@ const styles = StyleSheet.create({
   },
   completionValue: {
     marginTop: 4,
-    color: Colors.dark.primary,
+    color: "#FFFFFF",
     fontFamily: Fonts?.rounded,
     fontSize: 24,
     lineHeight: 28,
@@ -273,12 +328,12 @@ const styles = StyleSheet.create({
   },
   metricTile: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: Colors.dark.backgroundSubtle,
+    backgroundColor: "rgba(30, 37, 48, 0.86)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.dark.border,
+    borderColor: "rgba(90, 174, 224, 0.18)",
   },
   metricLabel: {
     color: Colors.dark.textSecondary,
@@ -297,7 +352,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   highlights: {
-    marginTop: 16,
+    marginTop: 14,
     gap: 7,
   },
   sectionTitle: {
@@ -307,16 +362,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   highlightRow: {
-    minHeight: 44,
-    borderRadius: 12,
+    minHeight: 46,
+    borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 7,
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
-    backgroundColor: Colors.dark.backgroundSubtle,
+    backgroundColor: "rgba(26, 29, 32, 0.92)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.dark.border,
+  },
+  featuredHighlightRow: {
+    backgroundColor: "rgba(26, 32, 40, 0.96)",
+    borderColor: "rgba(90, 174, 224, 0.34)",
   },
   highlightIndex: {
     width: 28,
@@ -342,11 +401,37 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   highlightMeta: {
-    marginTop: 1,
     color: Colors.dark.textSecondary,
     fontSize: 9,
     fontWeight: "500",
     letterSpacing: 0,
+    flexShrink: 1,
+  },
+  highlightDetailRow: {
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  progressTrack: {
+    width: 28,
+    height: 3,
+    overflow: "hidden",
+    borderRadius: 2,
+    backgroundColor: Colors.dark.border,
+  },
+  progressFill: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.primary,
+  },
+  highlightSetsPill: {
+    minWidth: 38,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    alignItems: "center",
+    backgroundColor: Colors.dark.primaryContainer,
   },
   highlightSets: {
     color: Colors.dark.primary,
@@ -366,5 +451,61 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "500",
     lineHeight: 16,
+  },
+  joinCard: {
+    minHeight: 54,
+    marginTop: 13,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(90, 174, 224, 0.3)",
+  },
+  joinBrandMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.primary,
+  },
+  joinBrandInitial: {
+    color: Colors.dark.background,
+    fontFamily: Fonts?.rounded,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  joinCopy: {
+    flex: 1,
+  },
+  joinTitle: {
+    color: Colors.dark.text,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: -0.1,
+  },
+  joinSubtitle: {
+    marginTop: 2,
+    color: Colors.dark.textSecondary,
+    fontSize: 9,
+    fontWeight: "500",
+    letterSpacing: 0.2,
+  },
+  joinArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(90, 174, 224, 0.14)",
+  },
+  joinArrowText: {
+    color: Colors.dark.primary,
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: "700",
   },
 });

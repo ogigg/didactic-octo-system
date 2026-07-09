@@ -50,7 +50,8 @@ describe("WorkoutShareStory", () => {
     expect(screen.getByText("Overhead Press")).toBeTruthy();
     expect(screen.getByText("Lateral Raise")).toBeTruthy();
     expect(screen.getByText("Best: 80kg x 8")).toBeTruthy();
-    expect(screen.queryByText("Built with Sweaty")).toBeNull();
+    expect(screen.getByText("Join me on Sweaty")).toBeTruthy();
+    expect(screen.getByText("Plan. Train. Progress.")).toBeTruthy();
   });
 
   it("renders the empty highlight fallback", () => {

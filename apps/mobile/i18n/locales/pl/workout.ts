@@ -129,7 +129,8 @@ export const workout = {
       setsCompleted: "{{count}} serii zrobione",
       setsCompleted_one: "{{count}} seria zrobiona",
       noHighlights: "Zapisano w historii treningów.",
-      footer: "Zbudowano ze Sweaty",
+      footer: "Dołącz do mnie w Sweaty",
+      footerSubtitle: "Planuj. Trenuj. Rób progres.",
     },
     volume: {
       title: "Całkowita objętość",
