@@ -37,5 +37,15 @@ export const history = {
     comments: {
       title: "Your notes",
     },
+    deleteExercise: {
+      accessibilityLabel: "Remove {{exerciseName}} from this workout",
+      confirmTitle: "Remove exercise?",
+      confirmMessage:
+        "This permanently removes {{exerciseName}} and its logged sets from your history. It will no longer affect your statistics or future workouts.",
+      cancel: "Cancel",
+      remove: "Remove",
+      errorTitle: "Could not remove exercise",
+      errorMessage: "Try again in a moment.",
+    },
   },
 } as const;

@@ -6,6 +6,7 @@ import { mapWorkoutStoreToDb } from "@/lib/api/workout-mappers";
 import type { SetLogInput } from "@/lib/api/workouts";
 import {
   createWorkoutSession,
+  deleteSessionExercise,
   updateWorkoutSession,
   upsertSessionExercises,
   upsertSessionSets,
@@ -15,6 +16,7 @@ import { consumeComebackWorkoutMarker } from "@/lib/comeback-workout";
 import { promptAndSyncWorkout } from "@/lib/health/prompt";
 import {
   calendarKeys,
+  exerciseDetailKeys,
   statsKeys,
   streakProtectionKeys,
   workoutKeys,
@@ -139,6 +141,22 @@ export function useUpdateWorkoutSession() {
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
       queryClient.invalidateQueries({ queryKey: calendarKeys.all });
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+    },
+  });
+}
+
+export function useDeleteSessionExercise() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteSessionExercise,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: exerciseDetailKeys.all });
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all });
+      queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: statsKeys.all });
       queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
     },
   });

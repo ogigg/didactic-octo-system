@@ -37,5 +37,15 @@ export const history = {
     comments: {
       title: "Twoje notatki",
     },
+    deleteExercise: {
+      accessibilityLabel: "Usuń {{exerciseName}} z tego treningu",
+      confirmTitle: "Usunąć ćwiczenie?",
+      confirmMessage:
+        "Spowoduje to trwałe usunięcie ćwiczenia {{exerciseName}} oraz zapisanych serii z historii. Nie będą one już wpływać na statystyki ani przyszłe treningi.",
+      cancel: "Anuluj",
+      remove: "Usuń",
+      errorTitle: "Nie udało się usunąć ćwiczenia",
+      errorMessage: "Spróbuj ponownie za chwilę.",
+    },
   },
 } as const;
