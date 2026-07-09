@@ -5,7 +5,7 @@ import { render, screen } from "@testing-library/react-native";
 import { WorkoutShareStory } from "@/components/workout/workout-share-story";
 
 describe("WorkoutShareStory", () => {
-  it("renders key workout metrics and exercise highlights", () => {
+  it("renders key workout metrics and every supplied exercise highlight", () => {
     render(
       <WorkoutShareStory
         workoutName="Push day"
@@ -23,6 +23,20 @@ describe("WorkoutShareStory", () => {
             totalSets: 4,
             metric: "80kg x 8",
           },
+          {
+            id: "press",
+            name: "Overhead Press",
+            completedSets: 4,
+            totalSets: 5,
+            metric: "45kg x 6",
+          },
+          {
+            id: "raise",
+            name: "Lateral Raise",
+            completedSets: 3,
+            totalSets: 3,
+            metric: "10kg x 12",
+          },
         ]}
       />
     );
@@ -33,7 +47,10 @@ describe("WorkoutShareStory", () => {
     expect(screen.getByText("12/15")).toBeTruthy();
     expect(screen.getByText("80%")).toBeTruthy();
     expect(screen.getByText("Bench Press")).toBeTruthy();
+    expect(screen.getByText("Overhead Press")).toBeTruthy();
+    expect(screen.getByText("Lateral Raise")).toBeTruthy();
     expect(screen.getByText("Best: 80kg x 8")).toBeTruthy();
+    expect(screen.queryByText("Built with Sweaty")).toBeNull();
   });
 
   it("renders the empty highlight fallback", () => {
