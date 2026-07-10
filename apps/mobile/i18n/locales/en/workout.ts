@@ -127,7 +127,8 @@ export const workout = {
       setsCompleted: "{{count}} sets done",
       setsCompleted_one: "{{count}} set done",
       noHighlights: "Logged and saved to your training history.",
-      footer: "Built with Sweaty",
+      footer: "Join me on Sweaty",
+      footerSubtitle: "Plan. Train. Progress.",
     },
     volume: {
       title: "Total Volume",
