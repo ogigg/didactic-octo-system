@@ -1,6 +1,7 @@
 export const common = {
   nav: {
     home: "Start",
+    calendar: "Kalendarz",
     profile: "Profil",
     modal: "Modal",
     designSystem: "System designu",
