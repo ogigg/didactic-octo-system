@@ -1,10 +1,12 @@
 import { AmbientGlow } from "@/components/ambient-glow";
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { BackButton } from "@/components/ui/back-button";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HeartRateChart } from "@/components/workout/heart-rate-chart";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useDeleteSessionExercise } from "@/hooks/use-workout-mutations";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import { useCommentsForSession } from "@/hooks/use-workout-session-comments";
 import {
@@ -15,10 +17,12 @@ import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useLocalSearchParams } from "expo-router";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -90,10 +94,12 @@ export default function WorkoutDetailScreen() {
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const border = useThemeColor({}, "border");
   const success = useThemeColor({}, "success");
+  const error = useThemeColor({}, "error");
   const textDisabled = useThemeColor({}, "textDisabled");
 
   const wu = useWeightUnit();
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
+  const deleteSessionExerciseMutation = useDeleteSessionExercise();
   const { data: sessionComments } = useCommentsForSession(id ?? null);
   const detailExerciseIds = useMemo(
     () => detail?.exercises.map((exercise) => exercise.exercise_id) ?? [],
@@ -101,6 +107,32 @@ export default function WorkoutDetailScreen() {
   );
   const { exerciseMap } = useLocalizedExerciseMap(detailExerciseIds);
   const { labelMaps } = useCatalogLabels();
+
+  const handleDeleteExercise = useCallback(
+    (sessionExerciseId: string, exerciseName: string) => {
+      Alert.alert(
+        t("detail.deleteExercise.confirmTitle"),
+        t("detail.deleteExercise.confirmMessage", { exerciseName }),
+        [
+          { text: t("detail.deleteExercise.cancel"), style: "cancel" },
+          {
+            text: t("detail.deleteExercise.remove"),
+            style: "destructive",
+            onPress: () =>
+              deleteSessionExerciseMutation.mutate(sessionExerciseId, {
+                onError: () => {
+                  Alert.alert(
+                    t("detail.deleteExercise.errorTitle"),
+                    t("detail.deleteExercise.errorMessage")
+                  );
+                },
+              }),
+          },
+        ]
+      );
+    },
+    [deleteSessionExerciseMutation, t]
+  );
 
   // Heart rate (cache-only read from Apple Health, iOS-only)
   const hrStartedAt = useMemo(
@@ -235,16 +267,45 @@ export default function WorkoutDetailScreen() {
                   { backgroundColor: backgroundElevated, borderColor: border },
                 ]}
               >
-                {/* Exercise name */}
-                <Text
-                  style={[
-                    Typography.titleSm,
-                    { color: textColor },
-                    styles.exerciseName,
-                  ]}
-                >
-                  {exerciseMap.get(ex.exercise_id)?.name ?? ex.exercise_name}
-                </Text>
+                <View style={styles.exerciseHeader}>
+                  <Text
+                    style={[
+                      Typography.titleSm,
+                      { color: textColor },
+                      styles.exerciseName,
+                    ]}
+                  >
+                    {exerciseMap.get(ex.exercise_id)?.name ?? ex.exercise_name}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(
+                      "detail.deleteExercise.accessibilityLabel",
+                      {
+                        exerciseName:
+                          exerciseMap.get(ex.exercise_id)?.name ??
+                          ex.exercise_name,
+                      }
+                    )}
+                    disabled={deleteSessionExerciseMutation.isPending}
+                    hitSlop={8}
+                    onPress={() =>
+                      handleDeleteExercise(
+                        ex.id,
+                        exerciseMap.get(ex.exercise_id)?.name ??
+                          ex.exercise_name
+                      )
+                    }
+                    style={[
+                      styles.deleteExerciseButton,
+                      deleteSessionExerciseMutation.isPending
+                        ? styles.deleteExerciseButtonDisabled
+                        : null,
+                    ]}
+                  >
+                    <IconSymbol name="trash" size={16} color={error} />
+                  </Pressable>
+                </View>
 
                 {/* Set rows */}
                 {ex.sets.map((set) => {
@@ -412,9 +473,25 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   exerciseName: {
+    flex: 1,
+    minWidth: 0,
+  },
+  exerciseHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  deleteExerciseButton: {
+    alignItems: "center",
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  deleteExerciseButtonDisabled: {
+    opacity: 0.45,
   },
   setRow: {
     flexDirection: "row",

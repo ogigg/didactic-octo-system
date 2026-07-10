@@ -450,6 +450,26 @@ export async function updateWorkoutSession(
   }
 }
 
+/**
+ * Deletes one logged exercise occurrence and cascades to its planned sets and
+ * set logs. RLS limits deletion to exercises in the authenticated user's
+ * workout sessions.
+ */
+export async function deleteSessionExercise(
+  sessionExerciseId: string
+): Promise<void> {
+  await getAuthenticatedUserId();
+
+  const { error } = await supabase
+    .from("session_exercises")
+    .delete()
+    .eq("id", sessionExerciseId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function upsertSessionExercises(
   sessionId: string,
   exercises: SessionExerciseInput[]

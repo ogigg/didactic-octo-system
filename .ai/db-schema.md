@@ -298,6 +298,9 @@ Notes:
 - unique per session + exercise
 - unique per session + order index
 - difficulty feedback is a bridge from execution back into future generation
+- deleting a logged exercise occurrence cascades to its `session_sets` and
+  `set_logs`, removing it from statistics, progression, and generated-workout
+  history
 
 ### `session_sets`
 
