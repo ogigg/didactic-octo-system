@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import { ListGroup, ListRow } from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
+import { TabScreen } from "@/components/ui/tab-screen";
 import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
@@ -212,7 +213,7 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={styles.root}>
+    <TabScreen>
       <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         <ScrollView
@@ -402,12 +403,11 @@ export default function ProfileScreen() {
           </Pressable>
         </ScrollView>
       </SafeAreaView>
-    </View>
+    </TabScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
   safe: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.xl,

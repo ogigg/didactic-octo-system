@@ -21,6 +21,7 @@ import { WorkoutTemplateCard } from "@/components/workout-template-card";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import { SectionHeader } from "@/components/ui/section-header";
+import { TabScreen } from "@/components/ui/tab-screen";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
@@ -395,7 +396,7 @@ export default function HomeScreen() {
   }, [shouldShowStreakSheet, streakStatus]);
 
   return (
-    <View style={styles.root}>
+    <TabScreen>
       <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         <ScrollView
@@ -541,7 +542,7 @@ export default function HomeScreen() {
           onDismiss={handleDismissStreakPrompt}
         />
       )}
-    </View>
+    </TabScreen>
   );
 }
 
@@ -550,7 +551,6 @@ export default function HomeScreen() {
 // -----------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
   safe: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.xl,
