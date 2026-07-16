@@ -7,6 +7,7 @@ import type { SetLogInput } from "@/lib/api/workouts";
 import {
   createWorkoutSession,
   deleteSessionExercise,
+  updateExerciseDifficultyFeedback,
   updateWorkoutSession,
   upsertSessionExercises,
   upsertSessionSets,
@@ -34,12 +35,25 @@ interface SaveWorkoutInput {
   weightUnit?: WeightUnit;
 }
 
+export interface SavedExerciseOccurrence {
+  exerciseId: string;
+  sessionExerciseId: string;
+  orderIndex: number;
+}
+
+export interface SavedWorkoutResult {
+  id: string;
+  exerciseOccurrences: SavedExerciseOccurrence[];
+}
+
 export function useSaveCompletedWorkout() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (input: SaveWorkoutInput) => {
+    mutationFn: async (
+      input: SaveWorkoutInput
+    ): Promise<SavedWorkoutResult> => {
       const payload = mapWorkoutStoreToDb(input.summary, {
         goalSnapshot: input.goalSnapshot,
         customGoalSnapshot: input.customGoalSnapshot,
@@ -65,9 +79,16 @@ export function useSaveCompletedWorkout() {
         completed_at: new Date(input.summary.finishedAtMs).toISOString(),
       });
 
-      return session;
+      return {
+        id: session.id,
+        exerciseOccurrences: payload.exercises.map((ex) => ({
+          exerciseId: ex.sessionExercise.exercise_id,
+          sessionExerciseId: ex.sessionExercise.id,
+          orderIndex: ex.sessionExercise.order_index,
+        })),
+      };
     },
-    onSuccess: (session, variables) => {
+    onSuccess: (saved, variables) => {
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
       queryClient.invalidateQueries({ queryKey: calendarKeys.all });
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
@@ -77,7 +98,7 @@ export function useSaveCompletedWorkout() {
       // Mirror to Apple Health / Health Connect (write-only, best-effort).
       // Prompts the user on first run, no-ops if denied or unavailable.
       const { finishedAtMs, durationMs } = variables.summary;
-      promptAndSyncWorkout(session.id, {
+      promptAndSyncWorkout(saved.id, {
         startedAt: new Date(finishedAtMs - durationMs),
         endedAt: new Date(finishedAtMs),
         type: "strength",
@@ -113,6 +134,25 @@ export function useSaveCompletedWorkout() {
           .enqueue("save_workout", user.id, variables)
           .catch(console.warn);
       }
+    },
+  });
+}
+
+export function useUpdateExerciseDifficultyFeedback() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    // Preserve tap order when the user changes their rating quickly so the
+    // last selection is also the final value persisted in the database.
+    scope: { id: "exercise-difficulty-feedback" },
+    mutationFn: (input: {
+      sessionExerciseId: string;
+      feedback: "too_easy" | "ok" | "too_hard";
+    }) =>
+      updateExerciseDifficultyFeedback(input.sessionExerciseId, input.feedback),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: exerciseDetailKeys.all });
     },
   });
 }

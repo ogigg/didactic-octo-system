@@ -15,6 +15,7 @@ import {
   fetchPreviousSetDisplays,
   fetchWorkoutDetail,
   fetchWorkoutSessions,
+  updateExerciseDifficultyFeedback,
   updateWorkoutSession,
 } from "../workouts";
 
@@ -157,9 +158,13 @@ describe("fetchPreviousSetDisplays", () => {
         {
           exercise_id: "550e8400-e29b-41d4-a716-446655440001",
           exercise_type: "weight",
+          session_id: "550e8400-e29b-41d4-a716-446655440010",
           session_completed_at: "2026-03-22T11:00:00Z",
           difficulty_feedback: null,
-          working_sets: [{ load_kg: 80, reps: 8, completed: true }],
+          working_sets: [
+            { load_kg: 80, reps: 8, rpe: 8, completed: true },
+            { load_kg: 80, reps: 7, rpe: null, completed: true },
+          ],
         },
       ],
       error: null,
@@ -172,6 +177,7 @@ describe("fetchPreviousSetDisplays", () => {
 
     expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual([
       { setNumber: 1, display: "80×8" },
+      { setNumber: 2, display: "80×7" },
     ]);
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
       "get_exercise_progression_history",
@@ -180,6 +186,29 @@ describe("fetchPreviousSetDisplays", () => {
         p_exercise_ids: ["550e8400-e29b-41d4-a716-446655440001"],
       }
     );
+  });
+
+  it("accepts progression history rows without rpe or session_id", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          exercise_id: "550e8400-e29b-41d4-a716-446655440001",
+          exercise_type: "weight",
+          working_sets: [{ load_kg: 60, reps: 10, completed: true }],
+        },
+      ],
+      error: null,
+    });
+
+    const result = await fetchPreviousSetDisplays(
+      ["550e8400-e29b-41d4-a716-446655440001"],
+      "kg"
+    );
+
+    expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual([
+      { setNumber: 1, display: "60×10" },
+    ]);
   });
 });
 
@@ -273,5 +302,58 @@ describe("deleteSessionExercise", () => {
     await expect(
       deleteSessionExercise("550e8400-e29b-41d4-a716-446655440020")
     ).rejects.toThrow("RLS violation");
+  });
+});
+
+describe("updateExerciseDifficultyFeedback", () => {
+  it("updates difficulty_feedback for a saved session exercise", async () => {
+    mockAuthenticatedUser();
+    const mockEq = jest.fn().mockResolvedValue({ error: null });
+    const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq });
+    (mockSupabase.from as jest.Mock).mockReturnValue({
+      update: mockUpdate,
+    });
+
+    await updateExerciseDifficultyFeedback(
+      "550e8400-e29b-41d4-a716-446655440020",
+      "too_easy"
+    );
+
+    expect(mockSupabase.from).toHaveBeenCalledWith("session_exercises");
+    expect(mockUpdate).toHaveBeenCalledWith({
+      difficulty_feedback: "too_easy",
+    });
+    expect(mockEq).toHaveBeenCalledWith(
+      "id",
+      "550e8400-e29b-41d4-a716-446655440020"
+    );
+  });
+
+  it("surfaces database errors", async () => {
+    mockAuthenticatedUser();
+    const mockEq = jest
+      .fn()
+      .mockResolvedValue({ error: { message: "RLS violation" } });
+    (mockSupabase.from as jest.Mock).mockReturnValue({
+      update: jest.fn().mockReturnValue({ eq: mockEq }),
+    });
+
+    await expect(
+      updateExerciseDifficultyFeedback(
+        "550e8400-e29b-41d4-a716-446655440020",
+        "too_hard"
+      )
+    ).rejects.toThrow("RLS violation");
+  });
+
+  it("throws when not authenticated", async () => {
+    mockUnauthenticated();
+
+    await expect(
+      updateExerciseDifficultyFeedback(
+        "550e8400-e29b-41d4-a716-446655440020",
+        "ok"
+      )
+    ).rejects.toThrow("Not authenticated");
   });
 });
