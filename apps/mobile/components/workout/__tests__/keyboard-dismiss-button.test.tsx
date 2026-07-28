@@ -5,7 +5,7 @@ jest.mock("@/hooks/use-theme-color", () => ({
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Keyboard, Platform, StyleSheet } from "react-native";
 
-import { KeyboardDismissBar } from "../keyboard-dismiss-bar";
+import { KeyboardDismissButton } from "../keyboard-dismiss-button";
 import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
 
 const exercise: WorkoutExercise = {
@@ -32,7 +32,7 @@ const exercise: WorkoutExercise = {
 
 type KeyboardHandler = (event?: { endCoordinates: { height: number } }) => void;
 
-describe("KeyboardDismissBar", () => {
+describe("KeyboardDismissButton", () => {
   const listeners = new Map<string, KeyboardHandler>();
   const originalOS = Platform.OS;
 
@@ -76,7 +76,7 @@ describe("KeyboardDismissBar", () => {
   }
 
   it("is hidden until the keyboard opens", () => {
-    render(<KeyboardDismissBar />);
+    render(<KeyboardDismissButton />);
 
     expect(
       screen.queryByRole("button", { name: "keyboard.dismiss" })
@@ -84,21 +84,24 @@ describe("KeyboardDismissBar", () => {
   });
 
   it("shows an accessible dismiss control while the keyboard is open", () => {
-    render(<KeyboardDismissBar />);
+    render(<KeyboardDismissButton />);
 
     showKeyboard();
 
     const button = screen.getByRole("button", { name: "keyboard.dismiss" });
     expect(button).toBeTruthy();
-    expect(screen.getByText("keyboard.done")).toBeTruthy();
+    expect(screen.queryByText("keyboard.done")).toBeNull();
 
     const flattened = StyleSheet.flatten(button.props.style);
-    expect(flattened.minWidth).toBeGreaterThanOrEqual(44);
-    expect(flattened.minHeight).toBeGreaterThanOrEqual(44);
+    expect(flattened.left).toBeGreaterThan(0);
+    expect(flattened.right).toBeUndefined();
+    expect(flattened.width).toBeGreaterThanOrEqual(44);
+    expect(flattened.height).toBeGreaterThanOrEqual(44);
+    expect(flattened.bottom).toBe(288);
   });
 
   it("dismisses the keyboard without changing entered set values", () => {
-    render(<KeyboardDismissBar />);
+    render(<KeyboardDismissButton />);
     showKeyboard();
 
     const setBefore = useWorkoutStore.getState().exercises[0]?.sets[0];
@@ -121,7 +124,7 @@ describe("KeyboardDismissBar", () => {
   });
 
   it("hides again when the keyboard closes", () => {
-    render(<KeyboardDismissBar />);
+    render(<KeyboardDismissButton />);
     showKeyboard();
     expect(
       screen.getByRole("button", { name: "keyboard.dismiss" })
@@ -140,7 +143,7 @@ describe("KeyboardDismissBar", () => {
       value: "android",
     });
 
-    render(<KeyboardDismissBar />);
+    render(<KeyboardDismissButton />);
 
     expect(Keyboard.addListener).toHaveBeenCalledWith(
       "keyboardDidShow",
@@ -152,8 +155,8 @@ describe("KeyboardDismissBar", () => {
     );
 
     showKeyboard(320);
-    expect(
-      screen.getByRole("button", { name: "keyboard.dismiss" })
-    ).toBeTruthy();
+    const button = screen.getByRole("button", { name: "keyboard.dismiss" });
+    expect(button).toBeTruthy();
+    expect(StyleSheet.flatten(button.props.style).bottom).toBe(8);
   });
 });
