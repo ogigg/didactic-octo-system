@@ -6,7 +6,14 @@ import { useCalendarEntries } from "@/hooks/use-calendar-entries";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface MonthItem {
@@ -25,6 +32,7 @@ function generateMonths(count: number): MonthItem[] {
 }
 
 const MONTHS = generateMonths(24);
+const MIN_REFRESH_INDICATOR_MS = 500;
 
 const ITEM_OFFSETS = MONTHS.reduce<number[]>((acc, item, i) => {
   if (i === 0) {
@@ -37,6 +45,7 @@ const ITEM_OFFSETS = MONTHS.reduce<number[]>((acc, item, i) => {
 }, []);
 
 export default function CalendarScreen() {
+  const { t } = useTranslation("calendar");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const primary = useThemeColor({}, "primary");
@@ -65,13 +74,23 @@ export default function CalendarScreen() {
 
     refreshInFlightRef.current = true;
     setIsManualRefreshing(true);
+    const refreshStartedAt = Date.now();
     try {
       await refetch();
     } finally {
+      const remainingIndicatorTime =
+        MIN_REFRESH_INDICATOR_MS - (Date.now() - refreshStartedAt);
+      if (remainingIndicatorTime > 0) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, remainingIndicatorTime)
+        );
+      }
       refreshInFlightRef.current = false;
       setIsManualRefreshing(false);
     }
   }, [isRefetching, refetch]);
+
+  const isRefreshing = isManualRefreshing || (isRefetching && !isLoading);
 
   return (
     <TabScreen>
@@ -93,11 +112,12 @@ export default function CalendarScreen() {
         ]}
         refreshControl={
           <RefreshControl
-            refreshing={isManualRefreshing || (isRefetching && !isLoading)}
+            refreshing={isRefreshing}
             onRefresh={handleRefresh}
             tintColor={primary}
             colors={[primary]}
             progressBackgroundColor={backgroundElevated}
+            progressViewOffset={insets.top + Spacing.lg}
           />
         }
         renderItem={({ item }) => (
@@ -109,6 +129,22 @@ export default function CalendarScreen() {
           />
         )}
       />
+      {isRefreshing ? (
+        <View
+          pointerEvents="none"
+          accessibilityRole="progressbar"
+          accessibilityLabel={t("refreshing")}
+          style={[
+            styles.refreshIndicator,
+            {
+              top: insets.top + Spacing.sm,
+              backgroundColor: backgroundElevated,
+            },
+          ]}
+        >
+          <ActivityIndicator color={primary} />
+        </View>
+      ) : null}
     </TabScreen>
   );
 }
@@ -116,5 +152,12 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.xl,
+  },
+  refreshIndicator: {
+    position: "absolute",
+    alignSelf: "center",
+    zIndex: 10,
+    padding: Spacing.sm,
+    borderRadius: Spacing.lg,
   },
 });

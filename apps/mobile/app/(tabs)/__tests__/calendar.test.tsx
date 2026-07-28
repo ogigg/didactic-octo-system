@@ -104,6 +104,7 @@ describe("CalendarScreen pull-to-refresh", () => {
     });
 
     expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(true);
+    expect(screen.getByLabelText("refreshing")).toBeVisible();
 
     resolveRefresh?.();
     await act(async () => {
@@ -111,6 +112,7 @@ describe("CalendarScreen pull-to-refresh", () => {
     });
 
     expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
+    expect(screen.queryByLabelText("refreshing")).toBeNull();
   });
 
   it("configures a visible spinner color on iOS and Android", () => {
