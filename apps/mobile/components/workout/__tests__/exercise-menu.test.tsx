@@ -2,6 +2,31 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
+jest.mock("@/components/ui/app-bottom-sheet", () => ({
+  AppBottomSheet: require("react").forwardRef(
+    (
+      {
+        visible,
+        onClose,
+        children,
+      }: {
+        visible: boolean;
+        onClose: () => void;
+        children: React.ReactNode;
+      },
+      ref: React.Ref<{ dismiss: (afterClose?: () => void) => void }>
+    ) => {
+      require("react").useImperativeHandle(ref, () => ({
+        dismiss: (afterClose?: () => void) => {
+          onClose();
+          afterClose?.();
+        },
+      }));
+      return visible ? children : null;
+    }
+  ),
+}));
+
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { ExerciseMenu } from "../exercise-menu";
 
@@ -13,43 +38,19 @@ describe("ExerciseMenu", () => {
     onClose: jest.fn(),
     onReplace: jest.fn(),
     onRemove: jest.fn(),
-    canMoveEarlier: true,
-    canMoveLater: true,
-    onMoveEarlier: jest.fn(),
-    onMoveLater: jest.fn(),
+    onReorder: jest.fn(),
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("opens reorder controls and moves the exercise", () => {
+  it("closes the menu and opens exercise reordering", () => {
     render(<ExerciseMenu {...defaultProps} />);
 
     fireEvent.press(screen.getByRole("button", { name: "menu.reorder" }));
-    fireEvent.press(screen.getByRole("button", { name: "menu.moveEarlier" }));
-    fireEvent.press(screen.getByRole("button", { name: "menu.moveLater" }));
 
-    expect(defaultProps.onMoveEarlier).toHaveBeenCalledTimes(1);
-    expect(defaultProps.onMoveLater).toHaveBeenCalledTimes(1);
-  });
-
-  it("disables moves that would leave the workout bounds", () => {
-    render(
-      <ExerciseMenu
-        {...defaultProps}
-        canMoveEarlier={false}
-        canMoveLater={false}
-      />
-    );
-
-    fireEvent.press(screen.getByRole("button", { name: "menu.reorder" }));
-
-    expect(
-      screen.getByRole("button", { name: "menu.moveEarlier" })
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "menu.moveLater" })
-    ).toBeDisabled();
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+    expect(defaultProps.onReorder).toHaveBeenCalledTimes(1);
   });
 });

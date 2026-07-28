@@ -42,12 +42,14 @@ interface ExerciseCardProps {
   exercise: WorkoutExercise;
   displayName?: string;
   image?: ExerciseImageData;
+  onReorder?: (exerciseId: string) => void;
 }
 
 export function ExerciseCard({
   exercise,
   displayName,
   image,
+  onReorder,
 }: ExerciseCardProps) {
   const { t } = useTranslation("workout");
   const router = useRouter();
@@ -100,11 +102,6 @@ export function ExerciseCard({
   const addSet = useWorkoutStore((s) => s.addSet);
   const removeSet = useWorkoutStore((s) => s.removeSet);
   const removeExercise = useWorkoutStore((s) => s.removeExercise);
-  const moveExercise = useWorkoutStore((s) => s.moveExercise);
-  const exerciseIndex = useWorkoutStore((s) =>
-    s.exercises.findIndex((item) => item.id === exercise.id)
-  );
-  const exerciseCount = useWorkoutStore((s) => s.exercises.length);
   const updateNotes = useWorkoutStore((s) => s.updateNotes);
 
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
@@ -375,10 +372,7 @@ export function ExerciseCard({
         onReplace={handleReplace}
         onRemove={handleRemove}
         onPreferenceSelect={() => setPrefSheetVisible(true)}
-        canMoveEarlier={exerciseIndex > 0}
-        canMoveLater={exerciseIndex >= 0 && exerciseIndex < exerciseCount - 1}
-        onMoveEarlier={() => moveExercise(exercise.id, "earlier")}
-        onMoveLater={() => moveExercise(exercise.id, "later")}
+        onReorder={() => onReorder?.(exercise.id)}
       />
 
       {/* Exercise Preference Sheet */}

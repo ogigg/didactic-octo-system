@@ -143,7 +143,7 @@ interface WorkoutActions {
       reasoning?: WorkoutExerciseReasoning | null;
     }
   ) => void;
-  moveExercise: (exerciseId: string, direction: "earlier" | "later") => void;
+  reorderExercise: (exerciseId: string, targetIndex: number) => void;
   removeExercise: (exerciseId: string) => void;
   updateWorkoutName: (name: string) => void;
 }
@@ -174,6 +174,29 @@ function updateExerciseSets(
   return exercises.map((ex) =>
     ex.id === exerciseId ? { ...ex, sets: updater(ex.sets) } : ex
   );
+}
+
+function reorderExercises(
+  exercises: WorkoutExercise[],
+  exerciseId: string,
+  targetIndex: number
+): WorkoutExercise[] {
+  const currentIndex = exercises.findIndex(
+    (exercise) => exercise.id === exerciseId
+  );
+  const boundedTargetIndex = Math.max(
+    0,
+    Math.min(exercises.length - 1, targetIndex)
+  );
+  if (currentIndex === -1 || currentIndex === boundedTargetIndex) {
+    return exercises;
+  }
+
+  const reordered = [...exercises];
+  const [movedExercise] = reordered.splice(currentIndex, 1);
+  if (!movedExercise) return exercises;
+  reordered.splice(boundedTargetIndex, 0, movedExercise);
+  return reordered;
 }
 
 function makeEmptySet(previousDisplay: string | null = null): WorkoutSet {
@@ -435,26 +458,14 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             };
           }),
 
-        moveExercise: (exerciseId, direction) =>
-          set((state) => {
-            const currentIndex = state.exercises.findIndex(
-              (exercise) => exercise.id === exerciseId
-            );
-            if (currentIndex === -1) return state;
-
-            const targetIndex =
-              direction === "earlier" ? currentIndex - 1 : currentIndex + 1;
-            if (targetIndex < 0 || targetIndex >= state.exercises.length) {
-              return state;
-            }
-
-            const exercises = [...state.exercises];
-            const [movedExercise] = exercises.splice(currentIndex, 1);
-            if (!movedExercise) return state;
-            exercises.splice(targetIndex, 0, movedExercise);
-
-            return { exercises };
-          }),
+        reorderExercise: (exerciseId, targetIndex) =>
+          set((state) => ({
+            exercises: reorderExercises(
+              state.exercises,
+              exerciseId,
+              targetIndex
+            ),
+          })),
 
         removeExercise: (exerciseId) =>
           set((state) => ({

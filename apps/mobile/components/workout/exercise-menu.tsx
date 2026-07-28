@@ -1,16 +1,14 @@
-import { useThemeColor } from "@/hooks/use-theme-color";
 import {
-  Elevation,
-  Opacity,
-  Radii,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+  AppBottomSheet,
+  type AppBottomSheetHandle,
+} from "@/components/ui/app-bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { Spacing, Typography } from "@/constants/theme";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
+import { useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, Text } from "react-native";
 
 interface ExerciseMenuProps {
   visible: boolean;
@@ -20,10 +18,7 @@ interface ExerciseMenuProps {
   onReplace: () => void;
   onRemove: () => void;
   onPreferenceSelect?: () => void;
-  canMoveEarlier: boolean;
-  canMoveLater: boolean;
-  onMoveEarlier: () => void;
-  onMoveLater: () => void;
+  onReorder: () => void;
 }
 
 export function ExerciseMenu({
@@ -34,28 +29,14 @@ export function ExerciseMenu({
   onReplace,
   onRemove,
   onPreferenceSelect,
-  canMoveEarlier,
-  canMoveLater,
-  onMoveEarlier,
-  onMoveLater,
+  onReorder,
 }: ExerciseMenuProps) {
   const { t } = useTranslation("workout");
-  const [showReorder, setShowReorder] = useState(false);
-  const background = useThemeColor({}, "backgroundElevated");
+  const sheetRef = useRef<AppBottomSheetHandle>(null);
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
-  const textMuted = useThemeColor({}, "textMuted");
   const errorColor = useThemeColor({}, "error");
   const border = useThemeColor({}, "border");
-
-  useEffect(() => {
-    if (!visible) setShowReorder(false);
-  }, [visible]);
-
-  const handleClose = () => {
-    setShowReorder(false);
-    onClose();
-  };
 
   const preferenceIcon: "heart" | "heart.fill" | "hand.thumbsdown" | "nosign" =
     currentPreference === "preferred"
@@ -74,8 +55,7 @@ export function ExerciseMenu({
             icon: preferenceIcon,
             color: textSecondary,
             onPress: () => {
-              onClose();
-              onPreferenceSelect();
+              sheetRef.current?.dismiss(onPreferenceSelect);
             },
           },
         ]
@@ -84,15 +64,16 @@ export function ExerciseMenu({
       label: t("menu.reorder"),
       icon: "arrow.up.arrow.down" as const,
       color: textSecondary,
-      onPress: () => setShowReorder(true),
+      onPress: () => {
+        sheetRef.current?.dismiss(onReorder);
+      },
     },
     {
       label: t("menu.replace"),
       icon: "arrow.triangle.2.circlepath" as const,
       color: textSecondary,
       onPress: () => {
-        handleClose();
-        onReplace();
+        sheetRef.current?.dismiss(onReplace);
       },
     },
     {
@@ -100,238 +81,66 @@ export function ExerciseMenu({
       icon: "trash" as const,
       color: errorColor,
       onPress: () => {
-        handleClose();
-        onRemove();
+        sheetRef.current?.dismiss(onRemove);
       },
       destructive: true,
     },
   ];
 
   return (
-    <Modal
+    <AppBottomSheet
+      ref={sheetRef}
       visible={visible}
-      transparent
-      statusBarTranslucent
-      animationType="slide"
-      presentationStyle="overFullScreen"
-      onRequestClose={handleClose}
+      onClose={onClose}
+      closeAccessibilityLabel={t("menu.close")}
+      testID="exercise-menu-sheet"
     >
-      <View style={styles.backdrop}>
+      <Text
+        style={[Typography.titleSm, { color: textColor }, styles.sheetTitle]}
+      >
+        {exerciseName}
+      </Text>
+      {options.map((option, index) => (
         <Pressable
-          style={styles.backdropTouchable}
-          onPress={handleClose}
+          key={option.label}
+          onPress={option.onPress}
           accessibilityRole="button"
-          accessibilityLabel={t("menu.close")}
-        />
-        <View
-          accessibilityViewIsModal
-          style={[styles.sheet, { backgroundColor: background }, Elevation.md]}
+          accessibilityLabel={option.label}
+          style={[
+            styles.option,
+            index === options.length - 1 && {
+              borderTopWidth: 1,
+              borderTopColor: border,
+              marginTop: Spacing.xs,
+              paddingTop: Spacing.lg,
+            },
+          ]}
         >
-          <View style={[styles.handle, { backgroundColor: textMuted }]} />
-
-          {showReorder ? (
-            <>
-              <View style={styles.reorderHeader}>
-                <Pressable
-                  onPress={() => setShowReorder(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("menu.back")}
-                  hitSlop={8}
-                  style={styles.backButton}
-                >
-                  <IconSymbol
-                    name="chevron.left"
-                    size={22}
-                    color={textSecondary}
-                  />
-                </Pressable>
-                <View style={styles.reorderHeading}>
-                  <Text style={[Typography.titleSm, { color: textColor }]}>
-                    {t("menu.reorder")}
-                  </Text>
-                  <Text
-                    style={[Typography.caption, { color: textMuted }]}
-                    numberOfLines={1}
-                  >
-                    {exerciseName}
-                  </Text>
-                </View>
-              </View>
-              <Text
-                style={[Typography.body, styles.hint, { color: textMuted }]}
-              >
-                {t("menu.reorderHint")}
-              </Text>
-              <View style={styles.reorderActions}>
-                <Pressable
-                  onPress={onMoveEarlier}
-                  disabled={!canMoveEarlier}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("menu.moveEarlier")}
-                  accessibilityState={{ disabled: !canMoveEarlier }}
-                  style={[
-                    styles.reorderAction,
-                    { borderColor: border },
-                    !canMoveEarlier && styles.disabled,
-                  ]}
-                >
-                  <IconSymbol
-                    name="arrow.up"
-                    size={20}
-                    color={canMoveEarlier ? textSecondary : textMuted}
-                  />
-                  <Text
-                    style={[
-                      Typography.titleSm,
-                      { color: canMoveEarlier ? textColor : textMuted },
-                    ]}
-                  >
-                    {t("menu.moveEarlier")}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={onMoveLater}
-                  disabled={!canMoveLater}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("menu.moveLater")}
-                  accessibilityState={{ disabled: !canMoveLater }}
-                  style={[
-                    styles.reorderAction,
-                    { borderColor: border },
-                    !canMoveLater && styles.disabled,
-                  ]}
-                >
-                  <IconSymbol
-                    name="arrow.down"
-                    size={20}
-                    color={canMoveLater ? textSecondary : textMuted}
-                  />
-                  <Text
-                    style={[
-                      Typography.titleSm,
-                      { color: canMoveLater ? textColor : textMuted },
-                    ]}
-                  >
-                    {t("menu.moveLater")}
-                  </Text>
-                </Pressable>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text
-                style={[
-                  Typography.titleSm,
-                  { color: textColor },
-                  styles.sheetTitle,
-                ]}
-              >
-                {exerciseName}
-              </Text>
-              {options.map((option, index) => (
-                <Pressable
-                  key={option.label}
-                  onPress={option.onPress}
-                  accessibilityRole="button"
-                  accessibilityLabel={option.label}
-                  style={[
-                    styles.option,
-                    index === options.length - 1 && {
-                      borderTopWidth: 1,
-                      borderTopColor: border,
-                      marginTop: Spacing.xs,
-                      paddingTop: Spacing.lg,
-                    },
-                  ]}
-                >
-                  <IconSymbol
-                    name={option.icon}
-                    size={20}
-                    color={option.color}
-                  />
-                  <Text
-                    style={[
-                      Typography.titleSm,
-                      { color: option.destructive ? errorColor : textColor },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
+          <IconSymbol name={option.icon} size={20} color={option.color} />
+          <Text
+            style={[
+              Typography.titleSm,
+              { color: option.destructive ? errorColor : textColor },
+            ]}
+          >
+            {option.label}
+          </Text>
+        </Pressable>
+      ))}
+    </AppBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  backdropTouchable: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sheet: {
-    borderTopLeftRadius: Radii.lg,
-    borderTopRightRadius: Radii.lg,
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing["4xl"],
-    paddingTop: Spacing.md,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: Radii.full,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
-  },
   sheetTitle: {
+    paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
   },
   option: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
-  },
-  reorderHeader: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: -Spacing.sm,
-  },
-  reorderHeading: {
-    flex: 1,
-    gap: 2,
-  },
-  hint: {
-    marginBottom: Spacing.lg,
-  },
-  reorderActions: {
-    gap: Spacing.sm,
-  },
-  reorderAction: {
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    borderWidth: 1,
-    borderRadius: Radii.md,
-    paddingHorizontal: Spacing.lg,
-  },
-  disabled: {
-    opacity: Opacity.disabled,
   },
 });

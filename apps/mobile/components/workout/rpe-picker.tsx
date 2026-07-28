@@ -1,7 +1,12 @@
+import {
+  AppBottomSheet,
+  type AppBottomSheetHandle,
+} from "@/components/ui/app-bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useRef } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 const RPE_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
@@ -20,7 +25,7 @@ export function RpePicker({
   onClose,
 }: RpePickerProps) {
   const { t } = useTranslation("workout");
-  const background = useThemeColor({}, "backgroundElevated");
+  const sheetRef = useRef<AppBottomSheetHandle>(null);
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
   const textColor = useThemeColor({}, "text");
@@ -28,89 +33,75 @@ export function RpePicker({
   const borderSubtle = useThemeColor({}, "borderSubtle");
 
   return (
-    <Modal
+    <AppBottomSheet
+      ref={sheetRef}
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      closeAccessibilityLabel={t("rpe.close")}
+      testID="rpe-picker-sheet"
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[styles.container, { backgroundColor: background }]}
-          onPress={(e) => e.stopPropagation()}
+      <View style={styles.container}>
+        <Text style={[Typography.titleSm, { color: textColor }]}>
+          {t("rpe.title")}
+        </Text>
+        <View
+          style={[
+            styles.help,
+            { backgroundColor: primarySurface, borderColor: borderSubtle },
+          ]}
         >
-          <Text style={[Typography.titleSm, { color: textColor }]}>
-            {t("rpe.title")}
+          <IconSymbol
+            name="questionmark.circle.fill"
+            size={18}
+            color={primary}
+          />
+          <Text style={[styles.helpText, { color: textSecondary }]}>
+            {t("rpe.explanation")}
           </Text>
-          <View
-            style={[
-              styles.help,
-              { backgroundColor: primarySurface, borderColor: borderSubtle },
-            ]}
-          >
-            <IconSymbol
-              name="questionmark.circle.fill"
-              size={18}
-              color={primary}
-            />
-            <Text style={[styles.helpText, { color: textSecondary }]}>
-              {t("rpe.explanation")}
-            </Text>
-          </View>
-          <View style={styles.grid}>
-            {RPE_VALUES.map((val) => {
-              const isSelected = val === currentValue;
-              return (
-                <Pressable
-                  key={val}
-                  onPress={() => {
-                    onSelect(val);
-                    onClose();
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`RPE ${val}`}
-                  accessibilityState={{ selected: isSelected }}
+        </View>
+        <View style={styles.grid}>
+          {RPE_VALUES.map((val) => {
+            const isSelected = val === currentValue;
+            return (
+              <Pressable
+                key={val}
+                onPress={() => {
+                  sheetRef.current?.dismiss(() => onSelect(val));
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`RPE ${val}`}
+                accessibilityState={{ selected: isSelected }}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: isSelected ? primarySurface : borderSubtle,
+                    borderColor: isSelected ? primary : "transparent",
+                  },
+                ]}
+              >
+                <Text
                   style={[
-                    styles.chip,
+                    Typography.bodyMedium,
                     {
-                      backgroundColor: isSelected
-                        ? primarySurface
-                        : borderSubtle,
-                      borderColor: isSelected ? primary : "transparent",
+                      color: isSelected ? primary : textSecondary,
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      Typography.bodyMedium,
-                      {
-                        color: isSelected ? primary : textSecondary,
-                      },
-                    ]}
-                  >
-                    {val}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+                  {val}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </AppBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   container: {
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-    marginHorizontal: Spacing["3xl"],
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xl,
     gap: Spacing.lg,
   },
   grid: {
