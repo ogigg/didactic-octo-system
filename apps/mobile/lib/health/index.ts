@@ -21,6 +21,7 @@ export type {
   HeartRateSample,
 } from "./types";
 export { getCachedPermissionStatus, setCachedPermissionStatus };
+export { cancelRetry as cancelWorkoutHealthRetry } from "./retry-queue";
 
 /**
  * Returns true when a native Health integration is available for this

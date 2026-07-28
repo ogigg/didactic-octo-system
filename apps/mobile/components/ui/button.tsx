@@ -2,7 +2,14 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import type { ComponentProps } from "react";
-import { Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from "react-native";
 
 interface ButtonProps {
   label: string;
@@ -10,6 +17,7 @@ interface ButtonProps {
   variant?: "primary" | "secondary" | "ghost" | "destructive" | "success";
   icon?: ComponentProps<typeof IconSymbol>["name"];
   disabled?: boolean;
+  loading?: boolean;
   accessibilityLabel?: string;
   style?: ViewStyle;
 }
@@ -20,6 +28,7 @@ export function Button({
   variant = "primary",
   icon,
   disabled = false,
+  loading = false,
   accessibilityLabel,
   style,
 }: ButtonProps) {
@@ -30,8 +39,9 @@ export function Button({
   const successColor = useThemeColor({}, "success");
   const textDisabled = useThemeColor({}, "textDisabled");
   const errorColor = useThemeColor({}, "error");
+  const isDisabled = disabled || loading;
 
-  const bgColor = disabled
+  const bgColor = isDisabled
     ? borderSubtle
     : variant === "primary"
       ? primary
@@ -43,7 +53,7 @@ export function Button({
             ? successColor
             : "transparent";
 
-  const textColor = disabled
+  const textColor = isDisabled
     ? textDisabled
     : variant === "primary" || variant === "success"
       ? "#FFFFFF"
@@ -53,21 +63,25 @@ export function Button({
 
   return (
     <Pressable
-      onPress={disabled ? undefined : onPress}
-      disabled={disabled}
+      onPress={isDisabled ? undefined : onPress}
+      disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ busy: loading, disabled: isDisabled }}
       style={({ pressed }) => [
         styles.base,
         variant !== "ghost" && { backgroundColor: bgColor },
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
+        isDisabled && styles.disabled,
+        pressed && !isDisabled && styles.pressed,
         style,
       ]}
     >
       <View style={styles.content}>
-        {icon && <IconSymbol name={icon} size={18} color={textColor} />}
+        {loading ? (
+          <ActivityIndicator color={textColor} size="small" />
+        ) : (
+          icon && <IconSymbol name={icon} size={18} color={textColor} />
+        )}
         <Text style={[styles.label, { color: textColor }]}>{label}</Text>
       </View>
     </Pressable>

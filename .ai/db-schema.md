@@ -275,6 +275,11 @@ Notes:
   key cascades then remove its exercises, sets, logs, and session comments so
   the deleted workout no longer contributes to history, statistics,
   progression, or future workout generation
+- deletion goes through `delete_workout_session(UUID)`, which verifies the
+  authenticated owner and completed status, fails if no row is deleted, and
+  returns `health_record_id` for best-effort platform cleanup. Health Connect
+  records can be deleted by UUID; the current Apple Health library cannot
+  delete workout records by UUID.
 
 ### `session_exercises`
 
@@ -513,6 +518,7 @@ exercises
 When database-related work touches behavior, also inspect `supabase/migrations` for:
 
 - workout detail / history RPCs
+- verified workout deletion RPC (`delete_workout_session`)
 - progression history RPC (`get_exercise_progression_history`)
 - stats RPCs
 - exercise detail RPCs

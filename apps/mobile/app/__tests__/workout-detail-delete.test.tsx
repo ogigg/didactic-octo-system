@@ -1,5 +1,6 @@
 const mockRouterBack = jest.fn();
 const mockDeleteWorkout = jest.fn();
+const mockShowSuccess = jest.fn();
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: jest.fn(() => ({ id: "workout-session-id" })),
@@ -8,8 +9,26 @@ jest.mock("expo-router", () => ({
 
 jest.mock("react-i18next", () => ({
   useTranslation: jest.fn(() => ({
-    t: (key: string) => key,
+    i18n: { language: "en", resolvedLanguage: "en" },
+    t: (key: string, options?: Record<string, unknown>) =>
+      options ? `${key}:${JSON.stringify(options)}` : key,
   })),
+}));
+
+jest.mock("expo-haptics", () => ({
+  NotificationFeedbackType: {
+    Error: "error",
+    Success: "success",
+    Warning: "warning",
+  },
+  notificationAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("@/stores/toast-store", () => ({
+  useToastStore: jest.fn(
+    (selector: (state: { showSuccess: typeof mockShowSuccess }) => unknown) =>
+      selector({ showSuccess: mockShowSuccess })
+  ),
 }));
 
 jest.mock("@/hooks/use-theme-color", () => ({
@@ -84,6 +103,7 @@ jest.mock("@/components/ui/icon-symbol", () => ({
 
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Alert } from "react-native";
+import * as Haptics from "expo-haptics";
 
 import WorkoutDetailScreen from "../workout-detail";
 
@@ -106,7 +126,7 @@ describe("WorkoutDetailScreen workout deletion", () => {
     expect(mockDeleteWorkout).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
       "detail.deleteWorkout.confirmTitle",
-      "detail.deleteWorkout.confirmMessage",
+      expect.stringContaining('"workoutName":"Push day"'),
       expect.any(Array)
     );
 
@@ -129,6 +149,7 @@ describe("WorkoutDetailScreen workout deletion", () => {
         onSuccess: expect.any(Function),
       })
     );
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith("warning");
 
     const mutationOptions = mockDeleteWorkout.mock.calls[0]?.[1] as {
       onSuccess: () => void;
@@ -138,5 +159,9 @@ describe("WorkoutDetailScreen workout deletion", () => {
     });
 
     expect(mockRouterBack).toHaveBeenCalledTimes(1);
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith("success");
+    expect(mockShowSuccess).toHaveBeenCalledWith(
+      "detail.deleteWorkout.success"
+    );
   });
 });

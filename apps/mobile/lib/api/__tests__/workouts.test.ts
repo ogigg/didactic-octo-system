@@ -307,32 +307,44 @@ describe("deleteSessionExercise", () => {
 });
 
 describe("deleteWorkoutSession", () => {
-  it("deletes the workout session after authenticating", async () => {
+  it("deletes the owned completed workout through the verified RPC", async () => {
     mockAuthenticatedUser();
-    const mockEq = jest.fn().mockResolvedValue({ error: null });
-    const mockDelete = jest.fn().mockReturnValue({ eq: mockEq });
-    (mockSupabase.from as jest.Mock).mockReturnValue({
-      delete: mockDelete,
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [{ id: validSession.id, health_record_id: "health-record-id" }],
+      error: null,
     });
 
-    await deleteWorkoutSession(validSession.id);
+    const result = await deleteWorkoutSession(validSession.id);
 
-    expect(mockSupabase.from).toHaveBeenCalledWith("workout_sessions");
-    expect(mockEq).toHaveBeenCalledWith("id", validSession.id);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("delete_workout_session", {
+      p_session_id: validSession.id,
+    });
+    expect(result).toEqual({
+      id: validSession.id,
+      health_record_id: "health-record-id",
+    });
   });
 
   it("surfaces database errors", async () => {
     mockAuthenticatedUser();
-    const mockEq = jest
-      .fn()
-      .mockResolvedValue({ error: { message: "RLS violation" } });
-    (mockSupabase.from as jest.Mock).mockReturnValue({
-      delete: jest.fn().mockReturnValue({ eq: mockEq }),
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: null,
+      error: { message: "Completed workout not found" },
     });
 
     await expect(deleteWorkoutSession(validSession.id)).rejects.toThrow(
-      "RLS violation"
+      "Completed workout not found"
     );
+  });
+
+  it("rejects an invalid deletion acknowledgement", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    await expect(deleteWorkoutSession(validSession.id)).rejects.toThrow();
   });
 });
 

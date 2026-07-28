@@ -159,6 +159,15 @@ const progressionHistoryRowSchema = z.object({
   working_sets: z.array(progressionHistoryWorkingSetSchema).nullable(),
 });
 
+const deleteWorkoutSessionResultSchema = z.object({
+  id: z.string().uuid(),
+  health_record_id: z.string().nullable(),
+});
+
+export type DeleteWorkoutSessionResult = z.infer<
+  typeof deleteWorkoutSessionResultSchema
+>;
+
 // -----------------------------------------------------------------------------
 // Input Types
 // -----------------------------------------------------------------------------
@@ -478,21 +487,29 @@ export async function deleteSessionExercise(
 }
 
 /**
- * Permanently deletes a workout session. Database cascades remove its
- * exercises, sets, logs, and session comments so the workout no longer
- * contributes to history, statistics, progression, or future generation.
+ * Permanently deletes an authenticated user's completed workout. The RPC
+ * verifies that exactly one owned session was deleted and returns its health
+ * record linkage before database cascades remove related workout data.
  */
-export async function deleteWorkoutSession(sessionId: string): Promise<void> {
+export async function deleteWorkoutSession(
+  sessionId: string
+): Promise<DeleteWorkoutSessionResult> {
   await getAuthenticatedUserId();
 
-  const { error } = await supabase
-    .from("workout_sessions")
-    .delete()
-    .eq("id", sessionId);
+  const { data, error } = await supabase.rpc("delete_workout_session", {
+    p_session_id: sessionId,
+  });
 
   if (error) {
     throw new Error(error.message);
   }
+
+  const [deleted] = z
+    .array(deleteWorkoutSessionResultSchema)
+    .length(1)
+    .parse(data);
+
+  return deleted;
 }
 
 export async function upsertSessionExercises(

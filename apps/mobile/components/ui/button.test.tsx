@@ -59,4 +59,18 @@ describe("Button", () => {
     render(<Button label="Delete" onPress={() => {}} variant="destructive" />);
     expect(screen.getByText("Delete")).toBeTruthy();
   });
+
+  it("marks a loading action as busy and prevents duplicate presses", () => {
+    const onPress = jest.fn();
+    render(<Button label="Deleting" onPress={onPress} loading />);
+
+    const button = screen.getByRole("button", { name: "Deleting" });
+    expect(button.props.accessibilityState).toEqual({
+      busy: true,
+      disabled: true,
+    });
+
+    fireEvent.press(button);
+    expect(onPress).not.toHaveBeenCalled();
+  });
 });
