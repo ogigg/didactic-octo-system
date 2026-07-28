@@ -21,6 +21,10 @@ import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useToastStore } from "@/stores/toast-store";
+import {
+  logWorkoutDeletionError,
+  logWorkoutDeletionTrace,
+} from "@/lib/workout-deletion-logger";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
@@ -163,19 +167,23 @@ export default function WorkoutDetailScreen() {
           text: t("detail.deleteWorkout.remove"),
           style: "destructive",
           onPress: () => {
+            const sessionId = id ?? "";
+            logWorkoutDeletionTrace("ui:confirmed", { sessionId });
             void Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Warning
             ).catch(() => {});
 
-            deleteWorkoutSessionMutation.mutate(id ?? "", {
+            deleteWorkoutSessionMutation.mutate(sessionId, {
               onSuccess: () => {
+                logWorkoutDeletionTrace("ui:success", { sessionId });
                 void Haptics.notificationAsync(
                   Haptics.NotificationFeedbackType.Success
                 ).catch(() => {});
                 showSuccess(t("detail.deleteWorkout.success"));
                 router.back();
               },
-              onError: () => {
+              onError: (error) => {
+                logWorkoutDeletionError("ui:error", error, { sessionId });
                 void Haptics.notificationAsync(
                   Haptics.NotificationFeedbackType.Error
                 ).catch(() => {});

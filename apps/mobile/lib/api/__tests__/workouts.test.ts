@@ -8,6 +8,16 @@ jest.mock("@/lib/supabase", () => ({
   },
 }));
 
+const mockLogWorkoutDeletionError = jest.fn();
+const mockLogWorkoutDeletionTrace = jest.fn();
+
+jest.mock("@/lib/workout-deletion-logger", () => ({
+  logWorkoutDeletionError: (...args: unknown[]) =>
+    mockLogWorkoutDeletionError(...args),
+  logWorkoutDeletionTrace: (...args: unknown[]) =>
+    mockLogWorkoutDeletionTrace(...args),
+}));
+
 import { supabase } from "@/lib/supabase";
 import {
   createWorkoutSession,
@@ -88,6 +98,10 @@ function mockUnauthenticated() {
     error: { message: "Not authenticated" },
   });
 }
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 describe("fetchWorkoutSessions", () => {
   it("returns validated sessions", async () => {
@@ -329,11 +343,26 @@ describe("deleteWorkoutSession", () => {
     mockAuthenticatedUser();
     (mockSupabase.rpc as jest.Mock).mockResolvedValue({
       data: null,
-      error: { message: "Completed workout not found" },
+      error: {
+        code: "PGRST202",
+        details: "Searched for public.delete_workout_session",
+        hint: "Apply the latest database migration",
+        message: "Completed workout not found",
+      },
     });
 
     await expect(deleteWorkoutSession(validSession.id)).rejects.toThrow(
       "Completed workout not found"
+    );
+    expect(mockLogWorkoutDeletionError).toHaveBeenCalledWith(
+      "rpc:error",
+      expect.objectContaining({ code: "PGRST202" }),
+      {
+        sessionId: validSession.id,
+        errorCode: "PGRST202",
+        errorDetails: "Searched for public.delete_workout_session",
+        errorHint: "Apply the latest database migration",
+      }
     );
   });
 
@@ -345,6 +374,11 @@ describe("deleteWorkoutSession", () => {
     });
 
     await expect(deleteWorkoutSession(validSession.id)).rejects.toThrow();
+    expect(mockLogWorkoutDeletionError).toHaveBeenCalledWith(
+      "rpc:invalid-response",
+      expect.anything(),
+      { sessionId: validSession.id }
+    );
   });
 });
 
