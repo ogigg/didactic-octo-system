@@ -143,12 +143,19 @@ const progressionHistoryWorkingSetSchema = z.object({
   load_kg: z.number().nullable().optional(),
   reps: z.number().nullable().optional(),
   duration_seconds: z.number().nullable().optional(),
+  rpe: z.number().nullable().optional(),
   completed: z.boolean(),
 });
 
 const progressionHistoryRowSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_type: z.enum(["weight", "time"]).nullable().optional(),
+  session_id: z.string().uuid().nullable().optional(),
+  session_completed_at: z.string().nullable().optional(),
+  difficulty_feedback: z
+    .enum(["too_easy", "ok", "too_hard"])
+    .nullable()
+    .optional(),
   working_sets: z.array(progressionHistoryWorkingSetSchema).nullable(),
 });
 

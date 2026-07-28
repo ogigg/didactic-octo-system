@@ -107,6 +107,9 @@ jest.mock("@/hooks/use-workout-mutations", () => ({
     isSuccess: false,
     mutate: mockSaveWorkoutMutate,
   }),
+  useUpdateExerciseDifficultyFeedback: () => ({
+    mutate: jest.fn(),
+  }),
 }));
 
 jest.mock("@/hooks/use-workout-session-comments", () => ({
