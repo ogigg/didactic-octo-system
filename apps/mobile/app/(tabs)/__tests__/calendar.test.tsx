@@ -87,6 +87,41 @@ describe("CalendarScreen pull-to-refresh", () => {
     expect(refreshControl.props.refreshing).toBe(true);
   });
 
+  it("shows the refresh indicator immediately while a manual refresh is pending", async () => {
+    let resolveRefresh: (() => void) | undefined;
+    mockRefetch.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRefresh = () => resolve({ data: [], error: null });
+      })
+    );
+
+    const { UNSAFE_getByType } = render(<CalendarScreen />);
+    const refreshControl = UNSAFE_getByType(RefreshControl);
+
+    let refreshPromise: Promise<void>;
+    act(() => {
+      refreshPromise = refreshControl.props.onRefresh();
+    });
+
+    expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(true);
+
+    resolveRefresh?.();
+    await act(async () => {
+      await refreshPromise;
+    });
+
+    expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
+  });
+
+  it("configures a visible spinner color on iOS and Android", () => {
+    const { UNSAFE_getByType } = render(<CalendarScreen />);
+    const refreshControl = UNSAFE_getByType(RefreshControl);
+
+    expect(refreshControl.props.tintColor).toBe("#3366FF");
+    expect(refreshControl.props.colors).toEqual(["#3366FF"]);
+    expect(refreshControl.props.progressBackgroundColor).toBe("#3366FF");
+  });
+
   it("refetches calendar data when the user pulls to refresh", async () => {
     const { UNSAFE_getByType } = render(<CalendarScreen />);
     const refreshControl = UNSAFE_getByType(RefreshControl);

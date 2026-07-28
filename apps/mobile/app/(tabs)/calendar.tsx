@@ -5,7 +5,7 @@ import { Spacing } from "@/constants/theme";
 import { useCalendarEntries } from "@/hooks/use-calendar-entries";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useRouter } from "expo-router";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -40,7 +40,9 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const primary = useThemeColor({}, "primary");
+  const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const refreshInFlightRef = useRef(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const { getEntriesForMonth, isLoading, isRefetching, refetch } =
     useCalendarEntries();
 
@@ -62,10 +64,12 @@ export default function CalendarScreen() {
     if (isRefetching || refreshInFlightRef.current) return;
 
     refreshInFlightRef.current = true;
+    setIsManualRefreshing(true);
     try {
       await refetch();
     } finally {
       refreshInFlightRef.current = false;
+      setIsManualRefreshing(false);
     }
   }, [isRefetching, refetch]);
 
@@ -89,9 +93,11 @@ export default function CalendarScreen() {
         ]}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching && !isLoading}
+            refreshing={isManualRefreshing || (isRefetching && !isLoading)}
             onRefresh={handleRefresh}
             tintColor={primary}
+            colors={[primary]}
+            progressBackgroundColor={backgroundElevated}
           />
         }
         renderItem={({ item }) => (
