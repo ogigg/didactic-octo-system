@@ -3,9 +3,10 @@ import { MonthBlock, getMonthHeight } from "@/components/calendar/month-block";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Spacing } from "@/constants/theme";
 import { useCalendarEntries } from "@/hooks/use-calendar-entries";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
-import { FlatList, StyleSheet } from "react-native";
+import { useCallback, useRef } from "react";
+import { FlatList, RefreshControl, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface MonthItem {
@@ -38,7 +39,10 @@ const ITEM_OFFSETS = MONTHS.reduce<number[]>((acc, item, i) => {
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { getEntriesForMonth, isLoading } = useCalendarEntries();
+  const primary = useThemeColor({}, "primary");
+  const refreshInFlightRef = useRef(false);
+  const { getEntriesForMonth, isLoading, isRefetching, refetch } =
+    useCalendarEntries();
 
   const handleDayPress = useCallback(
     (dateKey: string, sessions: WorkoutSession[]) => {
@@ -53,6 +57,17 @@ export default function CalendarScreen() {
     },
     [router]
   );
+
+  const handleRefresh = useCallback(async () => {
+    if (isRefetching || refreshInFlightRef.current) return;
+
+    refreshInFlightRef.current = true;
+    try {
+      await refetch();
+    } finally {
+      refreshInFlightRef.current = false;
+    }
+  }, [isRefetching, refetch]);
 
   return (
     <TabScreen>
@@ -72,6 +87,13 @@ export default function CalendarScreen() {
             paddingBottom: insets.bottom + Spacing.lg,
           },
         ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching && !isLoading}
+            onRefresh={handleRefresh}
+            tintColor={primary}
+          />
+        }
         renderItem={({ item }) => (
           <MonthBlock
             year={item.year}

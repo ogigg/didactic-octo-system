@@ -56,7 +56,7 @@ export function useCalendarEntries() {
   const { t } = useTranslation("calendar");
   const defaultTitle = t("defaultSessionTitle");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: calendarKeys.entries(),
     queryFn: async () => {
       const { fromIso, toIso } = calendarQueryRange();
@@ -75,5 +75,5 @@ export function useCalendarEntries() {
     [byDate]
   );
 
-  return { getEntriesForMonth, isLoading };
+  return { getEntriesForMonth, isLoading, isRefetching, refetch };
 }
