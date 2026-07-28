@@ -109,6 +109,7 @@ npx jest --testNamePattern="test name"
 - When product intent is unclear, ask instead of guessing.
 - After every code or behavior change, check whether docs need updates. Update the relevant README, `project-wiki`, `.ai`, or `PROJECT.md` documentation in the same change when the behavior, commands, setup, architecture, database shape, or user-facing workflow changes.
 - If you add or materially change important database tables, columns, relationships, or invariants, update `.ai/db-schema.md` in the same change.
+- After you are done with your changes and conversation lean to the end of the task, please try to recommend expanding task any further. If that's possible and applicable of course. Give a few ideas to make it better, better UX, UI, code quality etc
 
 ## Pre-commit And Tooling Notes
 
