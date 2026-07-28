@@ -143,6 +143,7 @@ interface WorkoutActions {
       reasoning?: WorkoutExerciseReasoning | null;
     }
   ) => void;
+  moveExercise: (exerciseId: string, direction: "earlier" | "later") => void;
   removeExercise: (exerciseId: string) => void;
   updateWorkoutName: (name: string) => void;
 }
@@ -432,6 +433,27 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
                 ...state.exercises.slice(index + 1),
               ],
             };
+          }),
+
+        moveExercise: (exerciseId, direction) =>
+          set((state) => {
+            const currentIndex = state.exercises.findIndex(
+              (exercise) => exercise.id === exerciseId
+            );
+            if (currentIndex === -1) return state;
+
+            const targetIndex =
+              direction === "earlier" ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= state.exercises.length) {
+              return state;
+            }
+
+            const exercises = [...state.exercises];
+            const [movedExercise] = exercises.splice(currentIndex, 1);
+            if (!movedExercise) return state;
+            exercises.splice(targetIndex, 0, movedExercise);
+
+            return { exercises };
           }),
 
         removeExercise: (exerciseId) =>

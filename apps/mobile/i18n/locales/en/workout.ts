@@ -66,9 +66,13 @@ export const workout = {
   },
   menu: {
     reorder: "Reorder Exercise",
+    reorderHint: "Move this exercise within your active workout.",
+    moveEarlier: "Move earlier",
+    moveLater: "Move later",
+    back: "Back to exercise options",
+    close: "Close exercise options",
     replace: "Replace Exercise",
     remove: "Remove Exercise",
-    notImplemented: "This feature will be available soon.",
   },
   removeExercise: {
     confirmTitle: "Remove Exercise?",

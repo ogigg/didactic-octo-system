@@ -66,9 +66,13 @@ export const workout = {
   },
   menu: {
     reorder: "Zmień kolejność ćwiczenia",
+    reorderHint: "Przenieś to ćwiczenie w aktywnym treningu.",
+    moveEarlier: "Przenieś wcześniej",
+    moveLater: "Przenieś później",
+    back: "Wróć do opcji ćwiczenia",
+    close: "Zamknij opcje ćwiczenia",
     replace: "Zamień ćwiczenie",
     remove: "Usuń ćwiczenie",
-    notImplemented: "Ta funkcja będzie dostępna wkrótce.",
   },
   removeExercise: {
     confirmTitle: "Usunąć ćwiczenie?",
