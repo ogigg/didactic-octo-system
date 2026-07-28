@@ -7,6 +7,10 @@ import {
   type PreviousSetValue,
 } from "@/lib/workout-previous-sets";
 import type { WeightUnit } from "@/lib/unit-conversion";
+import {
+  logWorkoutDeletionError,
+  logWorkoutDeletionTrace,
+} from "@/lib/workout-deletion-logger";
 
 // -----------------------------------------------------------------------------
 // Const Maps (no TS enums per project convention)
@@ -494,20 +498,42 @@ export async function deleteSessionExercise(
 export async function deleteWorkoutSession(
   sessionId: string
 ): Promise<DeleteWorkoutSessionResult> {
-  await getAuthenticatedUserId();
+  logWorkoutDeletionTrace("rpc:start", { sessionId });
+
+  try {
+    await getAuthenticatedUserId();
+  } catch (error) {
+    logWorkoutDeletionError("auth:error", error, { sessionId });
+    throw error;
+  }
 
   const { data, error } = await supabase.rpc("delete_workout_session", {
     p_session_id: sessionId,
   });
 
   if (error) {
+    logWorkoutDeletionError("rpc:error", error, {
+      sessionId,
+      errorCode: error.code,
+      errorDetails: error.details,
+      errorHint: error.hint,
+    });
     throw new Error(error.message);
   }
 
-  const [deleted] = z
-    .array(deleteWorkoutSessionResultSchema)
-    .length(1)
-    .parse(data);
+  let deleted: DeleteWorkoutSessionResult;
+
+  try {
+    [deleted] = z.array(deleteWorkoutSessionResultSchema).length(1).parse(data);
+  } catch (error) {
+    logWorkoutDeletionError("rpc:invalid-response", error, { sessionId });
+    throw error;
+  }
+
+  logWorkoutDeletionTrace("rpc:success", {
+    sessionId,
+    hasHealthRecord: deleted.health_record_id !== null,
+  });
 
   return deleted;
 }
