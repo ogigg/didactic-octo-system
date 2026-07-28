@@ -12,7 +12,10 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useSaveCompletedWorkout } from "@/hooks/use-workout-mutations";
+import {
+  useSaveCompletedWorkout,
+  useUpdateExerciseDifficultyFeedback,
+} from "@/hooks/use-workout-mutations";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
 import { useExerciseMuscles } from "@/hooks/use-exercise-muscles";
 import {
@@ -575,8 +578,47 @@ export default function WorkoutSummaryScreen() {
 
   // Auto-save on mount
   const saveWorkout = useSaveCompletedWorkout();
+  const updateDifficultyFeedback = useUpdateExerciseDifficultyFeedback();
   const hasSavedRef = useRef(false);
+  const pendingFeedbackRef = useRef(new Map<string, DifficultyValue>());
   const savedSessionId = saveWorkout.data?.id ?? null;
+
+  const sessionExerciseIdByExerciseId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const occurrence of saveWorkout.data?.exerciseOccurrences ?? []) {
+      map.set(occurrence.exerciseId, occurrence.sessionExerciseId);
+    }
+    return map;
+  }, [saveWorkout.data?.exerciseOccurrences]);
+
+  const persistDifficultyFeedback = useCallback(
+    (exerciseId: string, feedback: DifficultyValue) => {
+      const sessionExerciseId = sessionExerciseIdByExerciseId.get(exerciseId);
+      if (!sessionExerciseId) {
+        pendingFeedbackRef.current.set(exerciseId, feedback);
+        return;
+      }
+
+      pendingFeedbackRef.current.delete(exerciseId);
+      updateDifficultyFeedback.mutate(
+        { sessionExerciseId, feedback },
+        {
+          onError: (error) => {
+            console.warn("Failed to persist difficulty feedback:", error);
+          },
+        }
+      );
+    },
+    [sessionExerciseIdByExerciseId, updateDifficultyFeedback]
+  );
+
+  const handleFeedbackChange = useCallback(
+    (exerciseId: string, feedback: DifficultyValue) => {
+      setExerciseDifficultyFeedback(exerciseId, feedback);
+      persistDifficultyFeedback(exerciseId, feedback);
+    },
+    [persistDifficultyFeedback, setExerciseDifficultyFeedback]
+  );
 
   useEffect(() => {
     if (!summary || hasSavedRef.current) return;
@@ -625,6 +667,20 @@ export default function WorkoutSummaryScreen() {
     );
   }, [summary]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Persist feedback selected before auto-save finished (summary saves without it).
+  useEffect(() => {
+    if (!saveWorkout.isSuccess || sessionExerciseIdByExerciseId.size === 0) {
+      return;
+    }
+
+    for (const [exerciseId, feedback] of pendingFeedbackRef.current) {
+      persistDifficultyFeedback(exerciseId, feedback);
+    }
+  }, [
+    persistDifficultyFeedback,
+    saveWorkout.isSuccess,
+    sessionExerciseIdByExerciseId,
+  ]);
   // Save template
   const [saved, setSaved] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -1081,7 +1137,7 @@ export default function WorkoutSummaryScreen() {
                       primary={primary}
                       primarySurface={primarySurface}
                       primaryContainer={primaryContainer}
-                      onFeedbackChange={setExerciseDifficultyFeedback}
+                      onFeedbackChange={handleFeedbackChange}
                       formatWeight={wu.format}
                       t={t}
                     />

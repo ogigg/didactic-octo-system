@@ -13,12 +13,14 @@ export interface WorkingSetRecord {
   load_kg: number | null;
   reps: number | null;
   duration_seconds?: number | null;
+  rpe?: number | null;
   completed: boolean;
 }
 
 export interface ExerciseHistory {
   exercise_id: string;
   exercise_type: "weight" | "time";
+  session_id?: string;
   session_completed_at: string;
   difficulty_feedback: "too_easy" | "ok" | "too_hard" | null;
   working_sets: WorkingSetRecord[] | null;
@@ -30,6 +32,26 @@ export type ProgressionType =
   | "maintained"
   | "new_exercise";
 
+/** Machine-readable explanation for every non-null progression decision. */
+export const PROGRESSION_REASON_CODES = {
+  STALE_HISTORY: "stale_history",
+  FEEDBACK_TOO_HARD: "feedback_too_hard",
+  HIGH_RPE: "high_rpe",
+  FEEDBACK_TOO_EASY_HIGH_RPE_CONFLICT: "feedback_too_easy_high_rpe_conflict",
+  FEEDBACK_TOO_EASY: "feedback_too_easy",
+  REP_RANGE_INCREASE: "rep_range_increase",
+  WEIGHT_INCREMENT: "weight_increment",
+  TIME_INCREMENT: "time_increment",
+} as const;
+
+export type ProgressionReasonCode =
+  (typeof PROGRESSION_REASON_CODES)[keyof typeof PROGRESSION_REASON_CODES];
+
+export interface ProgressionEvidence {
+  max_rpe: number | null;
+  difficulty_feedback: "too_easy" | "ok" | "too_hard" | null;
+}
+
 export interface ProgressionResult {
   exercise_id: string;
   target_load_kg?: number;
@@ -37,6 +59,8 @@ export interface ProgressionResult {
   target_duration_seconds?: number;
   progression_type: ProgressionType;
   previous_display: string | null;
+  reason_code: ProgressionReasonCode;
+  evidence: ProgressionEvidence;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +78,9 @@ const DEFAULT_REP_RANGE = REP_RANGES.hypertrophy;
 
 /** Max days since last session before we hold instead of progressing. */
 const STALE_THRESHOLD_DAYS = 14;
+
+/** Completed working-set RPE at or above this holds the target. */
+const HIGH_RPE_THRESHOLD = 9;
 
 // Default duration increments for time exercises (seconds)
 const TIME_INCREMENT_TOO_EASY = 15;
@@ -95,6 +122,62 @@ export function formatExerciseDuration(totalSeconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+/** Max RPE across completed working sets; null when no RPE was logged. */
+export function getMaxCompletedRpe(
+  workingSets: WorkingSetRecord[]
+): number | null {
+  let maxRpe: number | null = null;
+  for (const set of workingSets) {
+    if (!set.completed || set.rpe == null) continue;
+    if (maxRpe == null || set.rpe > maxRpe) {
+      maxRpe = set.rpe;
+    }
+  }
+  return maxRpe;
+}
+
+function buildEvidence(
+  history: ExerciseHistory,
+  maxRpe: number | null
+): ProgressionEvidence {
+  return {
+    max_rpe: maxRpe,
+    difficulty_feedback: history.difficulty_feedback,
+  };
+}
+
+/**
+ * Conservative hold precedence (first match wins):
+ * 1. stale history
+ * 2. too_hard feedback
+ * 3. any completed working-set RPE >= 9 (including too_easy conflict)
+ */
+function resolveHoldReason(
+  history: ExerciseHistory,
+  maxRpe: number | null,
+  now: Date
+): ProgressionReasonCode | null {
+  if (
+    history.session_completed_at &&
+    daysBetween(history.session_completed_at, now) > STALE_THRESHOLD_DAYS
+  ) {
+    return PROGRESSION_REASON_CODES.STALE_HISTORY;
+  }
+
+  if (history.difficulty_feedback === "too_hard") {
+    return PROGRESSION_REASON_CODES.FEEDBACK_TOO_HARD;
+  }
+
+  if (maxRpe != null && maxRpe >= HIGH_RPE_THRESHOLD) {
+    if (history.difficulty_feedback === "too_easy") {
+      return PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY_HIGH_RPE_CONFLICT;
+    }
+    return PROGRESSION_REASON_CODES.HIGH_RPE;
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Time Exercise Progression
 // ---------------------------------------------------------------------------
@@ -116,26 +199,18 @@ export function calculateTimeProgression(
     ...completedSets.map((s) => s.duration_seconds)
   );
   const previousDisplay = formatExerciseDuration(bestDuration);
+  const maxRpe = getMaxCompletedRpe(history.working_sets);
+  const evidence = buildEvidence(history, maxRpe);
 
-  // Check staleness
-  if (
-    history.session_completed_at &&
-    daysBetween(history.session_completed_at, now) > STALE_THRESHOLD_DAYS
-  ) {
+  const holdReason = resolveHoldReason(history, maxRpe, now);
+  if (holdReason) {
     return {
       exercise_id: history.exercise_id,
       target_duration_seconds: bestDuration,
       progression_type: "maintained",
       previous_display: previousDisplay,
-    };
-  }
-
-  if (history.difficulty_feedback === "too_hard") {
-    return {
-      exercise_id: history.exercise_id,
-      target_duration_seconds: bestDuration,
-      progression_type: "maintained",
-      previous_display: previousDisplay,
+      reason_code: holdReason,
+      evidence,
     };
   }
 
@@ -145,6 +220,8 @@ export function calculateTimeProgression(
       target_duration_seconds: bestDuration + TIME_INCREMENT_TOO_EASY,
       progression_type: "reps_up",
       previous_display: previousDisplay,
+      reason_code: PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY,
+      evidence,
     };
   }
 
@@ -154,6 +231,8 @@ export function calculateTimeProgression(
     target_duration_seconds: bestDuration + TIME_INCREMENT_OK,
     progression_type: "reps_up",
     previous_display: previousDisplay,
+    reason_code: PROGRESSION_REASON_CODES.TIME_INCREMENT,
+    evidence,
   };
 }
 
@@ -197,6 +276,8 @@ export function calculateProgression(
       : best
   );
   const previousDisplay = formatPreviousDisplay(bestSet.load_kg, bestSet.reps);
+  const maxRpe = getMaxCompletedRpe(history.working_sets);
+  const evidence = buildEvidence(history, maxRpe);
 
   // Baseline: use the load from the majority of sets (most common load_kg)
   const loadCounts = new Map<number, number>();
@@ -213,28 +294,16 @@ export function calculateProgression(
   );
   const worstReps = Math.min(...setsAtPrimaryLoad.map((s) => s.reps));
 
-  // Check staleness
-  if (
-    history.session_completed_at &&
-    daysBetween(history.session_completed_at, now) > STALE_THRESHOLD_DAYS
-  ) {
+  const holdReason = resolveHoldReason(history, maxRpe, now);
+  if (holdReason) {
     return {
       exercise_id: exerciseId,
       target_load_kg: primaryLoad,
       target_reps: worstReps,
       progression_type: "maintained",
       previous_display: previousDisplay,
-    };
-  }
-
-  // Feedback-driven decisions
-  if (history.difficulty_feedback === "too_hard") {
-    return {
-      exercise_id: exerciseId,
-      target_load_kg: primaryLoad,
-      target_reps: worstReps,
-      progression_type: "maintained",
-      previous_display: previousDisplay,
+      reason_code: holdReason,
+      evidence,
     };
   }
 
@@ -247,6 +316,8 @@ export function calculateProgression(
         target_reps: worstReps + 2,
         progression_type: "reps_up",
         previous_display: previousDisplay,
+        reason_code: PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY,
+        evidence,
       };
     }
     return {
@@ -255,6 +326,8 @@ export function calculateProgression(
       target_reps: range.min,
       progression_type: "weight_up",
       previous_display: previousDisplay,
+      reason_code: PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY,
+      evidence,
     };
   }
 
@@ -270,6 +343,8 @@ export function calculateProgression(
         target_reps: worstReps + 2,
         progression_type: "reps_up",
         previous_display: previousDisplay,
+        reason_code: PROGRESSION_REASON_CODES.REP_RANGE_INCREASE,
+        evidence,
       };
     }
     return {
@@ -278,6 +353,8 @@ export function calculateProgression(
       target_reps: range.min,
       progression_type: "weight_up",
       previous_display: previousDisplay,
+      reason_code: PROGRESSION_REASON_CODES.WEIGHT_INCREMENT,
+      evidence,
     };
   }
 
@@ -288,5 +365,7 @@ export function calculateProgression(
     target_reps: Math.min(worstReps + 2, range.max),
     progression_type: "reps_up",
     previous_display: previousDisplay,
+    reason_code: PROGRESSION_REASON_CODES.REP_RANGE_INCREASE,
+    evidence,
   };
 }
