@@ -202,6 +202,7 @@ export const workout = {
   keyboard: {
     next: "Dalej",
     done: "Gotowe",
+    dismiss: "Ukryj klawiaturę",
   },
   finish: {
     confirmTitle: "Zakończyć trening?",

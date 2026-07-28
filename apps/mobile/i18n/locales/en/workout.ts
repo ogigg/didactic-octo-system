@@ -200,6 +200,7 @@ export const workout = {
   keyboard: {
     next: "Next",
     done: "Done",
+    dismiss: "Dismiss keyboard",
   },
   finish: {
     confirmTitle: "Finish Workout?",
