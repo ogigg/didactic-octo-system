@@ -1,12 +1,16 @@
 import { AmbientGlow } from "@/components/ambient-glow";
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { BackButton } from "@/components/ui/back-button";
+import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HeartRateChart } from "@/components/workout/heart-rate-chart";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useDeleteSessionExercise } from "@/hooks/use-workout-mutations";
+import {
+  useDeleteSessionExercise,
+  useDeleteWorkoutSession,
+} from "@/hooks/use-workout-mutations";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import { useCommentsForSession } from "@/hooks/use-workout-session-comments";
 import {
@@ -16,7 +20,7 @@ import {
 import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -84,6 +88,7 @@ function countCompletedSets(detail: WorkoutDetail): number {
 export default function WorkoutDetailScreen() {
   const { t } = useTranslation("history");
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
 
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -100,6 +105,7 @@ export default function WorkoutDetailScreen() {
   const wu = useWeightUnit();
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
   const deleteSessionExerciseMutation = useDeleteSessionExercise();
+  const deleteWorkoutSessionMutation = useDeleteWorkoutSession();
   const { data: sessionComments } = useCommentsForSession(id ?? null);
   const detailExerciseIds = useMemo(
     () => detail?.exercises.map((exercise) => exercise.exercise_id) ?? [],
@@ -133,6 +139,30 @@ export default function WorkoutDetailScreen() {
     },
     [deleteSessionExerciseMutation, t]
   );
+
+  const handleDeleteWorkout = useCallback(() => {
+    Alert.alert(
+      t("detail.deleteWorkout.confirmTitle"),
+      t("detail.deleteWorkout.confirmMessage"),
+      [
+        { text: t("detail.deleteWorkout.cancel"), style: "cancel" },
+        {
+          text: t("detail.deleteWorkout.remove"),
+          style: "destructive",
+          onPress: () =>
+            deleteWorkoutSessionMutation.mutate(id ?? "", {
+              onSuccess: () => router.back(),
+              onError: () => {
+                Alert.alert(
+                  t("detail.deleteWorkout.errorTitle"),
+                  t("detail.deleteWorkout.errorMessage")
+                );
+              },
+            }),
+        },
+      ]
+    );
+  }, [deleteWorkoutSessionMutation, id, router, t]);
 
   // Heart rate (cache-only read from Apple Health, iOS-only)
   const hrStartedAt = useMemo(
@@ -414,6 +444,15 @@ export default function WorkoutDetailScreen() {
             titleColor={textColor}
             backgroundColor={backgroundElevated}
             borderColor={border}
+          />
+
+          <Button
+            accessibilityLabel={t("detail.deleteWorkout.accessibilityLabel")}
+            disabled={deleteWorkoutSessionMutation.isPending}
+            icon="trash"
+            label={t("detail.deleteWorkout.button")}
+            onPress={handleDeleteWorkout}
+            variant="destructive"
           />
         </ScrollView>
       </SafeAreaView>

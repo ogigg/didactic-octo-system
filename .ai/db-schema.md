@@ -271,6 +271,10 @@ Notes:
 
 - this table is the anchor for most workout history and stats
 - snapshot fields matter because user goals and preferences can change later
+- deleting a workout from history removes its `workout_sessions` row; foreign
+  key cascades then remove its exercises, sets, logs, and session comments so
+  the deleted workout no longer contributes to history, statistics,
+  progression, or future workout generation
 
 ### `session_exercises`
 

@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import {
   createWorkoutSession,
   deleteSessionExercise,
+  deleteWorkoutSession,
   fetchPreviousSetDisplays,
   fetchWorkoutDetail,
   fetchWorkoutSessions,
@@ -273,5 +274,35 @@ describe("deleteSessionExercise", () => {
     await expect(
       deleteSessionExercise("550e8400-e29b-41d4-a716-446655440020")
     ).rejects.toThrow("RLS violation");
+  });
+});
+
+describe("deleteWorkoutSession", () => {
+  it("deletes the workout session after authenticating", async () => {
+    mockAuthenticatedUser();
+    const mockEq = jest.fn().mockResolvedValue({ error: null });
+    const mockDelete = jest.fn().mockReturnValue({ eq: mockEq });
+    (mockSupabase.from as jest.Mock).mockReturnValue({
+      delete: mockDelete,
+    });
+
+    await deleteWorkoutSession(validSession.id);
+
+    expect(mockSupabase.from).toHaveBeenCalledWith("workout_sessions");
+    expect(mockEq).toHaveBeenCalledWith("id", validSession.id);
+  });
+
+  it("surfaces database errors", async () => {
+    mockAuthenticatedUser();
+    const mockEq = jest
+      .fn()
+      .mockResolvedValue({ error: { message: "RLS violation" } });
+    (mockSupabase.from as jest.Mock).mockReturnValue({
+      delete: jest.fn().mockReturnValue({ eq: mockEq }),
+    });
+
+    await expect(deleteWorkoutSession(validSession.id)).rejects.toThrow(
+      "RLS violation"
+    );
   });
 });

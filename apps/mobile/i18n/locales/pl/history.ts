@@ -47,5 +47,16 @@ export const history = {
       errorTitle: "Nie udało się usunąć ćwiczenia",
       errorMessage: "Spróbuj ponownie za chwilę.",
     },
+    deleteWorkout: {
+      accessibilityLabel: "Usuń ten trening",
+      button: "Usuń trening",
+      confirmTitle: "Usunąć trening?",
+      confirmMessage:
+        "Spowoduje to trwałe usunięcie całego treningu i wszystkich zapisanych danych. Trening zniknie z historii i nie będzie wpływać na statystyki ani przyszłe treningi.",
+      cancel: "Anuluj",
+      remove: "Usuń",
+      errorTitle: "Nie udało się usunąć treningu",
+      errorMessage: "Spróbuj ponownie za chwilę.",
+    },
   },
 } as const;

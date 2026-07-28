@@ -470,6 +470,24 @@ export async function deleteSessionExercise(
   }
 }
 
+/**
+ * Permanently deletes a workout session. Database cascades remove its
+ * exercises, sets, logs, and session comments so the workout no longer
+ * contributes to history, statistics, progression, or future generation.
+ */
+export async function deleteWorkoutSession(sessionId: string): Promise<void> {
+  await getAuthenticatedUserId();
+
+  const { error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("id", sessionId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function upsertSessionExercises(
   sessionId: string,
   exercises: SessionExerciseInput[]

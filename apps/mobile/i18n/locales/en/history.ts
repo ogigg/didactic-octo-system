@@ -47,5 +47,16 @@ export const history = {
       errorTitle: "Could not remove exercise",
       errorMessage: "Try again in a moment.",
     },
+    deleteWorkout: {
+      accessibilityLabel: "Delete this workout",
+      button: "Delete workout",
+      confirmTitle: "Delete workout?",
+      confirmMessage:
+        "This permanently removes the entire workout and all its logged data. It will no longer appear in your history or affect statistics and future workouts.",
+      cancel: "Cancel",
+      remove: "Delete",
+      errorTitle: "Could not delete workout",
+      errorMessage: "Try again in a moment.",
+    },
   },
 } as const;

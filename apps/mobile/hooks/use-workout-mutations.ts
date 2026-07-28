@@ -7,6 +7,7 @@ import type { SetLogInput } from "@/lib/api/workouts";
 import {
   createWorkoutSession,
   deleteSessionExercise,
+  deleteWorkoutSession,
   updateWorkoutSession,
   upsertSessionExercises,
   upsertSessionSets,
@@ -20,6 +21,7 @@ import {
   statsKeys,
   streakProtectionKeys,
   workoutKeys,
+  workoutSessionCommentKeys,
   workoutStatsKeys,
 } from "@/lib/query-keys";
 import { syncQueue } from "@/lib/sync-queue";
@@ -158,6 +160,25 @@ export function useDeleteSessionExercise() {
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
       queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+    },
+  });
+}
+
+export function useDeleteWorkoutSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteWorkoutSession,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: exerciseDetailKeys.all });
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all });
+      queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: statsKeys.all });
+      queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: workoutSessionCommentKeys.all,
+      });
     },
   });
 }
