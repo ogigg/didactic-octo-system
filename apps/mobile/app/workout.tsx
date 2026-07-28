@@ -1,4 +1,8 @@
 import { ExerciseCard } from "@/components/workout/exercise-card";
+import {
+  ExerciseReorderSheet,
+  type ExerciseOrderItem,
+} from "@/components/workout/exercise-reorder-sheet";
 import { CelebrationProvider } from "@/components/workout/celebration/celebration-provider";
 import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { RestTimerBar } from "@/components/workout/rest-timer-bar";
@@ -17,7 +21,7 @@ import {
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useKeepAwake } from "expo-keep-awake";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -32,7 +36,12 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Reanimated, { LinearTransition } from "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+
+const EXERCISE_LAYOUT_TRANSITION = LinearTransition.springify()
+  .damping(24)
+  .stiffness(220);
 
 export default function WorkoutScreen() {
   const { t } = useTranslation("workout");
@@ -51,6 +60,7 @@ export default function WorkoutScreen() {
   const generationMeta = useWorkoutStore((s) => s.generationMeta);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
+  const reorderExercise = useWorkoutStore((s) => s.reorderExercise);
   const updateWorkoutName = useWorkoutStore((s) => s.updateWorkoutName);
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -59,8 +69,21 @@ export default function WorkoutScreen() {
   const progressTrack = useThemeColor({}, "inputFill");
   const scrollRef = useRef<ScrollView>(null);
   const exerciseLayouts = useRef<Record<string, number>>({});
+  const reorderedExerciseRef = useRef<string | null>(null);
+  const [reorderExerciseId, setReorderExerciseId] = useState<string | null>(
+    null
+  );
   const exerciseIds = useMemo(() => exercises.map((ex) => ex.id), [exercises]);
   const { exerciseMap } = useLocalizedExerciseMap(exerciseIds);
+  const exerciseOrderItems = useMemo<ExerciseOrderItem[]>(
+    () =>
+      exercises.map((exercise) => ({
+        id: exercise.id,
+        name: exerciseMap.get(exercise.id)?.name ?? exercise.name,
+        image: exercise.image ?? exerciseMap.get(exercise.id)?.image ?? null,
+      })),
+    [exerciseMap, exercises]
+  );
 
   const { completedSets, totalSets } = useMemo(() => {
     let completed = 0;
@@ -114,6 +137,32 @@ export default function WorkoutScreen() {
   const handleAddExercise = useCallback(() => {
     router.push({ pathname: "/exercise-picker", params: { mode: "add" } });
   }, [router]);
+
+  const handleMoveExercise = useCallback(
+    (exerciseId: string, targetIndex: number) => {
+      reorderedExerciseRef.current = exerciseId;
+      reorderExercise(exerciseId, targetIndex);
+    },
+    [reorderExercise]
+  );
+
+  const handleCloseReorder = useCallback(() => {
+    const exerciseId =
+      reorderedExerciseRef.current ?? reorderExerciseId ?? null;
+    setReorderExerciseId(null);
+
+    if (!exerciseId) return;
+    setTimeout(() => {
+      const yOffset = exerciseLayouts.current[exerciseId];
+      if (yOffset !== undefined) {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, yOffset - Spacing.lg),
+          animated: true,
+        });
+      }
+      reorderedExerciseRef.current = null;
+    }, 100);
+  }, [reorderExerciseId]);
 
   const handleDismiss = useCallback(() => {
     router.back();
@@ -313,8 +362,9 @@ export default function WorkoutScreen() {
                       />
                       <WarmupCard />
                       {exercises.map((exercise) => (
-                        <View
+                        <Reanimated.View
                           key={exercise.id}
+                          layout={EXERCISE_LAYOUT_TRANSITION}
                           onLayout={(e) =>
                             handleExerciseLayout(
                               exercise.id,
@@ -332,8 +382,9 @@ export default function WorkoutScreen() {
                               exercise.image ??
                               exerciseMap.get(exercise.id)?.image
                             }
+                            onReorder={setReorderExerciseId}
                           />
-                        </View>
+                        </Reanimated.View>
                       ))}
                       <TouchableOpacity
                         style={[
@@ -354,6 +405,13 @@ export default function WorkoutScreen() {
               </TouchableWithoutFeedback>
               <RestTimerBar />
             </SafeAreaView>
+            <ExerciseReorderSheet
+              visible={reorderExerciseId !== null}
+              exercises={exerciseOrderItems}
+              highlightedExerciseId={reorderExerciseId}
+              onMove={handleMoveExercise}
+              onClose={handleCloseReorder}
+            />
           </SafeAreaProvider>
         </CelebrationProvider>
       </View>

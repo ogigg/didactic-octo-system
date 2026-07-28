@@ -42,12 +42,14 @@ interface ExerciseCardProps {
   exercise: WorkoutExercise;
   displayName?: string;
   image?: ExerciseImageData;
+  onReorder?: (exerciseId: string) => void;
 }
 
 export function ExerciseCard({
   exercise,
   displayName,
   image,
+  onReorder,
 }: ExerciseCardProps) {
   const { t } = useTranslation("workout");
   const router = useRouter();
@@ -370,6 +372,7 @@ export function ExerciseCard({
         onReplace={handleReplace}
         onRemove={handleRemove}
         onPreferenceSelect={() => setPrefSheetVisible(true)}
+        onReorder={() => onReorder?.(exercise.id)}
       />
 
       {/* Exercise Preference Sheet */}

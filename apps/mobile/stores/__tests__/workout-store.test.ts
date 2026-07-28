@@ -153,6 +153,75 @@ describe("workout store exercise replacement", () => {
     expect(state.restTimer).toBeNull();
   });
 
+  it("reorders exercises without changing their data", () => {
+    const squat: WorkoutExercise = {
+      ...baseExercise,
+      id: "squat",
+      name: "Squat",
+    };
+    const row: WorkoutExercise = {
+      ...baseExercise,
+      id: "row",
+      name: "Row",
+    };
+    useWorkoutStore
+      .getState()
+      .startWorkout("Full body", [baseExercise, squat, row], undefined);
+
+    useWorkoutStore.getState().reorderExercise("squat", 0);
+    expect(
+      useWorkoutStore.getState().exercises.map((exercise) => exercise.id)
+    ).toEqual(["squat", "bench-press", "row"]);
+
+    useWorkoutStore.getState().reorderExercise("squat", 1);
+    expect(
+      useWorkoutStore.getState().exercises.map((exercise) => exercise.id)
+    ).toEqual(["bench-press", "squat", "row"]);
+    expect(useWorkoutStore.getState().exercises[1]?.notes).toBe(
+      "Keep elbows tucked"
+    );
+  });
+
+  it("keeps exercise order unchanged when a move is out of bounds", () => {
+    const squat: WorkoutExercise = {
+      ...baseExercise,
+      id: "squat",
+      name: "Squat",
+    };
+    useWorkoutStore
+      .getState()
+      .startWorkout("Full body", [baseExercise, squat], undefined);
+
+    useWorkoutStore.getState().reorderExercise("bench-press", -1);
+    useWorkoutStore.getState().reorderExercise("squat", 99);
+
+    expect(
+      useWorkoutStore.getState().exercises.map((exercise) => exercise.id)
+    ).toEqual(["bench-press", "squat"]);
+  });
+
+  it("reorders an exercise directly to a selected position", () => {
+    const squat: WorkoutExercise = {
+      ...baseExercise,
+      id: "squat",
+      name: "Squat",
+    };
+    const row: WorkoutExercise = {
+      ...baseExercise,
+      id: "row",
+      name: "Row",
+    };
+    useWorkoutStore
+      .getState()
+      .startWorkout("Full body", [baseExercise, squat, row], undefined);
+
+    useWorkoutStore.getState().reorderExercise("row", 0);
+
+    expect(
+      useWorkoutStore.getState().exercises.map((exercise) => exercise.id)
+    ).toEqual(["row", "bench-press", "squat"]);
+  });
+
   it("adjusts remaining rest time without changing planned rest duration", () => {
     const startedAtMs = new Date("2026-06-03T10:00:00.000Z").getTime();
     const dateNowSpy = jest.spyOn(Date, "now");

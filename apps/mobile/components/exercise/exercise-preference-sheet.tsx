@@ -1,9 +1,14 @@
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Radii, Spacing, Typography } from "@/constants/theme";
+import {
+  AppBottomSheet,
+  type AppBottomSheetHandle,
+} from "@/components/ui/app-bottom-sheet";
+import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface ExercisePreferenceSheetProps {
   visible: boolean;
@@ -56,7 +61,7 @@ export function ExercisePreferenceSheet({
   onSelect,
 }: ExercisePreferenceSheetProps) {
   const { t } = useTranslation("exercisePreference");
-  const background = useThemeColor({}, "backgroundElevated");
+  const sheetRef = useRef<AppBottomSheetHandle>(null);
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
@@ -67,121 +72,99 @@ export function ExercisePreferenceSheet({
   const colorMap = { primary, textSecondary, error: errorColor };
 
   const handleSelect = (value: ExercisePreferenceValue | null) => {
-    onSelect(value);
-    onClose();
+    sheetRef.current?.dismiss(() => onSelect(value));
   };
 
   return (
-    <Modal
+    <AppBottomSheet
+      ref={sheetRef}
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      closeAccessibilityLabel={t("close")}
+      testID="exercise-preference-sheet"
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <View style={[styles.sheet, { backgroundColor: background }]}>
-          <View style={[styles.handle, { backgroundColor: textMuted }]} />
-          <Text
-            style={[
-              Typography.titleSm,
-              { color: textColor },
-              styles.sheetTitle,
-            ]}
-          >
-            {exerciseName}
-          </Text>
+      <View style={styles.content}>
+        <Text
+          style={[Typography.titleSm, { color: textColor }, styles.sheetTitle]}
+        >
+          {exerciseName}
+        </Text>
 
-          {PREFERENCE_OPTIONS.map((option, index) => {
-            const isActive = currentPreference === option.value;
-            const isDestructive = option.destructive;
-            const isFirstDestructive =
-              isDestructive && index === PREFERENCE_OPTIONS.length - 1;
+        {PREFERENCE_OPTIONS.map((option, index) => {
+          const isActive = currentPreference === option.value;
+          const isDestructive = option.destructive;
+          const isFirstDestructive =
+            isDestructive && index === PREFERENCE_OPTIONS.length - 1;
 
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => handleSelect(option.value)}
-                accessibilityRole="button"
-                accessibilityLabel={t(option.labelKey)}
-                style={[
-                  styles.option,
-                  isFirstDestructive && {
-                    borderTopWidth: 1,
-                    borderTopColor: border,
-                    marginTop: Spacing.xs,
-                    paddingTop: Spacing.lg,
-                  },
-                ]}
-              >
-                <IconSymbol
-                  name={option.icon}
-                  size={20}
-                  color={colorMap[option.colorKey]}
-                />
-                <View style={styles.optionText}>
-                  <Text
-                    style={[
-                      Typography.titleSm,
-                      {
-                        color: isDestructive ? errorColor : textColor,
-                      },
-                    ]}
-                  >
-                    {t(option.labelKey)}
-                  </Text>
-                  <Text style={[Typography.caption, { color: textMuted }]}>
-                    {t(option.descriptionKey)}
-                  </Text>
-                </View>
-                {isActive && (
-                  <IconSymbol name="checkmark" size={18} color={primary} />
-                )}
-              </Pressable>
-            );
-          })}
-
-          {currentPreference !== null && (
+          return (
             <Pressable
-              onPress={() => handleSelect(null)}
+              key={option.value}
+              onPress={() => handleSelect(option.value)}
               accessibilityRole="button"
-              accessibilityLabel={t("options.remove")}
+              accessibilityLabel={t(option.labelKey)}
               style={[
                 styles.option,
-                styles.removeOption,
-                { borderTopColor: border },
+                isFirstDestructive && {
+                  borderTopWidth: 1,
+                  borderTopColor: border,
+                  marginTop: Spacing.xs,
+                  paddingTop: Spacing.lg,
+                },
               ]}
             >
-              <IconSymbol name="xmark" size={20} color={textMuted} />
-              <Text style={[Typography.body, { color: textMuted }]}>
-                {t("options.remove")}
-              </Text>
+              <IconSymbol
+                name={option.icon}
+                size={20}
+                color={colorMap[option.colorKey]}
+              />
+              <View style={styles.optionText}>
+                <Text
+                  style={[
+                    Typography.titleSm,
+                    {
+                      color: isDestructive ? errorColor : textColor,
+                    },
+                  ]}
+                >
+                  {t(option.labelKey)}
+                </Text>
+                <Text style={[Typography.caption, { color: textMuted }]}>
+                  {t(option.descriptionKey)}
+                </Text>
+              </View>
+              {isActive && (
+                <IconSymbol name="checkmark" size={18} color={primary} />
+              )}
             </Pressable>
-          )}
-        </View>
-      </Pressable>
-    </Modal>
+          );
+        })}
+
+        {currentPreference !== null && (
+          <Pressable
+            onPress={() => handleSelect(null)}
+            accessibilityRole="button"
+            accessibilityLabel={t("options.remove")}
+            style={[
+              styles.option,
+              styles.removeOption,
+              { borderTopColor: border },
+            ]}
+          >
+            <IconSymbol name="xmark" size={20} color={textMuted} />
+            <Text style={[Typography.body, { color: textMuted }]}>
+              {t("options.remove")}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </AppBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    borderTopLeftRadius: Radii.lg,
-    borderTopRightRadius: Radii.lg,
+  content: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing["4xl"],
-    paddingTop: Spacing.md,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: Radii.full,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   sheetTitle: {
     marginBottom: Spacing.lg,

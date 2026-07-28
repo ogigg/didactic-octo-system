@@ -61,14 +61,23 @@ export const workout = {
   rpe: {
     title: "Odczuwalny wysiłek",
     select: "Wybierz RPE",
+    close: "Zamknij wybór RPE",
     explanation:
       "Jak trudna była seria: 1 to bardzo lekko, 10 to maksymalny wysiłek.",
   },
   menu: {
     reorder: "Zmień kolejność ćwiczenia",
+    reorderTitle: "Kolejność ćwiczeń",
+    reorderHint: "Przeciągnij uchwyty lub użyj przycisków ze strzałkami.",
+    position: "{{position}} z {{total}}",
+    dragExercise: "Przeciągnij {{exerciseName}}, aby zmienić kolejność",
+    moveExerciseEarlier: "Przenieś {{exerciseName}} wcześniej",
+    moveExerciseLater: "Przenieś {{exerciseName}} później",
+    closeReorder: "Zamknij zmianę kolejności ćwiczeń",
+    done: "Gotowe",
+    close: "Zamknij opcje ćwiczenia",
     replace: "Zamień ćwiczenie",
     remove: "Usuń ćwiczenie",
-    notImplemented: "Ta funkcja będzie dostępna wkrótce.",
   },
   removeExercise: {
     confirmTitle: "Usunąć ćwiczenie?",

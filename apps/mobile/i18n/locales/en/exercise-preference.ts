@@ -1,4 +1,5 @@
 export const exercisePreference = {
+  close: "Close exercise preference",
   sheet: {
     title: "Exercise Preference",
   },

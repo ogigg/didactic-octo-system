@@ -61,14 +61,23 @@ export const workout = {
   rpe: {
     title: "Rate of Perceived Exertion",
     select: "Select RPE",
+    close: "Close RPE picker",
     explanation:
       "How hard the set felt: 1 is very easy, 10 is your max effort.",
   },
   menu: {
     reorder: "Reorder Exercise",
+    reorderTitle: "Exercise order",
+    reorderHint: "Drag the handles, or use the arrow buttons.",
+    position: "{{position}} of {{total}}",
+    dragExercise: "Drag {{exerciseName}} to reorder",
+    moveExerciseEarlier: "Move {{exerciseName}} earlier",
+    moveExerciseLater: "Move {{exerciseName}} later",
+    closeReorder: "Close exercise reorder",
+    done: "Done",
+    close: "Close exercise options",
     replace: "Replace Exercise",
     remove: "Remove Exercise",
-    notImplemented: "This feature will be available soon.",
   },
   removeExercise: {
     confirmTitle: "Remove Exercise?",

@@ -136,6 +136,34 @@ describe("mapWorkoutStoreToDb", () => {
     expect(exercise.sets).toHaveLength(3);
   });
 
+  it("saves exercises in their current workout order", () => {
+    const reorderedSummary: WorkoutSummary = {
+      ...mockSummary,
+      exercises: [
+        {
+          ...mockSummary.exercises[0]!,
+          id: "exercise-2",
+          name: "Incline Press",
+        },
+        mockSummary.exercises[0]!,
+      ],
+    };
+
+    const result = mapWorkoutStoreToDb(reorderedSummary, {
+      goalSnapshot: "build_strength",
+    });
+
+    expect(
+      result.exercises.map((exercise) => ({
+        id: exercise.sessionExercise.exercise_id,
+        order: exercise.sessionExercise.order_index,
+      }))
+    ).toEqual([
+      { id: "exercise-2", order: 0 },
+      { id: "exercise-1", order: 1 },
+    ]);
+  });
+
   it("converts string kg/reps to numbers", () => {
     const result = mapWorkoutStoreToDb(mockSummary, {
       goalSnapshot: "build_strength",

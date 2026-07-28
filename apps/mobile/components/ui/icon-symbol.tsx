@@ -59,6 +59,7 @@ const MAPPING = {
   nosign: "block",
   "arrow.up": "arrow-upward",
   "arrow.down": "arrow-downward",
+  "line.3.horizontal": "drag-handle",
   pencil: "edit",
   "exclamationmark.triangle.fill": "warning",
   "person.crop.circle.badge.xmark": "person-off",
