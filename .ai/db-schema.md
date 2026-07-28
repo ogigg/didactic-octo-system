@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Explain the current database model at a level that is useful for humans and AI agents, while treating `supabase/migrations` as the authoritative schema source.
-> **Last reviewed:** 2026-06-15
+> **Last reviewed:** 2026-07-16
 
 ## Source Of Truth
 
@@ -353,6 +353,7 @@ Notes:
 - unique on `session_set_id`, so each planned set has at most one log row
 - completion rules allow either weight/reps completion or duration completion
 - this is one of the highest-value tables for progression, stats, and exercise history
+- set-level `rpe` feeds `get_exercise_progression_history.working_sets` and the deterministic progression engine; null RPE remains valid for backward compatibility
 
 ## Progress And Personalization
 
@@ -508,6 +509,7 @@ exercises
 When database-related work touches behavior, also inspect `supabase/migrations` for:
 
 - workout detail / history RPCs
+- progression history RPC (`get_exercise_progression_history`)
 - stats RPCs
 - exercise detail RPCs
 - measurement history RPCs
@@ -515,3 +517,26 @@ When database-related work touches behavior, also inspect `supabase/migrations` 
 - streak protection RPCs
 
 Those functions are part of the practical database interface even though they are not tables.
+
+### `get_exercise_progression_history`
+
+Purpose:
+
+- returns the most recent completed performance for each requested exercise so the deterministic progression engine can override generated targets
+
+Return shape (per exercise):
+
+- `exercise_id`
+- `exercise_type`: `weight` or `time`
+- `session_id`: source completed `workout_sessions.id`
+- `session_completed_at`
+- `difficulty_feedback`
+- `working_sets`: JSON array of completed working-set logs with `load_kg`, `reps`, `duration_seconds`, `rpe`, and `completed`
+
+Invariants:
+
+- only `completed` sessions contribute
+- only `working` sets are included (warmup sets are excluded)
+- authenticated callers can request only their own history; `service_role` retains server-side access for generation
+- `rpe` may be null on older logs; missing RPE must not break consumers
+- progression decisions that hold load/reps/duration when any completed working-set RPE is `>= 9` rely on this RPC surface

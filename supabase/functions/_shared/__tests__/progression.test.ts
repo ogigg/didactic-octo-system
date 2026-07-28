@@ -1,5 +1,9 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { calculateProgression, type ExerciseHistory } from "../progression.ts";
+import {
+  calculateProgression,
+  PROGRESSION_REASON_CODES,
+  type ExerciseHistory,
+} from "../progression.ts";
 
 const NOW = new Date("2026-04-05T12:00:00Z");
 const RECENT = "2026-04-02T12:00:00Z"; // 3 days ago
@@ -11,6 +15,7 @@ function makeHistory(
   return {
     exercise_id: "ex-1",
     exercise_type: "weight",
+    session_id: "session-1",
     session_completed_at: RECENT,
     difficulty_feedback: null,
     working_sets: [
@@ -65,6 +70,8 @@ Deno.test("holds weight/reps when session is stale (>14 days)", () => {
   assertEquals(result?.progression_type, "maintained");
   assertEquals(result?.target_load_kg, 40);
   assertEquals(result?.target_reps, 8); // worst set
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.STALE_HISTORY);
+  assertEquals(result?.evidence.max_rpe, null);
 });
 
 // ---------------------------------------------------------------------------
@@ -81,6 +88,7 @@ Deno.test("holds when feedback is too_hard", () => {
   assertEquals(result?.progression_type, "maintained");
   assertEquals(result?.target_load_kg, 40);
   assertEquals(result?.target_reps, 8);
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.FEEDBACK_TOO_HARD);
 });
 
 // ---------------------------------------------------------------------------
@@ -97,6 +105,7 @@ Deno.test("bumps weight when feedback is too_easy (barbell)", () => {
   assertEquals(result?.progression_type, "weight_up");
   assertEquals(result?.target_load_kg, 42.5); // +2.5kg barbell
   assertEquals(result?.target_reps, 8); // reset to min of hypertrophy range
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY);
 });
 
 Deno.test("bumps weight when feedback is too_easy (dumbbell)", () => {
@@ -123,6 +132,123 @@ Deno.test("increases reps when too_easy but bodyweight", () => {
 });
 
 // ---------------------------------------------------------------------------
+// RPE precedence
+// ---------------------------------------------------------------------------
+
+Deno.test("holds when any completed working-set RPE is >= 9", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [
+        { load_kg: 40, reps: 12, completed: true, rpe: 7 },
+        { load_kg: 40, reps: 12, completed: true, rpe: 9 },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "maintained");
+  assertEquals(result?.target_load_kg, 40);
+  assertEquals(result?.target_reps, 12);
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.HIGH_RPE);
+  assertEquals(result?.evidence.max_rpe, 9);
+});
+
+Deno.test("too_easy plus RPE >= 9 maintains with conflict reason", () => {
+  const result = calculateProgression(
+    makeHistory({
+      difficulty_feedback: "too_easy",
+      working_sets: [
+        { load_kg: 40, reps: 10, completed: true, rpe: 8 },
+        { load_kg: 40, reps: 10, completed: true, rpe: 10 },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "maintained");
+  assertEquals(result?.target_load_kg, 40);
+  assertEquals(result?.target_reps, 10);
+  assertEquals(
+    result?.reason_code,
+    PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY_HIGH_RPE_CONFLICT
+  );
+  assertEquals(result?.evidence.max_rpe, 10);
+  assertEquals(result?.evidence.difficulty_feedback, "too_easy");
+});
+
+Deno.test("too_hard takes precedence over high RPE for reason code", () => {
+  const result = calculateProgression(
+    makeHistory({
+      difficulty_feedback: "too_hard",
+      working_sets: [{ load_kg: 40, reps: 8, completed: true, rpe: 9 }],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "maintained");
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.FEEDBACK_TOO_HARD);
+  assertEquals(result?.evidence.max_rpe, 9);
+});
+
+Deno.test("missing RPE remains backward compatible and progresses", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [
+        { load_kg: 40, reps: 12, completed: true },
+        { load_kg: 40, reps: 12, completed: true, rpe: null },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "weight_up");
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.WEIGHT_INCREMENT);
+  assertEquals(result?.evidence.max_rpe, null);
+});
+
+Deno.test("RPE below 9 does not block normal progression", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [
+        { load_kg: 40, reps: 10, completed: true, rpe: 7 },
+        { load_kg: 40, reps: 8, completed: true, rpe: 8 },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "reps_up");
+  assertEquals(result?.target_reps, 10);
+  assertEquals(
+    result?.reason_code,
+    PROGRESSION_REASON_CODES.REP_RANGE_INCREASE
+  );
+  assertEquals(result?.evidence.max_rpe, 8);
+});
+
+Deno.test("incomplete sets with high RPE are ignored", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [
+        { load_kg: 40, reps: 12, completed: true, rpe: 7 },
+        { load_kg: 40, reps: 12, completed: false, rpe: 10 },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "weight_up");
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.WEIGHT_INCREMENT);
+  assertEquals(result?.evidence.max_rpe, 7);
+});
+
+// ---------------------------------------------------------------------------
 // Normal progression: reps below top of range
 // ---------------------------------------------------------------------------
 
@@ -136,6 +262,10 @@ Deno.test("increases reps when below top of hypertrophy range", () => {
   assertEquals(result?.progression_type, "reps_up");
   assertEquals(result?.target_load_kg, 40);
   assertEquals(result?.target_reps, 10); // worst (8) + 2
+  assertEquals(
+    result?.reason_code,
+    PROGRESSION_REASON_CODES.REP_RANGE_INCREASE
+  );
 });
 
 Deno.test("caps reps at top of range", () => {
@@ -177,6 +307,10 @@ Deno.test(
     assertEquals(result?.progression_type, "weight_up");
     assertEquals(result?.target_load_kg, 42.5); // +2.5kg barbell
     assertEquals(result?.target_reps, 8); // reset to min
+    assertEquals(
+      result?.reason_code,
+      PROGRESSION_REASON_CODES.WEIGHT_INCREMENT
+    );
   }
 );
 
@@ -230,6 +364,10 @@ Deno.test(
     assertEquals(result?.progression_type, "reps_up");
     assertEquals(result?.target_load_kg, 0);
     assertEquals(result?.target_reps, 14); // 12 + 2
+    assertEquals(
+      result?.reason_code,
+      PROGRESSION_REASON_CODES.REP_RANGE_INCREASE
+    );
   }
 );
 
@@ -324,4 +462,96 @@ Deno.test("returns null when all sets are incomplete", () => {
     NOW
   );
   assertEquals(result, null);
+});
+
+// ---------------------------------------------------------------------------
+// Time exercises
+// ---------------------------------------------------------------------------
+
+Deno.test("time exercise: increments duration when feedback is ok", () => {
+  const result = calculateProgression(
+    makeHistory({
+      exercise_type: "time",
+      working_sets: [
+        { load_kg: null, reps: null, duration_seconds: 45, completed: true },
+        { load_kg: null, reps: null, duration_seconds: 40, completed: true },
+      ],
+    }),
+    ["bodyweight"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "reps_up");
+  assertEquals(result?.target_duration_seconds, 55); // 45 + 10
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.TIME_INCREMENT);
+  assertEquals(result?.previous_display, "0:45");
+});
+
+Deno.test("time exercise: larger bump when too_easy without high RPE", () => {
+  const result = calculateProgression(
+    makeHistory({
+      exercise_type: "time",
+      difficulty_feedback: "too_easy",
+      working_sets: [
+        {
+          load_kg: null,
+          reps: null,
+          duration_seconds: 60,
+          completed: true,
+          rpe: 6,
+        },
+      ],
+    }),
+    ["bodyweight"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.target_duration_seconds, 75); // 60 + 15
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY);
+  assertEquals(result?.evidence.max_rpe, 6);
+});
+
+Deno.test("time exercise: holds when RPE >= 9", () => {
+  const result = calculateProgression(
+    makeHistory({
+      exercise_type: "time",
+      difficulty_feedback: "too_easy",
+      working_sets: [
+        {
+          load_kg: null,
+          reps: null,
+          duration_seconds: 60,
+          completed: true,
+          rpe: 9,
+        },
+      ],
+    }),
+    ["bodyweight"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "maintained");
+  assertEquals(result?.target_duration_seconds, 60);
+  assertEquals(
+    result?.reason_code,
+    PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY_HIGH_RPE_CONFLICT
+  );
+});
+
+Deno.test("time exercise: holds when stale", () => {
+  const result = calculateProgression(
+    makeHistory({
+      exercise_type: "time",
+      session_completed_at: STALE,
+      working_sets: [
+        { load_kg: null, reps: null, duration_seconds: 90, completed: true },
+      ],
+    }),
+    ["bodyweight"],
+    "hypertrophy",
+    NOW
+  );
+  assertEquals(result?.progression_type, "maintained");
+  assertEquals(result?.target_duration_seconds, 90);
+  assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.STALE_HISTORY);
 });
