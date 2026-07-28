@@ -66,6 +66,7 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Keep user-facing strings in `i18n/locales/en`.
 - Validate external and AI-generated data with Zod before it drives UI behavior.
 - Optimize for mobile realities: interrupted sessions, offline-sensitive flows, and fast in-workout interactions.
+- The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
 
 ## Testing
 

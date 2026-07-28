@@ -1,9 +1,14 @@
-import { Redirect, Tabs } from "expo-router";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Redirect } from "expo-router";
+import {
+  Icon,
+  Label,
+  NativeTabs,
+  VectorIcon,
+} from "expo-router/unstable-native-tabs";
 import React from "react";
 import { useTranslation } from "react-i18next";
 
-import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -18,42 +23,36 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].primary,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: { backgroundColor: "transparent" },
-        sceneStyle: { backgroundColor: "transparent" },
-      }}
+    <NativeTabs
+      disableTransparentOnScrollEdge
+      iconColor={Colors[colorScheme ?? "light"].textSecondary}
+      indicatorColor={Colors[colorScheme ?? "light"].primarySurface}
+      minimizeBehavior="onScrollDown"
+      tintColor={Colors[colorScheme ?? "light"].primary}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t("nav.home"),
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={22} name="house.fill" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          title: "Calendar",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={22} name="calendar" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t("nav.profile"),
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={22} name="person.fill" color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+      <NativeTabs.Trigger name="index">
+        <Label>{t("nav.home")}</Label>
+        <Icon
+          sf={{ default: "house", selected: "house.fill" }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="home" />}
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="calendar">
+        <Label>{t("nav.calendar")}</Label>
+        <Icon
+          sf="calendar"
+          androidSrc={
+            <VectorIcon family={MaterialIcons} name="calendar-today" />
+          }
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="profile">
+        <Label>{t("nav.profile")}</Label>
+        <Icon
+          sf={{ default: "person", selected: "person.fill" }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="person" />}
+        />
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }

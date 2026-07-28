@@ -1,11 +1,11 @@
 import type { WorkoutSession } from "@/components/calendar/types";
 import { MonthBlock, getMonthHeight } from "@/components/calendar/month-block";
+import { TabScreen } from "@/components/ui/tab-screen";
 import { Spacing } from "@/constants/theme";
 import { useCalendarEntries } from "@/hooks/use-calendar-entries";
-import { useThemeColor } from "@/hooks/use-theme-color";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface MonthItem {
@@ -39,7 +39,6 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { getEntriesForMonth, isLoading } = useCalendarEntries();
-  const background = useThemeColor({}, "background");
 
   const handleDayPress = useCallback(
     (dateKey: string, sessions: WorkoutSession[]) => {
@@ -56,7 +55,7 @@ export default function CalendarScreen() {
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
+    <TabScreen>
       <FlatList
         data={MONTHS}
         keyExtractor={(item) => `${item.year}-${item.month}`}
@@ -82,14 +81,11 @@ export default function CalendarScreen() {
           />
         )}
       />
-    </View>
+    </TabScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
   content: {
     paddingHorizontal: Spacing.xl,
   },
