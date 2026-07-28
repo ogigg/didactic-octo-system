@@ -1,12 +1,16 @@
 import { AmbientGlow } from "@/components/ambient-glow";
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
 import { BackButton } from "@/components/ui/back-button";
+import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HeartRateChart } from "@/components/workout/heart-rate-chart";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useHeartRateSamples } from "@/hooks/use-heart-rate-samples";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useDeleteSessionExercise } from "@/hooks/use-workout-mutations";
+import {
+  useDeleteSessionExercise,
+  useDeleteWorkoutSession,
+} from "@/hooks/use-workout-mutations";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import { useCommentsForSession } from "@/hooks/use-workout-session-comments";
 import {
@@ -16,7 +20,9 @@ import {
 import type { WorkoutDetail } from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
-import { useLocalSearchParams } from "expo-router";
+import { useToastStore } from "@/stores/toast-store";
+import * as Haptics from "expo-haptics";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -44,9 +50,9 @@ function formatDuration(
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function formatDate(dateStr: string | null): string {
+function formatDate(dateStr: string | null, locale?: string): string {
   if (!dateStr) return "";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     weekday: "long",
     month: "short",
     day: "numeric",
@@ -82,8 +88,10 @@ function countCompletedSets(detail: WorkoutDetail): number {
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function WorkoutDetailScreen() {
-  const { t } = useTranslation("history");
+  const { i18n, t } = useTranslation("history");
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const showSuccess = useToastStore((state) => state.showSuccess);
 
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -100,6 +108,7 @@ export default function WorkoutDetailScreen() {
   const wu = useWeightUnit();
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
   const deleteSessionExerciseMutation = useDeleteSessionExercise();
+  const deleteWorkoutSessionMutation = useDeleteWorkoutSession();
   const { data: sessionComments } = useCommentsForSession(id ?? null);
   const detailExerciseIds = useMemo(
     () => detail?.exercises.map((exercise) => exercise.exercise_id) ?? [],
@@ -133,6 +142,64 @@ export default function WorkoutDetailScreen() {
     },
     [deleteSessionExerciseMutation, t]
   );
+
+  const handleDeleteWorkout = useCallback(() => {
+    const workoutName = detail?.name ?? t("detail.fallbackName");
+    const workoutDate =
+      formatDate(
+        detail?.completed_at ?? null,
+        i18n.resolvedLanguage ?? i18n.language
+      ) || t("detail.deleteWorkout.unknownDate");
+
+    Alert.alert(
+      t("detail.deleteWorkout.confirmTitle"),
+      t("detail.deleteWorkout.confirmMessage", {
+        workoutName,
+        workoutDate,
+      }),
+      [
+        { text: t("detail.deleteWorkout.cancel"), style: "cancel" },
+        {
+          text: t("detail.deleteWorkout.remove"),
+          style: "destructive",
+          onPress: () => {
+            void Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Warning
+            ).catch(() => {});
+
+            deleteWorkoutSessionMutation.mutate(id ?? "", {
+              onSuccess: () => {
+                void Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success
+                ).catch(() => {});
+                showSuccess(t("detail.deleteWorkout.success"));
+                router.back();
+              },
+              onError: () => {
+                void Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Error
+                ).catch(() => {});
+                Alert.alert(
+                  t("detail.deleteWorkout.errorTitle"),
+                  t("detail.deleteWorkout.errorMessage")
+                );
+              },
+            });
+          },
+        },
+      ]
+    );
+  }, [
+    deleteWorkoutSessionMutation,
+    detail?.completed_at,
+    detail?.name,
+    id,
+    i18n.language,
+    i18n.resolvedLanguage,
+    router,
+    showSuccess,
+    t,
+  ]);
 
   // Heart rate (cache-only read from Apple Health, iOS-only)
   const hrStartedAt = useMemo(
@@ -191,10 +258,13 @@ export default function WorkoutDetailScreen() {
               style={[Typography.titleSm, { color: textColor }]}
               numberOfLines={1}
             >
-              {detail.name ?? "Workout"}
+              {detail.name ?? t("detail.fallbackName")}
             </Text>
             <Text style={[Typography.caption, { color: textSecondary }]}>
-              {formatDate(detail.completed_at)}
+              {formatDate(
+                detail.completed_at,
+                i18n.resolvedLanguage ?? i18n.language
+              )}
             </Text>
           </View>
         </View>
@@ -414,6 +484,19 @@ export default function WorkoutDetailScreen() {
             titleColor={textColor}
             backgroundColor={backgroundElevated}
             borderColor={border}
+          />
+
+          <Button
+            accessibilityLabel={t("detail.deleteWorkout.accessibilityLabel")}
+            icon="trash"
+            label={t(
+              deleteWorkoutSessionMutation.isPending
+                ? "detail.deleteWorkout.deleting"
+                : "detail.deleteWorkout.button"
+            )}
+            loading={deleteWorkoutSessionMutation.isPending}
+            onPress={handleDeleteWorkout}
+            variant="destructive"
           />
         </ScrollView>
       </SafeAreaView>

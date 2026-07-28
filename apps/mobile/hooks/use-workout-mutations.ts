@@ -1,12 +1,22 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type InfiniteData,
+  type QueryKey,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { useAuth } from "@/hooks/use-auth";
 import { recordComebackEvent } from "@/lib/api/streak-protection";
 import { mapWorkoutStoreToDb } from "@/lib/api/workout-mappers";
-import type { SetLogInput } from "@/lib/api/workouts";
+import type {
+  CalendarSessionRow,
+  SetLogInput,
+  WorkoutHistoryItem,
+} from "@/lib/api/workouts";
 import {
   createWorkoutSession,
   deleteSessionExercise,
+  deleteWorkoutSession,
   updateExerciseDifficultyFeedback,
   updateWorkoutSession,
   upsertSessionExercises,
@@ -14,6 +24,10 @@ import {
   upsertSetLog,
 } from "@/lib/api/workouts";
 import { consumeComebackWorkoutMarker } from "@/lib/comeback-workout";
+import {
+  cancelWorkoutHealthRetry,
+  deleteWorkout as deleteHealthWorkout,
+} from "@/lib/health";
 import { promptAndSyncWorkout } from "@/lib/health/prompt";
 import {
   calendarKeys,
@@ -21,6 +35,7 @@ import {
   statsKeys,
   streakProtectionKeys,
   workoutKeys,
+  workoutSessionCommentKeys,
   workoutStatsKeys,
 } from "@/lib/query-keys";
 import { syncQueue } from "@/lib/sync-queue";
@@ -44,6 +59,11 @@ export interface SavedExerciseOccurrence {
 export interface SavedWorkoutResult {
   id: string;
   exerciseOccurrences: SavedExerciseOccurrence[];
+}
+
+interface DeleteWorkoutMutationContext {
+  workoutQueries: [QueryKey, unknown][];
+  calendarQueries: [QueryKey, unknown][];
 }
 
 export function useSaveCompletedWorkout() {
@@ -198,6 +218,98 @@ export function useDeleteSessionExercise() {
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
       queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+    },
+  });
+}
+
+export function useDeleteWorkoutSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const deleted = await deleteWorkoutSession(sessionId);
+
+      await cancelWorkoutHealthRetry(sessionId);
+
+      if (deleted.health_record_id) {
+        try {
+          await deleteHealthWorkout(deleted.health_record_id);
+        } catch (error) {
+          // Platform health cleanup is best-effort and must not resurrect or
+          // block deletion of the app's canonical workout record.
+          console.warn("Health workout deletion failed:", error);
+        }
+      }
+
+      return deleted;
+    },
+    onMutate: async (sessionId): Promise<DeleteWorkoutMutationContext> => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: workoutKeys.all }),
+        queryClient.cancelQueries({ queryKey: calendarKeys.all }),
+      ]);
+
+      const context = {
+        workoutQueries: queryClient.getQueriesData({
+          queryKey: workoutKeys.all,
+        }),
+        calendarQueries: queryClient.getQueriesData({
+          queryKey: calendarKeys.all,
+        }),
+      };
+
+      queryClient.setQueriesData<
+        InfiniteData<WorkoutHistoryItem[]> | undefined
+      >({ queryKey: [...workoutKeys.all, "list"] }, (history) =>
+        history
+          ? {
+              ...history,
+              pages: history.pages.map((page) =>
+                page.filter((workout) => workout.id !== sessionId)
+              ),
+            }
+          : history
+      );
+
+      queryClient.setQueriesData<WorkoutHistoryItem[] | undefined>(
+        { queryKey: [...workoutKeys.all, "forDay"] },
+        (workouts) =>
+          workouts?.filter((workout) => workout.id !== sessionId) ?? workouts
+      );
+
+      queryClient.setQueriesData<CalendarSessionRow[] | undefined>(
+        { queryKey: calendarKeys.all },
+        (entries) =>
+          entries?.filter((entry) => entry.id !== sessionId) ?? entries
+      );
+
+      return context;
+    },
+    onError: (_error, _sessionId, context) => {
+      context?.workoutQueries.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+      context?.calendarQueries.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+    onSuccess: (_deleted, sessionId) => {
+      queryClient.removeQueries({
+        queryKey: [...workoutKeys.all, "detail"],
+        predicate: (query) =>
+          query.queryKey[query.queryKey.length - 1] === sessionId,
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: exerciseDetailKeys.all });
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all });
+      queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: statsKeys.all });
+      queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: workoutSessionCommentKeys.all,
+      });
     },
   });
 }

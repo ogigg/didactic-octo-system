@@ -17,6 +17,7 @@ export const history = {
     moreExercises: "+{{count}} more",
   },
   detail: {
+    fallbackName: "Workout",
     muscleDistribution: "Muscle Distribution",
     noMuscleData: "No muscle data available",
     heartRate: {
@@ -45,6 +46,20 @@ export const history = {
       cancel: "Cancel",
       remove: "Remove",
       errorTitle: "Could not remove exercise",
+      errorMessage: "Try again in a moment.",
+    },
+    deleteWorkout: {
+      accessibilityLabel: "Delete this workout",
+      button: "Delete workout permanently",
+      deleting: "Deleting workout…",
+      confirmTitle: "Delete workout?",
+      confirmMessage:
+        "“{{workoutName}}” from {{workoutDate}} and all its logged data will be permanently deleted. It will no longer appear in history or affect statistics and future workouts.",
+      unknownDate: "an unknown date",
+      cancel: "Cancel",
+      remove: "Delete permanently",
+      success: "Workout deleted from your history.",
+      errorTitle: "Could not delete workout",
       errorMessage: "Try again in a moment.",
     },
   },

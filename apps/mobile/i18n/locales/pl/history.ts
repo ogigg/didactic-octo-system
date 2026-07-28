@@ -17,6 +17,7 @@ export const history = {
     moreExercises: "+{{count}} więcej",
   },
   detail: {
+    fallbackName: "Trening",
     muscleDistribution: "Rozkład mięśni",
     noMuscleData: "Brak danych o mięśniach",
     heartRate: {
@@ -45,6 +46,20 @@ export const history = {
       cancel: "Anuluj",
       remove: "Usuń",
       errorTitle: "Nie udało się usunąć ćwiczenia",
+      errorMessage: "Spróbuj ponownie za chwilę.",
+    },
+    deleteWorkout: {
+      accessibilityLabel: "Usuń ten trening",
+      button: "Usuń trening na stałe",
+      deleting: "Usuwanie treningu…",
+      confirmTitle: "Usunąć trening?",
+      confirmMessage:
+        "Trening „{{workoutName}}” z dnia {{workoutDate}} i wszystkie zapisane dane zostaną trwale usunięte. Trening zniknie z historii i nie będzie wpływać na statystyki ani przyszłe treningi.",
+      unknownDate: "nieznanego dnia",
+      cancel: "Anuluj",
+      remove: "Usuń na stałe",
+      success: "Trening został usunięty z historii.",
+      errorTitle: "Nie udało się usunąć treningu",
       errorMessage: "Spróbuj ponownie za chwilę.",
     },
   },

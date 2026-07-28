@@ -16,6 +16,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
+import { ToastHost } from "@/components/ui/toast-host";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useDeepLinks } from "@/hooks/use-deep-links";
@@ -222,6 +223,7 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
               </Stack>
+              <ToastHost />
               <StatusBar style="auto" />
             </ThemeProvider>
           </QueryClientProvider>

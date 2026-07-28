@@ -54,6 +54,11 @@ export async function enqueueRetry(
   await writeQueue(filtered);
 }
 
+export async function cancelRetry(sessionId: string): Promise<void> {
+  const entries = await readQueue();
+  await writeQueue(entries.filter((entry) => entry.sessionId !== sessionId));
+}
+
 export async function drainQueue(): Promise<
   { sessionId: string; payload: HealthWorkoutPayload }[]
 > {

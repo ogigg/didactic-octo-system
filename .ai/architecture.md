@@ -106,6 +106,17 @@ User performs workout
 -> future workout generation can use this history
 ```
 
+### Workout History Deletion
+
+```text
+User confirms permanent deletion from workout detail
+-> client removes the workout optimistically from history and calendar caches
+-> authenticated database RPC verifies ownership and completed status
+-> workout row deletion cascades to exercises, sets, logs, and session comments
+-> statistics, progression, streak, and generation caches are invalidated
+-> queued or linked platform-health records are cleaned up when supported
+```
+
 ## Validation And Safety
 
 Validation happens in layers:

@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import {
   createWorkoutSession,
   deleteSessionExercise,
+  deleteWorkoutSession,
   fetchPreviousSetDisplays,
   fetchWorkoutDetail,
   fetchWorkoutSessions,
@@ -302,6 +303,48 @@ describe("deleteSessionExercise", () => {
     await expect(
       deleteSessionExercise("550e8400-e29b-41d4-a716-446655440020")
     ).rejects.toThrow("RLS violation");
+  });
+});
+
+describe("deleteWorkoutSession", () => {
+  it("deletes the owned completed workout through the verified RPC", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [{ id: validSession.id, health_record_id: "health-record-id" }],
+      error: null,
+    });
+
+    const result = await deleteWorkoutSession(validSession.id);
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("delete_workout_session", {
+      p_session_id: validSession.id,
+    });
+    expect(result).toEqual({
+      id: validSession.id,
+      health_record_id: "health-record-id",
+    });
+  });
+
+  it("surfaces database errors", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: null,
+      error: { message: "Completed workout not found" },
+    });
+
+    await expect(deleteWorkoutSession(validSession.id)).rejects.toThrow(
+      "Completed workout not found"
+    );
+  });
+
+  it("rejects an invalid deletion acknowledgement", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    await expect(deleteWorkoutSession(validSession.id)).rejects.toThrow();
   });
 });
 
