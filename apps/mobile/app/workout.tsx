@@ -4,6 +4,7 @@ import {
   type ExerciseOrderItem,
 } from "@/components/workout/exercise-reorder-sheet";
 import { CelebrationProvider } from "@/components/workout/celebration/celebration-provider";
+import { KeyboardDismissButton } from "@/components/workout/keyboard-dismiss-button";
 import { ReasoningDisclosure } from "@/components/workout/reasoning-disclosure";
 import { RestTimerBar } from "@/components/workout/rest-timer-bar";
 import { WarmupCard } from "@/components/workout/warmup-card";
@@ -405,6 +406,7 @@ export default function WorkoutScreen() {
               </TouchableWithoutFeedback>
               <RestTimerBar />
             </SafeAreaView>
+            <KeyboardDismissButton />
             <ExerciseReorderSheet
               visible={reorderExerciseId !== null}
               exercises={exerciseOrderItems}

@@ -153,7 +153,33 @@ describe("RestTimerBar", () => {
       expect(scheduleRestTimerCompletionNotification).toHaveBeenCalledWith({
         channelName: "Rest timer",
         title: "Rest complete",
-        body: "Time for your next set.",
+        body: "Up next: Bench Press, set 1",
+        endsAtMs: startedAtMs + 120_000,
+      });
+    });
+  });
+
+  it("schedules a final-set body that does not invent a next exercise", async () => {
+    useWorkoutStore.getState().clearWorkout();
+    useWorkoutStore.getState().startWorkout(
+      "Push day",
+      [
+        {
+          ...exercise,
+          sets: [{ ...exercise.sets[0], isCompleted: true }],
+        },
+      ],
+      undefined
+    );
+    useWorkoutStore.getState().startRestTimer("bench-press");
+
+    render(<RestTimerBar />);
+
+    await waitFor(() => {
+      expect(scheduleRestTimerCompletionNotification).toHaveBeenCalledWith({
+        channelName: "Rest timer",
+        title: "Rest complete",
+        body: "All sets done — finish strong!",
         endsAtMs: startedAtMs + 120_000,
       });
     });

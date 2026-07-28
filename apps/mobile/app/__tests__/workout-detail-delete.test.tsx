@@ -31,6 +31,11 @@ jest.mock("@/stores/toast-store", () => ({
   ),
 }));
 
+jest.mock("@/lib/workout-deletion-logger", () => ({
+  logWorkoutDeletionError: jest.fn(),
+  logWorkoutDeletionTrace: jest.fn(),
+}));
+
 jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));

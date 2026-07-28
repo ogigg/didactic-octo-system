@@ -103,6 +103,12 @@ export const workout = {
     channelName: "Rest timer",
     title: "Rest complete",
     body: "Time for your next set.",
+    bodyNextSet: "Up next: {{exerciseName}}, set {{number}}",
+    bodyNextSetOnly: "Up next: set {{number}}",
+    bodyNextWarmup: "Up next: {{exerciseName}}, warmup set",
+    bodyNextWarmupOnly: "Up next: warmup set",
+    bodyNextExercise: "Up next: {{exerciseName}}",
+    bodyAllDone: "All sets done — finish strong!",
     permissionDenied:
       "Enable notification sounds to hear rest timer alerts in the background.",
   },
@@ -200,6 +206,7 @@ export const workout = {
   keyboard: {
     next: "Next",
     done: "Done",
+    dismiss: "Dismiss keyboard",
   },
   finish: {
     confirmTitle: "Finish Workout?",

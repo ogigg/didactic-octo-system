@@ -103,6 +103,12 @@ export const workout = {
     channelName: "Minutnik odpoczynku",
     title: "Odpoczynek zakończony",
     body: "Czas na następną serię.",
+    bodyNextSet: "Następne: {{exerciseName}}, seria {{number}}",
+    bodyNextSetOnly: "Następne: seria {{number}}",
+    bodyNextWarmup: "Następne: {{exerciseName}}, seria rozgrzewkowa",
+    bodyNextWarmupOnly: "Następne: seria rozgrzewkowa",
+    bodyNextExercise: "Następne: {{exerciseName}}",
+    bodyAllDone: "Wszystkie serie zrobione — mocne zakończenie!",
     permissionDenied:
       "Włącz dźwięki powiadomień, aby słyszeć alerty minutnika w tle.",
   },
@@ -202,6 +208,7 @@ export const workout = {
   keyboard: {
     next: "Dalej",
     done: "Gotowe",
+    dismiss: "Ukryj klawiaturę",
   },
   finish: {
     confirmTitle: "Zakończyć trening?",

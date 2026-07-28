@@ -51,6 +51,10 @@ type Tab = "overview" | "history" | "howTo";
 
 const TAB_ORDER: Tab[] = ["overview", "history", "howTo"];
 
+function getDefaultExerciseDetailTab(hasExecutionHistory: boolean): Tab {
+  return hasExecutionHistory ? "overview" : "howTo";
+}
+
 function formatValue(value: number | null | undefined, suffix = ""): string {
   if (value == null || value <= 0) {
     return "-";
@@ -395,7 +399,7 @@ export default function ExerciseDetailScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
 
   const wu = useWeightUnit();
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [activeTab, setActiveTab] = useState<Tab | null>(null);
   const [prefSheetVisible, setPrefSheetVisible] = useState(false);
   const [pagerWidth, setPagerWidth] = useState(0);
   const [tabHeights, setTabHeights] = useState<Record<Tab, number>>({
@@ -405,6 +409,8 @@ export default function ExerciseDetailScreen() {
   });
   const tabOffsetX = useSharedValue(0);
   const tabDragX = useSharedValue(0);
+  const hasResolvedDefaultTabRef = useRef(false);
+  const hasUserSelectedTabRef = useRef(false);
 
   const {
     data: exercise,
@@ -430,13 +436,48 @@ export default function ExerciseDetailScreen() {
     [detail?.sessions]
   );
 
+  useEffect(() => {
+    hasResolvedDefaultTabRef.current = false;
+    hasUserSelectedTabRef.current = false;
+    setActiveTab(null);
+  }, [exerciseId]);
+
+  useEffect(() => {
+    if (hasResolvedDefaultTabRef.current || hasUserSelectedTabRef.current) {
+      return;
+    }
+
+    if (!exerciseId) {
+      hasResolvedDefaultTabRef.current = true;
+      setActiveTab("overview");
+      return;
+    }
+
+    if (detailLoading) {
+      return;
+    }
+
+    // Wait until the detail query settles so the first visible tab is final.
+    if (detail === undefined && !detailError) {
+      return;
+    }
+
+    const nextTab =
+      detailError && detail === undefined
+        ? "overview"
+        : getDefaultExerciseDetailTab(sessions.length > 0);
+
+    hasResolvedDefaultTabRef.current = true;
+    setActiveTab(nextTab);
+  }, [detail, detailError, detailLoading, exerciseId, sessions.length]);
+
   const tabOptions = [
     { key: "overview", label: t("tabs.overview") },
     { key: "history", label: t("tabs.history") },
     { key: "howTo", label: t("tabs.howTo") },
   ];
-  const activeTabIndex = TAB_ORDER.indexOf(activeTab);
-  const activeTabHeight = tabHeights[activeTab];
+  const activeTabIndex = activeTab ? TAB_ORDER.indexOf(activeTab) : -1;
+  const activeTabHeight = activeTab ? tabHeights[activeTab] : 0;
   const activeTabIndexRef = useRef(activeTabIndex);
   const pagerHeight = useSharedValue(0);
 
@@ -520,19 +561,29 @@ export default function ExerciseDetailScreen() {
     ]
   );
 
+  const markTabSelectedByUser = useCallback(() => {
+    hasUserSelectedTabRef.current = true;
+    hasResolvedDefaultTabRef.current = true;
+  }, []);
+
   const handleTabChange = useCallback(
     (tab: string) => {
       if (!TAB_ORDER.includes(tab as Tab)) {
         return;
       }
 
+      markTabSelectedByUser();
       animateTabChange(tab as Tab);
     },
-    [animateTabChange]
+    [animateTabChange, markTabSelectedByUser]
   );
 
   const handleSwipe = useCallback(
     (direction: "left" | "right") => {
+      if (activeTabIndex < 0) {
+        return;
+      }
+
       const nextIndex =
         direction === "left"
           ? Math.min(TAB_ORDER.length - 1, activeTabIndex + 1)
@@ -540,6 +591,7 @@ export default function ExerciseDetailScreen() {
       const nextTab = TAB_ORDER[nextIndex];
 
       if (nextTab && nextIndex !== activeTabIndex) {
+        markTabSelectedByUser();
         animateTabChange(nextTab);
         return;
       }
@@ -555,7 +607,14 @@ export default function ExerciseDetailScreen() {
         });
       }
     },
-    [activeTabHeight, activeTabIndex, animateTabChange, pagerHeight, tabDragX]
+    [
+      activeTabHeight,
+      activeTabIndex,
+      animateTabChange,
+      markTabSelectedByUser,
+      pagerHeight,
+      tabDragX,
+    ]
   );
 
   const pagerRowStyle = useAnimatedStyle(() => ({
@@ -995,81 +1054,91 @@ export default function ExerciseDetailScreen() {
               contentContainerStyle={styles.scroll}
               showsVerticalScrollIndicator={false}
             >
-              <PeriodSelector
-                selected={activeTab}
-                onChange={handleTabChange}
-                periods={tabOptions}
-                compact
-              />
+              {activeTab == null ? (
+                <LoadingPlaceholder />
+              ) : (
+                <>
+                  <PeriodSelector
+                    selected={activeTab}
+                    onChange={handleTabChange}
+                    periods={tabOptions}
+                    compact
+                  />
 
-              <Animated.View
-                onLayout={handlePagerLayout}
-                style={[
-                  styles.pagerViewport,
-                  activeTabHeight > 0 ? { minHeight: activeTabHeight } : null,
-                  activeTabHeight > 0 ? pagerViewportStyle : null,
-                ]}
-              >
-                <Animated.View
-                  style={[
-                    styles.pagerRow,
-                    pagerWidth > 0
-                      ? { width: pagerWidth * TAB_ORDER.length }
-                      : null,
-                    pagerRowStyle,
-                  ]}
-                >
-                  <View
+                  <Animated.View
+                    onLayout={handlePagerLayout}
                     style={[
-                      styles.pagerPanel,
-                      {
-                        width: pagerWidth || "100%",
-                        minHeight: activeTabHeight || undefined,
-                      },
+                      styles.pagerViewport,
+                      activeTabHeight > 0
+                        ? { minHeight: activeTabHeight }
+                        : null,
+                      activeTabHeight > 0 ? pagerViewportStyle : null,
                     ]}
                   >
-                    <View
-                      onLayout={(event) =>
-                        handleTabPanelLayout("overview", event)
-                      }
+                    <Animated.View
+                      style={[
+                        styles.pagerRow,
+                        pagerWidth > 0
+                          ? { width: pagerWidth * TAB_ORDER.length }
+                          : null,
+                        pagerRowStyle,
+                      ]}
                     >
-                      {renderOverview()}
-                    </View>
-                  </View>
-                  <View
-                    style={[
-                      styles.pagerPanel,
-                      {
-                        width: pagerWidth || "100%",
-                        minHeight: activeTabHeight || undefined,
-                      },
-                    ]}
-                  >
-                    <View
-                      onLayout={(event) =>
-                        handleTabPanelLayout("history", event)
-                      }
-                    >
-                      {renderHistory()}
-                    </View>
-                  </View>
-                  <View
-                    style={[
-                      styles.pagerPanel,
-                      {
-                        width: pagerWidth || "100%",
-                        minHeight: activeTabHeight || undefined,
-                      },
-                    ]}
-                  >
-                    <View
-                      onLayout={(event) => handleTabPanelLayout("howTo", event)}
-                    >
-                      {renderHowTo()}
-                    </View>
-                  </View>
-                </Animated.View>
-              </Animated.View>
+                      <View
+                        style={[
+                          styles.pagerPanel,
+                          {
+                            width: pagerWidth || "100%",
+                            minHeight: activeTabHeight || undefined,
+                          },
+                        ]}
+                      >
+                        <View
+                          onLayout={(event) =>
+                            handleTabPanelLayout("overview", event)
+                          }
+                        >
+                          {renderOverview()}
+                        </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.pagerPanel,
+                          {
+                            width: pagerWidth || "100%",
+                            minHeight: activeTabHeight || undefined,
+                          },
+                        ]}
+                      >
+                        <View
+                          onLayout={(event) =>
+                            handleTabPanelLayout("history", event)
+                          }
+                        >
+                          {renderHistory()}
+                        </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.pagerPanel,
+                          {
+                            width: pagerWidth || "100%",
+                            minHeight: activeTabHeight || undefined,
+                          },
+                        ]}
+                      >
+                        <View
+                          onLayout={(event) =>
+                            handleTabPanelLayout("howTo", event)
+                          }
+                        >
+                          {renderHowTo()}
+                        </View>
+                      </View>
+                    </Animated.View>
+                  </Animated.View>
+                </>
+              )}
             </ScrollView>
           </GestureDetector>
           <ExercisePreferenceSheet

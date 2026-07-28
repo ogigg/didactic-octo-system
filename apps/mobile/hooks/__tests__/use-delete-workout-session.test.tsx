@@ -18,6 +18,11 @@ jest.mock("@/lib/health/prompt", () => ({
   promptAndSyncWorkout: jest.fn(),
 }));
 
+jest.mock("@/lib/workout-deletion-logger", () => ({
+  logWorkoutDeletionError: jest.fn(),
+  logWorkoutDeletionTrace: jest.fn(),
+}));
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import type { PropsWithChildren } from "react";

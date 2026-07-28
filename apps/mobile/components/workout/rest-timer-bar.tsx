@@ -7,7 +7,12 @@ import {
   Typography,
 } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { formatRestCountdown, getRestTimerProgress } from "@/lib/rest-timer";
+import { buildRestTimerNotificationContent } from "@/lib/rest-timer-notification-content";
+import {
+  formatRestCountdown,
+  getNextUp,
+  getRestTimerProgress,
+} from "@/lib/rest-timer";
 import {
   cancelScheduledRestTimerNotification,
   scheduleRestTimerCompletionNotification,
@@ -16,7 +21,7 @@ import {
 import { playRestTimerCompleteSound } from "@/lib/rest-timer-sound";
 import { useWorkoutStore } from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AppState,
   type AppStateStatus,
@@ -35,8 +40,17 @@ export type { RestTimerProgress } from "@/lib/rest-timer";
 export function RestTimerBar() {
   const { t } = useTranslation("workout");
   const restTimer = useWorkoutStore((s) => s.restTimer);
+  const exercises = useWorkoutStore((s) => s.exercises);
   const adjustRestTimer = useWorkoutStore((s) => s.adjustRestTimer);
   const skipRestTimer = useWorkoutStore((s) => s.skipRestTimer);
+
+  const notificationContent = useMemo(() => {
+    if (!restTimer) return null;
+    return buildRestTimerNotificationContent(
+      t,
+      getNextUp(exercises, restTimer.exerciseId)
+    );
+  }, [exercises, restTimer, t]);
 
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const primary = useThemeColor({}, "primary");
@@ -85,7 +99,7 @@ export function RestTimerBar() {
   }, [restTimer]);
 
   useEffect(() => {
-    if (!restTimer) {
+    if (!restTimer || !notificationContent) {
       setNotificationStatus(null);
       void cancelScheduledRestTimerNotification();
       return;
@@ -96,9 +110,7 @@ export function RestTimerBar() {
     setNotificationStatus(null);
 
     scheduleRestTimerCompletionNotification({
-      channelName: t("restTimerNotification.channelName"),
-      title: t("restTimerNotification.title"),
-      body: t("restTimerNotification.body"),
+      ...notificationContent,
       endsAtMs,
     }).then((status) => {
       if (!isDisposed) setNotificationStatus(status);
@@ -108,7 +120,7 @@ export function RestTimerBar() {
       isDisposed = true;
       void cancelScheduledRestTimerNotification();
     };
-  }, [restTimer, t]);
+  }, [notificationContent, restTimer]);
 
   // Collapse the sheet whenever the timer goes away (skip, finish, etc.)
   useEffect(() => {

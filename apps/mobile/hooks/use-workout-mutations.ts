@@ -42,6 +42,10 @@ import { syncQueue } from "@/lib/sync-queue";
 import { trackEvent } from "@/lib/track-event";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
+import {
+  logWorkoutDeletionError,
+  logWorkoutDeletionTrace,
+} from "@/lib/workout-deletion-logger";
 
 interface SaveWorkoutInput {
   summary: WorkoutSummary;
@@ -227,20 +231,34 @@ export function useDeleteWorkoutSession() {
 
   return useMutation({
     mutationFn: async (sessionId: string) => {
+      logWorkoutDeletionTrace("mutation:start", { sessionId });
       const deleted = await deleteWorkoutSession(sessionId);
 
+      logWorkoutDeletionTrace("database:deleted", {
+        sessionId,
+        hasHealthRecord: deleted.health_record_id !== null,
+      });
+
       await cancelWorkoutHealthRetry(sessionId);
+      logWorkoutDeletionTrace("health-retry:cancelled", { sessionId });
 
       if (deleted.health_record_id) {
         try {
-          await deleteHealthWorkout(deleted.health_record_id);
+          const result = await deleteHealthWorkout(deleted.health_record_id);
+          logWorkoutDeletionTrace("health-record:delete-result", {
+            sessionId,
+            healthResult: result.ok ? "deleted" : result.reason,
+          });
         } catch (error) {
           // Platform health cleanup is best-effort and must not resurrect or
           // block deletion of the app's canonical workout record.
-          console.warn("Health workout deletion failed:", error);
+          logWorkoutDeletionError("health-record:error", error, {
+            sessionId,
+          });
         }
       }
 
+      logWorkoutDeletionTrace("mutation:success", { sessionId });
       return deleted;
     },
     onMutate: async (sessionId): Promise<DeleteWorkoutMutationContext> => {
@@ -257,6 +275,12 @@ export function useDeleteWorkoutSession() {
           queryKey: calendarKeys.all,
         }),
       };
+
+      logWorkoutDeletionTrace("cache:optimistic-remove", {
+        sessionId,
+        workoutQueryCount: context.workoutQueries.length,
+        calendarQueryCount: context.calendarQueries.length,
+      });
 
       queryClient.setQueriesData<
         InfiniteData<WorkoutHistoryItem[]> | undefined
@@ -285,13 +309,14 @@ export function useDeleteWorkoutSession() {
 
       return context;
     },
-    onError: (_error, _sessionId, context) => {
+    onError: (error, sessionId, context) => {
       context?.workoutQueries.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
       });
       context?.calendarQueries.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
       });
+      logWorkoutDeletionError("cache:rollback", error, { sessionId });
     },
     onSuccess: (_deleted, sessionId) => {
       queryClient.removeQueries({
@@ -300,7 +325,8 @@ export function useDeleteWorkoutSession() {
           query.queryKey[query.queryKey.length - 1] === sessionId,
       });
     },
-    onSettled: () => {
+    onSettled: (_data, _error, sessionId) => {
+      logWorkoutDeletionTrace("cache:invalidate", { sessionId });
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
       queryClient.invalidateQueries({ queryKey: exerciseDetailKeys.all });
       queryClient.invalidateQueries({ queryKey: calendarKeys.all });
