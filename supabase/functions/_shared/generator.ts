@@ -5,6 +5,7 @@ import {
   type ExerciseHistory,
   formatExerciseDuration,
 } from "./progression.ts";
+import { reportOperationalEvent } from "./observability.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -220,6 +221,28 @@ export interface GenerateWorkoutParams {
   history?: HistorySession[];
   recentComments?: RecentSessionComment[];
   regenerationFeedback?: string;
+}
+
+function classifyFallbackReason(error: unknown): string {
+  if (error instanceof z.ZodError) {
+    return "response_validation_failed";
+  }
+  if (error instanceof SyntaxError) {
+    return "response_json_invalid";
+  }
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "provider_timeout";
+  }
+  if (
+    error instanceof Error &&
+    error.message.startsWith("OpenRouter returned")
+  ) {
+    return "provider_http_error";
+  }
+  if (error instanceof Error && error.message === "Empty LLM response") {
+    return "provider_empty_response";
+  }
+  return "generation_exception";
 }
 
 // ---------------------------------------------------------------------------
@@ -788,8 +811,10 @@ export async function generateSingleWorkout(
   success: boolean;
   data?: z.infer<typeof generateWorkoutResponseSchema>;
   generationSource?: "llm" | "fallback_template" | "fallback_substitution";
+  fallbackReason?: string;
   error?: string;
 }> {
+  const generationStartedAt = Date.now();
   const {
     supabaseClient,
     userId,
@@ -811,6 +836,15 @@ export async function generateSingleWorkout(
   // Fetch exercise catalog
   const catalog = await fetchExerciseCatalog(supabaseClient, equipment);
   if (!catalog.length) {
+    reportOperationalEvent({
+      area: "generation",
+      operation: "generate_single_workout",
+      outcome: "failure",
+      journeyStage: "generation",
+      userId,
+      durationMs: Date.now() - generationStartedAt,
+      failureCode: "exercise_catalog_empty",
+    });
     return {
       success: false,
       error: "No exercises found for this equipment level",
@@ -822,6 +856,7 @@ export async function generateSingleWorkout(
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
   let generationSource: "llm" | "fallback_template" | "fallback_substitution" =
     "llm";
+  let fallbackReason: string | undefined;
   let workoutData: z.infer<typeof llmResponseSchema>;
 
   if (openrouterKey) {
@@ -875,8 +910,6 @@ export async function generateSingleWorkout(
       }
 
       const llmJson = await llmResponse.json();
-      console.log("llmJson", llmJson);
-      console.log("llmJson.choices", llmJson.choices);
       const msg = llmJson.choices?.[0]?.message;
       const content = msg?.content || msg?.reasoning;
       if (!content) throw new Error("Empty LLM response");
@@ -898,12 +931,15 @@ export async function generateSingleWorkout(
           hasSubstitutions = true;
         }
       }
-      if (hasSubstitutions) generationSource = "fallback_substitution";
+      if (hasSubstitutions) {
+        generationSource = "fallback_substitution";
+        fallbackReason = "unknown_exercise_substituted";
+      }
     } catch (err) {
-      console.error(
-        "[generator] LLM generation failed:",
-        err instanceof Error ? err.message : String(err)
-      );
+      fallbackReason = classifyFallbackReason(err);
+      console.error("[generator] LLM generation failed", {
+        fallbackReason,
+      });
       workoutData = buildFallbackWorkout(
         catalog,
         trainingSplit,
@@ -916,6 +952,7 @@ export async function generateSingleWorkout(
       generationSource = "fallback_template";
     }
   } else {
+    fallbackReason = "provider_key_missing";
     workoutData = buildFallbackWorkout(
       catalog,
       trainingSplit,
@@ -1030,7 +1067,7 @@ export async function generateSingleWorkout(
     };
   });
 
-  const response = generateWorkoutResponseSchema.parse({
+  const response = generateWorkoutResponseSchema.safeParse({
     workout_name: workoutData.workout_name,
     reasoning: workoutReasoning,
     warmup: workoutData.warmup,
@@ -1039,6 +1076,41 @@ export async function generateSingleWorkout(
     custom_goal_snapshot: profile.custom_goal ?? null,
     exercises: exercisesWithReasoning,
   });
+  if (!response.success) {
+    reportOperationalEvent({
+      area: "generation",
+      operation: "generate_single_workout",
+      outcome: "failure",
+      journeyStage: "generation",
+      userId,
+      durationMs: Date.now() - generationStartedAt,
+      failureCode: "output_validation_failed",
+      generationSource,
+      fallbackReason,
+    });
+    return {
+      success: false,
+      error: "Generated workout failed output validation",
+      generationSource,
+      fallbackReason,
+    };
+  }
 
-  return { success: true, data: response, generationSource };
+  reportOperationalEvent({
+    area: "generation",
+    operation: "generate_single_workout",
+    outcome: generationSource === "llm" ? "success" : "fallback",
+    journeyStage: "generation",
+    userId,
+    durationMs: Date.now() - generationStartedAt,
+    generationSource,
+    fallbackReason,
+  });
+
+  return {
+    success: true,
+    data: response.data,
+    generationSource,
+    fallbackReason,
+  };
 }

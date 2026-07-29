@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { FeedbackFormData } from "@/lib/schemas/feedback";
+import { reportHandledOperationalError } from "@/lib/operational-observability";
 
 interface SendFeedbackRequest extends FeedbackFormData {
   app_version?: string;
@@ -16,6 +17,12 @@ export async function sendFeedback(
   });
 
   if (error) {
+    reportHandledOperationalError({
+      area: "feedback",
+      operation: "feedback_delivery",
+      journeyStage: "profile",
+      failureCode: "edge_function_failed",
+    });
     throw new Error(error.message);
   }
 }

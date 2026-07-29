@@ -1,10 +1,10 @@
-const { getDefaultConfig } = require("expo/metro-config");
+const { getPostHogExpoConfig } = require("posthog-react-native/metro");
 const path = require("path");
 
 const projectRoot = __dirname;
 const monorepoRoot = path.resolve(projectRoot, "../..");
 
-const config = getDefaultConfig(projectRoot);
+const config = getPostHogExpoConfig(projectRoot);
 
 config.watchFolders = [monorepoRoot];
 config.resolver.disableHierarchicalLookup = true;

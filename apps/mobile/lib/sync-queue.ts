@@ -1,5 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import {
+  reportHandledOperationalError,
+  reportOperationalMetric,
+} from "@/lib/operational-observability";
+
 const STORAGE_KEY = "sync-queue";
 const MAX_RETRIES = 15;
 const MAX_BACKOFF_MS = 60_000;
@@ -13,6 +18,7 @@ export interface SyncQueueItem {
   nextRetryAt: number;
   createdAt: number;
   status: "pending" | "dead";
+  recoveryAttempted?: boolean;
 }
 
 type SyncHandler = (payload: unknown) => Promise<void>;
@@ -89,14 +95,46 @@ export class SyncQueue {
         const handler = this.handlers.get(item.operation);
         if (!handler) continue;
 
+        const deliveryStartedAt = Date.now();
         try {
           await handler(item.payload);
+          reportOperationalMetric({
+            area: "sync",
+            operation: item.operation,
+            journeyStage: "post_workout",
+            outcome:
+              item.retryCount > 0 || item.recoveryAttempted
+                ? "recovered"
+                : "success",
+            latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
+            queueAgeMs: Math.max(0, Date.now() - item.createdAt),
+            retryCount: item.retryCount,
+          });
           toRemove.push(i);
           changed = true;
         } catch {
           item.retryCount += 1;
           if (item.retryCount >= MAX_RETRIES) {
             item.status = "dead";
+            reportHandledOperationalError({
+              area: "sync",
+              operation: item.operation,
+              journeyStage: "post_workout",
+              failureCode: "sync_dead_letter",
+              latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
+              queueAgeMs: Math.max(0, Date.now() - item.createdAt),
+              retryCount: item.retryCount,
+            });
+          } else if (item.retryCount === 1) {
+            reportHandledOperationalError({
+              area: "sync",
+              operation: item.operation,
+              journeyStage: "post_workout",
+              failureCode: "sync_delivery_failed",
+              latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
+              queueAgeMs: Math.max(0, Date.now() - item.createdAt),
+              retryCount: item.retryCount,
+            });
           } else {
             const backoff = Math.min(
               1000 * Math.pow(2, item.retryCount),
@@ -140,6 +178,7 @@ export class SyncQueue {
         item.status = "pending";
         item.retryCount = 0;
         item.nextRetryAt = 0;
+        item.recoveryAttempted = true;
         changed = true;
       }
     }

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
+import { reportOperationalEvent } from "../_shared/observability.ts";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 const FROM_EMAIL = "gierszon10@gmail.com";
@@ -114,6 +115,9 @@ function buildEmailHtml(params: {
 }
 
 Deno.serve(async (req: Request) => {
+  const deliveryStartedAt = Date.now();
+  let observedUserId: string | undefined;
+
   console.log("[send-feedback] Request received", {
     method: req.method,
     url: req.url,
@@ -144,10 +148,20 @@ Deno.serve(async (req: Request) => {
     if (authError || !user) {
       return errorResponse("Unauthorized", 401);
     }
+    observedUserId = user.id;
 
     const body = await req.json();
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
+      reportOperationalEvent({
+        area: "feedback",
+        operation: "feedback_delivery",
+        outcome: "failure",
+        journeyStage: "profile",
+        userId: observedUserId,
+        durationMs: Date.now() - deliveryStartedAt,
+        failureCode: "request_validation_failed",
+      });
       return errorResponse(
         `Invalid request: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
         400
@@ -182,12 +196,30 @@ Deno.serve(async (req: Request) => {
 
     if (insertError || !feedback) {
       console.error("[send-feedback] Database insert error:", insertError);
+      reportOperationalEvent({
+        area: "feedback",
+        operation: "feedback_delivery",
+        outcome: "failure",
+        journeyStage: "profile",
+        userId: observedUserId,
+        durationMs: Date.now() - deliveryStartedAt,
+        failureCode: "database_insert_failed",
+      });
       return errorResponse("Failed to save feedback", 500);
     }
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
       console.error("[send-feedback] RESEND_API_KEY not configured");
+      reportOperationalEvent({
+        area: "feedback",
+        operation: "feedback_delivery",
+        outcome: "failure",
+        journeyStage: "profile",
+        userId: observedUserId,
+        durationMs: Date.now() - deliveryStartedAt,
+        failureCode: "email_provider_not_configured",
+      });
       return errorResponse("Email service not configured", 500);
     }
 
@@ -217,8 +249,18 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
-      console.error("[send-feedback] Resend API error:", errorText);
+      console.error("[send-feedback] Resend API error", {
+        status: emailResponse.status,
+      });
+      reportOperationalEvent({
+        area: "feedback",
+        operation: "feedback_delivery",
+        outcome: "failure",
+        journeyStage: "profile",
+        userId: observedUserId,
+        durationMs: Date.now() - deliveryStartedAt,
+        failureCode: "email_provider_failed",
+      });
       return errorResponse("Failed to send email notification", 500);
     }
 
@@ -227,10 +269,27 @@ Deno.serve(async (req: Request) => {
       userId: user.id,
       type,
     });
+    reportOperationalEvent({
+      area: "feedback",
+      operation: "feedback_delivery",
+      outcome: "success",
+      journeyStage: "profile",
+      userId: observedUserId,
+      durationMs: Date.now() - deliveryStartedAt,
+    });
 
     return jsonResponse({ success: true, id: feedback.id });
   } catch (err) {
     console.error("[send-feedback] Unhandled error:", err);
+    reportOperationalEvent({
+      area: "feedback",
+      operation: "feedback_delivery",
+      outcome: "failure",
+      journeyStage: "profile",
+      userId: observedUserId,
+      durationMs: Date.now() - deliveryStartedAt,
+      failureCode: "unhandled_exception",
+    });
     return errorResponse("Internal server error", 500);
   }
 });

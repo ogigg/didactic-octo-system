@@ -147,7 +147,12 @@ Important operational concerns include:
 - validation failure visibility for AI output issues
 - analytics that help understand activation, completion, and adherence
 
-This document describes the concern areas rather than promising a fixed monitoring stack forever.
+PostHog is currently the shared operational view. The mobile SDK autocaptures
+JavaScript and native crashes and emits allowlisted handled-error/sync signals;
+Supabase Edge Functions emit privacy-safe generation and feedback delivery
+events using pseudonymous user identifiers. Dashboard definitions, alerts, and
+incident ownership are documented in
+`project-wiki/guides/operational-observability.md`.
 
 ## Current Reality Vs Planned Direction
 

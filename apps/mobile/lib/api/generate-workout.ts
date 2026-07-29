@@ -1,4 +1,5 @@
 import { exerciseImageSchema } from "@/lib/exercise-media";
+import { reportHandledOperationalError } from "@/lib/operational-observability";
 import { supabase } from "@/lib/supabase";
 import { z } from "zod";
 
@@ -98,6 +99,26 @@ export async function generateWorkout(
     body: request,
   });
 
-  if (error) throw new Error(error.message);
-  return generateWorkoutResponseSchema.parse(data);
+  if (error) {
+    reportHandledOperationalError({
+      area: "generation",
+      operation: "direct_generation",
+      journeyStage: "generation",
+      failureCode: "edge_function_failed",
+    });
+    throw new Error(error.message);
+  }
+
+  const parsed = generateWorkoutResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    reportHandledOperationalError({
+      area: "generation",
+      operation: "direct_generation",
+      journeyStage: "generation",
+      failureCode: "response_validation_failed",
+    });
+    throw new Error("Invalid workout generation response");
+  }
+
+  return parsed.data;
 }
