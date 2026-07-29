@@ -170,20 +170,6 @@ export default function ExercisePickerScreen() {
     );
   }, [activeExercise]);
 
-  const replaceCurrentExercise = useCallback(
-    (exercise: Exercise) => {
-      if (!exerciseId) return;
-      replaceExercise(exerciseId, {
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
-      });
-      router.back();
-    },
-    [exerciseId, replaceExercise, router]
-  );
-
   const getPreviousDisplays = useCallback(
     async (exercise: Exercise) => {
       const previousSets: Record<string, PreviousSetValue[]> =
@@ -200,6 +186,22 @@ export default function ExercisePickerScreen() {
       return previousSets[exercise.id]?.map((set) => set.display) ?? [];
     },
     [weightUnit]
+  );
+
+  const replaceCurrentExercise = useCallback(
+    async (exercise: Exercise) => {
+      if (!exerciseId) return;
+      const previousDisplays = await getPreviousDisplays(exercise);
+      replaceExercise(exerciseId, {
+        id: exercise.id,
+        name: exercise.name,
+        image: exercise.image,
+        exerciseType: exercise.exercise_type,
+        previousDisplays,
+      });
+      router.back();
+    },
+    [exerciseId, getPreviousDisplays, replaceExercise, router]
   );
 
   const addBelowCurrentExercise = useCallback(

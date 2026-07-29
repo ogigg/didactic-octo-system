@@ -119,6 +119,7 @@ interface WorkoutActions {
       name: string;
       image?: ExerciseImageData;
       exerciseType?: "weight" | "time";
+      previousDisplays?: string[];
     }
   ) => void;
   startRestTimer: (exerciseId: string) => void;
@@ -212,7 +213,10 @@ function makeEmptySet(previousDisplay: string | null = null): WorkoutSet {
   };
 }
 
-function clearSetValues(set: WorkoutSet): WorkoutSet {
+function clearSetValues(
+  set: WorkoutSet,
+  previousDisplay: string | null = null
+): WorkoutSet {
   return {
     ...set,
     kg: "",
@@ -220,7 +224,7 @@ function clearSetValues(set: WorkoutSet): WorkoutSet {
     durationSeconds: null,
     rpe: null,
     isCompleted: false,
-    previousDisplay: null,
+    previousDisplay,
   };
 }
 
@@ -386,7 +390,12 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
                     reasoning: null,
                     difficultyFeedback: null,
                     progressionType: "new_exercise",
-                    sets: ex.sets.map(clearSetValues),
+                    sets: ex.sets.map((workoutSet, index) =>
+                      clearSetValues(
+                        workoutSet,
+                        newExercise.previousDisplays?.[index] ?? null
+                      )
+                    ),
                   }
                 : ex
             ),

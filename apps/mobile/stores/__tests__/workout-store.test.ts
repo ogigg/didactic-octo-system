@@ -81,6 +81,28 @@ describe("workout store exercise replacement", () => {
     ]);
   });
 
+  it("replaces stale previous values with the selected exercise history", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise], undefined);
+
+    useWorkoutStore.getState().replaceExercise("bench-press", {
+      id: "dumbbell-press",
+      name: "Dumbbell Press",
+      exerciseType: "weight",
+      previousDisplays: ["32.5×10"],
+    });
+
+    const [exercise] = useWorkoutStore.getState().exercises;
+
+    expect(exercise?.sets.map((set) => set.previousDisplay)).toEqual([
+      "32.5×10",
+      null,
+    ]);
+    expect(exercise?.sets.every((set) => set.kg === "")).toBe(true);
+    expect(exercise?.sets.every((set) => set.reps === "")).toBe(true);
+  });
+
   it("adds a selected exercise below the current one without changing current set values", () => {
     const squat: WorkoutExercise = {
       ...baseExercise,
