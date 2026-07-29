@@ -13,7 +13,6 @@ import { WorkoutTopBar } from "@/components/workout/workout-top-bar";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useWatchBridge } from "@/hooks/use-watch-bridge";
 import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import {
   countLoggedWorkoutSets,
@@ -50,8 +49,6 @@ export default function WorkoutScreen() {
 
   // iOS Live Activity / Dynamic Island
   useWorkoutLiveActivity();
-  // Apple Watch companion sync
-  useWatchBridge();
   // Keep the phone display awake while the active workout screen is open.
   useKeepAwake();
 
@@ -63,6 +60,9 @@ export default function WorkoutScreen() {
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
   const reorderExercise = useWorkoutStore((s) => s.reorderExercise);
   const updateWorkoutName = useWorkoutStore((s) => s.updateWorkoutName);
+  const watchSelectedExerciseId = useWorkoutStore(
+    (s) => s.watchSelectedExerciseId
+  );
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -134,6 +134,16 @@ export default function WorkoutScreen() {
   const handleExerciseLayout = useCallback((exerciseId: string, y: number) => {
     exerciseLayouts.current[exerciseId] = y;
   }, []);
+
+  useEffect(() => {
+    if (!watchSelectedExerciseId) return;
+    const yOffset = exerciseLayouts.current[watchSelectedExerciseId];
+    if (yOffset === undefined) return;
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, yOffset - Spacing.lg),
+      animated: true,
+    });
+  }, [watchSelectedExerciseId]);
 
   const handleAddExercise = useCallback(() => {
     router.push({ pathname: "/exercise-picker", params: { mode: "add" } });

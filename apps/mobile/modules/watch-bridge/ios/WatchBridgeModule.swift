@@ -2,54 +2,60 @@ import ExpoModulesCore
 import Foundation
 import WatchConnectivity
 
-public class WatchBridgeModule: Module {
+public final class WatchBridgeModule: Module {
   private let sessionDelegate = PhoneSessionDelegate()
 
   public func definition() -> ModuleDefinition {
     Name("WatchBridge")
-
-    Events("onSetCompleted")
+    Events("onWatchAction")
 
     OnCreate {
-      sessionDelegate.onSetCompleted = { [weak self] payload in
-        self?.sendEvent("onSetCompleted", payload)
+      sessionDelegate.onWatchAction = { [weak self] payload in
+        self?.sendEvent("onWatchAction", payload)
       }
-      if WCSession.isSupported() {
-        let session = WCSession.default
-        session.delegate = sessionDelegate
+      guard WCSession.isSupported() else { return }
+      let session = WCSession.default
+      session.delegate = sessionDelegate
+      session.activate()
+    }
+
+    AsyncFunction("sendWorkoutState") { (incomingEnvelope: [String: Any]) in
+      guard WCSession.isSupported() else { return }
+      let session = WCSession.default
+      var envelope = incomingEnvelope
+      envelope["acknowledgedCommandIDs"] = self.sessionDelegate.acknowledgedCommandIDs
+      guard session.activationState == .activated else {
+        self.sessionDelegate.pendingApplicationContext = envelope
         session.activate()
+        return
+      }
+
+      // Application context is the durable, latest-wins canonical snapshot.
+      try session.updateApplicationContext(envelope)
+
+      // A reachable message makes the UI feel immediate. The watch rejects
+      // stale revisions, so receiving both paths is harmless.
+      if session.isReachable {
+        session.sendMessage(envelope, replyHandler: nil) { error in
+          print("[WatchBridge] immediate state delivery failed:", error)
+        }
       }
     }
 
-    AsyncFunction("sendWorkoutState") { (stateDict: [String: Any]) in
-      guard WCSession.default.activationState == .activated else { return }
-
-      if WCSession.default.isReachable {
-        WCSession.default.sendMessage(stateDict, replyHandler: nil)
-      } else {
-        try? WCSession.default.updateApplicationContext(stateDict)
-      }
+    AsyncFunction("drainPendingActions") { () -> [[String: Any]] in
+      self.sessionDelegate.pendingActions
     }
 
-    AsyncFunction("sendWorkoutEnded") {
-      let message: [String: Any] = ["workoutEnded": true]
-      guard WCSession.default.activationState == .activated else { return }
-
-      if WCSession.default.isReachable {
-        WCSession.default.sendMessage(message, replyHandler: nil)
-      } else {
-        try? WCSession.default.updateApplicationContext(message)
-      }
+    AsyncFunction("acknowledgeCommand") { (commandID: String) in
+      self.sessionDelegate.acknowledge(commandID: commandID)
     }
 
     Function("isWatchPaired") { () -> Bool in
-      guard WCSession.isSupported() else { return false }
-      return WCSession.default.isPaired
+      WCSession.isSupported() && WCSession.default.isPaired
     }
 
     Function("isWatchReachable") { () -> Bool in
-      guard WCSession.isSupported() else { return false }
-      return WCSession.default.isReachable
+      WCSession.isSupported() && WCSession.default.isReachable
     }
   }
 }

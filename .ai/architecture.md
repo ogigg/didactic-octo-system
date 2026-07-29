@@ -106,6 +106,17 @@ User performs workout
 -> future workout generation can use this history
 ```
 
+### Apple Watch Workout Execution
+
+The watchOS companion is a native SwiftUI target generated from
+`apps/mobile/targets/watch`. The phone-side Zustand store remains canonical.
+The phone sends versioned full snapshots through WatchConnectivity application
+context, while the watch sends stable-ID commands through a persistent,
+idempotent outbox. Immediate messages improve latency and queued user-info
+transfers preserve actions across disconnections. The watch owns HealthKit
+collection for watch-led sessions and returns the saved workout UUID so the
+phone does not create a duplicate HealthKit workout.
+
 ### Workout History Deletion
 
 ```text

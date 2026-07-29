@@ -122,14 +122,16 @@ export function useSaveCompletedWorkout() {
       // Mirror to Apple Health / Health Connect (write-only, best-effort).
       // Prompts the user on first run, no-ops if denied or unavailable.
       const { finishedAtMs, durationMs } = variables.summary;
-      promptAndSyncWorkout(saved.id, {
-        startedAt: new Date(finishedAtMs - durationMs),
-        endedAt: new Date(finishedAtMs),
-        type: "strength",
-      }).catch((error) => {
-        // Never surfaces to user — Health sync is best-effort.
-        console.warn("Health sync failed:", error);
-      });
+      if (!variables.summary.healthWorkoutRecordedOnWatch) {
+        promptAndSyncWorkout(saved.id, {
+          startedAt: new Date(finishedAtMs - durationMs),
+          endedAt: new Date(finishedAtMs),
+          type: "strength",
+        }).catch((error) => {
+          // Never surfaces to user — Health sync is best-effort.
+          console.warn("Health sync failed:", error);
+        });
+      }
 
       consumeComebackWorkoutMarker()
         .then((marker) => {
@@ -154,8 +156,11 @@ export function useSaveCompletedWorkout() {
     },
     onError: (_error: unknown, variables: SaveWorkoutInput) => {
       if (user) {
+        const stableWorkoutId = `${user.id}-${
+          variables.summary.finishedAtMs - variables.summary.durationMs
+        }`;
         syncQueue
-          .enqueue("save_workout", user.id, variables)
+          .enqueue("save_workout", stableWorkoutId, variables)
           .catch(console.warn);
       }
     },

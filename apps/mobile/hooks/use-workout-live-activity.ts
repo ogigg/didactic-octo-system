@@ -77,6 +77,7 @@ function deriveState(
     exerciseId: string;
     startedAtMs: number;
     durationSeconds: number;
+    pausedRemainingSeconds?: number;
   } | null,
   localizedNames?: ReadonlyMap<string, string>
 ): DerivedLiveState | null {
@@ -90,8 +91,10 @@ function deriveState(
   let restStartedAtMs: number | null = null;
   let restEndsAtMs: number | null = null;
   if (restTimer) {
-    restStartedAtMs = restTimer.startedAtMs;
-    restEndsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
+    if (restTimer.pausedRemainingSeconds === undefined) {
+      restStartedAtMs = restTimer.startedAtMs;
+      restEndsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
+    }
   }
 
   const idx = exercise.sets.findIndex((s) => s.id === set.id);

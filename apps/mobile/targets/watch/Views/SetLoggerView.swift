@@ -1,38 +1,111 @@
 import SwiftUI
 
 struct SetLoggerView: View {
-    @Binding var loadKg: Double
-    @Binding var reps: Int
+    @Environment(WorkoutCoordinator.self) private var coordinator
+    @State private var metric: Metric = .reps
+
+    private enum Metric {
+        case reps
+        case load
+    }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 7) {
             HStack {
-                Text("Weight")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                Button {
+                    nudge(-1)
+                } label: {
+                    Image(systemName: "minus")
+                }
+                .accessibilityLabel(metric == .reps ? "Decrease reps" : "Decrease load")
+
                 Spacer()
-                Text("\(loadKg, specifier: "%.1f") kg")
-                    .font(.body)
-                    .monospacedDigit()
-            }
-
-            Stepper(value: $loadKg, in: 0...500, step: 2.5) {
-                EmptyView()
-            }
-
-            HStack {
-                Text("Reps")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    Text(metric == .reps
+                        ? "\(coordinator.reps)"
+                        : coordinator.loadKg.formatted())
+                        .font(.system(size: 34, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                    Text(metric == .reps ? "REPS" : "KG")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .focusable()
+                .digitalCrownRotation(
+                    metric == .reps ? repsBinding : loadBinding,
+                    from: 0,
+                    through: metric == .reps ? 100 : 500,
+                    by: metric == .reps ? 1 : 0.5,
+                    sensitivity: .medium,
+                    isContinuous: false,
+                    isHapticFeedbackEnabled: true
+                )
                 Spacer()
-                Text("\(reps)")
-                    .font(.body)
-                    .monospacedDigit()
+
+                Button {
+                    nudge(1)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel(metric == .reps ? "Increase reps" : "Increase load")
             }
 
-            Stepper(value: $reps, in: 0...100) {
-                EmptyView()
+            HStack(spacing: 5) {
+                metricButton(.reps, label: "REPS", value: "\(coordinator.reps)")
+                metricButton(
+                    .load,
+                    label: "LOAD KG",
+                    value: coordinator.loadKg.formatted()
+                )
             }
         }
+    }
+
+    private var repsBinding: Binding<Double> {
+        Binding(
+            get: { Double(coordinator.reps) },
+            set: { coordinator.updateEditor(loadKg: coordinator.loadKg, reps: Int($0)) }
+        )
+    }
+
+    private var loadBinding: Binding<Double> {
+        Binding(
+            get: { coordinator.loadKg },
+            set: { coordinator.updateEditor(loadKg: $0, reps: coordinator.reps) }
+        )
+    }
+
+    private func nudge(_ direction: Int) {
+        if metric == .reps {
+            coordinator.updateEditor(
+                loadKg: coordinator.loadKg,
+                reps: max(0, coordinator.reps + direction)
+            )
+        } else {
+            coordinator.updateEditor(
+                loadKg: max(0, coordinator.loadKg + Double(direction) * 0.5),
+                reps: coordinator.reps
+            )
+        }
+    }
+
+    private func metricButton(
+        _ candidate: Metric,
+        label: String,
+        value: String
+    ) -> some View {
+        Button {
+            metric = candidate
+        } label: {
+            VStack(spacing: 1) {
+                Text(label).font(.system(size: 8, weight: .semibold))
+                Text(value).font(.caption).monospacedDigit()
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(metric == candidate ? WatchTheme.primary : .secondary)
+        .accessibilityLabel("\(label), \(value)")
+        .accessibilityAddTraits(metric == candidate ? .isSelected : [])
     }
 }

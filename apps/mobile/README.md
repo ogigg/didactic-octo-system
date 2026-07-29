@@ -82,3 +82,34 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - `../../.ai/architecture.md` for architecture details
 - `../../.ai/i18n.md` for translation workflow
 - `../../project-wiki/guides/running-and-releasing-mobile-app.md` for running and release commands
+
+## Apple Watch companion
+
+The native watchOS 10 companion lives in `targets/watch` and is generated into
+the iOS project by `@bacons/apple-targets`. It is not a separate Expo or React
+Native application.
+
+- The phone Zustand workout store is authoritative.
+- The phone publishes versioned full workout snapshots with
+  `WCSession.updateApplicationContext`; reachable watches also receive the same
+  snapshot immediately with `sendMessage`.
+- The watch uses stable workout, exercise, and set IDs. Mutations are persisted
+  in an idempotent command outbox, delivered with `sendMessage` and
+  `transferUserInfo`, and removed only after the phone acknowledges them in a
+  later snapshot.
+- Rest timers use an absolute ISO-8601 end date so reconnects and suspension do
+  not reset the countdown.
+- A watch-led session owns the HealthKit workout. The resulting HealthKit UUID
+  is correlated back to the phone summary, which prevents the phone from
+  writing a duplicate workout.
+
+After changing the target config or adding native files, regenerate and build:
+
+```bash
+npx expo prebuild -p ios --clean
+cd ios && pod install
+xcodebuild -workspace Sweaty.xcworkspace -scheme SweatyWatch build
+```
+
+The checked-in `targets/watch` directory is the source of truth; generated
+`ios` files remain disposable.

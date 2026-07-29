@@ -9,14 +9,16 @@ export interface RestTimerProgress {
 export function getRestTimerProgress(
   startedAtMs: number,
   durationSeconds: number,
-  nowMs: number
+  nowMs: number,
+  pausedRemainingSeconds?: number
 ): RestTimerProgress {
   const safeDurationSeconds = Math.max(1, durationSeconds);
-  const elapsedSeconds = (nowMs - startedAtMs) / 1000;
-  const remainingSeconds = Math.min(
-    safeDurationSeconds,
-    Math.max(0, safeDurationSeconds - elapsedSeconds)
-  );
+  const remainingSeconds =
+    pausedRemainingSeconds ??
+    Math.min(
+      safeDurationSeconds,
+      Math.max(0, safeDurationSeconds - (nowMs - startedAtMs) / 1000)
+    );
 
   return {
     durationSeconds: safeDurationSeconds,

@@ -1,29 +1,64 @@
 import SwiftUI
 
 struct HeartRateView: View {
-    @Environment(HealthKitClient.self) private var healthKit
+    @Environment(WorkoutCoordinator.self) private var coordinator
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "heart.fill")
-                .font(.title)
-                .foregroundStyle(.red)
-                .symbolEffect(.pulse, isActive: healthKit.heartRate != nil)
-
-            if let hr = healthKit.heartRate {
-                Text("\(hr)")
-                    .font(.system(size: 56, weight: .light, design: .rounded))
-                    .monospacedDigit()
-                Text("BPM")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("--")
-                    .font(.system(size: 56, weight: .light, design: .rounded))
-                Text("Measuring...")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        VStack(spacing: 9) {
+            HStack {
+                Button {
+                    coordinator.screen =
+                        coordinator.snapshot?.rest == nil ? .activeSet : .rest
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                Text("LIVE")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(WatchTheme.primary)
             }
+
+            Image(systemName: "heart.fill")
+                .font(.title2)
+                .foregroundStyle(.red)
+                .symbolEffect(.pulse, isActive: coordinator.health.heartRate != nil)
+
+            Text(coordinator.health.heartRate.map(String.init) ?? "—")
+                .font(.system(size: 48, weight: .light, design: .rounded))
+                .monospacedDigit()
+                .accessibilityLabel(
+                    coordinator.health.heartRate.map {
+                        "\($0) beats per minute"
+                    } ?? "Heart rate unavailable"
+                )
+
+            Text("BPM")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            if let current = coordinator.health.heartRate,
+               let previous = coordinator.heartRateAtLastSet {
+                let delta = current - previous
+                Text(delta == 0 ? "No change since last set" :
+                    "\(delta > 0 ? "+" : "")\(delta) BPM since last set")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Recovery trend appears after you log a set.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button("Back to workout") {
+                coordinator.screen =
+                    coordinator.snapshot?.rest == nil ? .activeSet : .rest
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(WatchTheme.primary)
         }
+        .padding(.horizontal, 8)
     }
 }

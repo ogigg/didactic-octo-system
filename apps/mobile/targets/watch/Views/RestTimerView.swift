@@ -1,49 +1,122 @@
 import SwiftUI
 
 struct RestTimerView: View {
-    @Environment(WorkoutStore.self) private var store
+    @Environment(WorkoutCoordinator.self) private var coordinator
+    @State private var skipConfirmation = false
+    @State private var didAlertCompletion = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            VStack(spacing: 8) {
-                if let rest = store.restTimer, rest.isActive(now: context.date) {
-                    let remaining = rest.remainingSeconds(now: context.date)
+            let rest = coordinator.snapshot?.rest
+            let remaining = rest?.remainingSeconds(at: context.date) ?? 0
 
-                    Text("Rest")
-                        .font(.caption)
+            ScrollView {
+                VStack(spacing: 9) {
+                    HStack {
+                        Button {
+                            coordinator.screen = .activeSet
+                        } label: {
+                            Image(systemName: "chevron.left")
+                        }
+                        .buttonStyle(.plain)
+                        Spacer()
+                        HeartRateButton()
+                    }
+
+                    Text(remaining > 0 ? "REST" : "READY")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
 
-                    Text(formatTime(remaining))
-                        .font(.system(size: 48, weight: .light, design: .rounded))
+                    Text(format(remaining))
+                        .font(.system(size: 45, weight: .light, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(remaining <= 10 ? .orange : .primary)
+                        .foregroundStyle(remaining == 0 ? WatchTheme.success : .primary)
+                        .accessibilityLabel("\(remaining) seconds remaining")
 
-                    ProgressView(value: Double(remaining), total: Double(rest.durationSeconds))
-                        .tint(remaining <= 10 ? .orange : .blue)
+                    ProgressView(
+                        value: Double(remaining),
+                        total: Double(max(rest?.durationSeconds ?? 1, 1))
+                    )
+                    .tint(remaining == 0 ? WatchTheme.success : WatchTheme.primary)
 
-                    Button("Skip") {
-                        store.clearRest()
+                    if remaining == 0 {
+                        Button("Start next set") {
+                            coordinator.skipRest()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(WatchTheme.success)
+                    } else {
+                        HStack {
+                            Button {
+                                if rest?.isPaused == true {
+                                    coordinator.resumeRest()
+                                } else {
+                                    coordinator.pauseRest()
+                                }
+                            } label: {
+                                Image(systemName: rest?.isPaused == true ? "play.fill" : "pause.fill")
+                            }
+                            .accessibilityLabel(rest?.isPaused == true ? "Resume rest timer" : "Pause rest timer")
+
+                            Button(skipConfirmation ? "Skip?" : "Skip") {
+                                if skipConfirmation {
+                                    coordinator.skipRest()
+                                } else {
+                                    skipConfirmation = true
+                                }
+                            }
+                            .tint(skipConfirmation ? .red : .secondary)
+                        }
+                    }
+
+                    HStack {
+                        Button("−15s") { coordinator.adjustRest(by: -15) }
+                        Button("+15s") { coordinator.adjustRest(by: 15) }
                     }
                     .font(.caption)
-                } else {
-                    Image(systemName: "checkmark.circle")
-                        .font(.largeTitle)
-                        .foregroundStyle(.green)
-                    Text("Ready")
-                        .font(.headline)
+
+                    if let exercise = coordinator.selectedExercise,
+                       let set = coordinator.currentSet {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("NEXT SET")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Text(exercise.name)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .lineLimit(3)
+                            Text(target(set))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .background(WatchTheme.surface, in: RoundedRectangle(cornerRadius: 10))
+                    }
                 }
-            }
-            .onChange(of: store.restTimer) { oldValue, _ in
-                if let old = oldValue, old.isActive(), store.restTimer?.isActive() != true {
-                    HapticsClient.restTimerComplete()
+                .padding(.horizontal, 7)
+                .onChange(of: remaining) { oldValue, newValue in
+                    if oldValue > 0, newValue == 0, !didAlertCompletion {
+                        didAlertCompletion = true
+                        HapticsClient.restTimerComplete()
+                    }
                 }
             }
         }
     }
 
-    private func formatTime(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%d:%02d", m, s)
+    private func format(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func target(_ set: WatchSet) -> String {
+        if let duration = set.durationSeconds {
+            return "Target \(duration) seconds"
+        }
+        let reps = Int(set.actualReps ?? set.targetReps ?? 0)
+        if let load = set.actualLoadKg ?? set.targetLoadKg {
+            return "Target \(reps) × \(load.formatted()) kg"
+        }
+        return "Target \(reps) reps"
     }
 }

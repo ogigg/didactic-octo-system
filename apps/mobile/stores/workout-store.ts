@@ -50,10 +50,11 @@ export interface WorkoutExercise {
     | null;
 }
 
-interface RestTimerState {
+export interface RestTimerState {
   exerciseId: string;
   startedAtMs: number;
   durationSeconds: number;
+  pausedRemainingSeconds?: number;
 }
 
 export interface GenerationMeta {
@@ -72,6 +73,8 @@ interface WorkoutState {
   restTimer: RestTimerState | null;
   completedWorkoutSummary: WorkoutSummary | null;
   generationMeta: GenerationMeta | null;
+  watchSelectedExerciseId: string | null;
+  healthWorkoutOwnedByWatch: boolean;
 }
 
 export interface WorkoutSummary {
@@ -80,6 +83,8 @@ export interface WorkoutSummary {
   durationMs: number;
   exercises: WorkoutExercise[];
   finishedAtMs: number;
+  healthWorkoutRecordedOnWatch?: boolean;
+  healthWorkoutUUID?: string;
 }
 
 interface WorkoutActions {
@@ -89,7 +94,9 @@ interface WorkoutActions {
     generationMeta?: GenerationMeta,
     warmup?: WorkoutWarmup | null
   ) => void;
-  finishWorkout: () => void;
+  finishWorkout: (healthWorkoutUUID?: string) => void;
+  setWatchSelectedExercise: (exerciseId: string | null) => void;
+  markHealthWorkoutOwnedByWatch: () => void;
   clearWorkout: () => void;
   toggleSetComplete: (exerciseId: string, setId: string) => void;
   updateSetField: (
@@ -123,6 +130,8 @@ interface WorkoutActions {
   ) => void;
   startRestTimer: (exerciseId: string) => void;
   adjustRestTimer: (deltaSeconds: number) => void;
+  pauseRestTimer: () => void;
+  resumeRestTimer: () => void;
   skipRestTimer: () => void;
   addExercise: (exercise: {
     id: string;
@@ -157,6 +166,8 @@ const initialState: WorkoutState = {
   restTimer: null,
   completedWorkoutSummary: null,
   generationMeta: null,
+  watchSelectedExerciseId: null,
+  healthWorkoutOwnedByWatch: false,
 };
 
 let setCounter = 0;
@@ -263,10 +274,18 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             restTimer: null,
             completedWorkoutSummary: null,
             generationMeta: generationMeta ?? null,
+            watchSelectedExerciseId: null,
+            healthWorkoutOwnedByWatch: false,
           }),
 
-        finishWorkout: () => {
-          const { workoutName, warmup, exercises, startedAtMs } = get();
+        finishWorkout: (healthWorkoutUUID) => {
+          const {
+            workoutName,
+            warmup,
+            exercises,
+            startedAtMs,
+            healthWorkoutOwnedByWatch,
+          } = get();
           const now = Date.now();
           set({
             isActive: false,
@@ -277,9 +296,18 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
               durationMs: startedAtMs ? now - startedAtMs : 0,
               exercises,
               finishedAtMs: now,
+              healthWorkoutRecordedOnWatch:
+                healthWorkoutOwnedByWatch || healthWorkoutUUID !== undefined,
+              healthWorkoutUUID,
             },
           });
         },
+
+        setWatchSelectedExercise: (watchSelectedExerciseId) =>
+          set({ watchSelectedExerciseId }),
+
+        markHealthWorkoutOwnedByWatch: () =>
+          set({ healthWorkoutOwnedByWatch: true }),
 
         clearWorkout: () => set(initialState),
 
@@ -412,21 +440,78 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
               1,
               state.restTimer.durationSeconds
             );
-            const elapsedSeconds = (now - state.restTimer.startedAtMs) / 1000;
-            const remainingSeconds = Math.min(
-              durationSeconds,
-              Math.max(0, durationSeconds - elapsedSeconds)
-            );
+            const remainingSeconds =
+              state.restTimer.pausedRemainingSeconds ??
+              Math.min(
+                durationSeconds,
+                Math.max(
+                  0,
+                  durationSeconds - (now - state.restTimer.startedAtMs) / 1000
+                )
+              );
             const nextRemainingSeconds = Math.min(
-              durationSeconds,
+              600,
               Math.max(0, remainingSeconds + deltaSeconds)
             );
-            const nextElapsedSeconds = durationSeconds - nextRemainingSeconds;
+            const nextDurationSeconds = Math.max(
+              durationSeconds,
+              nextRemainingSeconds
+            );
+            const nextElapsedSeconds =
+              nextDurationSeconds - nextRemainingSeconds;
 
             return {
               restTimer: {
                 ...state.restTimer,
+                durationSeconds: nextDurationSeconds,
                 startedAtMs: now - nextElapsedSeconds * 1000,
+                pausedRemainingSeconds:
+                  state.restTimer.pausedRemainingSeconds === undefined
+                    ? undefined
+                    : nextRemainingSeconds,
+              },
+            };
+          }),
+
+        pauseRestTimer: () =>
+          set((state) => {
+            if (
+              !state.restTimer ||
+              state.restTimer.pausedRemainingSeconds !== undefined
+            ) {
+              return state;
+            }
+            const elapsedSeconds =
+              (Date.now() - state.restTimer.startedAtMs) / 1000;
+            return {
+              restTimer: {
+                ...state.restTimer,
+                pausedRemainingSeconds: Math.min(
+                  state.restTimer.durationSeconds,
+                  Math.max(0, state.restTimer.durationSeconds - elapsedSeconds)
+                ),
+              },
+            };
+          }),
+
+        resumeRestTimer: () =>
+          set((state) => {
+            if (
+              !state.restTimer ||
+              state.restTimer.pausedRemainingSeconds === undefined
+            ) {
+              return state;
+            }
+            const pausedRemainingSeconds =
+              state.restTimer.pausedRemainingSeconds;
+            return {
+              restTimer: {
+                ...state.restTimer,
+                startedAtMs:
+                  Date.now() -
+                  (state.restTimer.durationSeconds - pausedRemainingSeconds) *
+                    1000,
+                pausedRemainingSeconds: undefined,
               },
             };
           }),
@@ -488,6 +573,10 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           } else if (state) {
             // Migrate hydrated exercises to ensure new fields exist
             state.warmup = state.warmup ?? null;
+            state.watchSelectedExerciseId =
+              state.watchSelectedExerciseId ?? null;
+            state.healthWorkoutOwnedByWatch =
+              state.healthWorkoutOwnedByWatch ?? false;
             state.exercises = state.exercises.map((ex) => ({
               ...ex,
               exerciseType: ex.exerciseType ?? "weight",

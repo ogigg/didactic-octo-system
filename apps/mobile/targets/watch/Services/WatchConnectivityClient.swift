@@ -2,66 +2,128 @@ import Foundation
 import Observation
 import WatchConnectivity
 
+@MainActor
 @Observable
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     var isReachable = false
+    var onEnvelope: ((WatchSyncEnvelope) -> Void)?
 
-    private var workoutStore: WorkoutStore?
+    private let outboxKey = "SweatyWatch.commandOutbox"
+    private var outbox: [WatchCommand] = []
+    private var transferredCommandIDs = Set<String>()
     private var session: WCSession { WCSession.default }
 
-    func activate(workoutStore: WorkoutStore) {
-        self.workoutStore = workoutStore
+    override init() {
+        super.init()
+        if let data = UserDefaults.standard.data(forKey: outboxKey),
+           let stored = try? JSONDecoder().decode([WatchCommand].self, from: data) {
+            outbox = stored
+        }
+    }
+
+    func activate() {
+        guard WCSession.isSupported() else { return }
         session.delegate = self
         session.activate()
     }
 
-    // MARK: - Send to Phone
-
-    func sendSetCompletion(_ completion: SetCompletion) {
-        guard let data = try? JSONEncoder().encode(completion) else { return }
-        let message: [String: Any] = ["type": "setCompleted", "payload": data]
-
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        } else {
-            session.transferUserInfo(message)
+    func enqueue(_ command: WatchCommand) {
+        guard !outbox.contains(where: { $0.commandID == command.commandID }) else {
+            return
         }
+        outbox.append(command)
+        persistOutbox()
+        deliver(command, includeDurableTransfer: true)
     }
 
-    // MARK: - WCSessionDelegate
+    func acknowledge(_ commandIDs: [String]) {
+        guard !commandIDs.isEmpty else { return }
+        let acknowledged = Set(commandIDs)
+        outbox.removeAll { acknowledged.contains($0.commandID) }
+        transferredCommandIDs.subtract(acknowledged)
+        persistOutbox()
+    }
 
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        guard activationState == .activated else { return }
-        // Check for any application context sent while the watch was inactive
-        let context = session.receivedApplicationContext
-        if !context.isEmpty {
-            Task { @MainActor in
-                workoutStore?.applyState(from: context)
+    nonisolated func session(
+        _ session: WCSession,
+        activationDidCompleteWith activationState: WCSessionActivationState,
+        error: Error?
+    ) {
+        Task { @MainActor in
+            self.isReachable = session.isReachable
+            if activationState == .activated {
+                self.consume(session.receivedApplicationContext)
+                self.flushOutbox()
             }
         }
     }
 
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    nonisolated func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String: Any]
+    ) {
+        Task { @MainActor in self.consume(message) }
+    }
+
+    nonisolated func session(
+        _ session: WCSession,
+        didReceiveApplicationContext applicationContext: [String: Any]
+    ) {
+        Task { @MainActor in self.consume(applicationContext) }
+    }
+
+    nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
         Task { @MainActor in
-            workoutStore?.applyState(from: message)
+            self.isReachable = session.isReachable
+            if session.isReachable {
+                self.flushOutbox()
+            }
         }
     }
 
-    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
-        Task { @MainActor in
-            workoutStore?.applyState(from: userInfo)
+    private func consume(_ dictionary: [String: Any]) {
+        guard let envelope = WatchSyncEnvelope(dictionary: dictionary) else {
+            return
+        }
+        acknowledge(envelope.acknowledgedCommandIDs)
+        onEnvelope?(envelope)
+    }
+
+    private func flushOutbox() {
+        for command in outbox {
+            deliver(
+                command,
+                includeDurableTransfer: !transferredCommandIDs.contains(
+                    command.commandID
+                )
+            )
         }
     }
 
-    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        Task { @MainActor in
-            workoutStore?.applyState(from: applicationContext)
+    private func deliver(
+        _ command: WatchCommand,
+        includeDurableTransfer: Bool
+    ) {
+        guard session.activationState == .activated else { return }
+
+        if includeDurableTransfer {
+            session.transferUserInfo(command.dictionary)
+            transferredCommandIDs.insert(command.commandID)
+        }
+
+        if session.isReachable {
+            session.sendMessage(
+                command.dictionary,
+                replyHandler: nil,
+                errorHandler: { error in
+                    print("[SweatyWatch] immediate command failed:", error)
+                }
+            )
         }
     }
 
-    func sessionReachabilityDidChange(_ session: WCSession) {
-        Task { @MainActor in
-            isReachable = session.isReachable
-        }
+    private func persistOutbox() {
+        guard let data = try? JSONEncoder().encode(outbox) else { return }
+        UserDefaults.standard.set(data, forKey: outboxKey)
     }
 }

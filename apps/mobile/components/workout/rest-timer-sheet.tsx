@@ -183,7 +183,8 @@ export function RestTimerSheet({ onClose }: RestTimerSheetProps) {
   const { durationSeconds, remainingSeconds, progress } = getRestTimerProgress(
     restTimer.startedAtMs,
     restTimer.durationSeconds,
-    now
+    now,
+    restTimer.pausedRemainingSeconds
   );
   const display = formatRestCountdown(remainingSeconds);
   const isAlmostDone = remainingSeconds <= 5;
