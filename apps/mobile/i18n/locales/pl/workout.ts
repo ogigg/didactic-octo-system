@@ -23,6 +23,32 @@ export const workout = {
     muscleGroups: "Grupy mięśniowe",
     trainingStrategy: "Strategia treningu",
     exerciseSelection: "Wybór ćwiczenia",
+    progressionAdjustment: "Dostosowanie progresji",
+    progression: {
+      staleHistoryHold:
+        "Cele utrzymano, ponieważ dostępna historia wyników jest nieaktualna.",
+      staleHistoryDeload:
+        "Cele ostrożnie obniżono, ponieważ dostępna historia wyników jest nieaktualna.",
+      feedbackTooHardHold:
+        "Cele utrzymano, ponieważ poprzednia sesja została oceniona jako zbyt trudna.",
+      feedbackTooHardDeload:
+        "Cele ostrożnie obniżono, ponieważ poprzednia sesja została oceniona jako zbyt trudna.",
+      highRpeHold:
+        "Cele utrzymano, ponieważ ostatnia seria robocza osiągnęła RPE 9 lub wyższe.",
+      highRpeDeload:
+        "Cele ostrożnie obniżono, ponieważ ostatnia seria robocza osiągnęła RPE 9 lub wyższe.",
+      feedbackConflictHold:
+        "Cele utrzymano, ponieważ ocena „za łatwo” była sprzeczna z ostatnim RPE 9 lub wyższym.",
+      feedbackConflictDeload:
+        "Cele ostrożnie obniżono, ponieważ ocena „za łatwo” była sprzeczna z ostatnim RPE 9 lub wyższym.",
+      feedbackTooEasy:
+        "Cele zwiększono, ponieważ poprzednia sesja została oceniona jako zbyt łatwa.",
+      repRangeIncrease:
+        "Liczbę powtórzeń zwiększono w skonfigurowanym zakresie treningowym.",
+      weightIncrement:
+        "Obciążenie zwiększono o skonfigurowany krok dla sprzętu.",
+      timeIncrement: "Czas zwiększono o skonfigurowany krok.",
+    },
     planAccessibility: "Pokaż uzasadnienie treningu",
     exerciseAccessibility: "Pokaż uzasadnienie dla {{exerciseName}}",
   },

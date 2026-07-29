@@ -4,6 +4,10 @@ import {
   calculateProgression,
   type ExerciseHistory,
   formatExerciseDuration,
+  getProgressionSetTarget,
+  type ProgressionReasonCode,
+  type ProgressionResult,
+  validateProgressionSetTarget,
 } from "./progression.ts";
 
 // ---------------------------------------------------------------------------
@@ -93,6 +97,17 @@ export const progressionTypeSchema = z.enum([
   "new_exercise",
 ]);
 
+export const progressionReasonCodeSchema = z.enum([
+  "stale_history",
+  "feedback_too_hard",
+  "high_rpe",
+  "feedback_too_easy_high_rpe_conflict",
+  "feedback_too_easy",
+  "rep_range_increase",
+  "weight_increment",
+  "time_increment",
+]);
+
 export const generatedExerciseSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
@@ -104,6 +119,8 @@ export const generatedExerciseSchema = z.object({
   reasoning: exerciseReasoningSchema.nullable().optional().default(null),
   progression_type: progressionTypeSchema.nullable().optional(),
   previous_display: z.string().nullable().optional(),
+  progression_reason_code: progressionReasonCodeSchema.nullable().optional(),
+  progression_is_deload: z.boolean().default(false).optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
@@ -203,6 +220,14 @@ export interface RecentSessionComment {
   created_at: string;
 }
 
+export interface ProgressionMutableExercise {
+  sets: z.infer<typeof generatedSetSchema>[];
+  progression_type: z.infer<typeof progressionTypeSchema> | null;
+  previous_display: string | null;
+  progression_reason_code: ProgressionReasonCode | null;
+  progression_is_deload: boolean;
+}
+
 export interface GenerateWorkoutParams {
   supabaseClient: SupabaseClient;
   userId: string;
@@ -220,6 +245,72 @@ export interface GenerateWorkoutParams {
   history?: HistorySession[];
   recentComments?: RecentSessionComment[];
   regenerationFeedback?: string;
+}
+
+function isReducedTarget(
+  target: ReturnType<typeof getProgressionSetTarget>,
+  appliedTarget: ReturnType<typeof getProgressionSetTarget>
+): boolean {
+  if (!target || !appliedTarget) return false;
+
+  return (
+    (target.target_load_kg != null &&
+      appliedTarget.target_load_kg != null &&
+      appliedTarget.target_load_kg < target.target_load_kg) ||
+    (target.target_reps != null &&
+      appliedTarget.target_reps != null &&
+      appliedTarget.target_reps < target.target_reps) ||
+    (target.target_duration_seconds != null &&
+      appliedTarget.target_duration_seconds != null &&
+      appliedTarget.target_duration_seconds < target.target_duration_seconds)
+  );
+}
+
+export function applyProgressionResult(
+  exercise: ProgressionMutableExercise,
+  result: ProgressionResult | null
+): void {
+  if (!result) return;
+
+  exercise.progression_type = result.progression_type;
+  exercise.previous_display = result.previous_display;
+  exercise.progression_reason_code = result.reason_code;
+  exercise.progression_is_deload = false;
+
+  if (result.progression_type === "new_exercise") return;
+
+  const workingSets = exercise.sets.filter((set) => set.set_type === "working");
+  for (const [index, set] of workingSets.entries()) {
+    const progressionTarget = getProgressionSetTarget(
+      result.set_targets,
+      index,
+      workingSets.length
+    );
+    const setTarget = validateProgressionSetTarget(
+      set,
+      progressionTarget,
+      result.reason_code
+    );
+    exercise.progression_is_deload ||= isReducedTarget(
+      progressionTarget,
+      setTarget
+    );
+
+    if (
+      setTarget?.target_duration_seconds != null ||
+      result.target_duration_seconds != null
+    ) {
+      set.target_duration_seconds =
+        setTarget?.target_duration_seconds ?? result.target_duration_seconds;
+      set.target_load_kg = undefined;
+      set.target_reps = undefined;
+    } else {
+      set.target_load_kg =
+        setTarget?.target_load_kg ?? result.target_load_kg ?? 0;
+      set.target_reps = setTarget?.target_reps ?? result.target_reps ?? 1;
+      set.target_duration_seconds = undefined;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -942,8 +1033,10 @@ export async function generateSingleWorkout(
       rest_duration_seconds: ex.rest_duration_seconds,
       notes: ex.notes,
       reasoning: ex.reasoning ?? null,
-      progression_type: null as string | null,
+      progression_type: null as z.infer<typeof progressionTypeSchema> | null,
       previous_display: null as string | null,
+      progression_reason_code: null as ProgressionReasonCode | null,
+      progression_is_deload: false,
     };
   });
 
@@ -971,27 +1064,7 @@ export async function generateSingleWorkout(
           exEquipment,
           trainingStyle
         );
-        if (result) {
-          ex.progression_type = result.progression_type;
-          ex.previous_display = result.previous_display;
-
-          // Override working set targets
-          if (result.progression_type !== "new_exercise") {
-            for (const set of ex.sets) {
-              if (set.set_type === "working") {
-                if (result.target_duration_seconds != null) {
-                  set.target_duration_seconds = result.target_duration_seconds;
-                  set.target_load_kg = undefined;
-                  set.target_reps = undefined;
-                } else {
-                  set.target_load_kg = result.target_load_kg ?? 0;
-                  set.target_reps = result.target_reps ?? 1;
-                  set.target_duration_seconds = undefined;
-                }
-              }
-            }
-          }
-        }
+        applyProgressionResult(ex, result);
       }
     }
   } catch (err) {

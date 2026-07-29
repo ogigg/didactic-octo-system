@@ -52,11 +52,18 @@ export interface ProgressionEvidence {
   difficulty_feedback: "too_easy" | "ok" | "too_hard" | null;
 }
 
+export interface ProgressionSetTarget {
+  target_load_kg?: number;
+  target_reps?: number;
+  target_duration_seconds?: number;
+}
+
 export interface ProgressionResult {
   exercise_id: string;
   target_load_kg?: number;
   target_reps?: number;
   target_duration_seconds?: number;
+  set_targets: ProgressionSetTarget[];
   progression_type: ProgressionType;
   previous_display: string | null;
   reason_code: ProgressionReasonCode;
@@ -85,6 +92,12 @@ const HIGH_RPE_THRESHOLD = 9;
 // Default duration increments for time exercises (seconds)
 const TIME_INCREMENT_TOO_EASY = 15;
 const TIME_INCREMENT_OK = 10;
+
+export const PROGRESSION_CONSTRAINTS = {
+  maxDeloadLoadReduction: 0.15,
+  maxDeloadRepReduction: 0.25,
+  maxDeloadDurationReduction: 0.15,
+} as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -134,6 +147,161 @@ export function getMaxCompletedRpe(
     }
   }
   return maxRpe;
+}
+
+function getStrongestTargetIndex(setTargets: ProgressionSetTarget[]): number {
+  return setTargets.reduce((bestIndex, target, index) => {
+    const best = setTargets[bestIndex];
+    if (!best) return index;
+
+    const durationDelta =
+      (target.target_duration_seconds ?? 0) -
+      (best.target_duration_seconds ?? 0);
+    if (durationDelta !== 0) return durationDelta > 0 ? index : bestIndex;
+
+    const loadDelta = (target.target_load_kg ?? 0) - (best.target_load_kg ?? 0);
+    if (loadDelta !== 0) return loadDelta > 0 ? index : bestIndex;
+
+    // Equal-load and bodyweight sets use reps as the effort tie-break.
+    const repDelta = (target.target_reps ?? 0) - (best.target_reps ?? 0);
+    return repDelta > 0 ? index : bestIndex;
+  }, 0);
+}
+
+function getDownsampledTargetIndices(
+  setTargets: ProgressionSetTarget[],
+  generatedSetCount: number
+): number[] {
+  const lastIndex = setTargets.length - 1;
+  const strongestIndex = getStrongestTargetIndex(setTargets);
+
+  if (generatedSetCount === 1) return [strongestIndex];
+
+  if (generatedSetCount === 2) {
+    const fartherEndpoint =
+      strongestIndex >= lastIndex - strongestIndex ? 0 : lastIndex;
+    return [...new Set([strongestIndex, fartherEndpoint])].sort(
+      (a, b) => a - b
+    );
+  }
+
+  const selected = new Set([0, strongestIndex, lastIndex]);
+  while (selected.size < generatedSetCount) {
+    const selectedIndices = [...selected];
+    let bestCandidate = -1;
+    let bestDistance = -1;
+
+    for (let index = 1; index < lastIndex; index += 1) {
+      if (selected.has(index)) continue;
+      const distance = Math.min(
+        ...selectedIndices.map((selectedIndex) =>
+          Math.abs(index - selectedIndex)
+        )
+      );
+      if (distance > bestDistance) {
+        bestCandidate = index;
+        bestDistance = distance;
+      }
+    }
+
+    if (bestCandidate < 0) break;
+    selected.add(bestCandidate);
+  }
+
+  return [...selected].sort((a, b) => a - b);
+}
+
+/**
+ * Maps an ordered historical prescription onto a generated working-set
+ * position. Downsampling always retains the strongest set plus the available
+ * ramp-up/back-off endpoints instead of relying on uniform rounding.
+ */
+export function getProgressionSetTarget(
+  setTargets: ProgressionSetTarget[],
+  generatedSetIndex: number,
+  generatedSetCount: number
+): ProgressionSetTarget | null {
+  if (
+    setTargets.length === 0 ||
+    generatedSetCount <= 0 ||
+    generatedSetIndex < 0 ||
+    generatedSetIndex >= generatedSetCount
+  ) {
+    return null;
+  }
+
+  if (generatedSetCount < setTargets.length) {
+    const sourceIndices = getDownsampledTargetIndices(
+      setTargets,
+      generatedSetCount
+    );
+    const sourceIndex = sourceIndices[generatedSetIndex];
+    return sourceIndex == null ? null : (setTargets[sourceIndex] ?? null);
+  }
+
+  if (generatedSetCount === setTargets.length) {
+    return setTargets[generatedSetIndex] ?? null;
+  }
+
+  const sourceIndex = Math.round(
+    (generatedSetIndex * (setTargets.length - 1)) / (generatedSetCount - 1)
+  );
+  return setTargets[sourceIndex] ?? null;
+}
+
+/**
+ * Keeps generated reductions when a progression hold has an explicit safety
+ * reason, while preventing the generator from exceeding the historical
+ * per-set ceiling. Normal progression always uses the deterministic target.
+ */
+export function validateProgressionSetTarget(
+  generatedTarget: ProgressionSetTarget,
+  progressionTarget: ProgressionSetTarget | null,
+  reasonCode: ProgressionReasonCode
+): ProgressionSetTarget | null {
+  if (!progressionTarget) return null;
+
+  const permitsReduction =
+    reasonCode === PROGRESSION_REASON_CODES.STALE_HISTORY ||
+    reasonCode === PROGRESSION_REASON_CODES.FEEDBACK_TOO_HARD ||
+    reasonCode === PROGRESSION_REASON_CODES.HIGH_RPE ||
+    reasonCode === PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY_HIGH_RPE_CONFLICT;
+
+  if (!permitsReduction) return progressionTarget;
+
+  if (progressionTarget.target_duration_seconds != null) {
+    const baselineDuration = progressionTarget.target_duration_seconds;
+    const generatedDuration =
+      generatedTarget.target_duration_seconds ?? baselineDuration;
+    const minimumDuration = Math.ceil(
+      baselineDuration *
+        (1 - PROGRESSION_CONSTRAINTS.maxDeloadDurationReduction)
+    );
+    return {
+      target_duration_seconds: Math.min(
+        baselineDuration,
+        Math.max(minimumDuration, generatedDuration)
+      ),
+    };
+  }
+
+  const baselineLoad = progressionTarget.target_load_kg ?? 0;
+  const baselineReps = progressionTarget.target_reps ?? 1;
+  const generatedLoad = generatedTarget.target_load_kg ?? baselineLoad;
+  const generatedReps = generatedTarget.target_reps ?? baselineReps;
+  const minimumLoad =
+    baselineLoad * (1 - PROGRESSION_CONSTRAINTS.maxDeloadLoadReduction);
+  const minimumReps = Math.ceil(
+    baselineReps * (1 - PROGRESSION_CONSTRAINTS.maxDeloadRepReduction)
+  );
+
+  return {
+    target_load_kg: Math.min(
+      baselineLoad,
+      Math.max(minimumLoad, generatedLoad)
+    ),
+    target_reps: Math.min(baselineReps, Math.max(minimumReps, generatedReps)),
+  };
 }
 
 function buildEvidence(
@@ -207,6 +375,9 @@ export function calculateTimeProgression(
     return {
       exercise_id: history.exercise_id,
       target_duration_seconds: bestDuration,
+      set_targets: completedSets.map((set) => ({
+        target_duration_seconds: set.duration_seconds,
+      })),
       progression_type: "maintained",
       previous_display: previousDisplay,
       reason_code: holdReason,
@@ -218,6 +389,9 @@ export function calculateTimeProgression(
     return {
       exercise_id: history.exercise_id,
       target_duration_seconds: bestDuration + TIME_INCREMENT_TOO_EASY,
+      set_targets: completedSets.map((set) => ({
+        target_duration_seconds: set.duration_seconds + TIME_INCREMENT_TOO_EASY,
+      })),
       progression_type: "reps_up",
       previous_display: previousDisplay,
       reason_code: PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY,
@@ -229,6 +403,9 @@ export function calculateTimeProgression(
   return {
     exercise_id: history.exercise_id,
     target_duration_seconds: bestDuration + TIME_INCREMENT_OK,
+    set_targets: completedSets.map((set) => ({
+      target_duration_seconds: set.duration_seconds + TIME_INCREMENT_OK,
+    })),
     progression_type: "reps_up",
     previous_display: previousDisplay,
     reason_code: PROGRESSION_REASON_CODES.TIME_INCREMENT,
@@ -261,7 +438,11 @@ export function calculateProgression(
   // Filter to completed working sets with valid data
   const completedSets = history.working_sets.filter(
     (s): s is WorkingSetRecord & { load_kg: number; reps: number } =>
-      s.completed && s.load_kg != null && s.reps != null
+      s.completed &&
+      s.load_kg != null &&
+      s.reps != null &&
+      s.reps > 0 &&
+      (isBodyweight(equipment) ? s.load_kg >= 0 : s.load_kg > 0)
   );
 
   if (completedSets.length === 0) {
@@ -279,13 +460,15 @@ export function calculateProgression(
   const maxRpe = getMaxCompletedRpe(history.working_sets);
   const evidence = buildEvidence(history, maxRpe);
 
-  // Baseline: use the load from the majority of sets (most common load_kg)
+  // Baseline: use the load from the majority of sets (most common load_kg).
+  // When every load is unique in a ramp, anchor the decision to the top set
+  // instead of treating the lightest set as demonstrated working capacity.
   const loadCounts = new Map<number, number>();
   for (const s of completedSets) {
     loadCounts.set(s.load_kg, (loadCounts.get(s.load_kg) ?? 0) + 1);
   }
   const primaryLoad = [...loadCounts.entries()].reduce((a, b) =>
-    b[1] > a[1] ? b : a
+    b[1] > a[1] || (b[1] === a[1] && b[0] > a[0]) ? b : a
   )[0];
 
   // Worst set at primary load (conservative)
@@ -300,6 +483,10 @@ export function calculateProgression(
       exercise_id: exerciseId,
       target_load_kg: primaryLoad,
       target_reps: worstReps,
+      set_targets: completedSets.map((set) => ({
+        target_load_kg: set.load_kg,
+        target_reps: set.reps,
+      })),
       progression_type: "maintained",
       previous_display: previousDisplay,
       reason_code: holdReason,
@@ -314,6 +501,10 @@ export function calculateProgression(
         exercise_id: exerciseId,
         target_load_kg: primaryLoad,
         target_reps: worstReps + 2,
+        set_targets: completedSets.map((set) => ({
+          target_load_kg: set.load_kg,
+          target_reps: set.reps + 2,
+        })),
         progression_type: "reps_up",
         previous_display: previousDisplay,
         reason_code: PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY,
@@ -324,6 +515,10 @@ export function calculateProgression(
       exercise_id: exerciseId,
       target_load_kg: primaryLoad + increment,
       target_reps: range.min,
+      set_targets: completedSets.map((set) => ({
+        target_load_kg: set.load_kg + increment,
+        target_reps: range.min,
+      })),
       progression_type: "weight_up",
       previous_display: previousDisplay,
       reason_code: PROGRESSION_REASON_CODES.FEEDBACK_TOO_EASY,
@@ -341,6 +536,10 @@ export function calculateProgression(
         exercise_id: exerciseId,
         target_load_kg: primaryLoad,
         target_reps: worstReps + 2,
+        set_targets: completedSets.map((set) => ({
+          target_load_kg: set.load_kg,
+          target_reps: set.reps + 2,
+        })),
         progression_type: "reps_up",
         previous_display: previousDisplay,
         reason_code: PROGRESSION_REASON_CODES.REP_RANGE_INCREASE,
@@ -351,6 +550,10 @@ export function calculateProgression(
       exercise_id: exerciseId,
       target_load_kg: primaryLoad + increment,
       target_reps: range.min,
+      set_targets: completedSets.map((set) => ({
+        target_load_kg: set.load_kg + increment,
+        target_reps: range.min,
+      })),
       progression_type: "weight_up",
       previous_display: previousDisplay,
       reason_code: PROGRESSION_REASON_CODES.WEIGHT_INCREMENT,
@@ -363,6 +566,10 @@ export function calculateProgression(
     exercise_id: exerciseId,
     target_load_kg: primaryLoad,
     target_reps: Math.min(worstReps + 2, range.max),
+    set_targets: completedSets.map((set) => ({
+      target_load_kg: set.load_kg,
+      target_reps: Math.min(set.reps + 2, range.max),
+    })),
     progression_type: "reps_up",
     previous_display: previousDisplay,
     reason_code: PROGRESSION_REASON_CODES.REP_RANGE_INCREASE,

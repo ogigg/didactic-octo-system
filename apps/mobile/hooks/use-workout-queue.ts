@@ -47,6 +47,7 @@ import {
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import type { PreviousSetValue } from "@/lib/workout-previous-sets";
 import type { ExerciseImageData } from "@/lib/exercise-media";
+import type { ProgressionReasonCode } from "@/lib/progression-reasoning";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -569,6 +570,8 @@ export function useStartPendingWorkout() {
           | "new_exercise"
           | null;
         previous_display?: string | null;
+        progression_reason_code?: ProgressionReasonCode | null;
+        progression_is_deload?: boolean;
         sets: {
           set_type: "warmup" | "working";
           target_load_kg?: number | null;
@@ -631,6 +634,8 @@ export function useStartPendingWorkout() {
             reasoning: ex.reasoning ?? null,
             difficultyFeedback: null,
             progressionType: ex.progression_type ?? null,
+            progressionReasonCode: ex.progression_reason_code ?? null,
+            progressionIsDeload: ex.progression_is_deload ?? false,
             sets: applyPreviousSetDisplays(
               sets,
               previousSetDisplays[ex.exercise_id],

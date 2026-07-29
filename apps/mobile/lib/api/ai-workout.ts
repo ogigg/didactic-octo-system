@@ -4,6 +4,10 @@ import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
 
 import { supabase } from "@/lib/supabase";
 import { exerciseImageSchema } from "@/lib/exercise-media";
+import {
+  PROGRESSION_REASON_CODES,
+  type ProgressionReasonCode,
+} from "@/lib/progression-reasoning";
 
 // -----------------------------------------------------------------------------
 // Const Maps
@@ -54,6 +58,13 @@ const progressionTypeSchema = z.enum([
   "new_exercise",
 ]);
 
+const progressionReasonCodeSchema = z.enum(
+  Object.values(PROGRESSION_REASON_CODES) as [
+    ProgressionReasonCode,
+    ...ProgressionReasonCode[],
+  ]
+);
+
 const workoutReasoningSchema = z
   .object({
     muscle_groups: z.string(),
@@ -78,6 +89,8 @@ const generatedExerciseSchema = z.object({
   reasoning: exerciseReasoningSchema.default(null).optional(),
   progression_type: progressionTypeSchema.nullable().optional(),
   previous_display: z.string().nullable().optional(),
+  progression_reason_code: progressionReasonCodeSchema.nullable().optional(),
+  progression_is_deload: z.boolean().default(false).optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
@@ -162,6 +175,8 @@ export function mapGeneratedToWorkoutExercises(
     reasoning: ex.reasoning ?? null,
     difficultyFeedback: null,
     progressionType: ex.progression_type ?? null,
+    progressionReasonCode: ex.progression_reason_code ?? null,
+    progressionIsDeload: ex.progression_is_deload ?? false,
     sets: ex.sets.map(
       (set, i): WorkoutSet => ({
         id: `set-${ex.exercise_id}-${i}-${now}`,
