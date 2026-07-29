@@ -29,6 +29,10 @@ export const exercisePicker = {
   list: {
     empty: "Brak ćwiczeń pasujących do filtrów.",
   },
+  addError: {
+    title: "Nie udało się dodać ćwiczenia",
+    message: "Spróbuj ponownie. Twój trening nie został zmieniony.",
+  },
   replaceConfirm: {
     title: "Zamienić ćwiczenie?",
     message:

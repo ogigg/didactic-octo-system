@@ -202,20 +202,33 @@ export default function ExercisePickerScreen() {
     [weightUnit]
   );
 
+  const showAddError = useCallback(
+    (error: unknown) => {
+      console.warn("[exercise-picker] failed to add exercise", error);
+      Alert.alert(t("addError.title"), t("addError.message"));
+    },
+    [t]
+  );
+
   const addBelowCurrentExercise = useCallback(
     async (exercise: Exercise) => {
       if (!exerciseId) return;
       const previousDisplays = await getPreviousDisplays(exercise);
-      addExerciseAfter(exerciseId, {
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
-        previousDisplays,
-      });
+      try {
+        addExerciseAfter(exerciseId, {
+          id: exercise.id,
+          name: exercise.name,
+          image: exercise.image,
+          exerciseType: exercise.exercise_type,
+          previousDisplays,
+        });
+      } catch (error) {
+        showAddError(error);
+        return;
+      }
       router.back();
     },
-    [addExerciseAfter, exerciseId, getPreviousDisplays, router]
+    [addExerciseAfter, exerciseId, getPreviousDisplays, router, showAddError]
   );
 
   const handleSelect = useCallback(
@@ -232,13 +245,18 @@ export default function ExercisePickerScreen() {
       }
       if (mode === "add") {
         const previousDisplays = await getPreviousDisplays(exercise);
-        addExercise({
-          id: exercise.id,
-          name: exercise.name,
-          image: exercise.image,
-          exerciseType: exercise.exercise_type,
-          previousDisplays,
-        });
+        try {
+          addExercise({
+            id: exercise.id,
+            name: exercise.name,
+            image: exercise.image,
+            exerciseType: exercise.exercise_type,
+            previousDisplays,
+          });
+        } catch (error) {
+          showAddError(error);
+          return;
+        }
       } else if (exerciseId) {
         if (hasLoggedValues()) {
           Alert.alert(t("replaceConfirm.title"), t("replaceConfirm.message"), [
@@ -269,6 +287,7 @@ export default function ExercisePickerScreen() {
       replaceCurrentExercise,
       router,
       setSwapResult,
+      showAddError,
       t,
     ]
   );
