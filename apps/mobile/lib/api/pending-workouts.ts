@@ -9,6 +9,7 @@ import type {
 } from "@/lib/api/generate-workout";
 import { generateWorkoutResponseSchema } from "@/lib/api/generate-workout";
 import { supabase } from "@/lib/supabase";
+import { getObservabilityHeaders } from "@/lib/operational-observability";
 import type { GenerationLimitError } from "@/lib/api/subscription";
 
 export class GenerationLimitReachedError extends Error {
@@ -193,7 +194,7 @@ export async function triggerQueueGeneration(
 ): Promise<void> {
   const { data, error } = await supabase.functions.invoke(
     "generate-workout-queue",
-    { body: request }
+    { body: request, headers: getObservabilityHeaders() }
   );
 
   if (error) {
@@ -233,6 +234,7 @@ export async function triggerRegeneration(
       timezone_offset_minutes: timezoneOffsetMinutes,
       regeneration_feedback: feedback,
     },
+    headers: getObservabilityHeaders(),
   });
 
   if (error) {

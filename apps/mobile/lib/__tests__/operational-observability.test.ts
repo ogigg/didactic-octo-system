@@ -1,19 +1,35 @@
 const mockCapture = jest.fn();
-const mockCaptureException = jest.fn();
 const mockRegister = jest.fn().mockResolvedValue(undefined);
+const mockIdentify = jest.fn();
+const mockReset = jest.fn();
+const mockInvoke = jest.fn();
+
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "00000000-0000-4000-8000-000000000001"),
+}));
 
 jest.mock("../posthog", () => ({
   posthog: {
     capture: (...args: unknown[]) => mockCapture(...args),
-    captureException: (...args: unknown[]) => mockCaptureException(...args),
     register: (...args: unknown[]) => mockRegister(...args),
+    identify: (...args: unknown[]) => mockIdentify(...args),
+    reset: (...args: unknown[]) => mockReset(...args),
+  },
+}));
+
+jest.mock("../supabase", () => ({
+  supabase: {
+    functions: { invoke: (...args: unknown[]) => mockInvoke(...args) },
   },
 }));
 
 import {
+  getObservabilityHeaders,
   getJourneyStageForPath,
+  identifyObservabilityUser,
   reportHandledOperationalError,
   reportOperationalMetric,
+  resetObservabilityIdentity,
   setOperationalJourneyStage,
 } from "../operational-observability";
 
@@ -31,20 +47,17 @@ describe("operational observability", () => {
       retryCount: 15,
     });
 
-    expect(mockCaptureException).toHaveBeenCalledWith(
-      expect.objectContaining({ message: "sync_dead_letter" }),
+    expect(mockCapture).toHaveBeenCalledWith(
+      "operational_event",
       expect.objectContaining({
+        outcome: "failure",
+        severity: "critical",
         area: "sync",
         operation: "save_workout",
         journey_stage: "post_workout",
         failure_code: "sync_dead_letter",
         retry_count: 15,
-        $exception_fingerprint: "sync:save_workout:sync_dead_letter",
       })
-    );
-    expect(mockCapture).toHaveBeenCalledWith(
-      "operational_event",
-      expect.objectContaining({ outcome: "failure", severity: "critical" })
     );
   });
 
@@ -85,5 +98,25 @@ describe("operational observability", () => {
     expect(mockRegister).toHaveBeenCalledWith({
       journey_stage: "in_session",
     });
+  });
+
+  it("uses the authenticated server-issued opaque identity and resets it", async () => {
+    const identity = `obs_${"a".repeat(64)}`;
+    mockInvoke.mockResolvedValue({
+      data: { observability_id: identity },
+      error: null,
+    });
+
+    await identifyObservabilityUser();
+
+    expect(mockInvoke).toHaveBeenCalledWith("observability-identity");
+    expect(mockIdentify).toHaveBeenCalledWith(identity);
+    expect(getObservabilityHeaders()).toEqual({
+      "x-observability-id": identity,
+    });
+
+    resetObservabilityIdentity();
+    expect(mockReset).toHaveBeenCalled();
+    expect(getObservabilityHeaders()).toEqual({});
   });
 });

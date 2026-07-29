@@ -2,6 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { SyncQueue } from "../sync-queue";
 
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "00000000-0000-4000-8000-000000000002"),
+}));
+
 const mockReportHandledOperationalError = jest.fn();
 const mockReportOperationalMetric = jest.fn();
 

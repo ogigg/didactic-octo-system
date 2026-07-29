@@ -2,8 +2,8 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
-  generateSingleWorkout,
   type ExercisePreference,
+  generateSingleWorkout,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -14,6 +14,13 @@ import {
   checkGenerationAllowance,
   recordGenerationUsage,
 } from "../_shared/subscription.ts";
+import {
+  type GenerationDelivery,
+  persistAndReportGeneration,
+  reportGenerationDelivered,
+  reportGenerationFailure,
+} from "../_shared/generation-delivery.ts";
+import { validateObservabilityIdentityClaim } from "../_shared/observability.ts";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -72,11 +79,12 @@ async function restorePendingWorkoutAfterFailure(params: {
 }) {
   const status = params.hadWorkoutData ? "ready" : "failed";
 
-  await params.userClient
+  const { error } = await params.userClient
     .from("pending_workouts")
     .update({ status })
     .eq("id", params.pendingWorkoutId)
     .eq("user_id", params.userId);
+  return !error;
 }
 
 // -----------------------------------------------------------------------------
@@ -84,6 +92,8 @@ async function restorePendingWorkoutAfterFailure(params: {
 // -----------------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
+  const requestSignalKey = crypto.randomUUID();
+  const requestStartedAt = Date.now();
   console.log("[generate-workout] Request received", {
     method: req.method,
     url: req.url,
@@ -116,6 +126,9 @@ Deno.serve(async (req: Request) => {
     } = await supabaseClient.auth.getUser(token);
 
     if (authError || !user) return errorResponse("Unauthorized", 401);
+    if (!(await validateObservabilityIdentityClaim(req, user.id))) {
+      return errorResponse("Invalid observability identity", 401);
+    }
 
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -130,7 +143,9 @@ Deno.serve(async (req: Request) => {
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(
-        `Invalid request: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        `Invalid request: ${parsed.error.issues
+          .map((i) => i.message)
+          .join(", ")}`,
         400
       );
     }
@@ -238,6 +253,15 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user.id);
 
       if (markRegeneratingError) {
+        reportGenerationFailure(
+          {
+            userId: user.id,
+            operation: "regeneration_delivery",
+            signalKey: pending_workout_id,
+            durationMs: Date.now() - requestStartedAt,
+          },
+          "regeneration_state_persistence_failed"
+        );
         return errorResponse("Failed to start workout regeneration.", 500);
       }
     }
@@ -349,13 +373,39 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!result.success || !result.data) {
+      reportGenerationFailure(
+        {
+          userId: user.id,
+          operation: pending_workout_id
+            ? "regeneration_delivery"
+            : "direct_generation_delivery",
+          signalKey: pending_workout_id ?? requestSignalKey,
+          durationMs: result.durationMs,
+          generationSource: result.generationSource,
+          fallbackReason: result.fallbackReason,
+        },
+        result.error === "Generated workout failed output validation"
+          ? "output_validation_failed"
+          : "generation_failed"
+      );
       if (pending_workout_id && pendingWorkoutSnapshot) {
-        await restorePendingWorkoutAfterFailure({
+        const restored = await restorePendingWorkoutAfterFailure({
           userClient,
           pendingWorkoutId: pending_workout_id,
           userId: user.id,
           hadWorkoutData: pendingWorkoutSnapshot.workout_data !== null,
         });
+        if (!restored) {
+          reportGenerationFailure(
+            {
+              userId: user.id,
+              operation: "regeneration_delivery",
+              signalKey: `${pending_workout_id}:restore`,
+              durationMs: result.durationMs,
+            },
+            "failure_state_persistence_failed"
+          );
+        }
       }
 
       return errorResponse(result.error ?? "Workout generation failed", 500);
@@ -371,36 +421,65 @@ Deno.serve(async (req: Request) => {
         has_feedback: !!regeneration_feedback,
         submitted_at: submittedAt,
       };
-      const { error: updateError } = await userClient
-        .from("pending_workouts")
-        .update({
-          workout_data: result.data as unknown as Record<string, unknown>,
-          generation_source: result.generationSource,
-          status: "ready",
-          last_regenerated_at: submittedAt,
-          regeneration_count:
-            (pendingWorkoutSnapshot?.regeneration_count ?? 0) + 1,
-          regeneration_feedback: [
-            ...previousFeedback,
-            regenerationFeedbackEntry,
-          ],
-          generated_at: submittedAt,
-        })
-        .eq("id", pending_workout_id)
-        .eq("user_id", user.id);
+      const delivery: GenerationDelivery = {
+        userId: user.id,
+        operation: "regeneration_delivery",
+        signalKey: pending_workout_id,
+        durationMs: result.durationMs,
+        generationSource: result.generationSource,
+        fallbackReason: result.fallbackReason,
+      };
+      const persisted = await persistAndReportGeneration(delivery, async () => {
+        const { error } = await userClient
+          .from("pending_workouts")
+          .update({
+            workout_data: result.data as unknown as Record<string, unknown>,
+            generation_source: result.generationSource,
+            status: "ready",
+            last_regenerated_at: submittedAt,
+            regeneration_count:
+              (pendingWorkoutSnapshot?.regeneration_count ?? 0) + 1,
+            regeneration_feedback: [
+              ...previousFeedback,
+              regenerationFeedbackEntry,
+            ],
+            generated_at: submittedAt,
+          })
+          .eq("id", pending_workout_id)
+          .eq("user_id", user.id);
+        return { error };
+      });
 
-      if (updateError) {
-        await restorePendingWorkoutAfterFailure({
+      if (!persisted) {
+        const restored = await restorePendingWorkoutAfterFailure({
           userClient,
           pendingWorkoutId: pending_workout_id,
           userId: user.id,
           hadWorkoutData: pendingWorkoutSnapshot?.workout_data !== null,
         });
+        if (!restored) {
+          reportGenerationFailure(
+            {
+              ...delivery,
+              signalKey: `${pending_workout_id}:restore`,
+            },
+            "failure_state_persistence_failed"
+          );
+        }
 
         return errorResponse("Failed to save regenerated workout.", 500);
       }
 
       pendingWorkoutSnapshot = null;
+    } else {
+      reportGenerationDelivered({
+        userId: user.id,
+        operation: "direct_generation_delivery",
+        signalKey: requestSignalKey,
+        durationMs: result.durationMs,
+        generationSource: result.generationSource,
+        fallbackReason: result.fallbackReason,
+      });
     }
 
     console.log("[generate-workout] Success!", {
@@ -422,15 +501,37 @@ Deno.serve(async (req: Request) => {
       userIdForRecovery &&
       userClientForRecovery
     ) {
-      await restorePendingWorkoutAfterFailure({
+      const restored = await restorePendingWorkoutAfterFailure({
         userClient: userClientForRecovery,
         pendingWorkoutId: pendingWorkoutIdForRecovery,
         userId: userIdForRecovery,
         hadWorkoutData: pendingWorkoutSnapshot.workout_data !== null,
       });
+      if (!restored) {
+        reportGenerationFailure(
+          {
+            userId: userIdForRecovery,
+            operation: "regeneration_delivery",
+            signalKey: `${pendingWorkoutIdForRecovery}:restore`,
+            durationMs: Date.now() - requestStartedAt,
+          },
+          "failure_state_persistence_failed"
+        );
+      }
     }
 
     console.error("[generate-workout] Unhandled error:", err);
+    if (userIdForRecovery) {
+      reportGenerationFailure(
+        {
+          userId: userIdForRecovery,
+          operation: "direct_generation_delivery",
+          signalKey: requestSignalKey,
+          durationMs: Date.now() - requestStartedAt,
+        },
+        "unhandled_exception"
+      );
+    }
     return errorResponse("Internal server error", 500);
   }
 });

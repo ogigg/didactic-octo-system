@@ -1,8 +1,11 @@
 import * as Application from "expo-application";
 import Constants from "expo-constants";
+import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
+import { z } from "zod";
 
 import { posthog } from "./posthog";
+import { supabase } from "./supabase";
 
 export type OperationalArea = "app" | "feedback" | "generation" | "sync";
 export type JourneyStage =
@@ -83,6 +86,8 @@ interface OperationalContext {
   latencyMs?: number;
   queueAgeMs?: number;
   retryCount?: number;
+  correlationId?: string;
+  dedupeKey?: string;
 }
 
 interface OperationalMetric extends OperationalContext {
@@ -90,7 +95,9 @@ interface OperationalMetric extends OperationalContext {
 }
 
 function baseProperties(context: OperationalContext) {
+  const correlationId = context.correlationId ?? Crypto.randomUUID();
   return {
+    $insert_id: context.dedupeKey ?? correlationId,
     area: context.area,
     operation: context.operation,
     journey_stage: context.journeyStage,
@@ -99,6 +106,8 @@ function baseProperties(context: OperationalContext) {
       Constants.expoConfig?.version ??
       "unknown",
     platform: Platform.OS,
+    authoritative_source: "mobile",
+    correlation_id: correlationId,
     failure_code: context.failureCode ?? null,
     generation_source: context.generationSource ?? null,
     latency_ms: context.latencyMs ?? null,
@@ -108,9 +117,9 @@ function baseProperties(context: OperationalContext) {
 }
 
 /**
- * Reports a handled critical failure using an allowlisted context only.
- * The original error is intentionally not accepted because backend messages can
- * include request data. The stable fingerprint groups repeated failures.
+ * Reports a handled critical failure using allowlisted context only. Handled
+ * failures intentionally remain operational events and never become
+ * `$exception`; crash alerts are reserved for fatal/unhandled SDK capture.
  */
 export function reportHandledOperationalError(
   context: OperationalContext
@@ -120,14 +129,12 @@ export function reportHandledOperationalError(
     ...baseProperties(context),
     outcome: "failure",
     severity: "critical",
-    $exception_fingerprint: `${context.area}:${context.operation}:${failureCode}`,
   };
 
   if (__DEV__) {
     console.warn("[observability] handled failure", properties);
   }
 
-  posthog?.captureException(new Error(failureCode), properties);
   posthog?.capture("operational_event", properties);
 }
 
@@ -143,4 +150,45 @@ export function reportOperationalMetric(metric: OperationalMetric): void {
   }
 
   posthog?.capture("operational_event", properties);
+}
+
+const identityResponseSchema = z.object({
+  observability_id: z.string().regex(/^obs_[a-f0-9]{64}$/),
+});
+
+let currentObservabilityId: string | null = null;
+let identityEpoch = 0;
+
+export function getObservabilityHeaders(): Record<string, string> {
+  return currentObservabilityId
+    ? { "x-observability-id": currentObservabilityId }
+    : {};
+}
+
+/**
+ * Resolves the server-derived opaque identity for the currently authenticated
+ * session. No Supabase UUID or profile property is sent to PostHog.
+ */
+export async function identifyObservabilityUser(): Promise<void> {
+  const requestedEpoch = identityEpoch;
+  const { data, error } = await supabase.functions.invoke(
+    "observability-identity"
+  );
+  if (error) {
+    throw new Error("Failed to resolve observability identity");
+  }
+
+  const parsed = identityResponseSchema.safeParse(data);
+  if (!parsed.success || requestedEpoch !== identityEpoch) {
+    return;
+  }
+
+  currentObservabilityId = parsed.data.observability_id;
+  posthog?.identify(currentObservabilityId);
+}
+
+export function resetObservabilityIdentity(): void {
+  identityEpoch += 1;
+  currentObservabilityId = null;
+  posthog?.reset();
 }

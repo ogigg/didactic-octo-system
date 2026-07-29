@@ -44,6 +44,7 @@ export function sanitizePostHogEvent<T extends PostHogEvent>(
   if (exceptionList !== undefined) {
     event.properties.$exception_list = redactExceptionValue(exceptionList);
   }
+  event.properties.crash_classification = "fatal_or_unhandled";
   event.properties.privacy_redacted = true;
 
   return event;

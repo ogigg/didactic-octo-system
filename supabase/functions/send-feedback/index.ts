@@ -1,7 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
-import { reportOperationalEvent } from "../_shared/observability.ts";
+import {
+  reportOperationalEvent,
+  validateObservabilityIdentityClaim,
+} from "../_shared/observability.ts";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 const FROM_EMAIL = "gierszon10@gmail.com";
@@ -117,6 +120,7 @@ function buildEmailHtml(params: {
 Deno.serve(async (req: Request) => {
   const deliveryStartedAt = Date.now();
   let observedUserId: string | undefined;
+  let signalKey = crypto.randomUUID();
 
   console.log("[send-feedback] Request received", {
     method: req.method,
@@ -149,6 +153,9 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Unauthorized", 401);
     }
     observedUserId = user.id;
+    if (!(await validateObservabilityIdentityClaim(req, user.id))) {
+      return errorResponse("Invalid observability identity", 401);
+    }
 
     const body = await req.json();
     const parsed = requestSchema.safeParse(body);
@@ -161,9 +168,12 @@ Deno.serve(async (req: Request) => {
         userId: observedUserId,
         durationMs: Date.now() - deliveryStartedAt,
         failureCode: "request_validation_failed",
+        signalKey,
       });
       return errorResponse(
-        `Invalid request: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        `Invalid request: ${parsed.error.issues
+          .map((i) => i.message)
+          .join(", ")}`,
         400
       );
     }
@@ -204,9 +214,11 @@ Deno.serve(async (req: Request) => {
         userId: observedUserId,
         durationMs: Date.now() - deliveryStartedAt,
         failureCode: "database_insert_failed",
+        signalKey,
       });
       return errorResponse("Failed to save feedback", 500);
     }
+    signalKey = feedback.id;
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
@@ -219,6 +231,7 @@ Deno.serve(async (req: Request) => {
         userId: observedUserId,
         durationMs: Date.now() - deliveryStartedAt,
         failureCode: "email_provider_not_configured",
+        signalKey,
       });
       return errorResponse("Email service not configured", 500);
     }
@@ -243,7 +256,9 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: [TO_EMAIL],
-        subject: `[Workout App] ${type === "bug_report" ? "Bug Report" : "Feature Request"}: ${title}`,
+        subject: `[Workout App] ${
+          type === "bug_report" ? "Bug Report" : "Feature Request"
+        }: ${title}`,
         html: emailHtml,
       }),
     });
@@ -260,6 +275,7 @@ Deno.serve(async (req: Request) => {
         userId: observedUserId,
         durationMs: Date.now() - deliveryStartedAt,
         failureCode: "email_provider_failed",
+        signalKey,
       });
       return errorResponse("Failed to send email notification", 500);
     }
@@ -276,6 +292,7 @@ Deno.serve(async (req: Request) => {
       journeyStage: "profile",
       userId: observedUserId,
       durationMs: Date.now() - deliveryStartedAt,
+      signalKey,
     });
 
     return jsonResponse({ success: true, id: feedback.id });
@@ -289,6 +306,7 @@ Deno.serve(async (req: Request) => {
       userId: observedUserId,
       durationMs: Date.now() - deliveryStartedAt,
       failureCode: "unhandled_exception",
+      signalKey,
     });
     return errorResponse("Internal server error", 500);
   }

@@ -5,7 +5,6 @@ import {
   type ExerciseHistory,
   formatExerciseDuration,
 } from "./progression.ts";
-import { reportOperationalEvent } from "./observability.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -812,6 +811,7 @@ export async function generateSingleWorkout(
   data?: z.infer<typeof generateWorkoutResponseSchema>;
   generationSource?: "llm" | "fallback_template" | "fallback_substitution";
   fallbackReason?: string;
+  durationMs: number;
   error?: string;
 }> {
   const generationStartedAt = Date.now();
@@ -836,17 +836,9 @@ export async function generateSingleWorkout(
   // Fetch exercise catalog
   const catalog = await fetchExerciseCatalog(supabaseClient, equipment);
   if (!catalog.length) {
-    reportOperationalEvent({
-      area: "generation",
-      operation: "generate_single_workout",
-      outcome: "failure",
-      journeyStage: "generation",
-      userId,
-      durationMs: Date.now() - generationStartedAt,
-      failureCode: "exercise_catalog_empty",
-    });
     return {
       success: false,
+      durationMs: Date.now() - generationStartedAt,
       error: "No exercises found for this equipment level",
     };
   }
@@ -1077,40 +1069,20 @@ export async function generateSingleWorkout(
     exercises: exercisesWithReasoning,
   });
   if (!response.success) {
-    reportOperationalEvent({
-      area: "generation",
-      operation: "generate_single_workout",
-      outcome: "failure",
-      journeyStage: "generation",
-      userId,
-      durationMs: Date.now() - generationStartedAt,
-      failureCode: "output_validation_failed",
-      generationSource,
-      fallbackReason,
-    });
     return {
       success: false,
+      durationMs: Date.now() - generationStartedAt,
       error: "Generated workout failed output validation",
       generationSource,
       fallbackReason,
     };
   }
 
-  reportOperationalEvent({
-    area: "generation",
-    operation: "generate_single_workout",
-    outcome: generationSource === "llm" ? "success" : "fallback",
-    journeyStage: "generation",
-    userId,
-    durationMs: Date.now() - generationStartedAt,
-    generationSource,
-    fallbackReason,
-  });
-
   return {
     success: true,
     data: response.data,
     generationSource,
     fallbackReason,
+    durationMs: Date.now() - generationStartedAt,
   };
 }

@@ -2,9 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
+  type ExercisePreference,
   generateSingleWorkout,
   getFocusAreaForPosition,
-  type ExercisePreference,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -15,6 +15,11 @@ import {
   checkGenerationAllowance,
   recordGenerationUsage,
 } from "../_shared/subscription.ts";
+import {
+  persistAndReportGeneration,
+  reportGenerationFailure,
+} from "../_shared/generation-delivery.ts";
+import { validateObservabilityIdentityClaim } from "../_shared/observability.ts";
 
 // ---------------------------------------------------------------------------
 // Request Schema
@@ -30,6 +35,9 @@ const requestSchema = z.object({
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
+  const requestStartedAt = Date.now();
+  const requestSignalKey = crypto.randomUUID();
+  let observedUserId: string | undefined;
   console.log("[generate-workout-queue] Request received");
 
   if (req.method === "OPTIONS") {
@@ -54,6 +62,10 @@ Deno.serve(async (req: Request) => {
     } = await supabaseClient.auth.getUser(token);
 
     if (authError || !user) return errorResponse("Unauthorized", 401);
+    observedUserId = user.id;
+    if (!(await validateObservabilityIdentityClaim(req, user.id))) {
+      return errorResponse("Invalid observability identity", 401);
+    }
 
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -66,7 +78,9 @@ Deno.serve(async (req: Request) => {
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(
-        `Invalid request: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        `Invalid request: ${parsed.error.issues
+          .map((i) => i.message)
+          .join(", ")}`,
         400
       );
     }
@@ -210,6 +224,15 @@ Deno.serve(async (req: Request) => {
         "[generate-workout-queue] Error clearing queue:",
         deleteError
       );
+      reportGenerationFailure(
+        {
+          userId: user.id,
+          operation: "queue_generation_delivery",
+          signalKey: requestSignalKey,
+          durationMs: Date.now() - requestStartedAt,
+        },
+        "queue_clear_persistence_failed"
+      );
       return errorResponse("Failed to clear existing queue", 500);
     }
 
@@ -231,6 +254,15 @@ Deno.serve(async (req: Request) => {
         "[generate-workout-queue] Error creating queue:",
         insertError
       );
+      reportGenerationFailure(
+        {
+          userId: user.id,
+          operation: "queue_generation_delivery",
+          signalKey: requestSignalKey,
+          durationMs: Date.now() - requestStartedAt,
+        },
+        "queue_create_persistence_failed"
+      );
       return errorResponse("Failed to create workout queue", 500);
     }
 
@@ -244,15 +276,33 @@ Deno.serve(async (req: Request) => {
     const queueContext: QueueContextItem[] = [];
 
     for (const pw of insertedWorkouts) {
+      const deliveryStartedAt = Date.now();
       console.log(
         `[generate-workout-queue] Generating ${pw.queue_position}/${count} (focus: ${pw.focus_area})`
       );
 
       // Set status to 'generating'
-      await userClient
+      const { error: markGeneratingError } = await userClient
         .from("pending_workouts")
         .update({ status: "generating" })
         .eq("id", pw.id);
+      if (markGeneratingError) {
+        reportGenerationFailure(
+          {
+            userId: user.id,
+            operation: "queue_generation_delivery",
+            signalKey: pw.id,
+            durationMs: Date.now() - deliveryStartedAt,
+          },
+          "persistence_failed"
+        );
+        results.push({
+          position: pw.queue_position,
+          status: "failed",
+          error: "Failed to mark workout as generating",
+        });
+        continue;
+      }
 
       // Generate
       const genResult = await generateSingleWorkout({
@@ -275,15 +325,55 @@ Deno.serve(async (req: Request) => {
       });
 
       if (genResult.success && genResult.data) {
-        await userClient
-          .from("pending_workouts")
-          .update({
-            workout_data: genResult.data as unknown as Record<string, unknown>,
-            generation_source: genResult.generationSource,
-            status: "ready",
-            generated_at: new Date().toISOString(),
-          })
-          .eq("id", pw.id);
+        const generatedData = genResult.data;
+        const persisted = await persistAndReportGeneration(
+          {
+            userId: user.id,
+            operation: "queue_generation_delivery",
+            signalKey: pw.id,
+            durationMs: genResult.durationMs,
+            generationSource: genResult.generationSource,
+            fallbackReason: genResult.fallbackReason,
+          },
+          async () => {
+            const { error } = await userClient
+              .from("pending_workouts")
+              .update({
+                workout_data: generatedData as unknown as Record<
+                  string,
+                  unknown
+                >,
+                generation_source: genResult.generationSource,
+                status: "ready",
+                generated_at: new Date().toISOString(),
+              })
+              .eq("id", pw.id);
+            return { error };
+          }
+        );
+        if (!persisted) {
+          const { error: markFailedError } = await userClient
+            .from("pending_workouts")
+            .update({ status: "failed" })
+            .eq("id", pw.id);
+          if (markFailedError) {
+            reportGenerationFailure(
+              {
+                userId: user.id,
+                operation: "queue_generation_delivery",
+                signalKey: `${pw.id}:failed-state`,
+                durationMs: genResult.durationMs,
+              },
+              "failure_state_persistence_failed"
+            );
+          }
+          results.push({
+            position: pw.queue_position,
+            status: "failed",
+            error: "Failed to persist generated workout",
+          });
+          continue;
+        }
 
         // Add to queue context for variety in subsequent generations
         queueContext.push({
@@ -311,10 +401,23 @@ Deno.serve(async (req: Request) => {
           `[generate-workout-queue] Failed position ${pw.queue_position}: ${genResult.error}`
         );
 
-        await userClient
+        const { error: markFailedError } = await userClient
           .from("pending_workouts")
           .update({ status: "failed" })
           .eq("id", pw.id);
+        reportGenerationFailure(
+          {
+            userId: user.id,
+            operation: "queue_generation_delivery",
+            signalKey: pw.id,
+            durationMs: genResult.durationMs,
+            generationSource: genResult.generationSource,
+            fallbackReason: genResult.fallbackReason,
+          },
+          markFailedError
+            ? "failure_state_persistence_failed"
+            : "generation_failed"
+        );
 
         results.push({
           position: pw.queue_position,
@@ -347,6 +450,17 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ success: true, count, trigger, results });
   } catch (err) {
     console.error("[generate-workout-queue] Unhandled error:", err);
+    if (observedUserId) {
+      reportGenerationFailure(
+        {
+          userId: observedUserId,
+          operation: "queue_generation_delivery",
+          signalKey: requestSignalKey,
+          durationMs: Date.now() - requestStartedAt,
+        },
+        "unhandled_exception"
+      );
+    }
     return errorResponse("Internal server error", 500);
   }
 });

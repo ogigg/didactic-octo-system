@@ -3,8 +3,8 @@ import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
   determineReplacementFocusArea,
-  generateSingleWorkout,
   type ExercisePreference,
+  generateSingleWorkout,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -15,6 +15,10 @@ import {
   checkGenerationAllowance,
   recordGenerationUsage,
 } from "../_shared/subscription.ts";
+import {
+  persistAndReportGeneration,
+  reportGenerationFailure,
+} from "../_shared/generation-delivery.ts";
 
 // ---------------------------------------------------------------------------
 // Request Schema
@@ -38,6 +42,9 @@ const FREQUENCY_MAP: Record<string, number> = {
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
+  const requestStartedAt = Date.now();
+  let observedUserId: string | undefined;
+  let requestSignalKey: string = crypto.randomUUID();
   console.log("[generate-next-workout] Request received");
 
   if (req.method === "OPTIONS") {
@@ -58,11 +65,15 @@ Deno.serve(async (req: Request) => {
     const parsed = payloadSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(
-        `Invalid payload: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        `Invalid payload: ${parsed.error.issues
+          .map((i) => i.message)
+          .join(", ")}`,
         400
       );
     }
     const { user_id, completed_session_id } = parsed.data;
+    observedUserId = user_id;
+    requestSignalKey = completed_session_id;
 
     console.log(
       `[generate-next-workout] User ${user_id}, completed session ${completed_session_id}`
@@ -219,6 +230,15 @@ Deno.serve(async (req: Request) => {
         "[generate-next-workout] Error creating placeholder:",
         placeholderError
       );
+      reportGenerationFailure(
+        {
+          userId: user_id,
+          operation: "next_workout_delivery",
+          signalKey: requestSignalKey,
+          durationMs: Date.now() - requestStartedAt,
+        },
+        "placeholder_persistence_failed"
+      );
       return errorResponse("Failed to create placeholder", 500);
     }
 
@@ -247,30 +267,69 @@ Deno.serve(async (req: Request) => {
         `[generate-next-workout] Generation failed: ${genResult.error}`
       );
 
-      await supabaseClient
+      const { error: markFailedError } = await supabaseClient
         .from("pending_workouts")
         .update({ status: "failed" })
         .eq("id", placeholder.id);
+      reportGenerationFailure(
+        {
+          userId: user_id,
+          operation: "next_workout_delivery",
+          signalKey: placeholder.id,
+          durationMs: genResult.durationMs,
+          generationSource: genResult.generationSource,
+          fallbackReason: genResult.fallbackReason,
+        },
+        markFailedError
+          ? "failure_state_persistence_failed"
+          : "generation_failed"
+      );
 
       return jsonResponse({ success: false, error: genResult.error }, 500);
     }
 
     // 11. Update placeholder with generated data
-    const { error: insertError } = await supabaseClient
-      .from("pending_workouts")
-      .update({
-        status: "ready",
-        workout_data: genResult.data as unknown as Record<string, unknown>,
-        generation_source: genResult.generationSource,
-        generated_at: new Date().toISOString(),
-      })
-      .eq("id", placeholder.id);
+    const generatedData = genResult.data;
+    const persisted = await persistAndReportGeneration(
+      {
+        userId: user_id,
+        operation: "next_workout_delivery",
+        signalKey: placeholder.id,
+        durationMs: genResult.durationMs,
+        generationSource: genResult.generationSource,
+        fallbackReason: genResult.fallbackReason,
+      },
+      async () => {
+        const { error } = await supabaseClient
+          .from("pending_workouts")
+          .update({
+            status: "ready",
+            workout_data: generatedData as unknown as Record<string, unknown>,
+            generation_source: genResult.generationSource,
+            generated_at: new Date().toISOString(),
+          })
+          .eq("id", placeholder.id);
+        return { error };
+      }
+    );
 
-    if (insertError) {
-      console.error(
-        "[generate-next-workout] Error inserting replacement:",
-        insertError
-      );
+    if (!persisted) {
+      console.error("[generate-next-workout] Error inserting replacement");
+      const { error: markFailedError } = await supabaseClient
+        .from("pending_workouts")
+        .update({ status: "failed" })
+        .eq("id", placeholder.id);
+      if (markFailedError) {
+        reportGenerationFailure(
+          {
+            userId: user_id,
+            operation: "next_workout_delivery",
+            signalKey: `${placeholder.id}:failed-state`,
+            durationMs: genResult.durationMs,
+          },
+          "failure_state_persistence_failed"
+        );
+      }
       return errorResponse("Failed to save replacement workout", 500);
     }
 
@@ -288,6 +347,17 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     console.error("[generate-next-workout] Unhandled error:", err);
+    if (observedUserId) {
+      reportGenerationFailure(
+        {
+          userId: observedUserId,
+          operation: "next_workout_delivery",
+          signalKey: requestSignalKey,
+          durationMs: Date.now() - requestStartedAt,
+        },
+        "unhandled_exception"
+      );
+    }
     return errorResponse("Internal server error", 500);
   }
 });

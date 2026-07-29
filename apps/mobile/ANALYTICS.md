@@ -233,11 +233,12 @@ resetUser();
 
 ## Operational Observability
 
-Production JavaScript exceptions, unhandled rejections, native crashes, handled
+Production uncaught JavaScript exceptions, unhandled rejections, handled
 critical failures, generation health, sync delivery, and feedback delivery all
-reach the same PostHog operational dashboard. Operational events include app
-version, platform, and journey stage, but never workout notes, prompts, feedback
-text, or raw error messages.
+reach the same PostHog operational dashboard. Native crash capture is disabled
+until native exception reasons can be redacted and verified in a built app.
+Operational events include app version, platform, and journey stage, but never
+Supabase user IDs, workout notes, prompts, feedback text, or raw error messages.
 
 The dashboard contract, alert thresholds, owner, configuration, and controlled
 incident procedure live in

@@ -7,14 +7,6 @@ import { sanitizePostHogEvent } from "./posthog-privacy";
 const posthogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
 const posthogHost =
   process.env.EXPO_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
-const supabaseHostname = (() => {
-  try {
-    const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    return url ? new URL(url).hostname : undefined;
-  } catch {
-    return undefined;
-  }
-})();
 
 // Validate that required environment variables are set
 if (!posthogKey) {
@@ -31,7 +23,6 @@ export const posthog = posthogKey
   ? new PostHog(posthogKey, {
       host: posthogHost,
       captureAppLifecycleEvents: true,
-      addTracingHeaders: supabaseHostname ? [supabaseHostname] : undefined,
       before_send: sanitizePostHogEvent,
       errorTracking: {
         autocapture: {
@@ -39,7 +30,10 @@ export const posthog = posthogKey
           unhandledRejections: true,
           // Console messages can contain user-entered notes or prompts.
           console: [],
-          nativeCrashes: true,
+          // Native exception reasons bypass `before_send`. Keep native
+          // autocapture disabled until a built-app redaction test can enforce
+          // the same privacy contract as JavaScript exceptions.
+          nativeCrashes: false,
         },
       },
       // Additional PostHog configuration options

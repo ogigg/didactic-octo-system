@@ -68,7 +68,6 @@ Specific model selection can change over time, so it should be treated as operat
 
 - **PostHog** - product analytics, mobile error tracking, and the shared
   operational dashboard for generation, sync, and feedback delivery health
-- **@posthog/react-native-plugin** - native iOS/Android crash capture
 
 Observability tooling may evolve. When precision matters, verify the currently configured providers in the codebase and environment setup.
 

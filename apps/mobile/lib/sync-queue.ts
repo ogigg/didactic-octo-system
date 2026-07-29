@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Crypto from "expo-crypto";
 
 import {
   reportHandledOperationalError,
@@ -19,6 +20,7 @@ export interface SyncQueueItem {
   createdAt: number;
   status: "pending" | "dead";
   recoveryAttempted?: boolean;
+  observabilityId?: string;
 }
 
 type SyncHandler = (payload: unknown) => Promise<void>;
@@ -69,6 +71,7 @@ export class SyncQueue {
         nextRetryAt: 0,
         createdAt: now,
         status: "pending",
+        observabilityId: Crypto.randomUUID(),
       });
     }
 
@@ -89,6 +92,7 @@ export class SyncQueue {
 
       for (let i = 0; i < this.items.length; i++) {
         const item = this.items[i];
+        item.observabilityId ??= Crypto.randomUUID();
         if (item.status !== "pending") continue;
         if (item.nextRetryAt > now) continue;
 
@@ -109,6 +113,8 @@ export class SyncQueue {
             latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
             queueAgeMs: Math.max(0, Date.now() - item.createdAt),
             retryCount: item.retryCount,
+            correlationId: item.observabilityId,
+            dedupeKey: `${item.observabilityId}:delivered`,
           });
           toRemove.push(i);
           changed = true;
@@ -124,6 +130,8 @@ export class SyncQueue {
               latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
               queueAgeMs: Math.max(0, Date.now() - item.createdAt),
               retryCount: item.retryCount,
+              correlationId: item.observabilityId,
+              dedupeKey: `${item.observabilityId}:dead-letter`,
             });
           } else if (item.retryCount === 1) {
             reportHandledOperationalError({
@@ -134,6 +142,8 @@ export class SyncQueue {
               latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
               queueAgeMs: Math.max(0, Date.now() - item.createdAt),
               retryCount: item.retryCount,
+              correlationId: item.observabilityId,
+              dedupeKey: `${item.observabilityId}:first-failure`,
             });
           } else {
             const backoff = Math.min(

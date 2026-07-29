@@ -36,13 +36,6 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "posthog-react-native/expo",
-        {
-          "uploadNativeSymbols": true,
-          "skipOnConflict": true
-        }
-      ],
       "expo-apple-authentication",
       "expo-notifications",
       "@bacons/apple-targets",

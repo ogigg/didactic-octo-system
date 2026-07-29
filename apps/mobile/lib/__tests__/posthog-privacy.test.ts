@@ -29,6 +29,7 @@ describe("sanitizePostHogEvent", () => {
             },
           },
         ],
+        crash_classification: "fatal_or_unhandled",
         privacy_redacted: true,
       },
     });

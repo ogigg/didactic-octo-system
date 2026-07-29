@@ -148,9 +148,11 @@ Important operational concerns include:
 - analytics that help understand activation, completion, and adherence
 
 PostHog is currently the shared operational view. The mobile SDK autocaptures
-JavaScript and native crashes and emits allowlisted handled-error/sync signals;
-Supabase Edge Functions emit privacy-safe generation and feedback delivery
-events using pseudonymous user identifiers. Dashboard definitions, alerts, and
+redacted uncaught JavaScript failures and emits allowlisted handled-error/sync
+signals; native crash capture remains disabled until native exception reasons
+can be provably redacted. Supabase Edge Functions emit authoritative generation
+and feedback delivery events using the same server-derived opaque identity that
+mobile receives after authentication. Dashboard definitions, alerts, and
 incident ownership are documented in
 `project-wiki/guides/operational-observability.md`.
 

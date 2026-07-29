@@ -1,5 +1,8 @@
 import { exerciseImageSchema } from "@/lib/exercise-media";
-import { reportHandledOperationalError } from "@/lib/operational-observability";
+import {
+  getObservabilityHeaders,
+  reportHandledOperationalError,
+} from "@/lib/operational-observability";
 import { supabase } from "@/lib/supabase";
 import { z } from "zod";
 
@@ -97,15 +100,10 @@ export async function generateWorkout(
 ): Promise<GenerateWorkoutResponse> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: request,
+    headers: getObservabilityHeaders(),
   });
 
   if (error) {
-    reportHandledOperationalError({
-      area: "generation",
-      operation: "direct_generation",
-      journeyStage: "generation",
-      failureCode: "edge_function_failed",
-    });
     throw new Error(error.message);
   }
 

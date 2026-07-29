@@ -17,6 +17,14 @@ jest.mock("@/lib/sync-queue", () => ({
   },
 }));
 
+const mockIdentifyObservabilityUser = jest.fn().mockResolvedValue(undefined);
+const mockResetObservabilityIdentity = jest.fn();
+
+jest.mock("@/lib/operational-observability", () => ({
+  identifyObservabilityUser: () => mockIdentifyObservabilityUser(),
+  resetObservabilityIdentity: () => mockResetObservabilityIdentity(),
+}));
+
 jest.mock("@/stores/onboarding-store", () => ({
   useOnboardingStore: {
     getState: jest.fn().mockReturnValue({
@@ -132,6 +140,73 @@ describe("useAuthStore", () => {
       });
 
       expect(useAuthStore.getState().session).toBe(mockSession);
+      unsubscribe();
+    });
+
+    it("identifies the authenticated account and resets before account switches", async () => {
+      const firstSession = { user: { id: "first-account" } } as never;
+      const secondSession = { user: { id: "second-account" } } as never;
+      let capturedCallback: (event: string, session: unknown) => void;
+
+      (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: firstSession },
+      });
+      (mockSupabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
+        (cb) => {
+          capturedCallback = cb;
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
+
+      const unsubscribe = useAuthStore.getState().initialize();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const resetCountAfterFirstAccount =
+        mockResetObservabilityIdentity.mock.calls.length;
+
+      act(() => {
+        capturedCallback!("SIGNED_IN", secondSession);
+      });
+
+      expect(mockIdentifyObservabilityUser).toHaveBeenCalledTimes(2);
+      expect(mockResetObservabilityIdentity).toHaveBeenCalledTimes(
+        resetCountAfterFirstAccount + 1
+      );
+      expect(
+        mockResetObservabilityIdentity.mock.invocationCallOrder.at(-1)
+      ).toBeLessThan(
+        mockIdentifyObservabilityUser.mock.invocationCallOrder.at(-1) ?? 0
+      );
+      unsubscribe();
+    });
+
+    it("resets observability identity when the session is cleared", async () => {
+      const session = { user: { id: "account" } } as never;
+      let capturedCallback: (event: string, session: unknown) => void;
+      (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session },
+      });
+      (mockSupabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
+        (cb) => {
+          capturedCallback = cb;
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
+
+      const unsubscribe = useAuthStore.getState().initialize();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const resetCount = mockResetObservabilityIdentity.mock.calls.length;
+
+      act(() => {
+        capturedCallback!("SIGNED_OUT", null);
+      });
+
+      expect(mockResetObservabilityIdentity).toHaveBeenCalledTimes(
+        resetCount + 1
+      );
       unsubscribe();
     });
 
@@ -305,6 +380,7 @@ describe("useAuthStore", () => {
 
       expect(syncQueue.flush).toHaveBeenCalledTimes(1);
       expect(useOnboardingStore.getState().reset).toHaveBeenCalledTimes(1);
+      expect(mockResetObservabilityIdentity).toHaveBeenCalled();
     });
   });
 });
