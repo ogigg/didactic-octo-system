@@ -1,6 +1,8 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
-  repairWorkoutPrescriptions,
+  EXERCISE_LOAD_SEMANTICS,
+  summarizePrescriptionIssues,
+  validateAndRepairWorkoutPrescriptions,
   type PrescriptionExercise,
 } from "../prescription-validation.ts";
 
@@ -10,7 +12,7 @@ function makeExercise(
   return {
     exercise_id: "exercise-1",
     exercise_type: "weight",
-    equipment: ["Barbell"],
+    load_semantics: EXERCISE_LOAD_SEMANTICS.EXTERNAL,
     sets: [
       {
         set_type: "working",
@@ -22,124 +24,183 @@ function makeExercise(
   };
 }
 
-Deno.test("repairs zero loads for exercises that require external load", () => {
+Deno.test(
+  "rejects an invalid external working load without fabricating kilograms",
+  () => {
+    const exercises = [
+      makeExercise({
+        sets: [
+          {
+            set_type: "working",
+            target_load_kg: 0,
+            target_reps: 8,
+          },
+        ],
+      }),
+    ];
+
+    const result = validateAndRepairWorkoutPrescriptions(exercises, {
+      trainingStyle: "hypertrophy",
+      difficulty: "beginner",
+    });
+
+    assertEquals(result.valid, false);
+    assertEquals(exercises[0].sets[0].target_load_kg, 0);
+    assertEquals(result.issues, [
+      {
+        code: "invalid_load",
+        exerciseIndex: 0,
+        setIndex: 0,
+        repaired: false,
+      },
+    ]);
+  }
+);
+
+Deno.test(
+  "keeps a positive ability-informed load for a new external exercise",
+  () => {
+    const exercises = [makeExercise()];
+
+    const result = validateAndRepairWorkoutPrescriptions(exercises, {
+      trainingStyle: "hypertrophy",
+      difficulty: "advanced",
+    });
+
+    assertEquals(result.valid, true);
+    assertEquals(result.issues, []);
+    assertEquals(exercises[0].sets[0].target_load_kg, 40);
+  }
+);
+
+Deno.test("derives an external warmup only from a valid working load", () => {
   const exercises = [
     makeExercise({
       sets: [
         {
-          set_type: "working",
+          set_type: "warmup",
           target_load_kg: 0,
+          target_reps: 10,
+        },
+        {
+          set_type: "working",
+          target_load_kg: 40,
           target_reps: 8,
         },
       ],
     }),
   ];
 
-  const issues = repairWorkoutPrescriptions(exercises, {
+  const result = validateAndRepairWorkoutPrescriptions(exercises, {
     trainingStyle: "hypertrophy",
-    difficulty: "intermediate",
+    difficulty: "beginner",
   });
 
+  assertEquals(result.valid, true);
   assertEquals(exercises[0].sets[0].target_load_kg, 20);
-  assertEquals(
-    issues.map((issue) => issue.code),
-    ["invalid_load"]
-  );
+  assertEquals(result.issues[0]?.repaired, true);
 });
 
 Deno.test(
-  "keeps zero load for bodyweight and explicitly loadless exercises",
+  "Bench Dip uses canonical bodyweight semantics, not equipment tokens",
   () => {
     const exercises = [
       makeExercise({
-        equipment: ["Body weight", "Mat"],
+        exercise_id: "bench-dip",
+        load_semantics: EXERCISE_LOAD_SEMANTICS.BODYWEIGHT,
         sets: [
           {
             set_type: "working",
-            target_load_kg: 0,
-            target_reps: 12,
-          },
-        ],
-      }),
-      makeExercise({
-        exercise_id: "pull-up",
-        equipment: ["Pull-up bar"],
-        sets: [
-          {
-            set_type: "working",
-            target_load_kg: 0,
-            target_reps: 6,
+            target_load_kg: 5,
+            target_reps: 8,
           },
         ],
       }),
     ];
 
-    const issues = repairWorkoutPrescriptions(exercises, {
+    const result = validateAndRepairWorkoutPrescriptions(exercises, {
       trainingStyle: "hypertrophy",
-      difficulty: "intermediate",
+      difficulty: "beginner",
     });
 
+    assertEquals(result.valid, true);
     assertEquals(exercises[0].sets[0].target_load_kg, 0);
-    assertEquals(exercises[1].sets[0].target_load_kg, 0);
-    assertEquals(issues, []);
   }
 );
 
-Deno.test("repairs impractical low reps outside strength context", () => {
+Deno.test("assisted movements explicitly permit zero assistance load", () => {
   const exercises = [
     makeExercise({
+      exercise_id: "assisted-pull-up",
+      load_semantics: EXERCISE_LOAD_SEMANTICS.ASSISTED,
       sets: [
         {
           set_type: "working",
-          target_load_kg: 40,
-          target_reps: 3,
+          target_load_kg: 0,
+          target_reps: 6,
         },
       ],
     }),
   ];
 
-  const issues = repairWorkoutPrescriptions(exercises, {
+  const result = validateAndRepairWorkoutPrescriptions(exercises, {
     trainingStyle: "hypertrophy",
-    difficulty: "advanced",
+    difficulty: "beginner",
   });
 
-  assertEquals(exercises[0].sets[0].target_reps, 5);
-  assertEquals(
-    issues.map((issue) => issue.code),
-    ["invalid_reps"]
-  );
+  assertEquals(result.valid, true);
+  assertEquals(result.issues, []);
 });
 
 Deno.test(
-  "keeps three-rep working sets for experienced strength training",
+  "beginner strength repairs three reps but experienced strength keeps them",
   () => {
-    const exercises = [
+    const beginner = [
       makeExercise({
         sets: [
           {
             set_type: "working",
-            target_load_kg: 60,
+            target_load_kg: 40,
             target_reps: 3,
           },
         ],
       }),
     ];
+    const intermediate = structuredClone(beginner);
+    const advanced = structuredClone(beginner);
 
-    const issues = repairWorkoutPrescriptions(exercises, {
+    const beginnerResult = validateAndRepairWorkoutPrescriptions(beginner, {
+      trainingStyle: "strength",
+      difficulty: "beginner",
+    });
+    const intermediateResult = validateAndRepairWorkoutPrescriptions(
+      intermediate,
+      {
+        trainingStyle: "strength",
+        difficulty: "intermediate",
+      }
+    );
+    const advancedResult = validateAndRepairWorkoutPrescriptions(advanced, {
       trainingStyle: "strength",
       difficulty: "advanced",
     });
 
-    assertEquals(exercises[0].sets[0].target_reps, 3);
-    assertEquals(issues, []);
+    assertEquals(beginnerResult.valid, true);
+    assertEquals(beginner[0].sets[0].target_reps, 5);
+    assertEquals(intermediateResult.valid, true);
+    assertEquals(intermediate[0].sets[0].target_reps, 3);
+    assertEquals(intermediateResult.issues, []);
+    assertEquals(advancedResult.valid, true);
+    assertEquals(advanced[0].sets[0].target_reps, 3);
+    assertEquals(advancedResult.issues, []);
   }
 );
 
-Deno.test("repairs missing time targets and removes weight fields", () => {
+Deno.test("duration semantics repair seconds and remove weight fields", () => {
   const exercises = [
     makeExercise({
       exercise_type: "time",
-      equipment: ["Body weight"],
+      load_semantics: EXERCISE_LOAD_SEMANTICS.DURATION,
       sets: [
         {
           set_type: "working",
@@ -150,19 +211,45 @@ Deno.test("repairs missing time targets and removes weight fields", () => {
     }),
   ];
 
-  const issues = repairWorkoutPrescriptions(exercises, {
+  const result = validateAndRepairWorkoutPrescriptions(exercises, {
     trainingStyle: "endurance",
     difficulty: "beginner",
   });
 
+  assertEquals(result.valid, true);
   assertEquals(exercises[0].sets[0], {
     set_type: "working",
     target_load_kg: undefined,
     target_reps: undefined,
     target_duration_seconds: 45,
   });
-  assertEquals(
-    issues.map((issue) => issue.code),
-    ["invalid_duration", "unexpected_weight_fields"]
-  );
 });
+
+Deno.test(
+  "issue summaries expose aggregate codes without fitness values",
+  () => {
+    assertEquals(
+      summarizePrescriptionIssues([
+        {
+          code: "invalid_load",
+          exerciseIndex: 2,
+          setIndex: 1,
+          repaired: false,
+        },
+        {
+          code: "invalid_load",
+          exerciseIndex: 4,
+          setIndex: 0,
+          repaired: true,
+        },
+        {
+          code: "invalid_reps",
+          exerciseIndex: 4,
+          setIndex: 0,
+          repaired: true,
+        },
+      ]),
+      { invalid_load: 2, invalid_reps: 1 }
+    );
+  }
+);

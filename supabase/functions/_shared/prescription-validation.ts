@@ -1,7 +1,20 @@
+export const EXERCISE_LOAD_SEMANTICS = {
+  EXTERNAL: "external",
+  BODYWEIGHT: "bodyweight",
+  BODYWEIGHT_OR_EXTERNAL: "bodyweight_or_external",
+  ASSISTED: "assisted",
+  VARIABLE_RESISTANCE: "variable_resistance",
+  DURATION: "duration",
+} as const;
+
+export type ExerciseLoadSemantics =
+  (typeof EXERCISE_LOAD_SEMANTICS)[keyof typeof EXERCISE_LOAD_SEMANTICS];
+
 export const PRESCRIPTION_ISSUE_CODES = {
   INVALID_LOAD: "invalid_load",
   INVALID_REPS: "invalid_reps",
   INVALID_DURATION: "invalid_duration",
+  INVALID_LOAD_SEMANTICS: "invalid_load_semantics",
   UNEXPECTED_WEIGHT_FIELDS: "unexpected_weight_fields",
   UNEXPECTED_DURATION_FIELD: "unexpected_duration_field",
 } as const;
@@ -16,37 +29,26 @@ export interface PrescriptionSet {
 export interface PrescriptionExercise {
   exercise_id: string;
   exercise_type: "weight" | "time";
-  equipment: string[];
+  load_semantics: ExerciseLoadSemantics;
   sets: PrescriptionSet[];
 }
 
-export interface PrescriptionRepairContext {
+export interface PrescriptionValidationContext {
   trainingStyle: string;
   difficulty: string;
 }
 
 export interface PrescriptionIssue {
   code: (typeof PRESCRIPTION_ISSUE_CODES)[keyof typeof PRESCRIPTION_ISSUE_CODES];
-  exerciseId: string;
+  exerciseIndex: number;
   setIndex: number;
-  field:
-    | "target_load_kg"
-    | "target_reps"
-    | "target_duration_seconds"
-    | "weight_fields";
-  received: number | null;
-  repairedTo: number | null;
+  repaired: boolean;
 }
 
-const LOADLESS_EQUIPMENT = new Set([
-  "ab wheel",
-  "back extension bench",
-  "body weight",
-  "bodyweight",
-  "dip bars",
-  "mat",
-  "pull-up bar",
-]);
+export interface PrescriptionValidationResult {
+  valid: boolean;
+  issues: PrescriptionIssue[];
+}
 
 const DEFAULT_REPS: Record<string, number> = {
   strength: 5,
@@ -62,28 +64,13 @@ const DEFAULT_DURATIONS: Record<string, number> = {
   circuit: 30,
 };
 
-export function isLoadlessExercise(equipment: string[]): boolean {
-  return equipment.some((item) =>
-    LOADLESS_EQUIPMENT.has(item.trim().toLowerCase())
-  );
-}
-
-export function getSafeStartingLoadKg(equipment: string[]): number {
-  const normalized = equipment.map((item) => item.trim().toLowerCase());
-
-  if (isLoadlessExercise(equipment)) return 0;
-  if (normalized.some((item) => item.includes("medicine ball"))) return 3;
-  if (normalized.some((item) => item.includes("dumbbell"))) return 5;
-  if (normalized.some((item) => item.includes("kettlebell"))) return 8;
-  if (normalized.some((item) => item.includes("ez-bar"))) return 10;
-  if (normalized.some((item) => item.includes("barbell"))) return 20;
-
-  return 5;
+export function permitsZeroLoad(loadSemantics: ExerciseLoadSemantics): boolean {
+  return loadSemantics !== EXERCISE_LOAD_SEMANTICS.EXTERNAL;
 }
 
 function minimumReps(
   setType: PrescriptionSet["set_type"],
-  context: PrescriptionRepairContext
+  context: PrescriptionValidationContext
 ): number {
   if (setType === "warmup") return 5;
   if (
@@ -95,20 +82,68 @@ function minimumReps(
   return 5;
 }
 
+function deriveWarmupLoad(sets: PrescriptionSet[]): number | null {
+  const workingLoads = sets
+    .filter(
+      (set): set is PrescriptionSet & { target_load_kg: number } =>
+        set.set_type === "working" &&
+        set.target_load_kg != null &&
+        set.target_load_kg > 0
+    )
+    .map((set) => set.target_load_kg);
+
+  if (workingLoads.length === 0) return null;
+
+  const conservativeLoad = Math.min(...workingLoads) * 0.5;
+  return Math.max(0.5, Math.floor(conservativeLoad * 2) / 2);
+}
+
+function issue(
+  code: PrescriptionIssue["code"],
+  exerciseIndex: number,
+  setIndex: number,
+  repaired: boolean
+): PrescriptionIssue {
+  return { code, exerciseIndex, setIndex, repaired };
+}
+
 /**
- * Repairs generated prescriptions in place and returns structured issues for
- * server-side quality logging. Every generated workout passes through this
- * function before it is returned or persisted.
+ * Repairs only values with a safe, deterministic basis. External working loads
+ * are never guessed: an invalid value leaves the workout rejected. Warmup load
+ * may be derived from a valid working load for the same exercise.
  */
-export function repairWorkoutPrescriptions(
+export function validateAndRepairWorkoutPrescriptions(
   exercises: PrescriptionExercise[],
-  context: PrescriptionRepairContext
-): PrescriptionIssue[] {
+  context: PrescriptionValidationContext
+): PrescriptionValidationResult {
   const issues: PrescriptionIssue[] = [];
 
-  for (const exercise of exercises) {
+  exercises.forEach((exercise, exerciseIndex) => {
+    const durationSemantics =
+      exercise.load_semantics === EXERCISE_LOAD_SEMANTICS.DURATION;
+    const semanticsMatchType =
+      (exercise.exercise_type === "time" && durationSemantics) ||
+      (exercise.exercise_type === "weight" && !durationSemantics);
+
+    if (!semanticsMatchType) {
+      issues.push(
+        issue(
+          PRESCRIPTION_ISSUE_CODES.INVALID_LOAD_SEMANTICS,
+          exerciseIndex,
+          0,
+          false
+        )
+      );
+      return;
+    }
+
+    const warmupLoad =
+      exercise.load_semantics === EXERCISE_LOAD_SEMANTICS.EXTERNAL
+        ? deriveWarmupLoad(exercise.sets)
+        : null;
+
     exercise.sets.forEach((set, setIndex) => {
-      if (exercise.exercise_type === "time") {
+      if (durationSemantics) {
         const duration =
           DEFAULT_DURATIONS[context.trainingStyle] ??
           DEFAULT_DURATIONS.hypertrophy;
@@ -117,26 +152,26 @@ export function repairWorkoutPrescriptions(
           set.target_duration_seconds == null ||
           set.target_duration_seconds <= 0
         ) {
-          issues.push({
-            code: PRESCRIPTION_ISSUE_CODES.INVALID_DURATION,
-            exerciseId: exercise.exercise_id,
-            setIndex,
-            field: "target_duration_seconds",
-            received: set.target_duration_seconds ?? null,
-            repairedTo: duration,
-          });
+          issues.push(
+            issue(
+              PRESCRIPTION_ISSUE_CODES.INVALID_DURATION,
+              exerciseIndex,
+              setIndex,
+              true
+            )
+          );
           set.target_duration_seconds = duration;
         }
 
         if (set.target_load_kg != null || set.target_reps != null) {
-          issues.push({
-            code: PRESCRIPTION_ISSUE_CODES.UNEXPECTED_WEIGHT_FIELDS,
-            exerciseId: exercise.exercise_id,
-            setIndex,
-            field: "weight_fields",
-            received: null,
-            repairedTo: null,
-          });
+          issues.push(
+            issue(
+              PRESCRIPTION_ISSUE_CODES.UNEXPECTED_WEIGHT_FIELDS,
+              exerciseIndex,
+              setIndex,
+              true
+            )
+          );
           set.target_load_kg = undefined;
           set.target_reps = undefined;
         }
@@ -149,48 +184,91 @@ export function repairWorkoutPrescriptions(
           set.target_reps == null
             ? (DEFAULT_REPS[context.trainingStyle] ?? DEFAULT_REPS.hypertrophy)
             : requiredReps;
-        issues.push({
-          code: PRESCRIPTION_ISSUE_CODES.INVALID_REPS,
-          exerciseId: exercise.exercise_id,
-          setIndex,
-          field: "target_reps",
-          received: set.target_reps ?? null,
-          repairedTo: repairedReps,
-        });
+        issues.push(
+          issue(
+            PRESCRIPTION_ISSUE_CODES.INVALID_REPS,
+            exerciseIndex,
+            setIndex,
+            true
+          )
+        );
         set.target_reps = repairedReps;
       }
 
-      const loadless = isLoadlessExercise(exercise.equipment);
-      if (
-        set.target_load_kg == null ||
-        set.target_load_kg < 0 ||
-        (!loadless && set.target_load_kg === 0)
+      if (exercise.load_semantics === EXERCISE_LOAD_SEMANTICS.EXTERNAL) {
+        if (set.target_load_kg == null || set.target_load_kg <= 0) {
+          const canRepairWarmup =
+            set.set_type === "warmup" && warmupLoad != null;
+          issues.push(
+            issue(
+              PRESCRIPTION_ISSUE_CODES.INVALID_LOAD,
+              exerciseIndex,
+              setIndex,
+              canRepairWarmup
+            )
+          );
+          if (canRepairWarmup) set.target_load_kg = warmupLoad;
+        }
+      } else if (
+        exercise.load_semantics === EXERCISE_LOAD_SEMANTICS.BODYWEIGHT &&
+        set.target_load_kg !== 0
       ) {
-        const repairedLoad = getSafeStartingLoadKg(exercise.equipment);
-        issues.push({
-          code: PRESCRIPTION_ISSUE_CODES.INVALID_LOAD,
-          exerciseId: exercise.exercise_id,
-          setIndex,
-          field: "target_load_kg",
-          received: set.target_load_kg ?? null,
-          repairedTo: repairedLoad,
-        });
-        set.target_load_kg = repairedLoad;
+        issues.push(
+          issue(
+            PRESCRIPTION_ISSUE_CODES.INVALID_LOAD,
+            exerciseIndex,
+            setIndex,
+            true
+          )
+        );
+        set.target_load_kg = 0;
+      } else if (set.target_load_kg == null) {
+        issues.push(
+          issue(
+            PRESCRIPTION_ISSUE_CODES.INVALID_LOAD,
+            exerciseIndex,
+            setIndex,
+            true
+          )
+        );
+        set.target_load_kg = 0;
+      } else if (set.target_load_kg < 0) {
+        issues.push(
+          issue(
+            PRESCRIPTION_ISSUE_CODES.INVALID_LOAD,
+            exerciseIndex,
+            setIndex,
+            false
+          )
+        );
       }
 
       if (set.target_duration_seconds != null) {
-        issues.push({
-          code: PRESCRIPTION_ISSUE_CODES.UNEXPECTED_DURATION_FIELD,
-          exerciseId: exercise.exercise_id,
-          setIndex,
-          field: "target_duration_seconds",
-          received: set.target_duration_seconds,
-          repairedTo: null,
-        });
+        issues.push(
+          issue(
+            PRESCRIPTION_ISSUE_CODES.UNEXPECTED_DURATION_FIELD,
+            exerciseIndex,
+            setIndex,
+            true
+          )
+        );
         set.target_duration_seconds = undefined;
       }
     });
-  }
+  });
 
-  return issues;
+  return {
+    valid: issues.every((item) => item.repaired),
+    issues,
+  };
+}
+
+export function summarizePrescriptionIssues(
+  issues: PrescriptionIssue[]
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of issues) {
+    counts[item.code] = (counts[item.code] ?? 0) + 1;
+  }
+  return counts;
 }
