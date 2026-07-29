@@ -46,6 +46,7 @@ type IconName =
   | "globe"
   | "megaphone.fill"
   | "star.fill"
+  | "person.fill"
   | "heart.text.square";
 
 interface NavItem {
@@ -59,6 +60,7 @@ interface NavItem {
     | "nav.strengthBaselines"
     | "nav.health"
     | "nav.subscription"
+    | "nav.accountData"
     | "nav.feedback";
   route?: Href;
 }
@@ -111,6 +113,11 @@ const ACCOUNT_ITEMS: NavItem[] = [
     route: "/subscription",
   },
   {
+    icon: "person.fill",
+    labelKey: "nav.accountData",
+    route: "/account-settings",
+  },
+  {
     icon: "megaphone.fill",
     labelKey: "nav.feedback",
     route: "/feedback",
@@ -141,7 +148,6 @@ export default function ProfileScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
-  const errorColor = useThemeColor({}, "error");
   const primaryContainer = useThemeColor({}, "primaryContainer");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
@@ -380,27 +386,6 @@ export default function ProfileScreen() {
             accessibilityLabel={tAuth("logout.button")}
             style={styles.logoutButton}
           />
-
-          {/* Danger zone — irreversible account deletion. */}
-          <Pressable
-            onPress={() => router.navigate("/delete-account" as Href)}
-            accessibilityRole="button"
-            accessibilityLabel={t("nav.deleteAccount")}
-            style={({ pressed }) => [
-              styles.deleteAccountButton,
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <Text
-              style={[
-                Typography.body,
-                styles.deleteAccountLabel,
-                { color: errorColor },
-              ]}
-            >
-              {t("nav.deleteAccount")}
-            </Text>
-          </Pressable>
         </ScrollView>
       </SafeAreaView>
     </TabScreen>
@@ -460,14 +445,6 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: Spacing.md,
-  },
-  deleteAccountButton: {
-    alignSelf: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-  },
-  deleteAccountLabel: {
-    textAlign: "center",
   },
   languageToggle: {
     flexDirection: "row",

@@ -4,12 +4,20 @@ export const deleteAccount = {
   },
   warning: {
     title: "Okres ochronny: 14 dni",
-    body: "Twoje konto zostanie zaplanowane do usunięcia. Masz 14 dni, aby zmienić zdanie - wystarczy zalogować się ponownie, a konto zostanie przywrócone. Po tym czasie wszystko zostanie trwale usunięte.",
+    body: "Twoje konto zostanie zaplanowane do usunięcia. Masz 14 dni, aby zmienić zdanie — wystarczy zalogować się ponownie, a konto zostanie przywrócone. Po tym czasie dane konta zostaną trwale usunięte i nie będzie można ich odzyskać.",
+  },
+  retention: {
+    heading: "Co może zostać zachowane",
+    body: "Ograniczone dane mogą zostać zachowane, jeśli wymagają tego względy bezpieczeństwa, zapobieganie oszustwom lub obowiązki prawne i regulacyjne. Nie można ich użyć do przywrócenia konta.",
+  },
+  subscription: {
+    heading: "Anulowanie subskrypcji",
+    body: "Usunięcie konta nie anuluje subskrypcji rozliczanych przez App Store lub Google Play. Anuluj aktywną subskrypcję osobno.",
   },
   consequences: {
     heading: "Co zostanie usunięte po 14 dniach",
     items: {
-      account: "Twoje konto, dane logowania i subskrypcja",
+      account: "Twoje konto i dane logowania",
       history: "Cała historia treningów, sesje i dane progresu",
       measurements: "Pomiary ciała i śledzone metryki",
       preferences: "Preferencje treningowe, poziomy siły i cele",
@@ -23,7 +31,7 @@ export const deleteAccount = {
   finalConfirm: {
     title: "Zaplanować usunięcie konta?",
     message:
-      "Zostaniesz wylogowany ze wszystkich urządzeń. Zaloguj się ponownie w ciągu 14 dni, aby anulować - w przeciwnym razie wszystkie dane zostaną trwale usunięte.",
+      "Zostaniesz wylogowany ze wszystkich urządzeń. Zaloguj się ponownie w ciągu 14 dni, aby anulować; później nie będzie można odzyskać danych konta. Subskrypcje w sklepie trzeba anulować osobno, a ograniczone dane mogą zostać zachowane, jeśli jest to wymagane.",
     confirm: "Zaplanuj usunięcie",
     cancel: "Anuluj",
   },
@@ -35,6 +43,7 @@ export const deleteAccount = {
   },
   cta: {
     delete: "Zaplanuj usunięcie konta",
+    accessibilityLabel: "Zaplanuj usunięcie konta, działanie destrukcyjne",
     deleting: "Planowanie...",
     cancel: "Anuluj",
   },

@@ -85,7 +85,9 @@ describe("DeleteAccountScreen", () => {
 
   it("keeps the destructive CTA disabled until the user types DELETE", () => {
     renderScreen();
-    const cta = screen.getByRole("button", { name: "cta.delete" });
+    const cta = screen.getByRole("button", {
+      name: "cta.accessibilityLabel",
+    });
     expect(cta.props.accessibilityState?.disabled).toBe(true);
 
     const input = screen.getByLabelText("confirm.ariaLabel");
@@ -101,7 +103,9 @@ describe("DeleteAccountScreen", () => {
     const input = screen.getByLabelText("confirm.ariaLabel");
     fireEvent.changeText(input, "DELETE");
 
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     expect(Haptics.notificationAsync).toHaveBeenCalledWith("warning");
     expect(alertSpy).toHaveBeenCalledWith(
@@ -114,7 +118,9 @@ describe("DeleteAccountScreen", () => {
   it("does not call the API unless the final confirmation is accepted", () => {
     renderScreen();
     fireEvent.changeText(screen.getByLabelText("confirm.ariaLabel"), "DELETE");
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     expect(mockScheduleAccountDeletion).not.toHaveBeenCalled();
   });
@@ -122,7 +128,9 @@ describe("DeleteAccountScreen", () => {
   it("calls scheduleAccountDeletion when the final confirmation is accepted", async () => {
     renderScreen();
     fireEvent.changeText(screen.getByLabelText("confirm.ariaLabel"), "DELETE");
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     // The final-confirm Alert.alert call receives an array of buttons; grab the
     // destructive one and invoke its onPress as if the user tapped it.
@@ -149,7 +157,9 @@ describe("DeleteAccountScreen", () => {
 
     renderScreen();
     fireEvent.changeText(screen.getByLabelText("confirm.ariaLabel"), "DELETE");
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     const lastCall = alertSpy.mock.calls.at(-1);
     const buttons = lastCall?.[2] as { style?: string; onPress?: () => void }[];

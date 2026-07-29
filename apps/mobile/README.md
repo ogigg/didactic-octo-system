@@ -67,6 +67,7 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Validate external and AI-generated data with Zod before it drives UI behavior.
 - Optimize for mobile realities: interrupted sessions, offline-sensitive flows, and fast in-workout interactions.
 - The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
+- Account deletion is available through Profile → Account & Data. Keep it separate from sign-out and subscription management, and preserve the typed phrase plus final confirmation before scheduling deletion.
 
 ## Testing
 

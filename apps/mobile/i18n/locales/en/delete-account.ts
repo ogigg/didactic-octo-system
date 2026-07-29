@@ -4,12 +4,20 @@ export const deleteAccount = {
   },
   warning: {
     title: "Grace period: 14 days",
-    body: "Your account will be scheduled for deletion. You have 14 days to change your mind — simply sign back in and your account is restored. After that, everything is permanently erased.",
+    body: "Your account will be scheduled for deletion. You have 14 days to change your mind — simply sign back in and your account is restored. After that, your account data is permanently deleted and cannot be recovered.",
+  },
+  retention: {
+    heading: "What may be retained",
+    body: "Limited records may be retained when required for security, fraud prevention, legal, or regulatory obligations. They cannot be used to restore your account.",
+  },
+  subscription: {
+    heading: "Subscription cancellation",
+    body: "Deleting your account does not cancel subscriptions billed by the App Store or Google Play. Cancel any active subscription separately.",
   },
   consequences: {
     heading: "What gets deleted after 14 days",
     items: {
-      account: "Your account, login credentials, and subscription",
+      account: "Your account and login credentials",
       history: "All workout history, sessions, and progression data",
       measurements: "Body measurements and tracked metrics",
       preferences: "Training preferences, baselines, and goals",
@@ -23,7 +31,7 @@ export const deleteAccount = {
   finalConfirm: {
     title: "Schedule account deletion?",
     message:
-      "You'll be signed out of every device. Sign back in within 14 days to cancel — otherwise, all your data is permanently erased.",
+      "You'll be signed out of every device. Sign back in within 14 days to cancel; after that, your account data cannot be recovered. Store subscriptions must be cancelled separately, and limited records may be retained where required.",
     confirm: "Schedule Deletion",
     cancel: "Cancel",
   },
@@ -35,6 +43,7 @@ export const deleteAccount = {
   },
   cta: {
     delete: "Schedule Account Deletion",
+    accessibilityLabel: "Schedule account deletion, destructive action",
     deleting: "Scheduling…",
     cancel: "Cancel",
   },

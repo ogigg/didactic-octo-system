@@ -219,6 +219,10 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="account-settings"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="delete-account"
                   options={{ headerShown: false }}
                 />
