@@ -31,6 +31,8 @@ export const healthSync = {
     status: {
       connected: "Połączono",
       notConnected: "Nie połączono",
+      notRequested: "Nie poproszono",
+      restricted: "Ograniczono",
       skipped: "Odrzucono",
       unavailable: "Niedostępne",
       unknown: "Nie skonfigurowano",
@@ -41,6 +43,17 @@ export const healthSync = {
       "Sweaty synchronizuje ukończone treningi z Health Connect.",
     connectButton: "Połącz",
     openSettingsButton: "Otwórz ustawienia",
+    recoveryButton: "Jak włączyć dostęp",
+    recoveryTitle: "Włącz dostęp do Apple Health",
+    recoveryInstructions:
+      "Otwórz aplikację Zdrowie, stuknij swoje zdjęcie profilowe, a następnie w sekcji Prywatność stuknij Aplikacje. Wybierz Sweaty i włącz kategorie zdrowotne, które chcesz udostępnić.",
+    recoveryDismiss: "Rozumiem",
+    recoveryHint:
+      "Uprawnieniami Apple Health zarządza się w aplikacji Zdrowie. Stuknij powyżej, aby zobaczyć dokładne kroki.",
+    recoveryHintAndroid:
+      "Przyznaj uprawnienia w Health Connect, aby włączyć synchronizację.",
+    restrictedHint:
+      "Apple Health jest ograniczone na tym iPhonie. Jeśli to urządzenie zarządzane, skontaktuj się z administratorem.",
     resetButton: "Rozłącz",
     resetConfirmTitle: "Rozłączyć zdrowie?",
     resetConfirmMessage:

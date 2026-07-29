@@ -11,6 +11,8 @@ export async function getCachedPermissionStatus(): Promise<HealthPermissionStatu
     if (
       raw === "granted" ||
       raw === "denied" ||
+      raw === "not-requested" ||
+      raw === "restricted" ||
       raw === "skipped" ||
       raw === "unavailable"
     ) {

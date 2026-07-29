@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { AppState, Linking, Platform } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Alert, AppState, Linking, Platform } from "react-native";
 
 import {
-  getCachedPermissionStatus,
+  getCurrentHealthPermissionStatus,
   isHealthSyncAvailable,
   requestHealthPermissions,
   setCachedPermissionStatus,
@@ -22,18 +23,20 @@ interface HealthStatus {
   openSettings: () => void;
   /** Mark health sync as skipped (user tapped "Not Now"). */
   skip: () => Promise<void>;
-  /** Re-read cached status (e.g. after returning from settings). */
+  /** Re-read the native status (e.g. after returning from settings). */
   refresh: () => Promise<void>;
 }
 
 export function useHealthStatus(): HealthStatus {
+  const { t } = useTranslation("healthSync");
   const [status, setStatus] = useState<HealthPermissionStatus>("unknown");
+  const [available, setAvailable] = useState(isHealthSyncAvailable());
   const [loading, setLoading] = useState(true);
-  const available = isHealthSyncAvailable();
 
   const refresh = useCallback(async () => {
-    const cached = await getCachedPermissionStatus();
-    setStatus(cached);
+    const current = await getCurrentHealthPermissionStatus();
+    setStatus(current);
+    setAvailable(current !== "unavailable");
     setLoading(false);
   }, []);
 
@@ -61,7 +64,14 @@ export function useHealthStatus(): HealthStatus {
 
   const openSettings = useCallback(() => {
     if (Platform.OS === "ios") {
-      Linking.openSettings();
+      // iOS does not provide a supported deep link to an app's Health
+      // permissions. App settings often contain no Health controls, so give
+      // users the precise path in the Health app instead.
+      Alert.alert(
+        t("settings.recoveryTitle"),
+        t("settings.recoveryInstructions"),
+        [{ text: t("settings.recoveryDismiss") }]
+      );
     } else if (Platform.OS === "android") {
       // Deep-link into Health Connect's permission screen for this app
       Linking.openURL("content://com.google.android.apps.healthdata").catch(
@@ -71,7 +81,7 @@ export function useHealthStatus(): HealthStatus {
         }
       );
     }
-  }, []);
+  }, [t]);
 
   const skip = useCallback(async () => {
     await setCachedPermissionStatus("skipped");

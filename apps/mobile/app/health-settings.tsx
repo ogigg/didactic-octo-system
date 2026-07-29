@@ -9,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { HealthPrimingScreen } from "@/components/health/health-priming-screen";
@@ -24,7 +23,6 @@ const isAndroid = Platform.OS === "android";
 
 export default function HealthSettingsScreen() {
   const { t } = useTranslation("healthSync");
-  const router = useRouter();
   const {
     status,
     available,
@@ -40,16 +38,19 @@ export default function HealthSettingsScreen() {
   const textMuted = useThemeColor({}, "textMuted");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
   const background = useThemeColor({}, "background");
-  const primary = useThemeColor({}, "primary");
   const successColor = useThemeColor({}, "success");
   const errorColor = useThemeColor({}, "error");
 
   const [showPriming, setShowPriming] = useState(false);
 
   const handleConnect = useCallback(async () => {
-    if (status === "unknown" || status === "skipped") {
+    if (
+      status === "unknown" ||
+      status === "not-requested" ||
+      status === "skipped"
+    ) {
       setShowPriming(true);
-    } else if (status === "denied") {
+    } else if (status === "denied" || status === "restricted") {
       openSettings();
     }
   }, [status, openSettings]);
@@ -102,6 +103,10 @@ export default function HealthSettingsScreen() {
         return t("settings.status.connected");
       case "denied":
         return t("settings.status.notConnected");
+      case "restricted":
+        return t("settings.status.restricted");
+      case "not-requested":
+        return t("settings.status.notRequested");
       case "skipped":
         return t("settings.status.skipped");
       case "unavailable":
@@ -114,7 +119,7 @@ export default function HealthSettingsScreen() {
   const statusColor =
     status === "granted"
       ? successColor
-      : status === "denied" || status === "skipped"
+      : status === "denied" || status === "restricted" || status === "skipped"
         ? errorColor
         : textMuted;
 
@@ -178,10 +183,18 @@ export default function HealthSettingsScreen() {
           ) : status === "granted" ? (
             <View style={styles.actions}>
               <Button
-                label={t("settings.openSettingsButton")}
+                label={
+                  isAndroid
+                    ? t("settings.openSettingsButton")
+                    : t("settings.recoveryButton")
+                }
                 variant="secondary"
                 onPress={openSettings}
-                accessibilityLabel={t("settings.openSettingsButton")}
+                accessibilityLabel={
+                  isAndroid
+                    ? t("settings.openSettingsButton")
+                    : t("settings.recoveryButton")
+                }
               />
               <Button
                 label={t("settings.resetButton")}
@@ -190,19 +203,29 @@ export default function HealthSettingsScreen() {
                 accessibilityLabel={t("settings.resetButton")}
               />
             </View>
-          ) : status === "denied" ? (
+          ) : status === "denied" || status === "restricted" ? (
             <View style={styles.actions}>
               <Button
-                label={t("settings.openSettingsButton")}
+                label={
+                  isAndroid
+                    ? t("settings.openSettingsButton")
+                    : t("settings.recoveryButton")
+                }
                 onPress={openSettings}
-                accessibilityLabel={t("settings.openSettingsButton")}
+                accessibilityLabel={
+                  isAndroid
+                    ? t("settings.openSettingsButton")
+                    : t("settings.recoveryButton")
+                }
               />
               <Text
                 style={[Typography.caption, { color: textMuted }, styles.hint]}
               >
                 {isAndroid
-                  ? "Grant permissions in Health Connect to enable sync."
-                  : "Enable Health access in Settings to continue."}
+                  ? t("settings.recoveryHintAndroid")
+                  : status === "restricted"
+                    ? t("settings.restrictedHint")
+                    : t("settings.recoveryHint")}
               </Text>
             </View>
           ) : (

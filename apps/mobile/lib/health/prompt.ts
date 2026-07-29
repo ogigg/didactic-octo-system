@@ -2,7 +2,7 @@ import { Alert, Platform } from "react-native";
 import { getFixedT } from "i18next";
 
 import {
-  getCachedPermissionStatus,
+  getCurrentHealthPermissionStatus,
   isHealthSyncAvailable,
   requestHealthPermissions,
   setCachedPermissionStatus,
@@ -24,9 +24,11 @@ export async function promptAndSyncWorkout(
 ): Promise<void> {
   if (!isHealthSyncAvailable()) return;
 
-  let status = await getCachedPermissionStatus();
+  let status = await getCurrentHealthPermissionStatus();
 
-  if (status === "unknown") {
+  if (status === "unavailable" || status === "restricted") return;
+
+  if (status === "unknown" || status === "not-requested") {
     const allowed = await askUser();
     if (allowed) {
       status = await requestHealthPermissions();

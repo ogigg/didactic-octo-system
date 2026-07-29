@@ -1,6 +1,7 @@
 import AppleHealthKit, { type HealthKitPermissions } from "react-native-health";
 
 import type {
+  HealthPermissionStatus,
   HealthWorkoutPayload,
   HealthWriteResult,
   HeartRateSample,
@@ -14,6 +15,60 @@ const PERMISSIONS: HealthKitPermissions = {
 };
 
 let initialized = false;
+
+function classifyHealthKitError(error: unknown): HealthPermissionStatus {
+  const message = String(error).toLowerCase();
+  if (message.includes("restricted")) return "restricted";
+  if (message.includes("not available") || message.includes("unavailable")) {
+    return "unavailable";
+  }
+  if (message.includes("not determined")) return "not-requested";
+  if (message.includes("denied")) return "denied";
+  return "unknown";
+}
+
+function isAvailable(): Promise<boolean> {
+  if (typeof AppleHealthKit?.isAvailable !== "function") {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    AppleHealthKit.isAvailable((_error, available) => {
+      resolve(available === true);
+    });
+  });
+}
+
+export async function getPermissionStatusIOS(): Promise<HealthPermissionStatus> {
+  if (!(await isAvailable())) return "unavailable";
+  if (typeof AppleHealthKit.getAuthStatus !== "function") return "unavailable";
+
+  return new Promise((resolve) => {
+    AppleHealthKit.getAuthStatus(PERMISSIONS, (error, result) => {
+      if (error) {
+        resolve(classifyHealthKitError(error));
+        return;
+      }
+
+      // HealthKit intentionally hides read authorization. Workout is the only
+      // write permission Sweaty requests, so its status is the reliable
+      // indicator for whether completed workouts can sync.
+      switch (result?.permissions.write[0]) {
+        case 0:
+          resolve("not-requested");
+          break;
+        case 1:
+          resolve("denied");
+          break;
+        case 2:
+          resolve("granted");
+          break;
+        default:
+          resolve("unknown");
+      }
+    });
+  });
+}
 
 function initOnce(): Promise<void> {
   if (initialized) return Promise.resolve();
@@ -29,16 +84,14 @@ function initOnce(): Promise<void> {
   });
 }
 
-export async function requestPermissionsIOS(): Promise<"granted" | "denied"> {
+export async function requestPermissionsIOS(): Promise<HealthPermissionStatus> {
+  if (!(await isAvailable())) return "unavailable";
+
   try {
     await initOnce();
-    // HealthKit does not expose per-type grant state for write-only. If
-    // initHealthKit resolves without error, we treat it as granted — a
-    // denied write will surface as an error on the first saveWorkout call
-    // and be caught there.
-    return "granted";
-  } catch {
-    return "denied";
+    return getPermissionStatusIOS();
+  } catch (error) {
+    return classifyHealthKitError(error);
   }
 }
 

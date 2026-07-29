@@ -24,8 +24,9 @@ export { getCachedPermissionStatus, setCachedPermissionStatus };
 export { cancelRetry as cancelWorkoutHealthRetry } from "./retry-queue";
 
 /**
- * Returns true when a native Health integration is available for this
- * platform. Web, Expo Go, and unsupported OSes return false.
+ * Returns true when this OS has a native Health integration. Device-level
+ * support (for example, HealthKit on iPhone versus iPad) is checked
+ * asynchronously by `getCurrentHealthPermissionStatus`.
  */
 export function isHealthSyncAvailable(): boolean {
   return Platform.OS === "ios" || Platform.OS === "android";
@@ -35,7 +36,7 @@ export async function requestHealthPermissions(): Promise<HealthPermissionStatus
   if (Platform.OS === "ios") {
     const { requestPermissionsIOS } = await import("./ios");
     const result = await requestPermissionsIOS();
-    await setCachedPermissionStatus(result);
+    if (result !== "unknown") await setCachedPermissionStatus(result);
     return result;
   }
   if (Platform.OS === "android") {
@@ -44,6 +45,31 @@ export async function requestHealthPermissions(): Promise<HealthPermissionStatus
     await setCachedPermissionStatus(result);
     return result;
   }
+  await setCachedPermissionStatus("unavailable");
+  return "unavailable";
+}
+
+/**
+ * Reads the platform's current authorization state. On iOS this queries
+ * HealthKit directly so permission changes made outside the app are reflected.
+ */
+export async function getCurrentHealthPermissionStatus(): Promise<HealthPermissionStatus> {
+  if (Platform.OS === "ios") {
+    const { getPermissionStatusIOS } = await import("./ios");
+    const result = await getPermissionStatusIOS();
+    const cached = await getCachedPermissionStatus();
+
+    // "Not now" is an in-app choice rather than an OS authorization state.
+    const status =
+      result === "not-requested" && cached === "skipped" ? "skipped" : result;
+    if (status !== "unknown") await setCachedPermissionStatus(status);
+    return status;
+  }
+
+  if (Platform.OS === "android") {
+    return getCachedPermissionStatus();
+  }
+
   await setCachedPermissionStatus("unavailable");
   return "unavailable";
 }
