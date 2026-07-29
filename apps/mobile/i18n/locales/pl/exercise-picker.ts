@@ -33,6 +33,11 @@ export const exercisePicker = {
     title: "Nie udało się dodać ćwiczenia",
     message: "Spróbuj ponownie. Twój trening nie został zmieniony.",
   },
+  saveError: {
+    title: "Ćwiczenie dodane, ale niezapisane",
+    message:
+      "Ćwiczenie jest w treningu, ale zmiany nie udało się zapisać na tym urządzeniu. Przed zamknięciem aplikacji spróbuj ponownie edytować trening.",
+  },
   replaceConfirm: {
     title: "Zamienić ćwiczenie?",
     message:

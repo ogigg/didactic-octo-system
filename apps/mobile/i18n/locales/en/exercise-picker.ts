@@ -29,6 +29,11 @@ export const exercisePicker = {
     title: "Couldn't add exercise",
     message: "Please try again. Your workout hasn't been changed.",
   },
+  saveError: {
+    title: "Exercise added but not saved",
+    message:
+      "The exercise is in your workout, but the change couldn't be saved on this device. Try editing the workout again before closing the app.",
+  },
   replaceConfirm: {
     title: "Replace exercise?",
     message:

@@ -1,6 +1,7 @@
 const mockRouterBack = jest.fn();
 const mockAddExercise = jest.fn();
 const mockAddExerciseAfter = jest.fn();
+const mockHydrateExercisePreviousDisplays = jest.fn();
 const mockReplaceExercise = jest.fn();
 const mockFetchPreviousSetDisplays = jest.fn();
 
@@ -67,6 +68,7 @@ jest.mock("@/stores/workout-store", () => ({
         addExercise: typeof mockAddExercise;
         addExerciseAfter: typeof mockAddExerciseAfter;
         exercises: never[];
+        hydrateExercisePreviousDisplays: typeof mockHydrateExercisePreviousDisplays;
         replaceExercise: typeof mockReplaceExercise;
       }) => unknown
     ) =>
@@ -74,6 +76,7 @@ jest.mock("@/stores/workout-store", () => ({
         addExercise: mockAddExercise,
         addExerciseAfter: mockAddExerciseAfter,
         exercises: [],
+        hydrateExercisePreviousDisplays: mockHydrateExercisePreviousDisplays,
         replaceExercise: mockReplaceExercise,
       })
   ),
@@ -135,6 +138,7 @@ jest.mock("react-native-safe-area-context", () => {
 });
 
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -146,33 +150,70 @@ import ExercisePickerScreen from "../exercise-picker";
 
 const alertSpy = jest.spyOn(Alert, "alert");
 
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (error: unknown) => void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return { promise, reject, resolve };
+}
+
 describe("ExercisePickerScreen add flow", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAddExercise.mockResolvedValue(undefined);
+    mockAddExerciseAfter.mockResolvedValue(undefined);
+    mockHydrateExercisePreviousDisplays.mockResolvedValue(undefined);
     mockFetchPreviousSetDisplays.mockResolvedValue({
       [exercise.id]: [{ setNumber: 1, display: "100×5" }],
     });
   });
 
-  it("adds the selected exercise before returning to the active workout", async () => {
+  it("adds once and returns without waiting for previous-set history", async () => {
+    const history =
+      createDeferred<
+        Record<string, { setNumber: number; display: string }[]>
+      >();
+    mockFetchPreviousSetDisplays.mockReturnValueOnce(history.promise);
     render(<ExercisePickerScreen />);
 
     fireEvent.press(screen.getByRole("button", { name: exercise.name }));
+    fireEvent.press(screen.getByRole("button", { name: exercise.name }));
 
-    await waitFor(() => {
-      expect(mockAddExercise).toHaveBeenCalledWith({
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
-        previousDisplays: ["100×5"],
-      });
-      expect(mockRouterBack).toHaveBeenCalledTimes(1);
+    expect(mockAddExercise).toHaveBeenCalledTimes(1);
+    expect(mockAddExercise).toHaveBeenCalledWith({
+      id: exercise.id,
+      name: exercise.name,
+      image: exercise.image,
+      exerciseType: exercise.exercise_type,
     });
-
+    expect(mockRouterBack).toHaveBeenCalledTimes(1);
+    expect(mockHydrateExercisePreviousDisplays).not.toHaveBeenCalled();
     expect(mockAddExercise.mock.invocationCallOrder[0]).toBeLessThan(
       mockRouterBack.mock.invocationCallOrder[0]
     );
+
+    act(() => {
+      history.resolve({
+        [exercise.id]: [{ setNumber: 1, display: "100×5" }],
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockHydrateExercisePreviousDisplays).toHaveBeenCalledWith(
+        exercise.id,
+        ["100×5"]
+      );
+    });
   });
 
   it("keeps the picker open and surfaces an error when adding fails", async () => {
@@ -190,5 +231,27 @@ describe("ExercisePickerScreen add flow", () => {
       );
     });
     expect(mockRouterBack).not.toHaveBeenCalled();
+  });
+
+  it("reports when the exercise was added in memory but persistence fails", async () => {
+    const persistence = createDeferred<void>();
+    mockAddExercise.mockReturnValueOnce(persistence.promise);
+    render(<ExercisePickerScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: exercise.name }));
+
+    expect(mockAddExercise).toHaveBeenCalledTimes(1);
+    expect(mockRouterBack).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      persistence.reject(new Error("AsyncStorage failure"));
+    });
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        "saveError.title",
+        "saveError.message"
+      );
+    });
   });
 });

@@ -4,6 +4,7 @@ import { create } from "zustand";
 import {
   createJSONStorage,
   persist,
+  type StateStorage,
   subscribeWithSelector,
 } from "zustand/middleware";
 
@@ -131,7 +132,7 @@ interface WorkoutActions {
     exerciseType?: "weight" | "time";
     previousDisplays?: string[];
     reasoning?: WorkoutExerciseReasoning | null;
-  }) => void;
+  }) => Promise<void>;
   addExerciseAfter: (
     afterExerciseId: string,
     exercise: {
@@ -142,11 +143,17 @@ interface WorkoutActions {
       previousDisplays?: string[];
       reasoning?: WorkoutExerciseReasoning | null;
     }
-  ) => void;
+  ) => Promise<void>;
+  hydrateExercisePreviousDisplays: (
+    exerciseId: string,
+    previousDisplays: string[]
+  ) => Promise<void>;
   reorderExercise: (exerciseId: string, targetIndex: number) => void;
   removeExercise: (exerciseId: string) => void;
   updateWorkoutName: (name: string) => void;
 }
+
+interface WorkoutStore extends WorkoutState, WorkoutActions {}
 
 const initialState: WorkoutState = {
   isActive: false,
@@ -160,6 +167,51 @@ const initialState: WorkoutState = {
 };
 
 let setCounter = 0;
+let suppressAutomaticWorkoutPersistence = false;
+
+export const activeWorkoutStateStorage: StateStorage = {
+  getItem: (name) => AsyncStorage.getItem(name),
+  removeItem: (name) => AsyncStorage.removeItem(name),
+  setItem: (name, value) => {
+    if (suppressAutomaticWorkoutPersistence) {
+      suppressAutomaticWorkoutPersistence = false;
+      return Promise.resolve();
+    }
+
+    try {
+      return AsyncStorage.setItem(name, value);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  },
+};
+
+const ACTIVE_WORKOUT_STORAGE_KEY = "active-workout-storage";
+const workoutPersistStorage = createJSONStorage<WorkoutStore>(
+  () => activeWorkoutStateStorage
+);
+
+function updateAndPersistWorkout(
+  update: () => void,
+  getState: () => WorkoutStore
+): Promise<void> {
+  suppressAutomaticWorkoutPersistence = true;
+  try {
+    update();
+  } finally {
+    suppressAutomaticWorkoutPersistence = false;
+  }
+
+  return Promise.resolve(
+    activeWorkoutStateStorage.setItem(
+      ACTIVE_WORKOUT_STORAGE_KEY,
+      JSON.stringify({
+        state: getState(),
+        version: 0,
+      })
+    )
+  ).then(() => undefined);
+}
 
 function generateSetId(): string {
   setCounter += 1;
@@ -247,10 +299,10 @@ function makeExercise(exercise: {
   };
 }
 
-export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
+export const useWorkoutStore = create<WorkoutStore>()(
   subscribeWithSelector(
     persist(
-      (set, get) => ({
+      (set, get, store) => ({
         ...initialState,
 
         startWorkout: (name, exercises, generationMeta, warmup = null) =>
@@ -434,29 +486,59 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         skipRestTimer: () => set({ restTimer: null }),
 
         addExercise: (exercise) =>
-          set((state) => ({
-            exercises: [...state.exercises, makeExercise(exercise)],
-          })),
+          updateAndPersistWorkout(
+            () =>
+              store.setState((state) => ({
+                exercises: [...state.exercises, makeExercise(exercise)],
+              })),
+            get
+          ),
 
         addExerciseAfter: (afterExerciseId, exercise) =>
-          set((state) => {
-            const index = state.exercises.findIndex(
-              (ex) => ex.id === afterExerciseId
-            );
-            const newExercise = makeExercise(exercise);
+          updateAndPersistWorkout(
+            () =>
+              store.setState((state) => {
+                const index = state.exercises.findIndex(
+                  (ex) => ex.id === afterExerciseId
+                );
+                const newExercise = makeExercise(exercise);
 
-            if (index === -1) {
-              return { exercises: [...state.exercises, newExercise] };
-            }
+                if (index === -1) {
+                  return { exercises: [...state.exercises, newExercise] };
+                }
 
-            return {
-              exercises: [
-                ...state.exercises.slice(0, index + 1),
-                newExercise,
-                ...state.exercises.slice(index + 1),
-              ],
-            };
-          }),
+                return {
+                  exercises: [
+                    ...state.exercises.slice(0, index + 1),
+                    newExercise,
+                    ...state.exercises.slice(index + 1),
+                  ],
+                };
+              }),
+            get
+          ),
+
+        hydrateExercisePreviousDisplays: (exerciseId, previousDisplays) =>
+          updateAndPersistWorkout(
+            () =>
+              store.setState((state) => ({
+                exercises: state.exercises.map((exercise) =>
+                  exercise.id === exerciseId
+                    ? {
+                        ...exercise,
+                        sets: exercise.sets.map((workoutSet, index) => ({
+                          ...workoutSet,
+                          previousDisplay:
+                            previousDisplays[index] ??
+                            workoutSet.previousDisplay ??
+                            null,
+                        })),
+                      }
+                    : exercise
+                ),
+              })),
+            get
+          ),
 
         reorderExercise: (exerciseId, targetIndex) =>
           set((state) => ({
@@ -479,8 +561,8 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         updateWorkoutName: (name) => set({ workoutName: name }),
       }),
       {
-        name: "active-workout-storage",
-        storage: createJSONStorage(() => AsyncStorage),
+        name: ACTIVE_WORKOUT_STORAGE_KEY,
+        storage: workoutPersistStorage,
         onRehydrateStorage: () => (state, error) => {
           if (error) {
             console.warn("[workout-store] hydration failed, resetting:", error);

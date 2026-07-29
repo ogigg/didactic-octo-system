@@ -1,4 +1,8 @@
-import { useWorkoutStore, type WorkoutExercise } from "../workout-store";
+import {
+  activeWorkoutStateStorage,
+  useWorkoutStore,
+  type WorkoutExercise,
+} from "../workout-store";
 
 const baseExercise: WorkoutExercise = {
   id: "bench-press",
@@ -133,6 +137,43 @@ describe("workout store exercise replacement", () => {
       "77.5×10",
       null,
     ]);
+  });
+
+  it("hydrates previous displays after an exercise has been added", async () => {
+    useWorkoutStore.getState().startWorkout("Empty workout", [], undefined);
+    await useWorkoutStore.getState().addExercise({
+      id: "bench-press",
+      name: "Bench Press",
+      exerciseType: "weight",
+    });
+
+    await useWorkoutStore
+      .getState()
+      .hydrateExercisePreviousDisplays("bench-press", ["80×8", "77.5×10"]);
+
+    const [exercise] = useWorkoutStore.getState().exercises;
+    expect(exercise?.sets.map((set) => set.previousDisplay)).toEqual([
+      "80×8",
+      "77.5×10",
+      null,
+    ]);
+  });
+
+  it("returns the persistence rejection after adding in memory", async () => {
+    const persistenceError = new Error("AsyncStorage failure");
+    const setItemSpy = jest
+      .spyOn(activeWorkoutStateStorage, "setItem")
+      .mockImplementation(() => Promise.reject(persistenceError));
+
+    const persistence = useWorkoutStore.getState().addExercise({
+      id: "bench-press",
+      name: "Bench Press",
+      exerciseType: "weight",
+    });
+
+    expect(useWorkoutStore.getState().exercises[0]?.id).toBe("bench-press");
+    await expect(persistence).rejects.toBe(persistenceError);
+    setItemSpy.mockRestore();
   });
 
   it("removes an exercise and clears its rest timer", () => {
