@@ -259,6 +259,54 @@ describe("mapWorkoutStoreToDb", () => {
     expect(result.exercises[0].sets[0].sessionSet.target_load_kg).toBe(0);
     expect(result.exercises[0].sets[0].sessionSet.target_reps).toBe(15);
   });
+
+  it("preserves completed plank durations without rep or load values", () => {
+    const plankSummary: WorkoutSummary = {
+      ...mockSummary,
+      exercises: [
+        {
+          id: "plank",
+          name: "Plank",
+          exerciseType: "time",
+          restDurationSeconds: 60,
+          notes: "",
+          difficultyFeedback: "ok",
+          sets: [
+            {
+              id: "plank-set-1",
+              type: "working",
+              kg: "",
+              reps: "",
+              durationSeconds: 45,
+              rpe: 7,
+              isCompleted: true,
+              previousDisplay: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = mapWorkoutStoreToDb(plankSummary, {
+      goalSnapshot: "improve_fitness",
+    });
+    const plankSet = result.exercises[0].sets[0];
+
+    expect(plankSet.sessionSet).toEqual(
+      expect.objectContaining({
+        set_number: 1,
+        set_type: "working",
+        target_duration_seconds: 45,
+      })
+    );
+    expect(plankSet.sessionSet.target_load_kg).toBeUndefined();
+    expect(plankSet.sessionSet.target_reps).toBeUndefined();
+    expect(plankSet.log).toEqual({
+      actual_duration_seconds: 45,
+      rpe: 7,
+      completed: true,
+    });
+  });
 });
 
 describe("mapDbToWorkoutStore", () => {
@@ -318,5 +366,51 @@ describe("mapDbToWorkoutStore", () => {
 
     const result = mapDbToWorkoutStore(detailWithNullName);
     expect(result.workoutName).toBe("");
+  });
+
+  it("restores saved plank durations as time-based workout sets", () => {
+    const plankDetail: WorkoutDetail = {
+      ...mockDetail,
+      exercises: [
+        {
+          ...mockDetail.exercises[0],
+          exercise_id: "plank",
+          exercise_name: "Plank",
+          exercise_type: "time",
+          sets: [
+            {
+              id: "plank-set-1",
+              set_number: 1,
+              set_type: "working",
+              target_load_kg: null,
+              target_reps: null,
+              target_duration_seconds: 30,
+              log: {
+                id: "plank-log-1",
+                actual_load_kg: null,
+                actual_reps: null,
+                actual_duration_seconds: 45,
+                rpe: 7,
+                completed: true,
+                not_completed_reason: null,
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = mapDbToWorkoutStore(plankDetail);
+    const plank = result.exercises[0];
+
+    expect(plank.exerciseType).toBe("time");
+    expect(plank.sets[0]).toEqual(
+      expect.objectContaining({
+        kg: "",
+        reps: "",
+        durationSeconds: 45,
+        isCompleted: true,
+      })
+    );
   });
 });
