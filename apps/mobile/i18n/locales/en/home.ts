@@ -65,6 +65,7 @@ export const home = {
     reviewTemplate: "Review {{name}}",
   },
   templateDetail: {
+    loading: "Loading workout template",
     modeLabel: "Review template",
     description:
       "Review the exercises below. This workout will only begin when you choose Start Workout.",

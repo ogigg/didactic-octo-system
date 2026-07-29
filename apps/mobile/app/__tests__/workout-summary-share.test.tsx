@@ -240,3 +240,22 @@ describe("WorkoutSummaryScreen share action", () => {
     expect(screen.getByRole("button", { name: "Share" })).not.toBeDisabled();
   });
 });
+
+describe("WorkoutSummaryScreen template action", () => {
+  it("saves the completed workout as a template when pressed", () => {
+    render(<WorkoutSummaryScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: "Save Template" }));
+
+    expect(mockAddTemplate).toHaveBeenCalledWith({
+      name: "Push day",
+      exercises: [
+        {
+          id: "bench",
+          name: "Barbell Bench Press",
+        },
+      ],
+    });
+    expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
+  });
+});

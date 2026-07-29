@@ -69,6 +69,7 @@ export const home = {
     reviewTemplate: "Przejrzyj {{name}}",
   },
   templateDetail: {
+    loading: "Wczytywanie szablonu treningu",
     modeLabel: "Przegląd szablonu",
     description:
       "Przejrzyj poniższe ćwiczenia. Trening rozpocznie się dopiero po wybraniu opcji Zacznij trening.",

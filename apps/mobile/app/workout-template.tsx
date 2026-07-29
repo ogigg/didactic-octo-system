@@ -1,6 +1,12 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -15,15 +21,46 @@ import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { WorkoutExercise } from "@/stores/workout-store";
 
+interface PersistHydrationApi {
+  hasHydrated: () => boolean;
+  onHydrate: (callback: () => void) => () => void;
+  onFinishHydration: (callback: () => void) => () => void;
+}
+
+function usePersistHydration(persist: PersistHydrationApi): boolean {
+  const [hasHydrated, setHasHydrated] = useState(() => persist.hasHydrated());
+
+  useEffect(() => {
+    const unsubscribeHydrate = persist.onHydrate(() => setHasHydrated(false));
+    const unsubscribeFinish = persist.onFinishHydration(() =>
+      setHasHydrated(true)
+    );
+    setHasHydrated(persist.hasHydrated());
+
+    return () => {
+      unsubscribeHydrate();
+      unsubscribeFinish();
+    };
+  }, [persist]);
+
+  return hasHydrated;
+}
+
 export default function WorkoutTemplateScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { t } = useTranslation("home");
+  const templatesHydrated = usePersistHydration(
+    useWorkoutTemplatesStore.persist
+  );
+  const workoutHydrated = usePersistHydration(useWorkoutStore.persist);
+  const storesHydrated = templatesHydrated && workoutHydrated;
+  const startInFlightRef = useRef(false);
+  const [isStarting, setIsStarting] = useState(false);
   const template = useWorkoutTemplatesStore((state) =>
     state.templates.find((item) => item.id === id)
   );
   const isWorkoutActive = useWorkoutStore((state) => state.isActive);
-  const startWorkout = useWorkoutStore((state) => state.startWorkout);
 
   const exerciseIds = useMemo(
     () => template?.exercises.map((exercise) => exercise.id) ?? [],
@@ -39,7 +76,13 @@ export default function WorkoutTemplateScreen() {
   const background = useThemeColor({}, "background");
 
   const handleStart = useCallback(() => {
-    if (!template || isWorkoutActive) return;
+    if (!storesHydrated || !template || startInFlightRef.current) return;
+
+    const workoutState = useWorkoutStore.getState();
+    if (workoutState.isActive) return;
+
+    startInFlightRef.current = true;
+    setIsStarting(true);
 
     const createdAt = Date.now();
     const exercises: WorkoutExercise[] = template.exercises.map(
@@ -63,9 +106,24 @@ export default function WorkoutTemplateScreen() {
       })
     );
 
-    startWorkout(template.name, exercises);
+    workoutState.startWorkout(template.name, exercises);
     router.replace("/workout");
-  }, [exerciseMap, isWorkoutActive, router, startWorkout, template]);
+  }, [exerciseMap, router, storesHydrated, template]);
+
+  if (!storesHydrated) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: background }]}>
+        <AmbientGlow variant="hero" />
+        <View
+          style={styles.loading}
+          accessibilityRole="progressbar"
+          accessibilityLabel={t("templateDetail.loading")}
+        >
+          <ActivityIndicator color={primary} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!template) {
     return (
@@ -160,6 +218,7 @@ export default function WorkoutTemplateScreen() {
           accessibilityLabel={t("templateDetail.startWorkout")}
           onPress={handleStart}
           disabled={isWorkoutActive}
+          loading={isStarting}
         />
       </View>
     </SafeAreaView>
@@ -223,5 +282,10 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     gap: Spacing.md,
     alignItems: "flex-start",
+  },
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
