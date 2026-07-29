@@ -1,50 +1,53 @@
 import {
-  criticalFunnelEventSet,
+  type EventPayload,
   type EventName,
+  operationalJourneyEventSet,
   validateEventPayload,
 } from "./analytics-contract";
 import { posthog } from "./posthog";
 
 type Primitive = string | number | boolean | null;
 type EventValue = Primitive | Primitive[];
-export type EventPayload = Record<string, EventValue>;
-export type { EventName } from "./analytics-contract";
+export type AnalyticsEventPayload = Record<string, EventValue>;
+export type { EventName, EventPayload } from "./analytics-contract";
 
-const DUPLICATE_WINDOW_MS = 1_000;
-const recentCriticalEvents = new Map<string, number>();
-
-function payloadSignature(name: EventName, payload: EventPayload): string {
-  const entries = Object.entries(payload).sort(([left], [right]) =>
-    left.localeCompare(right)
-  );
-  return JSON.stringify([name, entries]);
-}
+const trackedOperationalOccurrences = new Set<string>();
 
 export function resetAnalyticsDuplicateDetector(): void {
-  recentCriticalEvents.clear();
+  trackedOperationalOccurrences.clear();
 }
 
-function isDuplicateCriticalEvent(
-  name: EventName,
-  payload: EventPayload,
-  now = Date.now()
+function isDuplicateOperationalEvent<Name extends EventName>(
+  name: Name,
+  payload: EventPayload<Name>
 ): boolean {
-  if (!criticalFunnelEventSet.has(name)) return false;
+  if (!operationalJourneyEventSet.has(name)) return false;
 
-  const signature = payloadSignature(name, payload);
-  const previousTimestamp = recentCriticalEvents.get(signature);
-  recentCriticalEvents.set(signature, now);
+  const occurrenceId = payload.occurrence_id;
+  if (typeof occurrenceId !== "string") return false;
 
-  for (const [storedSignature, timestamp] of recentCriticalEvents) {
-    if (now - timestamp > DUPLICATE_WINDOW_MS) {
-      recentCriticalEvents.delete(storedSignature);
-    }
+  const dedupeKey = `${name}:${occurrenceId}`;
+  if (trackedOperationalOccurrences.has(dedupeKey)) return true;
+
+  trackedOperationalOccurrences.add(dedupeKey);
+  return false;
+}
+
+function reportContractViolation(
+  name: EventName,
+  issues: { code: string; path: (string | number)[] }[]
+): void {
+  if (!posthog) return;
+
+  try {
+    posthog.capture("analytics_contract_violation", {
+      event_name: name,
+      issue_codes: [...new Set(issues.map((issue) => issue.code))],
+      issue_paths: issues.map((issue) => issue.path.join(".")).filter(Boolean),
+    });
+  } catch (error) {
+    console.error("[analytics] Failed to report contract violation:", error);
   }
-
-  return (
-    previousTimestamp !== undefined &&
-    now - previousTimestamp <= DUPLICATE_WINDOW_MS
-  );
 }
 
 /**
@@ -56,21 +59,25 @@ function isDuplicateCriticalEvent(
  * @param name - The event name to track
  * @param payload - Event data to send with the event
  */
-export function trackEvent(name: EventName, payload: EventPayload = {}): void {
+export function trackEvent<Name extends EventName>(
+  name: Name,
+  payload: EventPayload<Name>
+): void {
   const validation = validateEventPayload(name, payload);
   if (!validation.success) {
+    reportContractViolation(name, validation.error.issues);
     console.error("[analytics] Invalid event payload", {
       event: name,
       issues: validation.error.issues.map((issue) => ({
+        code: issue.code,
         path: issue.path.join("."),
-        message: issue.message,
       })),
     });
     return;
   }
 
-  if (isDuplicateCriticalEvent(name, payload)) {
-    console.warn("[analytics] Duplicate critical event suppressed", {
+  if (isDuplicateOperationalEvent(name, payload)) {
+    console.warn("[analytics] Duplicate operational event suppressed", {
       event: name,
     });
     return;
@@ -107,7 +114,7 @@ export function setUserProperties(properties: Record<string, unknown>): void {
   if (posthog) {
     try {
       // PostHog identify sets user ID and properties
-      posthog.identify(undefined, properties as EventPayload);
+      posthog.identify(undefined, properties as AnalyticsEventPayload);
     } catch (error) {
       console.error("[analytics] Failed to set user properties:", error);
     }

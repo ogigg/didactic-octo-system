@@ -17,7 +17,7 @@ const generationSourceSchema = z.enum([
 
 const streakPayloadSchema = z
   .object({
-    tier: z.enum(["free", "pro"]),
+    tier: z.string().min(1),
     is_pro_active: z.boolean(),
     streak_weeks: z.number().int().nonnegative(),
     missed_weeks: z.number().int().nonnegative(),
@@ -28,7 +28,7 @@ const streakPayloadSchema = z
     lifetime_rescue_available: z.boolean(),
     auto_apply_enabled: z.boolean(),
   })
-  .passthrough();
+  .catchall(eventValueSchema);
 
 const workoutSharePayloadSchema = z
   .object({
@@ -40,13 +40,13 @@ const workoutSharePayloadSchema = z
     duration_seconds: z.number().int().nonnegative(),
     highlight_count: z.number().int().nonnegative(),
   })
-  .passthrough();
+  .catchall(eventValueSchema);
 
 /**
- * Canonical analytics contract.
+ * Current event schema contract.
  *
- * Stable journey events declare their required payload. Exploratory events may
- * accept any analytics-safe payload until their semantics stabilize.
+ * The separate journey manifest records which operational stages exist and
+ * whether the canonical eight-stage dependency is ready.
  */
 export const analyticsEventSchemas = {
   onboarding_step_completed: z
@@ -54,15 +54,19 @@ export const analyticsEventSchemas = {
       step: z.string().min(1),
       skipped: z.boolean(),
     })
-    .passthrough(),
-  onboarding_completed: z.object({}).passthrough(),
+    .catchall(eventValueSchema),
+  onboarding_completed: z
+    .object({
+      occurrence_id: z.string().min(1),
+    })
+    .catchall(eventValueSchema),
   strength_baseline_entered: z
     .object({
       exercise_key: z.string().min(1),
       has_load: z.boolean(),
       source: z.enum(["onboarding", "settings"]),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   workout_generated: z
     .object({
       generation_source: generationSourceSchema,
@@ -73,58 +77,60 @@ export const analyticsEventSchemas = {
       difficulty: z.string().min(1),
       exercise_count: z.number().int().positive(),
       has_custom_prompt: z.boolean(),
+      occurrence_id: z.string().min(1),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   workout_queue_initialized: z
     .object({
       count: z.number().int().positive(),
       trigger: z.string().min(1),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   workout_queue_ready: z
     .object({
       total_generation_time_ms: z.number().nonnegative().nullable(),
       count: z.number().int().positive(),
       fallback_count: z.number().int().nonnegative(),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   pending_workout_generated: z
     .object({
       generation_source: generationSourceSchema.nullable(),
       trigger: z.string().min(1),
       generation_time_ms: z.number().nonnegative().nullable(),
       queue_position: z.number().int().nonnegative(),
-      focus_area: z.string().min(1),
+      focus_area: z.string().min(1).nullable(),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   pending_workout_started: z
     .object({
       time_since_generated_ms: z.number().nonnegative().nullable(),
       was_edited: z.boolean(),
       edit_count: z.number().int().nonnegative(),
+      occurrence_id: z.string().min(1),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   pending_workout_regenerated: z
     .object({
       phase: z.enum(["started", "completed"]),
       queue_position: z.number().int().nonnegative(),
-      focus_area: z.string().min(1),
+      focus_area: z.string().min(1).nullable(),
       previous_generation_source: generationSourceSchema.nullable(),
       has_feedback: z.boolean(),
       feedback_length: z.number().int().nonnegative(),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   pending_workout_edited: z
     .object({
       edit_type: z.string().min(1),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   workout_preview_viewed: z
     .object({
       queue_position: z.number().int().nonnegative(),
       time_on_screen_ms: z.number().nonnegative(),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   workout_completed: z
     .object({
       workout_name: z.string().min(1),
@@ -136,8 +142,9 @@ export const analyticsEventSchemas = {
       duration_seconds: z.number().int().nonnegative(),
       goal_snapshot: z.string().min(1),
       custom_goal_snapshot: z.string().nullable(),
+      occurrence_id: z.string().min(1),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   session_duration: z
     .object({
       workout_name: z.string().min(1),
@@ -145,21 +152,21 @@ export const analyticsEventSchemas = {
       exercise_count: z.number().int().nonnegative(),
       completion_rate: z.number().min(0).max(100),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   feedback_given: z
     .object({
       exercise_id: z.string().min(1),
       difficulty: z.enum(["too_easy", "ok", "too_hard"]),
       session_id: z.string().min(1),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   difficulty_feedback_given: z
     .object({
       exercise_id: z.string().min(1),
       exercise_name: z.string().min(1),
       feedback: z.string().min(1),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   workout_comment_submitted: z
     .object({
       session_id: z.string().min(1),
@@ -167,7 +174,7 @@ export const analyticsEventSchemas = {
       chip_count: z.number().int().nonnegative(),
       has_freeform: z.boolean(),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   workout_summary_share_requested: workoutSharePayloadSchema,
   workout_summary_share_unavailable: workoutSharePayloadSchema,
   workout_summary_share_completed: workoutSharePayloadSchema,
@@ -179,7 +186,7 @@ export const analyticsEventSchemas = {
       changed_fields: z.array(z.string().min(1)),
       triggered_queue_rebuild: z.boolean(),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   queue_state_on_open: z
     .object({
       ready_count: z.number().int().nonnegative(),
@@ -187,7 +194,7 @@ export const analyticsEventSchemas = {
       total_count: z.number().int().nonnegative(),
       has_active_workout: z.boolean(),
     })
-    .passthrough(),
+    .catchall(eventValueSchema),
   streak_status_viewed: streakPayloadSchema,
   streak_prompt_shown: streakPayloadSchema,
   streak_prompt_dismissed: streakPayloadSchema,
@@ -203,15 +210,20 @@ export const analyticsEventSchemas = {
 } satisfies Record<string, z.ZodTypeAny>;
 
 export type EventName = keyof typeof analyticsEventSchemas;
+export type EventPayload<Name extends EventName> = z.input<
+  (typeof analyticsEventSchemas)[Name]
+>;
 
-export const criticalFunnelEvents = [
+export const operationalJourneyEvents = [
   "onboarding_completed",
   "workout_generated",
   "pending_workout_started",
   "workout_completed",
 ] as const satisfies readonly EventName[];
 
-export const criticalFunnelEventSet = new Set<EventName>(criticalFunnelEvents);
+export const operationalJourneyEventSet = new Set<EventName>(
+  operationalJourneyEvents
+);
 
 export function validateEventPayload(
   name: EventName,

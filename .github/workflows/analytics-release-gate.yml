@@ -1,11 +1,14 @@
-name: Analytics release gate
+name: Production mobile release
 
 on:
   workflow_dispatch:
   workflow_call:
     secrets:
-      EXPO_PUBLIC_POSTHOG_KEY:
-        description: Production PostHog project key
+      EXPO_TOKEN:
+        description: Expo access token for the production EAS project
+        required: true
+      POSTHOG_EXPECTED_KEY_SHA256:
+        description: SHA-256 fingerprint of the expected production PostHog project key
         required: true
 
 permissions:
@@ -14,12 +17,14 @@ permissions:
 
 jobs:
   analytics-data-quality:
-    name: Analytics data quality
+    name: Analytics production gate
     runs-on: ubuntu-latest
+    environment: production
     env:
-      ANALYTICS_REQUIRE_PRODUCTION_CONFIG: "true"
-      EXPO_PUBLIC_POSTHOG_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_KEY }}
-      EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.EXPO_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com' }}
+      ANALYTICS_RELEASE_MODE: "true"
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      POSTHOG_EXPECTED_HOST: ${{ vars.POSTHOG_EXPECTED_HOST }}
+      POSTHOG_EXPECTED_KEY_SHA256: ${{ secrets.POSTHOG_EXPECTED_KEY_SHA256 }}
 
     steps:
       - name: Checkout
@@ -34,29 +39,67 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate analytics contracts, funnel and configuration
-        run: npm --workspace mobile run test:analytics
+      - name: Validate the real EAS production analytics environment
+        working-directory: apps/mobile
+        run: >-
+          npx eas-cli@21.3.0 env:exec --environment production
+          'ANALYTICS_RELEASE_MODE=true
+          ANALYTICS_GATE_REPORT_PATH=analytics-gate-report.json
+          node scripts/analytics-release-gate.cjs'
+
+      - name: Upload classified gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: analytics-release-gate-report
+          path: apps/mobile/analytics-gate-report.json
 
       - name: Alert analytics owner
-        if: failure()
-        run: |
-          echo "::error title=Analytics release blocked::Critical funnel instrumentation or production PostHog configuration is unhealthy. Analytics owner: @ogigg."
-          echo "## Analytics release blocked" >> "$GITHUB_STEP_SUMMARY"
-          echo "Critical funnel instrumentation or production PostHog configuration is unhealthy. Owner: @ogigg." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Create or update owner alert
         if: failure()
         uses: actions/github-script@v7
         with:
           script: |
-            const title = "[Analytics alert] Release data-quality gate failed";
+            const fs = require("node:fs");
+            const manifest = JSON.parse(
+              fs.readFileSync("apps/mobile/analytics-journey-manifest.json", "utf8")
+            );
+            const reportPath = "apps/mobile/analytics-gate-report.json";
+            const report = fs.existsSync(reportPath)
+              ? JSON.parse(fs.readFileSync(reportPath, "utf8"))
+              : {
+                  classification: "install",
+                  message: "The workflow failed before the analytics gate could write its report.",
+                };
+            const classification = report.classification ?? "unknown";
+            const owner = manifest.ownerGithubLogin;
+            const title = `[Analytics ${classification} alert] Production release gate failed`;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `The analytics release gate failed and the release is blocked. Inspect the failed run: ${runUrl}`;
-            const { data: issues } = await github.rest.issues.listForRepo({
-              ...context.repo,
-              state: "open",
-            });
-            const existing = issues.find((issue) => issue.title === title && !issue.pull_request);
+            const body = [
+              `Classification: **${classification}**`,
+              "",
+              report.message,
+              "",
+              `Failed run: ${runUrl}`,
+            ].join("\n");
+
+            core.error(`${title}: ${report.message}`);
+            await core.summary
+              .addHeading("Analytics production release blocked")
+              .addRaw(body)
+              .write();
+
+            const issues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                ...context.repo,
+                state: "open",
+                per_page: 100,
+              }
+            );
+            const existing = issues.find(
+              (issue) => issue.title === title && !issue.pull_request
+            );
 
             if (existing) {
               await github.rest.issues.createComment({
@@ -69,6 +112,36 @@ jobs:
                 ...context.repo,
                 title,
                 body,
-                assignees: ["ogigg"],
+                assignees: [owner],
               });
             }
+
+  production-build:
+    name: EAS production build
+    needs: analytics-data-quality
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start production builds
+        working-directory: apps/mobile
+        run: >-
+          npx eas-cli@21.3.0 build
+          --profile production
+          --platform all
+          --non-interactive
+          --no-wait

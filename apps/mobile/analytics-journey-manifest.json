@@ -1,0 +1,45 @@
+{
+  "ownerGithubLogin": "ogigg",
+  "canonicalJourney": {
+    "requiredStageCount": 8,
+    "status": "blocked",
+    "blockingTickets": [
+      {
+        "id": "SWE-79",
+        "status": "Todo",
+        "reason": "Owns the canonical eight-stage journey taxonomy and metric semantics."
+      },
+      {
+        "id": "SWE-81",
+        "status": "Todo",
+        "reason": "Owns acquisition, authentication and activation instrumentation."
+      }
+    ]
+  },
+  "operationalStages": [
+    {
+      "event": "onboarding_completed",
+      "file": "app/(onboarding)/review.tsx",
+      "requiredAncestorProperty": "onSuccess",
+      "occurrenceKey": "onboarding submission"
+    },
+    {
+      "event": "workout_generated",
+      "file": "hooks/use-generate-workout.ts",
+      "requiredAncestorProperty": "onSuccess",
+      "occurrenceKey": "generation mutation"
+    },
+    {
+      "event": "pending_workout_started",
+      "file": "hooks/use-workout-queue.ts",
+      "requiredAncestorProperty": "onSuccess",
+      "occurrenceKey": "pending workout id"
+    },
+    {
+      "event": "workout_completed",
+      "file": "app/workout-summary.tsx",
+      "requiredAncestorProperty": "onSuccess",
+      "occurrenceKey": "saved workout session id"
+    }
+  ]
+}

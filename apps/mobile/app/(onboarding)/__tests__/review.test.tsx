@@ -109,7 +109,9 @@ describe("ReviewScreen", () => {
     renderReviewScreen();
     fireEvent.press(screen.getByRole("button", { name: /start working out/i }));
     expect(mockComplete).toHaveBeenCalled();
-    expect(trackEvent).toHaveBeenCalledWith("onboarding_completed", {});
+    expect(trackEvent).toHaveBeenCalledWith("onboarding_completed", {
+      occurrence_id: expect.stringMatching(/^onboarding_completed:/),
+    });
   });
 
   it("tapping submit navigates to tabs", () => {

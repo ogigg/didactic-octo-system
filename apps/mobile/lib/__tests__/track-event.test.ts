@@ -23,7 +23,9 @@ describe("trackEvent", () => {
   });
 
   it("does not throw when called", () => {
-    expect(() => trackEvent("onboarding_completed", {})).not.toThrow();
+    expect(() =>
+      trackEvent("onboarding_completed", { occurrence_id: "onboarding-1" })
+    ).not.toThrow();
   });
 
   it("does not throw with step payload", () => {
@@ -46,6 +48,7 @@ describe("trackEvent", () => {
         difficulty: "beginner",
         exercise_count: 5,
         has_custom_prompt: false,
+        occurrence_id: "generation-1",
       })
     ).not.toThrow();
   });
@@ -90,6 +93,7 @@ describe("trackEvent", () => {
         time_since_generated_ms: 45000,
         was_edited: true,
         edit_count: 2,
+        occurrence_id: "pending-workout-1",
       })
     ).not.toThrow();
 
@@ -123,6 +127,7 @@ describe("trackEvent", () => {
         duration_seconds: 1200,
         goal_snapshot: "build_strength",
         custom_goal_snapshot: null,
+        occurrence_id: "session-1",
       })
     ).not.toThrow();
   });
@@ -186,7 +191,7 @@ describe("trackEvent", () => {
       earned_freezes_available: 0,
       lifetime_rescue_available: true,
       auto_apply_enabled: true,
-    };
+    } as const;
 
     expect(() => trackEvent("streak_status_viewed", payload)).not.toThrow();
     expect(() => trackEvent("streak_prompt_shown", payload)).not.toThrow();
@@ -209,9 +214,19 @@ describe("trackEvent", () => {
   it("rejects an invalid required payload instead of sending it", () => {
     trackEvent("workout_generated", {
       generation_source: "llm",
-    });
+    } as never);
 
-    expect(mockCapture).not.toHaveBeenCalled();
+    expect(mockCapture).toHaveBeenCalledWith(
+      "analytics_contract_violation",
+      expect.objectContaining({
+        event_name: "workout_generated",
+        issue_codes: expect.any(Array),
+        issue_paths: expect.any(Array),
+      })
+    );
+    expect(JSON.stringify(mockCapture.mock.calls)).not.toContain(
+      "ci-production-placeholder"
+    );
     expect(console.error).toHaveBeenCalledWith(
       "[analytics] Invalid event payload",
       expect.objectContaining({ event: "workout_generated" })
@@ -219,7 +234,7 @@ describe("trackEvent", () => {
   });
 
   it.each([
-    ["onboarding_completed", {}],
+    ["onboarding_completed", { occurrence_id: "onboarding-2" }],
     [
       "workout_generated",
       {
@@ -231,6 +246,7 @@ describe("trackEvent", () => {
         difficulty: "beginner",
         exercise_count: 5,
         has_custom_prompt: false,
+        occurrence_id: "generation-2",
       },
     ],
     [
@@ -239,6 +255,7 @@ describe("trackEvent", () => {
         time_since_generated_ms: 45_000,
         was_edited: false,
         edit_count: 0,
+        occurrence_id: "pending-workout-2",
       },
     ],
     [
@@ -253,6 +270,7 @@ describe("trackEvent", () => {
         duration_seconds: 1200,
         goal_snapshot: "build_strength",
         custom_goal_snapshot: null,
+        occurrence_id: "session-2",
       },
     ],
   ] as const)("sends valid critical event %s", (name, payload) => {
@@ -261,15 +279,35 @@ describe("trackEvent", () => {
     expect(mockCapture).toHaveBeenCalledWith(name, payload);
   });
 
-  it("suppresses duplicate critical events within the duplicate window", () => {
-    trackEvent("onboarding_completed", {});
-    trackEvent("onboarding_completed", {});
+  it("deduplicates by stable occurrence despite changing timing fields", () => {
+    trackEvent("pending_workout_started", {
+      occurrence_id: "pending-workout-stable",
+      time_since_generated_ms: 1000,
+      was_edited: false,
+      edit_count: 0,
+    });
+    trackEvent("pending_workout_started", {
+      occurrence_id: "pending-workout-stable",
+      time_since_generated_ms: 5000,
+      was_edited: false,
+      edit_count: 0,
+    });
 
     expect(mockCapture).toHaveBeenCalledTimes(1);
     expect(console.warn).toHaveBeenCalledWith(
-      "[analytics] Duplicate critical event suppressed",
-      { event: "onboarding_completed" }
+      "[analytics] Duplicate operational event suppressed",
+      { event: "pending_workout_started" }
     );
+  });
+
+  it("tracks a new occurrence and documents the process-restart boundary", () => {
+    const payload = { occurrence_id: "onboarding-replayed-after-restart" };
+
+    trackEvent("onboarding_completed", payload);
+    resetAnalyticsDuplicateDetector();
+    trackEvent("onboarding_completed", payload);
+
+    expect(mockCapture).toHaveBeenCalledTimes(2);
   });
 });
 

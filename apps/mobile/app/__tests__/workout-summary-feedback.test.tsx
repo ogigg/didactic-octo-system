@@ -181,6 +181,7 @@ import {
 } from "@testing-library/react-native";
 
 import WorkoutSummaryScreen from "../workout-summary";
+import { trackEvent } from "@/lib/track-event";
 
 const SESSION_EXERCISE_ID = "550e8400-e29b-41d4-a716-446655440020";
 
@@ -211,13 +212,19 @@ describe("WorkoutSummaryScreen difficulty feedback persistence", () => {
         isSuccess: true,
         mutate: mockSaveMutate,
       };
-      options?.onSuccess?.();
+      options?.onSuccess?.(mockSaveWorkoutState.data);
     });
 
     const { rerender } = render(<WorkoutSummaryScreen />);
 
     await waitFor(() => {
       expect(mockSaveMutate).toHaveBeenCalled();
+      expect(trackEvent).toHaveBeenCalledWith(
+        "workout_completed",
+        expect.objectContaining({
+          occurrence_id: "550e8400-e29b-41d4-a716-446655440010",
+        })
+      );
     });
 
     // Re-render so the screen sees the saved session + exercise occurrence map.
@@ -257,7 +264,7 @@ describe("WorkoutSummaryScreen difficulty feedback persistence", () => {
           isSuccess: true,
           mutate: mockSaveMutate,
         };
-        options?.onSuccess?.();
+        options?.onSuccess?.(mockSaveWorkoutState.data);
       };
     });
 
@@ -308,7 +315,7 @@ describe("WorkoutSummaryScreen difficulty feedback persistence", () => {
           isSuccess: true,
           mutate: mockSaveMutate,
         };
-        options?.onSuccess?.();
+        options?.onSuccess?.(mockSaveWorkoutState.data);
       };
     });
 

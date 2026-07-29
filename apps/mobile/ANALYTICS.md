@@ -209,29 +209,51 @@ resetUser();
 
 ## Adding New Events
 
-1. **Update Event Contract**: Add the event and its payload schema to `apps/mobile/lib/analytics-contract.ts`. Stable events should declare required properties; exploratory events may temporarily use the analytics-safe record schema.
+1. **Update Event Contract**: Add the event and its payload schema to `apps/mobile/lib/analytics-contract.ts`. `trackEvent` derives its event-specific payload type from this schema, so required-property drift must fail TypeScript.
 
-2. **Track the Event**: Use `trackEvent` in your component/hook
+2. **Update the Manifest When Applicable**: Journey-stage changes must update `apps/mobile/analytics-journey-manifest.json`.
 
-3. **Add Behavior Coverage**: Critical funnel events need a user-behavior assertion at their instrumentation point and a valid-payload case in `track-event.test.ts`.
+3. **Track the Event**: Use `trackEvent` in the successful behavior callback, with an event-specific `occurrence_id` for an operational journey event.
 
-4. **Run the Gate**: Run `npm --workspace mobile run test:analytics`.
+4. **Add Behavior Coverage**: Operational journey events need a user-behavior assertion at their real instrumentation flow and a valid-payload case in `track-event.test.ts`.
 
-5. **Verify in PostHog**: Check the PostHog dashboard to confirm events are received.
+5. **Run the Gate**: Run `npm --workspace mobile run analytics:check` and `npm --workspace mobile run test:analytics`.
 
-Runtime validation drops malformed events and reports only the event name and validation issues. Identical critical events emitted within one second are treated as accidental duplicates and suppressed.
+6. **Verify in PostHog**: Check the PostHog dashboard to confirm events are received.
+
+Runtime validation rejects malformed payloads and emits a privacy-safe `analytics_contract_violation` operational event containing only the event name, Zod issue codes and property paths. Configure an owner-visible PostHog alert for that operational event.
+
+Operational journey events deduplicate by the stable `occurrence_id` documented in the manifest, not by volatile timing properties. The detector is intentionally process-local: an app process restart clears its memory, while persisted workout/session IDs continue to provide stable occurrence keys where available.
+
+## Canonical Journey Dependency
+
+This branch does **not** claim that the canonical customer journey is complete. The current operational manifest covers four existing workout-loop stages:
+
+1. `onboarding_completed`
+2. `workout_generated`
+3. `pending_workout_started`
+4. `workout_completed`
+
+The required canonical contract has eight stages and remains blocked on:
+
+- `SWE-79` (`Todo`) — canonical eight-stage taxonomy, metrics and identity semantics
+- `SWE-81` (`Todo`) — acquisition, authentication and activation instrumentation
+
+Release mode fails closed with those ticket IDs and statuses until both dependencies land and the manifest contains all eight approved stages.
 
 ## Release Data-Quality Checklist
 
 Before a production release:
 
-1. Confirm the `production` GitHub environment or repository secrets provide `EXPO_PUBLIC_POSTHOG_KEY`.
-2. Optionally configure `EXPO_PUBLIC_POSTHOG_HOST` as a GitHub variable; it must be an HTTPS origin.
-3. Run the **Analytics release gate** workflow, or call it from the release workflow.
-4. Confirm the workflow reports `healthy` configuration. The report includes only key presence and the PostHog host origin, never the key.
-5. Resolve any missing or duplicate critical funnel-stage alert before releasing. The failed check emits a GitHub error annotation and creates or updates an issue assigned to the analytics owner.
+1. Protect the GitHub `production` environment with required reviewers.
+2. Store `EXPO_TOKEN` and `POSTHOG_EXPECTED_KEY_SHA256` as `production` environment secrets.
+3. Set `POSTHOG_EXPECTED_HOST` as a protected `production` environment variable. It must be an approved PostHog ingestion origin.
+4. Store `EXPO_PUBLIC_POSTHOG_KEY` and `EXPO_PUBLIC_POSTHOG_HOST` as readable plaintext/sensitive values—not EAS secret visibility—in the EAS `production` environment used by `eas.json`, because `eas env:exec` cannot read secret-visibility values.
+5. Run the **Production mobile release** workflow. It uses `eas env:exec --environment production`, compares the project-key fingerprint and exact host without printing the key, validates the AST/manifest contract, and fails closed on canonical dependencies.
+6. Only the dependent `production-build` job may start EAS production builds.
+7. Resolve the classified `install`, `config`, `schema`, `stage` or `dependency` issue before releasing. Alerts are paginated and deduplicated by classification, and ownership comes from the manifest/CODEOWNERS.
 
-The normal test suite also scans source instrumentation, so adding an event without updating the contract—or removing or duplicating a critical funnel stage—fails CI.
+The TypeScript-AST gate ignores comments and statically dead calls, verifies each operational stage's file, success callback and `occurrence_id`, and is paired with real-flow behavioral tests. It does not use source-text regexes.
 
 ## Development vs Production
 
@@ -243,7 +265,7 @@ The normal test suite also scans source instrumentation, so adding an event with
 - **No PII**: Events should never contain personally identifiable information
 - **Opt-in**: Analytics are enabled by default, but users can opt-out via `disablePostHog()`
 - **Local First**: Events are batched and sent periodically (20 events or 30 seconds)
-- **Error Handling**: Failed events don't crash the app; errors are logged for debugging
+- **Error Handling**: Failed events don't crash the app; contract violations emit privacy-safe operational telemetry
 
 ## Troubleshooting
 

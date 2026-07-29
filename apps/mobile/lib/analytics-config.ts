@@ -1,9 +1,15 @@
 const DEFAULT_POSTHOG_HOST = "https://app.posthog.com";
+const ALLOWED_POSTHOG_ORIGINS = new Set([
+  "https://app.posthog.com",
+  "https://eu.i.posthog.com",
+  "https://eu.posthog.com",
+  "https://us.i.posthog.com",
+]);
 
 export interface AnalyticsConfigHealth {
   keyConfigured: boolean;
   hostOrigin: string | null;
-  status: "healthy" | "missing_key" | "invalid_host";
+  status: "healthy" | "invalid_host" | "invalid_key" | "missing_key";
 }
 
 interface AnalyticsConfig {
@@ -16,10 +22,14 @@ export function getAnalyticsConfigHealth({
   host = DEFAULT_POSTHOG_HOST,
 }: AnalyticsConfig): AnalyticsConfigHealth {
   const keyConfigured = Boolean(key?.trim());
+  const keyValid = Boolean(key && /^phc_[A-Za-z0-9_-]{20,}$/.test(key));
 
   try {
     const url = new URL(host);
-    const hostOrigin = url.protocol === "https:" ? url.origin : null;
+    const hostOrigin =
+      url.protocol === "https:" && ALLOWED_POSTHOG_ORIGINS.has(url.origin)
+        ? url.origin
+        : null;
 
     if (!hostOrigin) {
       return { keyConfigured, hostOrigin: null, status: "invalid_host" };
@@ -28,7 +38,11 @@ export function getAnalyticsConfigHealth({
     return {
       keyConfigured,
       hostOrigin,
-      status: keyConfigured ? "healthy" : "missing_key",
+      status: !keyConfigured
+        ? "missing_key"
+        : keyValid
+          ? "healthy"
+          : "invalid_key",
     };
   } catch {
     return { keyConfigured, hostOrigin: null, status: "invalid_host" };

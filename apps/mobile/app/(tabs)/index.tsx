@@ -63,7 +63,9 @@ function getGreetingKey():
   return "greeting.evening";
 }
 
-function streakAnalyticsPayload(status: StreakStatus): EventPayload {
+function streakAnalyticsPayload(
+  status: StreakStatus
+): EventPayload<"streak_status_viewed"> {
   return {
     tier: status.tier,
     is_pro_active: status.is_pro_active,
