@@ -1,7 +1,13 @@
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  type DimensionValue,
+  type LayoutChangeEvent,
+} from "react-native";
 import { DayCell } from "./day-cell";
 import type { DayEntry, WorkoutSession } from "./types";
 
@@ -14,6 +20,8 @@ interface MonthBlockProps {
 
 const DAYS_OF_WEEK = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const CELL_HEIGHT = 60;
+const COLUMN_COUNT = 7;
+const FALLBACK_COLUMN_WIDTH = `${100 / COLUMN_COUNT}%` as const;
 const HEADER_HEIGHT = 24 + Spacing["2xl"]; // titleMd + margin
 const WEEKDAY_ROW_HEIGHT = 20 + Spacing.md;
 const BOTTOM_GAP = Spacing["4xl"];
@@ -53,6 +61,21 @@ export function MonthBlock({
 }: MonthBlockProps) {
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
+  const [containerWidth, setContainerWidth] = useState<number>();
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = event.nativeEvent.layout.width;
+    if (nextWidth <= 0) return;
+
+    setContainerWidth((currentWidth) =>
+      currentWidth === nextWidth ? currentWidth : nextWidth
+    );
+  }, []);
+
+  const columnWidth: DimensionValue =
+    containerWidth === undefined
+      ? FALLBACK_COLUMN_WIDTH
+      : containerWidth / COLUMN_COUNT;
 
   const { isCurrentMonth, todayDate } = useMemo(() => {
     const today = new Date();
@@ -76,7 +99,11 @@ export function MonthBlock({
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
-    <View style={styles.container}>
+    <View
+      testID="calendar-month-layout"
+      style={styles.container}
+      onLayout={handleLayout}
+    >
       <Text style={[Typography.titleMd, styles.header, { color: textColor }]}>
         {MONTH_NAMES[month - 1]} {year}
       </Text>
@@ -85,7 +112,11 @@ export function MonthBlock({
         {DAYS_OF_WEEK.map((d) => (
           <Text
             key={d}
-            style={[Typography.label, styles.weekdayCell, { color: textMuted }]}
+            style={[
+              Typography.label,
+              styles.weekdayCell,
+              { color: textMuted, width: columnWidth },
+            ]}
           >
             {d}
           </Text>
@@ -94,7 +125,10 @@ export function MonthBlock({
 
       <View style={styles.grid}>
         {leadingBlanks.map((_, i) => (
-          <View key={`blank-${i}`} style={styles.blankCell} />
+          <View
+            key={`blank-${i}`}
+            style={[styles.blankCell, { width: columnWidth }]}
+          />
         ))}
         {days.map((day) => {
           const entry = entryByDay.get(day);
@@ -106,6 +140,7 @@ export function MonthBlock({
               day={day}
               isToday={isCurrentMonth && day === todayDate}
               sessions={sessions}
+              width={columnWidth}
               onPress={
                 sessions.length > 0 && onDayPress
                   ? () => onDayPress(key, sessions)
@@ -131,7 +166,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   weekdayCell: {
-    width: `${100 / 7}%` as unknown as number,
     textAlign: "center",
   },
   grid: {
@@ -140,7 +174,6 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   blankCell: {
-    width: `${100 / 7}%` as unknown as number,
     height: 60,
   },
 });

@@ -103,13 +103,12 @@ export default function CalendarScreen() {
           offset: ITEM_OFFSETS[index],
           index,
         })}
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: insets.top + Spacing.lg,
-            paddingBottom: insets.bottom + Spacing.lg,
-          },
-        ]}
+        contentContainerStyle={{
+          paddingTop: insets.top + Spacing.lg,
+          paddingBottom: insets.bottom + Spacing.lg,
+          paddingLeft: insets.left + Spacing.xl,
+          paddingRight: insets.right + Spacing.xl,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -150,9 +149,6 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: Spacing.xl,
-  },
   refreshIndicator: {
     position: "absolute",
     alignSelf: "center",
