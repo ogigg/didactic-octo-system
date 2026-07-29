@@ -34,7 +34,7 @@ interface AvailabilityCallback {
 
 interface AuthorizationCallback {
   (
-    error: string | null,
+    error: unknown,
     result: { permissions: { read: number[]; write: number[] } }
   ): void;
 }
@@ -70,21 +70,61 @@ describe("Apple Health authorization", () => {
     await expect(getPermissionStatusIOS()).resolves.toBe(expected);
   });
 
-  it("reports a managed-device HealthKit restriction", async () => {
+  it("reports a structured managed-device HealthKit restriction", async () => {
     mockGetAuthStatus.mockImplementation(
       (_permissions: unknown, callback: AuthorizationCallback) => {
-        callback("Error with HealthKit authorization: health data restricted", {
-          permissions: { read: [], write: [] },
-        });
+        callback(
+          {
+            code: "errorHealthDataRestricted",
+            domain: "HKErrorDomain",
+            message: "Health data is restricted by an MDM profile",
+          },
+          {
+            permissions: { read: [], write: [] },
+          }
+        );
       }
     );
 
     await expect(getPermissionStatusIOS()).resolves.toBe("restricted");
   });
 
+  it("handles structured restriction errors from the authorization request", async () => {
+    mockInitHealthKit.mockImplementation(
+      (_permissions: unknown, callback: (error: unknown) => void) => {
+        callback({
+          code: 2,
+          domain: "com.apple.HealthKit",
+          userInfo: {
+            localizedDescription:
+              "HealthKit is restricted on this managed device",
+          },
+        });
+      }
+    );
+
+    await expect(requestPermissionsIOS()).resolves.toBe("restricted");
+  });
+
+  it("preserves unknown structured errors without throwing", async () => {
+    mockGetAuthStatus.mockImplementation(
+      (_permissions: unknown, callback: AuthorizationCallback) => {
+        callback(
+          {
+            code: "unexpectedBridgeFailure",
+            message: "Something unrelated failed",
+          },
+          { permissions: { read: [], write: [] } }
+        );
+      }
+    );
+
+    await expect(getPermissionStatusIOS()).resolves.toBe("unknown");
+  });
+
   it("requests native access and then returns the resulting authorization", async () => {
     mockInitHealthKit.mockImplementation(
-      (_permissions: unknown, callback: (error: string | null) => void) => {
+      (_permissions: unknown, callback: (error: unknown) => void) => {
         callback(null);
       }
     );

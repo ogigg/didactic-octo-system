@@ -15,7 +15,6 @@ export type HealthPermissionStatus =
   | "denied"
   | "not-requested"
   | "restricted"
-  | "skipped"
   | "unavailable"
   | "unknown";
 

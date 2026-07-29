@@ -17,7 +17,6 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useHealthStatus } from "@/hooks/use-health-status";
-import { setCachedPermissionStatus } from "@/lib/health";
 
 const isAndroid = Platform.OS === "android";
 
@@ -26,11 +25,13 @@ export default function HealthSettingsScreen() {
   const {
     status,
     available,
+    syncEnabled,
     loading,
     requestPermission,
     openSettings,
     skip,
-    refresh,
+    enable,
+    disable,
   } = useHealthStatus();
 
   const textColor = useThemeColor({}, "text");
@@ -44,16 +45,18 @@ export default function HealthSettingsScreen() {
   const [showPriming, setShowPriming] = useState(false);
 
   const handleConnect = useCallback(async () => {
-    if (
-      status === "unknown" ||
-      status === "not-requested" ||
-      status === "skipped"
-    ) {
+    if (status === "granted") {
+      await enable();
+      return;
+    }
+
+    if (status === "unknown" || status === "not-requested") {
       setShowPriming(true);
     } else if (status === "denied" || status === "restricted") {
+      await enable();
       openSettings();
     }
-  }, [status, openSettings]);
+  }, [status, enable, openSettings]);
 
   const handlePrimingConnect = useCallback(async () => {
     const result = await requestPermission();
@@ -78,13 +81,12 @@ export default function HealthSettingsScreen() {
           text: t("settings.resetConfirmOk"),
           style: "destructive",
           onPress: async () => {
-            await setCachedPermissionStatus("skipped");
-            await refresh();
+            await disable();
           },
         },
       ]
     );
-  }, [t, refresh]);
+  }, [t, disable]);
 
   // Show full priming screen when user taps connect
   if (showPriming) {
@@ -100,15 +102,15 @@ export default function HealthSettingsScreen() {
   const statusLabel = (() => {
     switch (status) {
       case "granted":
-        return t("settings.status.connected");
+        return syncEnabled
+          ? t("settings.status.connected")
+          : t("settings.status.syncOff");
       case "denied":
         return t("settings.status.notConnected");
       case "restricted":
         return t("settings.status.restricted");
       case "not-requested":
         return t("settings.status.notRequested");
-      case "skipped":
-        return t("settings.status.skipped");
       case "unavailable":
         return t("settings.status.unavailable");
       default:
@@ -117,9 +119,9 @@ export default function HealthSettingsScreen() {
   })();
 
   const statusColor =
-    status === "granted"
+    status === "granted" && syncEnabled
       ? successColor
-      : status === "denied" || status === "restricted" || status === "skipped"
+      : status === "denied" || status === "restricted"
         ? errorColor
         : textMuted;
 
@@ -180,7 +182,7 @@ export default function HealthSettingsScreen() {
             <Text style={[Typography.caption, { color: textMuted }]}>
               {t("settings.status.unavailable")}
             </Text>
-          ) : status === "granted" ? (
+          ) : status === "granted" && syncEnabled ? (
             <View style={styles.actions}>
               <Button
                 label={
@@ -202,6 +204,19 @@ export default function HealthSettingsScreen() {
                 onPress={handleDisconnect}
                 accessibilityLabel={t("settings.resetButton")}
               />
+            </View>
+          ) : status === "granted" ? (
+            <View style={styles.actions}>
+              <Button
+                label={t("settings.connectButton")}
+                onPress={handleConnect}
+                accessibilityLabel={t("settings.connectButton")}
+              />
+              <Text
+                style={[Typography.caption, { color: textMuted }, styles.hint]}
+              >
+                {t("settings.nativeAccessRetainedHint")}
+              </Text>
             </View>
           ) : status === "denied" || status === "restricted" ? (
             <View style={styles.actions}>

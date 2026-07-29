@@ -16,14 +16,84 @@ const PERMISSIONS: HealthKitPermissions = {
 
 let initialized = false;
 
+function collectNativeErrorParts(
+  error: unknown,
+  depth = 0,
+  seen = new Set<object>()
+): string[] {
+  if (error == null || depth > 3) return [];
+  if (
+    typeof error === "string" ||
+    typeof error === "number" ||
+    typeof error === "boolean"
+  ) {
+    return [String(error)];
+  }
+  if (typeof error !== "object" || seen.has(error)) return [];
+
+  seen.add(error);
+  const parts: string[] = [];
+  if (error instanceof Error) {
+    parts.push(error.name, error.message);
+  }
+
+  try {
+    for (const [key, value] of Object.entries(error)) {
+      if (
+        [
+          "code",
+          "domain",
+          "error",
+          "message",
+          "localizedDescription",
+          "nativeError",
+          "userInfo",
+        ].includes(key)
+      ) {
+        parts.push(`${key}:`);
+        parts.push(...collectNativeErrorParts(value, depth + 1, seen));
+      }
+    }
+  } catch {
+    // Some native bridge objects cannot be enumerated. Known Error fields
+    // above are still safe to use; otherwise the status remains unknown.
+  }
+
+  return parts;
+}
+
 function classifyHealthKitError(error: unknown): HealthPermissionStatus {
-  const message = String(error).toLowerCase();
-  if (message.includes("restricted")) return "restricted";
-  if (message.includes("not available") || message.includes("unavailable")) {
+  const details = collectNativeErrorParts(error).join(" ").toLowerCase();
+  const compactDetails = details.replace(/[\s_-]/g, "");
+
+  if (
+    compactDetails.includes("errorhealthdatarestricted") ||
+    compactDetails.includes("hkerrorhealthdatarestricted") ||
+    compactDetails.includes("healthdatarestricted") ||
+    (details.includes("mdm") && details.includes("restrict")) ||
+    (details.includes("code: 2") && details.includes("health"))
+  ) {
+    return "restricted";
+  }
+  if (
+    details.includes("not available") ||
+    details.includes("unavailable") ||
+    compactDetails.includes("errorhealthdataunavailable")
+  ) {
     return "unavailable";
   }
-  if (message.includes("not determined")) return "not-requested";
-  if (message.includes("denied")) return "denied";
+  if (
+    details.includes("not determined") ||
+    compactDetails.includes("errorauthorizationnotdetermined")
+  ) {
+    return "not-requested";
+  }
+  if (
+    details.includes("denied") ||
+    compactDetails.includes("errorauthorizationdenied")
+  ) {
+    return "denied";
+  }
   return "unknown";
 }
 
@@ -75,7 +145,7 @@ function initOnce(): Promise<void> {
   return new Promise((resolve, reject) => {
     AppleHealthKit.initHealthKit(PERMISSIONS, (error) => {
       if (error) {
-        reject(new Error(error));
+        reject(error);
         return;
       }
       initialized = true;

@@ -1,14 +1,16 @@
 const mockGetCurrentHealthPermissionStatus = jest.fn();
+const mockGetHealthSyncPreference = jest.fn();
 const mockRequestHealthPermissions = jest.fn();
-const mockSetCachedPermissionStatus = jest.fn();
+const mockSetHealthSyncEnabled = jest.fn();
 
 jest.mock("@/lib/health", () => ({
   getCurrentHealthPermissionStatus: () =>
     mockGetCurrentHealthPermissionStatus(),
+  getHealthSyncPreference: () => mockGetHealthSyncPreference(),
   isHealthSyncAvailable: () => true,
   requestHealthPermissions: () => mockRequestHealthPermissions(),
-  setCachedPermissionStatus: (...args: unknown[]) =>
-    mockSetCachedPermissionStatus(...args),
+  setHealthSyncEnabled: (...args: unknown[]) =>
+    mockSetHealthSyncEnabled(...args),
 }));
 
 jest.mock("react-i18next", () => ({
@@ -33,6 +35,7 @@ describe("useHealthStatus", () => {
       value: "ios",
     });
     mockGetCurrentHealthPermissionStatus.mockResolvedValue("not-requested");
+    mockGetHealthSyncPreference.mockResolvedValue(null);
   });
 
   afterAll(() => {
@@ -89,5 +92,48 @@ describe("useHealthStatus", () => {
       [{ text: "settings.recoveryDismiss" }]
     );
     expect(settingsSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps disconnect through foreground refresh and explicitly reconnects", async () => {
+    let appStateListener: ((state: AppStateStatus) => void) | undefined;
+    jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_event, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() };
+      });
+    mockGetCurrentHealthPermissionStatus.mockResolvedValue("granted");
+    mockGetHealthSyncPreference.mockResolvedValue(true);
+
+    const { result } = renderHook(() => useHealthStatus());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("granted");
+      expect(result.current.syncEnabled).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.disable();
+    });
+    expect(mockSetHealthSyncEnabled).toHaveBeenLastCalledWith(false);
+    expect(result.current.status).toBe("granted");
+    expect(result.current.syncEnabled).toBe(false);
+
+    mockGetHealthSyncPreference.mockResolvedValue(false);
+    await act(async () => {
+      appStateListener?.("active");
+    });
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("granted");
+      expect(result.current.syncEnabled).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.enable();
+    });
+    expect(mockSetHealthSyncEnabled).toHaveBeenLastCalledWith(true);
+    expect(result.current.status).toBe("granted");
+    expect(result.current.syncEnabled).toBe(true);
   });
 });

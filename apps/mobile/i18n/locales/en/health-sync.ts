@@ -31,10 +31,10 @@ export const healthSync = {
     title: "Health Integration",
     status: {
       connected: "Connected",
+      syncOff: "Sync Off",
       notConnected: "Not Connected",
       notRequested: "Not Requested",
       restricted: "Restricted",
-      skipped: "Declined",
       unavailable: "Not Available",
       unknown: "Not Set Up",
     },
@@ -53,6 +53,8 @@ export const healthSync = {
     recoveryHintAndroid: "Grant permissions in Health Connect to enable sync.",
     restrictedHint:
       "Apple Health is restricted on this iPhone. If this is a managed device, contact your administrator.",
+    nativeAccessRetainedHint:
+      "Sync is off in Sweaty. Apple Health access remains unchanged, and you can reconnect at any time.",
     resetButton: "Disconnect",
     resetConfirmTitle: "Disconnect Health?",
     resetConfirmMessage:

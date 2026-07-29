@@ -30,10 +30,10 @@ export const healthSync = {
     title: "Integracja ze zdrowiem",
     status: {
       connected: "Połączono",
+      syncOff: "Synchronizacja wyłączona",
       notConnected: "Nie połączono",
       notRequested: "Nie poproszono",
       restricted: "Ograniczono",
-      skipped: "Odrzucono",
       unavailable: "Niedostępne",
       unknown: "Nie skonfigurowano",
     },
@@ -54,6 +54,8 @@ export const healthSync = {
       "Przyznaj uprawnienia w Health Connect, aby włączyć synchronizację.",
     restrictedHint:
       "Apple Health jest ograniczone na tym iPhonie. Jeśli to urządzenie zarządzane, skontaktuj się z administratorem.",
+    nativeAccessRetainedHint:
+      "Synchronizacja w Sweaty jest wyłączona. Dostęp Apple Health pozostaje bez zmian i możesz połączyć się ponownie w dowolnym momencie.",
     resetButton: "Rozłącz",
     resetConfirmTitle: "Rozłączyć zdrowie?",
     resetConfirmMessage:

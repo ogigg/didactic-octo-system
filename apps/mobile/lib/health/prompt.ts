@@ -3,9 +3,10 @@ import { getFixedT } from "i18next";
 
 import {
   getCurrentHealthPermissionStatus,
+  getHealthSyncPreference,
   isHealthSyncAvailable,
   requestHealthPermissions,
-  setCachedPermissionStatus,
+  setHealthSyncEnabled,
   syncWorkoutToHealth,
 } from "./index";
 import type { HealthWorkoutPayload } from "./types";
@@ -24,6 +25,9 @@ export async function promptAndSyncWorkout(
 ): Promise<void> {
   if (!isHealthSyncAvailable()) return;
 
+  const syncPreference = await getHealthSyncPreference();
+  if (syncPreference === false) return;
+
   let status = await getCurrentHealthPermissionStatus();
 
   if (status === "unavailable" || status === "restricted") return;
@@ -33,7 +37,7 @@ export async function promptAndSyncWorkout(
     if (allowed) {
       status = await requestHealthPermissions();
     } else {
-      await setCachedPermissionStatus("skipped");
+      await setHealthSyncEnabled(false);
       return;
     }
   }
