@@ -409,10 +409,10 @@ export default function WorkoutScreen() {
                     </>
                   )}
                 </ScrollView>
+                <KeyboardDismissButton />
                 <RestTimerBar />
               </SafeAreaView>
             </KeyboardAvoidingView>
-            <KeyboardDismissButton />
             <ExerciseReorderSheet
               visible={reorderExerciseId !== null}
               exercises={exerciseOrderItems}

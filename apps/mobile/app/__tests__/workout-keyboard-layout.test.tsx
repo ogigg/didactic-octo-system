@@ -53,10 +53,6 @@ jest.mock("@/components/workout/celebration/celebration-provider", () => ({
     children,
 }));
 
-jest.mock("@/components/workout/keyboard-dismiss-button", () => ({
-  KeyboardDismissButton: () => null,
-}));
-
 jest.mock("@/components/workout/reasoning-disclosure", () => ({
   ReasoningDisclosure: () => null,
 }));
