@@ -1,6 +1,27 @@
-import { trackEvent, setUserProperties, resetUser } from "../track-event";
+jest.mock("../posthog", () => ({
+  posthog: {
+    capture: jest.fn(),
+    identify: jest.fn(),
+    reset: jest.fn(),
+  },
+}));
+
+import { posthog } from "../posthog";
+import {
+  resetAnalyticsDuplicateDetector,
+  resetUser,
+  setUserProperties,
+  trackEvent,
+} from "../track-event";
+
+const mockCapture = posthog?.capture as jest.Mock;
 
 describe("trackEvent", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetAnalyticsDuplicateDetector();
+  });
+
   it("does not throw when called", () => {
     expect(() => trackEvent("onboarding_completed", {})).not.toThrow();
   });
@@ -183,6 +204,72 @@ describe("trackEvent", () => {
         duration_seconds: 1200,
       })
     ).not.toThrow();
+  });
+
+  it("rejects an invalid required payload instead of sending it", () => {
+    trackEvent("workout_generated", {
+      generation_source: "llm",
+    });
+
+    expect(mockCapture).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      "[analytics] Invalid event payload",
+      expect.objectContaining({ event: "workout_generated" })
+    );
+  });
+
+  it.each([
+    ["onboarding_completed", {}],
+    [
+      "workout_generated",
+      {
+        generation_source: "llm",
+        training_split: "full_body",
+        duration_minutes: 30,
+        equipment: "dumbbells",
+        training_style: "strength",
+        difficulty: "beginner",
+        exercise_count: 5,
+        has_custom_prompt: false,
+      },
+    ],
+    [
+      "pending_workout_started",
+      {
+        time_since_generated_ms: 45_000,
+        was_edited: false,
+        edit_count: 0,
+      },
+    ],
+    [
+      "workout_completed",
+      {
+        workout_name: "Full Body Workout",
+        exercise_count: 5,
+        total_sets: 20,
+        completed_sets: 18,
+        completion_rate: 90,
+        total_volume_kg: 5000,
+        duration_seconds: 1200,
+        goal_snapshot: "build_strength",
+        custom_goal_snapshot: null,
+      },
+    ],
+  ] as const)("sends valid critical event %s", (name, payload) => {
+    trackEvent(name, payload);
+
+    expect(mockCapture).toHaveBeenCalledWith(name, payload);
+  });
+
+  it("suppresses duplicate critical events within the duplicate window", () => {
+    trackEvent("onboarding_completed", {});
+    trackEvent("onboarding_completed", {});
+
+    expect(mockCapture).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith(
+      "[analytics] Duplicate critical event suppressed",
+      { event: "onboarding_completed" }
+    );
   });
 });
 

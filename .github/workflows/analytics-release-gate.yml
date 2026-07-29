@@ -1,0 +1,74 @@
+name: Analytics release gate
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      EXPO_PUBLIC_POSTHOG_KEY:
+        description: Production PostHog project key
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  analytics-data-quality:
+    name: Analytics data quality
+    runs-on: ubuntu-latest
+    env:
+      ANALYTICS_REQUIRE_PRODUCTION_CONFIG: "true"
+      EXPO_PUBLIC_POSTHOG_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_KEY }}
+      EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.EXPO_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate analytics contracts, funnel and configuration
+        run: npm --workspace mobile run test:analytics
+
+      - name: Alert analytics owner
+        if: failure()
+        run: |
+          echo "::error title=Analytics release blocked::Critical funnel instrumentation or production PostHog configuration is unhealthy. Analytics owner: @ogigg."
+          echo "## Analytics release blocked" >> "$GITHUB_STEP_SUMMARY"
+          echo "Critical funnel instrumentation or production PostHog configuration is unhealthy. Owner: @ogigg." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or update owner alert
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "[Analytics alert] Release data-quality gate failed";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The analytics release gate failed and the release is blocked. Inspect the failed run: ${runUrl}`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              ...context.repo,
+              state: "open",
+            });
+            const existing = issues.find((issue) => issue.title === title && !issue.pull_request);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body,
+                assignees: ["ogigg"],
+              });
+            }

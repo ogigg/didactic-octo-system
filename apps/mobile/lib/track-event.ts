@@ -1,47 +1,51 @@
+import {
+  criticalFunnelEventSet,
+  type EventName,
+  validateEventPayload,
+} from "./analytics-contract";
 import { posthog } from "./posthog";
-
-// Analytics event types - all events that can be tracked
-export type EventName =
-  // Onboarding events
-  | "onboarding_step_completed"
-  | "onboarding_completed"
-  | "strength_baseline_entered"
-  // Workout events
-  | "workout_generated"
-  | "workout_queue_initialized"
-  | "workout_queue_ready"
-  | "pending_workout_generated"
-  | "pending_workout_started"
-  | "pending_workout_regenerated"
-  | "pending_workout_edited"
-  | "workout_preview_viewed"
-  | "workout_completed"
-  | "session_duration"
-  | "feedback_given"
-  | "difficulty_feedback_given"
-  | "workout_comment_submitted"
-  | "workout_summary_share_requested"
-  | "workout_summary_share_unavailable"
-  | "workout_summary_share_completed"
-  | "workout_summary_share_failed"
-  | "training_preferences_changed"
-  | "queue_state_on_open"
-  // Streak protection events
-  | "streak_status_viewed"
-  | "streak_prompt_shown"
-  | "streak_prompt_dismissed"
-  | "streak_protection_applied"
-  | "streak_lifetime_rescue_used"
-  | "streak_freeze_earned"
-  | "streak_restarted"
-  | "comeback_workout_started"
-  | "comeback_workout_completed"
-  | "streak_upgrade_tapped";
-// Future events can be added here
 
 type Primitive = string | number | boolean | null;
 type EventValue = Primitive | Primitive[];
 export type EventPayload = Record<string, EventValue>;
+export type { EventName } from "./analytics-contract";
+
+const DUPLICATE_WINDOW_MS = 1_000;
+const recentCriticalEvents = new Map<string, number>();
+
+function payloadSignature(name: EventName, payload: EventPayload): string {
+  const entries = Object.entries(payload).sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+  return JSON.stringify([name, entries]);
+}
+
+export function resetAnalyticsDuplicateDetector(): void {
+  recentCriticalEvents.clear();
+}
+
+function isDuplicateCriticalEvent(
+  name: EventName,
+  payload: EventPayload,
+  now = Date.now()
+): boolean {
+  if (!criticalFunnelEventSet.has(name)) return false;
+
+  const signature = payloadSignature(name, payload);
+  const previousTimestamp = recentCriticalEvents.get(signature);
+  recentCriticalEvents.set(signature, now);
+
+  for (const [storedSignature, timestamp] of recentCriticalEvents) {
+    if (now - timestamp > DUPLICATE_WINDOW_MS) {
+      recentCriticalEvents.delete(storedSignature);
+    }
+  }
+
+  return (
+    previousTimestamp !== undefined &&
+    now - previousTimestamp <= DUPLICATE_WINDOW_MS
+  );
+}
 
 /**
  * Thin analytics wrapper using PostHog.
@@ -53,6 +57,25 @@ export type EventPayload = Record<string, EventValue>;
  * @param payload - Event data to send with the event
  */
 export function trackEvent(name: EventName, payload: EventPayload = {}): void {
+  const validation = validateEventPayload(name, payload);
+  if (!validation.success) {
+    console.error("[analytics] Invalid event payload", {
+      event: name,
+      issues: validation.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+    return;
+  }
+
+  if (isDuplicateCriticalEvent(name, payload)) {
+    console.warn("[analytics] Duplicate critical event suppressed", {
+      event: name,
+    });
+    return;
+  }
+
   // Always log in development for debugging
   if (__DEV__) {
     console.log("[analytics]", name, payload);

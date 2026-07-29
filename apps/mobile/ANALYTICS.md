@@ -209,13 +209,29 @@ resetUser();
 
 ## Adding New Events
 
-1. **Update Event Type**: Add the new event to the `EventName` type in `apps/mobile/lib/track-event.ts`
+1. **Update Event Contract**: Add the event and its payload schema to `apps/mobile/lib/analytics-contract.ts`. Stable events should declare required properties; exploratory events may temporarily use the analytics-safe record schema.
 
 2. **Track the Event**: Use `trackEvent` in your component/hook
 
-3. **Test Locally**: In development mode, events are logged to console
+3. **Add Behavior Coverage**: Critical funnel events need a user-behavior assertion at their instrumentation point and a valid-payload case in `track-event.test.ts`.
 
-4. **Verify in PostHog**: Check the PostHog dashboard to confirm events are received
+4. **Run the Gate**: Run `npm --workspace mobile run test:analytics`.
+
+5. **Verify in PostHog**: Check the PostHog dashboard to confirm events are received.
+
+Runtime validation drops malformed events and reports only the event name and validation issues. Identical critical events emitted within one second are treated as accidental duplicates and suppressed.
+
+## Release Data-Quality Checklist
+
+Before a production release:
+
+1. Confirm the `production` GitHub environment or repository secrets provide `EXPO_PUBLIC_POSTHOG_KEY`.
+2. Optionally configure `EXPO_PUBLIC_POSTHOG_HOST` as a GitHub variable; it must be an HTTPS origin.
+3. Run the **Analytics release gate** workflow, or call it from the release workflow.
+4. Confirm the workflow reports `healthy` configuration. The report includes only key presence and the PostHog host origin, never the key.
+5. Resolve any missing or duplicate critical funnel-stage alert before releasing. The failed check emits a GitHub error annotation and creates or updates an issue assigned to the analytics owner.
+
+The normal test suite also scans source instrumentation, so adding an event without updating the contract—or removing or duplicating a critical funnel stage—fails CI.
 
 ## Development vs Production
 
