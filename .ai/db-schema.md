@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Explain the current database model at a level that is useful for humans and AI agents, while treating `supabase/migrations` as the authoritative schema source.
-> **Last reviewed:** 2026-07-16
+> **Last reviewed:** 2026-07-29
 
 ## Source Of Truth
 
@@ -233,6 +233,7 @@ Important columns:
 - `workout_data`: serialized generated workout payload
 - `generation_source`
 - `focus_area`
+- `generation_run_id`: shared ownership token for every row created by one queue rebuild
 - `regeneration_count`
 - `regeneration_feedback`: JSON array of manual regeneration attempts and optional user feedback
 - `user_edits`
@@ -245,6 +246,8 @@ Notes:
 
 - unique per user + queue position
 - supports a pre-generated workout flow instead of generating only at the moment of use
+- queue rebuilds must start through `start_pending_workout_generation(UUID, TEXT[])`, which serializes starts per user, refuses to replace an in-flight queue, and atomically creates all rows with one `generation_run_id`
+- rebuild workers must include `generation_run_id` in status updates and verify that the intended row was returned; a worker that loses ownership must stop before recording generation usage
 
 ### `workout_sessions`
 

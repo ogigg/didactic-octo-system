@@ -22,6 +22,26 @@ export interface QueueGenerationErrorDetails {
   error: string;
 }
 
+export class QueueFailurePersistenceError extends Error {
+  readonly item: QueueGenerationItem;
+  readonly generationError: string;
+  readonly persistenceError: string;
+
+  constructor(
+    item: QueueGenerationItem,
+    generationError: string,
+    persistenceError: string
+  ) {
+    super(
+      `Failed to persist failure for queue position ${item.queue_position}: ${persistenceError}`
+    );
+    this.name = "QueueFailurePersistenceError";
+    this.item = item;
+    this.generationError = generationError;
+    this.persistenceError = persistenceError;
+  }
+}
+
 interface ProcessQueueGenerationParams<
   TItem extends QueueGenerationItem,
   TData,
@@ -35,6 +55,7 @@ interface ProcessQueueGenerationParams<
   ) => Promise<void>;
   markFailed: (item: TItem) => Promise<void>;
   logError: (details: QueueGenerationErrorDetails) => void;
+  onCompleted?: (results: QueueGenerationResult[]) => Promise<void>;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -73,11 +94,13 @@ export async function processQueueGeneration<
       try {
         await params.markFailed(item);
       } catch (markFailedError) {
+        const persistenceError = getErrorMessage(markFailedError);
         params.logError({
           item,
           stage: "mark_failed",
-          error: getErrorMessage(markFailedError),
+          error: persistenceError,
         });
+        throw new QueueFailurePersistenceError(item, message, persistenceError);
       }
 
       results.push({
@@ -87,6 +110,8 @@ export async function processQueueGeneration<
       });
     }
   }
+
+  await params.onCompleted?.(results);
 
   return results;
 }

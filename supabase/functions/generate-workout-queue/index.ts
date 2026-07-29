@@ -15,7 +15,10 @@ import {
   checkGenerationAllowance,
   recordGenerationUsage,
 } from "../_shared/subscription.ts";
-import { processQueueGeneration } from "../_shared/queue-generation.ts";
+import {
+  processQueueGeneration,
+  QueueFailurePersistenceError,
+} from "../_shared/queue-generation.ts";
 
 // ---------------------------------------------------------------------------
 // Request Schema
@@ -25,6 +28,36 @@ const requestSchema = z.object({
   count: z.number().int().min(1).max(7),
   trigger: z.enum(["onboarding", "preference_change"]),
 });
+
+const startedQueueRowSchema = z.object({
+  started: z.literal(true),
+  workout_id: z.string().uuid(),
+  workout_queue_position: z.number().int(),
+  workout_focus_area: z.enum([
+    "push",
+    "pull",
+    "legs",
+    "upper",
+    "lower",
+    "full_body",
+  ]),
+  run_id: z.string().uuid(),
+});
+
+const skippedQueueRowSchema = z.object({
+  started: z.literal(false),
+  workout_id: z.null(),
+  workout_queue_position: z.null(),
+  workout_focus_area: z.null(),
+  run_id: z.null(),
+});
+
+const startQueueResponseSchema = z.array(
+  z.discriminatedUnion("started", [
+    startedQueueRowSchema,
+    skippedQueueRowSchema,
+  ])
+);
 
 // ---------------------------------------------------------------------------
 // Main Handler
@@ -180,19 +213,41 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 8. Check for concurrent generation — skip if already in progress
-    const { data: existingQueue } = await userClient
-      .from("pending_workouts")
-      .select("id, status")
-      .eq("user_id", user.id);
-
-    const hasInFlightGeneration = (existingQueue ?? []).some(
-      (pw) => pw.status === "queued" || pw.status === "generating"
+    // 8. Atomically claim this user's rebuild and create its owned rows.
+    const generationRunId = crypto.randomUUID();
+    const focusAreas = Array.from({ length: count }, (_, index) =>
+      getFocusAreaForPosition(profile.training_split, index + 1)
     );
+    const { data: queueStartData, error: queueStartError } =
+      await userClient.rpc("start_pending_workout_generation", {
+        p_run_id: generationRunId,
+        p_focus_areas: focusAreas,
+      });
 
-    if (hasInFlightGeneration) {
+    if (queueStartError) {
+      console.error(
+        "[generate-workout-queue] Failed to start owned queue:",
+        queueStartError
+      );
+      return errorResponse("Failed to create workout queue", 500);
+    }
+
+    const parsedQueueStart = startQueueResponseSchema.safeParse(queueStartData);
+    if (!parsedQueueStart.success || parsedQueueStart.data.length === 0) {
+      console.error("[generate-workout-queue] Invalid queue start response:", {
+        userId: user.id,
+        generationRunId,
+        issues: parsedQueueStart.success
+          ? ["Empty response"]
+          : parsedQueueStart.error.issues,
+      });
+      return errorResponse("Failed to create workout queue", 500);
+    }
+
+    if (!parsedQueueStart.data[0].started) {
       console.log(
-        "[generate-workout-queue] Generation already in progress, skipping"
+        "[generate-workout-queue] Generation already in progress, skipping",
+        { userId: user.id }
       );
       return jsonResponse({
         skipped: true,
@@ -200,42 +255,32 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 9. Clear existing pending workouts for this user
-    const { error: deleteError } = await userClient
-      .from("pending_workouts")
-      .delete()
-      .eq("user_id", user.id);
+    const insertedWorkouts = parsedQueueStart.data
+      .filter(
+        (row): row is z.infer<typeof startedQueueRowSchema> => row.started
+      )
+      .map((row) => ({
+        id: row.workout_id,
+        queue_position: row.workout_queue_position,
+        focus_area: row.workout_focus_area,
+      }));
 
-    if (deleteError) {
-      console.error(
-        "[generate-workout-queue] Error clearing queue:",
-        deleteError
-      );
-      return errorResponse("Failed to clear existing queue", 500);
-    }
-
-    // 10. Create N pending_workout rows with status 'queued'
-    const queuedWorkouts = Array.from({ length: count }, (_, i) => ({
-      user_id: user.id,
-      queue_position: i + 1,
-      status: "queued",
-      focus_area: getFocusAreaForPosition(profile.training_split, i + 1),
-    }));
-
-    const { data: insertedWorkouts, error: insertError } = await userClient
-      .from("pending_workouts")
-      .insert(queuedWorkouts)
-      .select("id, queue_position, focus_area");
-
-    if (insertError || !insertedWorkouts) {
-      console.error(
-        "[generate-workout-queue] Error creating queue:",
-        insertError
-      );
+    if (
+      insertedWorkouts.length !== count ||
+      parsedQueueStart.data.some(
+        (row) => row.started && row.run_id !== generationRunId
+      )
+    ) {
+      console.error("[generate-workout-queue] Queue ownership mismatch:", {
+        userId: user.id,
+        generationRunId,
+        expectedCount: count,
+        actualCount: insertedWorkouts.length,
+      });
       return errorResponse("Failed to create workout queue", 500);
     }
 
-    // 11. Generate each workout sequentially
+    // 9. Generate each workout sequentially
     const queueContext: QueueContextItem[] = [];
 
     const results = await processQueueGeneration({
@@ -245,15 +290,22 @@ Deno.serve(async (req: Request) => {
           `[generate-workout-queue] Generating ${pendingWorkout.queue_position}/${count} (focus: ${pendingWorkout.focus_area})`
         );
 
-        const { error } = await userClient
+        const { data, error } = await userClient
           .from("pending_workouts")
           .update({ status: "generating" })
-          .eq("id", pendingWorkout.id);
+          .eq("id", pendingWorkout.id)
+          .eq("generation_run_id", generationRunId)
+          .eq("status", "queued")
+          .select("id")
+          .maybeSingle();
 
         if (error) {
           throw new Error(
             `Failed to mark workout generating: ${error.message}`
           );
+        }
+        if (!data) {
+          throw new Error("Queue ownership lost before generation");
         }
       },
       generate: async (pendingWorkout) => {
@@ -291,7 +343,7 @@ Deno.serve(async (req: Request) => {
         };
       },
       saveReady: async (pendingWorkout, generated) => {
-        const { error } = await userClient
+        const { data, error } = await userClient
           .from("pending_workouts")
           .update({
             workout_data: generated.data as unknown as Record<string, unknown>,
@@ -299,10 +351,17 @@ Deno.serve(async (req: Request) => {
             status: "ready",
             generated_at: new Date().toISOString(),
           })
-          .eq("id", pendingWorkout.id);
+          .eq("id", pendingWorkout.id)
+          .eq("generation_run_id", generationRunId)
+          .eq("status", "generating")
+          .select("id")
+          .maybeSingle();
 
         if (error) {
           throw new Error(`Failed to save generated workout: ${error.message}`);
+        }
+        if (!data) {
+          throw new Error("Queue ownership lost before saving workout");
         }
 
         queueContext.push({
@@ -321,13 +380,20 @@ Deno.serve(async (req: Request) => {
         });
       },
       markFailed: async (pendingWorkout) => {
-        const { error } = await userClient
+        const { data, error } = await userClient
           .from("pending_workouts")
           .update({ status: "failed" })
-          .eq("id", pendingWorkout.id);
+          .eq("id", pendingWorkout.id)
+          .eq("generation_run_id", generationRunId)
+          .in("status", ["queued", "generating"])
+          .select("id")
+          .maybeSingle();
 
         if (error) {
           throw new Error(`Failed to mark workout failed: ${error.message}`);
+        }
+        if (!data) {
+          throw new Error("Queue ownership lost before persisting failure");
         }
       },
       logError: ({ item, stage, error }) => {
@@ -340,6 +406,22 @@ Deno.serve(async (req: Request) => {
           error,
         });
       },
+      onCompleted:
+        trigger === "preference_change"
+          ? async (completedResults) => {
+              const successfulCount = completedResults.filter(
+                (result) => result.status === "ready"
+              ).length;
+              if (successfulCount > 0) {
+                await recordGenerationUsage(
+                  supabaseClient,
+                  user.id,
+                  "preference_change",
+                  successfulCount
+                );
+              }
+            }
+          : undefined,
     });
 
     console.log(
@@ -347,24 +429,20 @@ Deno.serve(async (req: Request) => {
       results
     );
 
-    // Record usage for non-onboarding triggers
-    if (trigger !== "onboarding") {
-      const successfulCount = results.filter(
-        (r) => r.status === "ready"
-      ).length;
-      if (successfulCount > 0) {
-        await recordGenerationUsage(
-          supabaseClient,
-          user.id,
-          "preference_change",
-          successfulCount
-        );
-      }
-    }
-
     return jsonResponse({ success: true, count, trigger, results });
   } catch (err) {
     console.error("[generate-workout-queue] Unhandled error:", err);
+
+    if (err instanceof QueueFailurePersistenceError) {
+      return jsonResponse(
+        {
+          error: "queue_failure_persistence_failed",
+          position: err.item.queue_position,
+        },
+        500
+      );
+    }
+
     return errorResponse("Internal server error", 500);
   }
 });

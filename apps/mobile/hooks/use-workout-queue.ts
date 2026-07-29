@@ -8,7 +8,6 @@ import { convertPreviousDisplay } from "@/lib/workout-previous-sets";
 import { useProfile, type Profile } from "@/hooks/use-profile-query";
 import {
   deletePendingWorkout,
-  deleteAllPendingWorkouts,
   fetchPendingWorkouts,
   replacePendingWorkoutWithFallback,
   setPendingWorkoutStatus,
@@ -697,7 +696,6 @@ export function useRebuildQueue() {
         count: request.count,
         trigger: request.trigger,
       });
-      await deleteAllPendingWorkouts();
       await triggerQueueGeneration(request);
     },
     onSuccess: () => {
