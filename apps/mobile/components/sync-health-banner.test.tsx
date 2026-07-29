@@ -14,7 +14,6 @@ const mockSyncQueue = {
   getHealthSnapshot: jest.fn(() => mockSnapshot),
   acknowledgeRecovery: jest.fn(),
   retryDeadItems: jest.fn(() => Promise.resolve()),
-  processQueue: jest.fn(() => Promise.resolve()),
 };
 
 jest.mock("expo-router", () => ({
@@ -63,7 +62,7 @@ describe("SyncHealthBanner", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("retries dead items once and starts processing", async () => {
+  it("requests an idempotent dead-item retry once", async () => {
     mockSnapshot = {
       state: "failed",
       pendingCount: 0,
@@ -77,7 +76,6 @@ describe("SyncHealthBanner", () => {
 
     await waitFor(() => {
       expect(mockSyncQueue.retryDeadItems).toHaveBeenCalledTimes(1);
-      expect(mockSyncQueue.processQueue).toHaveBeenCalledTimes(1);
     });
   });
 

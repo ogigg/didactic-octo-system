@@ -19,11 +19,7 @@ const RECOVERY_MESSAGE_MS = 3_000;
 interface SyncHealthBannerProps {
   queue?: Pick<
     SyncQueue,
-    | "subscribe"
-    | "getHealthSnapshot"
-    | "acknowledgeRecovery"
-    | "retryDeadItems"
-    | "processQueue"
+    "subscribe" | "getHealthSnapshot" | "acknowledgeRecovery" | "retryDeadItems"
   >;
 }
 
@@ -80,7 +76,6 @@ export function SyncHealthBanner({ queue = syncQueue }: SyncHealthBannerProps) {
     setIsRetrying(true);
     try {
       await queue.retryDeadItems();
-      await queue.processQueue();
     } finally {
       setIsRetrying(false);
     }

@@ -19,6 +19,7 @@ import type {
 } from "@/lib/api/body-measurements";
 import type { MeasurementField } from "@/data/measurements";
 import { measurementKeys } from "@/lib/query-keys";
+import { createMeasurementSyncIdentity } from "@/lib/sync-identities";
 import { syncQueue } from "@/lib/sync-queue";
 
 function computeFromDate(period: StatsPeriod): string | null {
@@ -83,7 +84,11 @@ export function useUpsertMeasurement() {
     onError: (_error: unknown, variables) => {
       if (user) {
         syncQueue
-          .enqueue("upsert_measurement", user.id, variables)
+          .enqueue(
+            "upsert_measurement",
+            createMeasurementSyncIdentity(user.id, variables),
+            variables
+          )
           .catch(console.warn);
       }
     },

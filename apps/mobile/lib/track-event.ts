@@ -29,6 +29,7 @@ export type EventName =
   | "sync_failed"
   | "sync_recovery_requested"
   | "sync_recovered"
+  | "sync_queue_items_dropped"
   // Streak protection events
   | "streak_status_viewed"
   | "streak_prompt_shown"

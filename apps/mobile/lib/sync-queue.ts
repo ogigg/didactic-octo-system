@@ -19,12 +19,11 @@ const syncQueueItemSchema = z
     status: z.enum(["pending", "dead"]),
     recoveryAttempts: z.number().int().nonnegative().default(0),
     diagnosticReference: z.string().min(1).optional(),
+    version: z.number().int().positive().default(1),
   })
   .refine((item) => Object.prototype.hasOwnProperty.call(item, "payload"), {
     message: "Queue item payload is required",
   });
-
-const syncQueueSchema = z.array(syncQueueItemSchema);
 
 export interface SyncQueueItem {
   id: string;
@@ -36,7 +35,8 @@ export interface SyncQueueItem {
   createdAt: number;
   status: "pending" | "dead";
   recoveryAttempts: number;
-  diagnosticReference?: string;
+  diagnosticReference: string;
+  version: number;
 }
 
 export interface SyncHealthSnapshot {
@@ -45,6 +45,12 @@ export interface SyncHealthSnapshot {
   failedCount: number;
   diagnosticReference?: string;
   canContactSupport: boolean;
+}
+
+interface ParsedQueue {
+  items: SyncQueueItem[];
+  invalidCount: number;
+  needsPersist: boolean;
 }
 
 type SyncHandler = (payload: unknown, item: SyncQueueItem) => Promise<void>;
@@ -62,18 +68,83 @@ function createDiagnosticReference(): string {
   return `SYNC-${randomPart.padEnd(8, "0")}`;
 }
 
+function parseQueue(raw: string): ParsedQueue {
+  let decoded: unknown;
+
+  try {
+    decoded = JSON.parse(raw);
+  } catch {
+    return { items: [], invalidCount: 1, needsPersist: true };
+  }
+
+  if (!Array.isArray(decoded)) {
+    return { items: [], invalidCount: 1, needsPersist: true };
+  }
+
+  const items: SyncQueueItem[] = [];
+  let invalidCount = 0;
+  let needsPersist = false;
+
+  for (const entry of decoded) {
+    const result = syncQueueItemSchema.safeParse(entry);
+    if (!result.success) {
+      invalidCount += 1;
+      needsPersist = true;
+      continue;
+    }
+
+    const parsed = result.data;
+    const diagnosticReference =
+      parsed.diagnosticReference ?? createDiagnosticReference();
+
+    if (
+      parsed.diagnosticReference === undefined ||
+      !entry ||
+      typeof entry !== "object" ||
+      !Object.prototype.hasOwnProperty.call(entry, "version") ||
+      !Object.prototype.hasOwnProperty.call(entry, "recoveryAttempts")
+    ) {
+      needsPersist = true;
+    }
+
+    items.push({
+      id: parsed.id,
+      operation: parsed.operation,
+      payload: parsed.payload,
+      updatedAt: parsed.updatedAt,
+      retryCount: parsed.retryCount,
+      nextRetryAt: parsed.nextRetryAt,
+      createdAt: parsed.createdAt,
+      status: parsed.status,
+      recoveryAttempts: parsed.recoveryAttempts,
+      diagnosticReference,
+      version: parsed.version,
+    });
+  }
+
+  return { items, invalidCount, needsPersist };
+}
+
 export class SyncQueue {
   private handlers = new Map<string, SyncHandler>();
   private items: SyncQueueItem[] = [];
-  private isProcessing = false;
   private isOnline = true;
+  private isActive = true;
   private loaded = false;
+  private hydratePromise: Promise<void> | undefined;
+  private processingPromise: Promise<void> | undefined;
+  private processRequested = false;
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private storageWrite: Promise<void> = Promise.resolve();
   private recoveredReference: string | undefined;
   private snapshot = SAVED_SNAPSHOT;
   private listeners = new Set<SyncHealthListener>();
 
   registerHandler(operation: string, handler: SyncHandler): void {
     this.handlers.set(operation, handler);
+    if (this.loaded && this.isOnline && this.isActive) {
+      void this.processQueue();
+    }
   }
 
   subscribe = (listener: SyncHealthListener): (() => void) => {
@@ -83,10 +154,47 @@ export class SyncQueue {
 
   getHealthSnapshot = (): SyncHealthSnapshot => this.snapshot;
 
+  async hydrate(): Promise<void> {
+    if (this.loaded) return;
+    if (this.hydratePromise) return this.hydratePromise;
+
+    this.hydratePromise = this.loadFromStorage().finally(() => {
+      this.hydratePromise = undefined;
+    });
+
+    return this.hydratePromise;
+  }
+
   setOnline(isOnline: boolean): void {
-    if (this.isOnline === isOnline) return;
+    const changed = this.isOnline !== isOnline;
     this.isOnline = isOnline;
-    this.publishHealth();
+
+    if (!isOnline) {
+      this.clearRetryTimer();
+    }
+
+    if (changed) {
+      this.publishHealth();
+    }
+    if (isOnline && this.isActive) {
+      void this.processQueue();
+    }
+  }
+
+  setActive(isActive: boolean): void {
+    const changed = this.isActive !== isActive;
+    this.isActive = isActive;
+
+    if (!isActive) {
+      if (changed) {
+        this.clearRetryTimer();
+      }
+      return;
+    }
+
+    if (this.isOnline) {
+      void this.processQueue();
+    }
   }
 
   acknowledgeRecovery(): void {
@@ -100,7 +208,7 @@ export class SyncQueue {
     id: string,
     payload: unknown
   ): Promise<void> {
-    await this.load();
+    await this.hydrate();
     const now = Date.now();
 
     const existingIndex = this.items.findIndex(
@@ -109,16 +217,15 @@ export class SyncQueue {
 
     if (existingIndex !== -1) {
       const existing = this.items[existingIndex];
-      if (now > existing.updatedAt) {
-        this.items[existingIndex] = {
-          ...existing,
-          payload,
-          updatedAt: now,
-          retryCount: 0,
-          nextRetryAt: 0,
-          status: "pending",
-        };
-      }
+      this.items[existingIndex] = {
+        ...existing,
+        payload,
+        updatedAt: now,
+        retryCount: 0,
+        nextRetryAt: 0,
+        status: "pending",
+        version: existing.version + 1,
+      };
     } else {
       this.items.push({
         id,
@@ -131,97 +238,57 @@ export class SyncQueue {
         status: "pending",
         recoveryAttempts: 0,
         diagnosticReference: createDiagnosticReference(),
+        version: 1,
       });
     }
 
     await this.persist();
     this.publishHealth();
+    void this.processQueue();
   }
 
-  async processQueue(): Promise<void> {
-    if (this.isProcessing || !this.isOnline) return;
-    this.isProcessing = true;
+  processQueue(): Promise<void> {
+    this.processRequested = true;
 
-    try {
-      if (!this.loaded) {
-        await this.load();
-      }
-      this.publishHealth();
-
-      const now = Date.now();
-      let changed = false;
-      const toRemove: number[] = [];
-
-      for (let i = 0; i < this.items.length; i++) {
-        const item = this.items[i];
-        if (item.status !== "pending") continue;
-        if (item.nextRetryAt > now) continue;
-
-        const handler = this.handlers.get(item.operation);
-        if (!handler) continue;
-
-        try {
-          await handler(item.payload, item);
-          toRemove.push(i);
-          changed = true;
-
-          if (item.recoveryAttempts > 0) {
-            this.recoveredReference = item.diagnosticReference;
-            trackEvent("sync_recovered", {
-              diagnostic_reference: item.diagnosticReference ?? "unknown",
-              operation: item.operation,
-              recovery_attempt: item.recoveryAttempts,
-            });
-          }
-        } catch {
-          item.retryCount += 1;
-          if (item.recoveryAttempts > 0 || item.retryCount >= MAX_RETRIES) {
-            item.status = "dead";
-            item.diagnosticReference ??= createDiagnosticReference();
-            trackEvent("sync_failed", {
-              diagnostic_reference: item.diagnosticReference,
-              operation: item.operation,
-              recovery_attempt: item.recoveryAttempts,
-            });
-          } else {
-            const backoff = Math.min(
-              1000 * Math.pow(2, item.retryCount),
-              MAX_BACKOFF_MS
-            );
-            item.nextRetryAt = Date.now() + backoff;
-          }
-          changed = true;
-        }
-      }
-
-      for (let i = toRemove.length - 1; i >= 0; i--) {
-        this.items.splice(toRemove[i], 1);
-      }
-
-      if (changed) {
-        await this.persist();
-      }
-    } finally {
-      this.isProcessing = false;
-      this.publishHealth();
+    if (!this.isOnline || !this.isActive) {
+      return Promise.resolve();
     }
+
+    if (this.processingPromise) {
+      return this.processingPromise;
+    }
+
+    this.clearRetryTimer();
+    this.processingPromise = Promise.resolve()
+      .then(() => this.drainRequestedPasses())
+      .finally(() => {
+        this.processingPromise = undefined;
+        this.publishHealth();
+        this.scheduleNextRetry();
+      });
+
+    return this.processingPromise;
   }
 
   async flush(): Promise<void> {
     this.items = [];
     this.loaded = true;
+    this.processRequested = false;
     this.recoveredReference = undefined;
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    this.clearRetryTimer();
+    await this.queueStorageWrite(() => AsyncStorage.removeItem(STORAGE_KEY));
     this.publishHealth();
   }
 
   async getDeadItems(): Promise<SyncQueueItem[]> {
-    await this.load();
-    return this.items.filter((item) => item.status === "dead");
+    await this.hydrate();
+    return this.items
+      .filter((item) => item.status === "dead")
+      .map((item) => ({ ...item }));
   }
 
   async retryDeadItems(): Promise<void> {
-    await this.load();
+    await this.hydrate();
     let changed = false;
 
     for (const item of this.items) {
@@ -230,44 +297,180 @@ export class SyncQueue {
         item.retryCount = 0;
         item.nextRetryAt = 0;
         item.recoveryAttempts += 1;
+        item.version += 1;
         changed = true;
         trackEvent("sync_recovery_requested", {
-          diagnostic_reference: item.diagnosticReference ?? "unknown",
+          diagnostic_reference: item.diagnosticReference,
           operation: item.operation,
           recovery_attempt: item.recoveryAttempts,
         });
       }
     }
 
-    if (changed) {
+    if (!changed) return;
+
+    await this.persist();
+    this.publishHealth();
+    await this.processQueue();
+  }
+
+  private async loadFromStorage(): Promise<void> {
+    let parsed: ParsedQueue = {
+      items: [],
+      invalidCount: 0,
+      needsPersist: false,
+    };
+
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        parsed = parseQueue(raw);
+      }
+    } catch {
+      console.warn("Unable to hydrate sync queue");
+    }
+
+    this.items = parsed.items;
+    this.loaded = true;
+    this.publishHealth();
+
+    if (parsed.invalidCount > 0) {
+      console.warn(`Dropped ${parsed.invalidCount} invalid sync queue item(s)`);
+      trackEvent("sync_queue_items_dropped", {
+        invalid_count: parsed.invalidCount,
+      });
+    }
+
+    if (parsed.needsPersist) {
       await this.persist();
-      this.publishHealth();
     }
   }
 
-  private async load(): Promise<void> {
-    if (this.loaded) return;
+  private async drainRequestedPasses(): Promise<void> {
+    await this.hydrate();
 
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      this.items = [];
-    } else {
+    while (this.processRequested && this.isOnline && this.isActive) {
+      this.processRequested = false;
+      await this.processPass();
+    }
+  }
+
+  private async processPass(): Promise<void> {
+    const now = Date.now();
+    const candidates = this.items.filter(
+      (item) =>
+        item.status === "pending" &&
+        item.nextRetryAt <= now &&
+        this.handlers.has(item.operation)
+    );
+    let changed = false;
+
+    for (const item of candidates) {
+      if (!this.isOnline || !this.isActive) {
+        this.processRequested = true;
+        break;
+      }
+      if (!this.items.includes(item)) continue;
+
+      const handler = this.handlers.get(item.operation);
+      if (!handler) continue;
+
       try {
-        this.items = syncQueueSchema
-          .parse(JSON.parse(raw))
-          .map((item): SyncQueueItem => ({ ...item, payload: item.payload }));
-      } catch (error) {
-        console.warn("Ignoring invalid sync queue data:", error);
-        this.items = [];
+        await handler(item.payload, item);
+
+        const currentIndex = this.items.indexOf(item);
+        if (currentIndex === -1) {
+          continue;
+        }
+
+        this.items.splice(currentIndex, 1);
+        changed = true;
+
+        if (item.recoveryAttempts > 0) {
+          this.recoveredReference = item.diagnosticReference;
+          trackEvent("sync_recovered", {
+            diagnostic_reference: item.diagnosticReference,
+            operation: item.operation,
+            recovery_attempt: item.recoveryAttempts,
+          });
+        }
+      } catch {
+        if (!this.items.includes(item)) {
+          continue;
+        }
+
+        item.retryCount += 1;
+        if (item.recoveryAttempts > 0 || item.retryCount >= MAX_RETRIES) {
+          item.status = "dead";
+          trackEvent("sync_failed", {
+            diagnostic_reference: item.diagnosticReference,
+            operation: item.operation,
+            recovery_attempt: item.recoveryAttempts,
+          });
+        } else {
+          const backoff = Math.min(
+            1000 * Math.pow(2, item.retryCount),
+            MAX_BACKOFF_MS
+          );
+          item.nextRetryAt = Date.now() + backoff;
+        }
+        changed = true;
       }
     }
 
-    this.loaded = true;
+    if (changed) {
+      await this.persist();
+    }
     this.publishHealth();
   }
 
-  private async persist(): Promise<void> {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(this.items));
+  private persist(): Promise<void> {
+    return this.queueStorageWrite(() =>
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(this.items))
+    );
+  }
+
+  private queueStorageWrite(write: () => Promise<void>): Promise<void> {
+    this.storageWrite = this.storageWrite.catch(() => undefined).then(write);
+    return this.storageWrite;
+  }
+
+  private scheduleNextRetry(): void {
+    this.clearRetryTimer();
+    if (!this.loaded || !this.isOnline || !this.isActive) return;
+
+    const now = Date.now();
+    const nextRetryAt = this.items.reduce<number | undefined>(
+      (earliest, item) => {
+        if (
+          item.status !== "pending" ||
+          !this.handlers.has(item.operation) ||
+          item.nextRetryAt <= 0
+        ) {
+          return earliest;
+        }
+        return earliest === undefined
+          ? item.nextRetryAt
+          : Math.min(earliest, item.nextRetryAt);
+      },
+      undefined
+    );
+
+    if (nextRetryAt === undefined) return;
+
+    this.retryTimer = setTimeout(
+      () => {
+        this.retryTimer = undefined;
+        void this.processQueue();
+      },
+      Math.max(0, nextRetryAt - now)
+    );
+  }
+
+  private clearRetryTimer(): void {
+    if (this.retryTimer === undefined) return;
+    clearTimeout(this.retryTimer);
+    this.retryTimer = undefined;
   }
 
   private publishHealth(): void {

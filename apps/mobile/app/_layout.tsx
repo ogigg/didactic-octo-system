@@ -27,6 +27,7 @@ import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
 import { configureRestTimerNotificationHandler } from "@/lib/rest-timer-notifications";
 import { registerSyncHandlers } from "@/lib/sync-handlers";
+import { bootstrapSyncQueue } from "@/lib/sync-bootstrap";
 import { syncQueue } from "@/lib/sync-queue";
 import { useAuthStore } from "@/stores/auth-store";
 import NetInfo from "@react-native-community/netinfo";
@@ -66,23 +67,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     registerSyncHandlers();
-    void NetInfo.fetch().then((state) => {
-      const isOnline = state.isConnected === true;
-      syncQueue.setOnline(isOnline);
-      if (isOnline) void syncQueue.processQueue();
+    void bootstrapSyncQueue().catch(() => {
+      console.warn("Unable to initialize sync queue");
     });
 
     const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
-      const isOnline = state.isConnected === true;
-      syncQueue.setOnline(isOnline);
-      if (isOnline) {
-        void syncQueue.processQueue();
-      }
+      syncQueue.setOnline(state.isConnected === true);
     });
 
     const appStateSub = AppState.addEventListener("change", (nextState) => {
+      syncQueue.setActive(nextState === "active");
       if (nextState === "active") {
-        void syncQueue.processQueue();
         flushHealthRetryQueue().catch((error) => {
           console.warn("Health retry queue flush failed:", error);
         });
@@ -100,6 +95,7 @@ export default function RootLayout() {
     );
 
     return () => {
+      syncQueue.setActive(false);
       unsubscribeNetInfo();
       appStateSub.remove();
       appStateSubFlush?.remove();
