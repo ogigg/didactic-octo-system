@@ -17,7 +17,7 @@ import type { PreviousSetValue } from "@/lib/workout-previous-sets";
 import { Spacing, Typography } from "@/constants/theme";
 import type { Exercise } from "@/lib/api/exercises";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -79,6 +79,20 @@ export default function ExercisePickerScreen() {
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const selectionActiveRef = useRef(false);
+  const selectionRequestRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      selectionActiveRef.current = false;
+      selectionRequestRef.current += 1;
+      clearTimeout(timerRef.current);
+    },
+    []
+  );
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchText(text);
@@ -117,10 +131,13 @@ export default function ExercisePickerScreen() {
   const sections = useMemo(() => {
     if (!exercises) return [];
 
-    // Exclude the current exercise from results
-    const filtered = exerciseId
-      ? exercises.filter((ex) => ex.id !== exerciseId)
-      : exercises;
+    const activeExerciseIds = new Set(
+      workoutExercises.map((exercise) => exercise.id)
+    );
+    const filtered = exercises.filter((exercise) => {
+      if (mode === "pending_swap") return exercise.id !== exerciseId;
+      return !activeExerciseIds.has(exercise.id);
+    });
 
     // Skip suggestions in add mode, or when filters are active
     if (mode === "add" || hasActiveFilters || !currentExercise) {
@@ -155,7 +172,15 @@ export default function ExercisePickerScreen() {
     }
     result.push({ title: t("sections.allExercises"), data: rest });
     return result;
-  }, [exercises, exerciseId, mode, hasActiveFilters, currentExercise, t]);
+  }, [
+    exercises,
+    exerciseId,
+    mode,
+    hasActiveFilters,
+    currentExercise,
+    t,
+    workoutExercises,
+  ]);
 
   // Handlers
   const hasLoggedValues = useCallback(() => {
@@ -170,56 +195,124 @@ export default function ExercisePickerScreen() {
     );
   }, [activeExercise]);
 
+  const cancelSelection = useCallback(() => {
+    selectionRequestRef.current += 1;
+    selectionActiveRef.current = false;
+    if (mountedRef.current) setIsSelecting(false);
+  }, []);
+
+  const selectWithHistory = useCallback(
+    (
+      exercise: Exercise,
+      commitSelection: (previousDisplays: string[]) => void
+    ) => {
+      if (selectionActiveRef.current) return;
+
+      selectionActiveRef.current = true;
+      setIsSelecting(true);
+      const requestId = selectionRequestRef.current + 1;
+      selectionRequestRef.current = requestId;
+
+      const isCurrentRequest = () =>
+        mountedRef.current && selectionRequestRef.current === requestId;
+
+      const completeSelection = (previousDisplays: string[]) => {
+        if (!isCurrentRequest()) return;
+
+        selectionRequestRef.current += 1;
+        selectionActiveRef.current = false;
+        setIsSelecting(false);
+        commitSelection(previousDisplays);
+        router.back();
+      };
+
+      const cancelFailedSelection = () => {
+        if (!isCurrentRequest()) return;
+        cancelSelection();
+      };
+
+      const attemptHistoryLoad = async () => {
+        if (!isCurrentRequest()) return;
+
+        try {
+          const previousSets: Record<string, PreviousSetValue[]> =
+            await fetchPreviousSetDisplays([exercise.id], weightUnit);
+          completeSelection(
+            previousSets[exercise.id]?.map((set) => set.display) ?? []
+          );
+        } catch (error) {
+          if (!isCurrentRequest()) return;
+
+          console.warn(
+            "[exercise-picker] failed to fetch previous set displays",
+            error
+          );
+          Alert.alert(
+            t("historyError.title"),
+            t("historyError.message"),
+            [
+              {
+                text: t("historyError.cancel"),
+                style: "cancel",
+                onPress: cancelFailedSelection,
+              },
+              {
+                text: t("historyError.continueWithoutHistory"),
+                onPress: () => completeSelection([]),
+              },
+              {
+                text: t("historyError.retry"),
+                onPress: () => {
+                  void attemptHistoryLoad();
+                },
+              },
+            ],
+            { cancelable: false }
+          );
+        }
+      };
+
+      void attemptHistoryLoad();
+    },
+    [cancelSelection, router, t, weightUnit]
+  );
+
   const replaceCurrentExercise = useCallback(
     (exercise: Exercise) => {
       if (!exerciseId) return;
-      replaceExercise(exerciseId, {
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
+      selectWithHistory(exercise, (previousDisplays) => {
+        replaceExercise(exerciseId, {
+          id: exercise.id,
+          name: exercise.name,
+          image: exercise.image,
+          exerciseType: exercise.exercise_type,
+          previousDisplays,
+        });
       });
-      router.back();
     },
-    [exerciseId, replaceExercise, router]
-  );
-
-  const getPreviousDisplays = useCallback(
-    async (exercise: Exercise) => {
-      const previousSets: Record<string, PreviousSetValue[]> =
-        await fetchPreviousSetDisplays([exercise.id], weightUnit).catch(
-          (error) => {
-            console.warn(
-              "[exercise-picker] failed to fetch previous set displays",
-              error
-            );
-            return {};
-          }
-        );
-
-      return previousSets[exercise.id]?.map((set) => set.display) ?? [];
-    },
-    [weightUnit]
+    [exerciseId, replaceExercise, selectWithHistory]
   );
 
   const addBelowCurrentExercise = useCallback(
-    async (exercise: Exercise) => {
+    (exercise: Exercise) => {
       if (!exerciseId) return;
-      const previousDisplays = await getPreviousDisplays(exercise);
-      addExerciseAfter(exerciseId, {
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
-        previousDisplays,
+      selectWithHistory(exercise, (previousDisplays) => {
+        addExerciseAfter(exerciseId, {
+          id: exercise.id,
+          name: exercise.name,
+          image: exercise.image,
+          exerciseType: exercise.exercise_type,
+          previousDisplays,
+        });
       });
-      router.back();
     },
-    [addExerciseAfter, exerciseId, getPreviousDisplays, router]
+    [addExerciseAfter, exerciseId, selectWithHistory]
   );
 
   const handleSelect = useCallback(
-    async (exercise: Exercise) => {
+    (exercise: Exercise) => {
+      if (selectionActiveRef.current) return;
+
       if (mode === "pending_swap") {
         setSwapResult({
           id: exercise.id,
@@ -231,13 +324,14 @@ export default function ExercisePickerScreen() {
         return;
       }
       if (mode === "add") {
-        const previousDisplays = await getPreviousDisplays(exercise);
-        addExercise({
-          id: exercise.id,
-          name: exercise.name,
-          image: exercise.image,
-          exerciseType: exercise.exercise_type,
-          previousDisplays,
+        selectWithHistory(exercise, (previousDisplays) => {
+          addExercise({
+            id: exercise.id,
+            name: exercise.name,
+            image: exercise.image,
+            exerciseType: exercise.exercise_type,
+            previousDisplays,
+          });
         });
       } else if (exerciseId) {
         if (hasLoggedValues()) {
@@ -257,25 +351,25 @@ export default function ExercisePickerScreen() {
         replaceCurrentExercise(exercise);
         return;
       }
-      router.back();
     },
     [
       mode,
       exerciseId,
       addExercise,
       addBelowCurrentExercise,
-      getPreviousDisplays,
       hasLoggedValues,
       replaceCurrentExercise,
       router,
+      selectWithHistory,
       setSwapResult,
       t,
     ]
   );
 
   const handleCancel = useCallback(() => {
+    cancelSelection();
     router.back();
-  }, [router]);
+  }, [cancelSelection, router]);
 
   const toggleMuscle = useCallback((value: string) => {
     setSelectedMuscles((prev) =>
@@ -291,9 +385,14 @@ export default function ExercisePickerScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Exercise }) => (
-      <ExerciseRow exercise={item} onSelect={handleSelect} mode={mode} />
+      <ExerciseRow
+        exercise={item}
+        onSelect={handleSelect}
+        mode={mode}
+        disabled={isSelecting}
+      />
     ),
-    [handleSelect, mode]
+    [handleSelect, isSelecting, mode]
   );
 
   const renderSectionHeader = useCallback(

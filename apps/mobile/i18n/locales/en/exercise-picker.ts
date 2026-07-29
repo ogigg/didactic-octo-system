@@ -32,4 +32,12 @@ export const exercisePicker = {
     override: "Override",
     addBelow: "Add Below",
   },
+  historyError: {
+    title: "Couldn’t load exercise history",
+    message:
+      "Your workout hasn’t changed. Try loading history again, or continue without previous-set values.",
+    cancel: "Cancel",
+    retry: "Try Again",
+    continueWithoutHistory: "Continue Without History",
+  },
 } as const;

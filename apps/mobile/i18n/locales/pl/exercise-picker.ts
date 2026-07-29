@@ -36,4 +36,12 @@ export const exercisePicker = {
     override: "Nadpisz",
     addBelow: "Dodaj poniżej",
   },
+  historyError: {
+    title: "Nie udało się wczytać historii ćwiczenia",
+    message:
+      "Twój trening nie został zmieniony. Spróbuj ponownie wczytać historię lub kontynuuj bez wartości z poprzednich serii.",
+    cancel: "Anuluj",
+    retry: "Spróbuj ponownie",
+    continueWithoutHistory: "Kontynuuj bez historii",
+  },
 } as const;
