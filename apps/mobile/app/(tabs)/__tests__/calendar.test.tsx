@@ -1,5 +1,11 @@
 const mockPush = jest.fn();
 const mockRefetch = jest.fn();
+let mockSafeAreaInsets = {
+  top: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
+};
 
 let mockCalendarHookState: {
   getEntriesForMonth: (
@@ -16,12 +22,7 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: jest.fn(() => ({
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-  })),
+  useSafeAreaInsets: jest.fn(() => mockSafeAreaInsets),
 }));
 
 jest.mock("@/hooks/use-theme-color", () => ({
@@ -33,7 +34,7 @@ jest.mock("@/hooks/use-calendar-entries", () => ({
 }));
 
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { RefreshControl } from "react-native";
+import { FlatList, RefreshControl, StyleSheet } from "react-native";
 
 import CalendarScreen from "../calendar";
 
@@ -49,6 +50,12 @@ describe("CalendarScreen pull-to-refresh", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSafeAreaInsets = {
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+    };
     mockRefetch.mockResolvedValue({ data: [], error: null });
     mockCalendarHookState = {
       getEntriesForMonth: (year, month) => {
@@ -122,6 +129,22 @@ describe("CalendarScreen pull-to-refresh", () => {
     expect(refreshControl.props.tintColor).toBe("#3366FF");
     expect(refreshControl.props.colors).toEqual(["#3366FF"]);
     expect(refreshControl.props.progressBackgroundColor).toBe("#3366FF");
+  });
+
+  it("keeps calendar content inside horizontal safe areas", () => {
+    mockSafeAreaInsets = {
+      top: 0,
+      bottom: 0,
+      left: 47,
+      right: 47,
+    };
+
+    const { UNSAFE_getByType } = render(<CalendarScreen />);
+    const list = UNSAFE_getByType(FlatList);
+    const contentStyle = StyleSheet.flatten(list.props.contentContainerStyle);
+
+    expect(contentStyle.paddingLeft).toBe(67);
+    expect(contentStyle.paddingRight).toBe(67);
   });
 
   it("refetches calendar data when the user pulls to refresh", async () => {
