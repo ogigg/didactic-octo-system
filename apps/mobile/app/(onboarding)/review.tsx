@@ -10,12 +10,13 @@ import type {
   Experience,
 } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
+import { createAnalyticsOccurrenceId } from "@/lib/analytics-occurrence";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -78,6 +79,9 @@ export default function ReviewScreen() {
   const store = useOnboardingStore();
   const upsertProfile = useUpsertProfile();
   const rebuildQueue = useRebuildQueue();
+  const [onboardingOccurrenceId] = useState(() =>
+    createAnalyticsOccurrenceId("onboarding_completed")
+  );
   useFocusEffect(useCallback(() => undefined, []));
 
   const {
@@ -152,7 +156,9 @@ export default function ReviewScreen() {
         });
 
         complete();
-        trackEvent("onboarding_completed", {});
+        trackEvent("onboarding_completed", {
+          occurrence_id: onboardingOccurrenceId,
+        });
         router.replace("/(tabs)" as never);
       },
     });

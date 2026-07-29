@@ -1,6 +1,6 @@
 # Running And Releasing The Mobile App
 
-This guide covers the day-to-day commands for running the Expo mobile app and the manual Xcode flow for preparing an App Store archive.
+This guide covers day-to-day Expo commands, the gated EAS production workflow and the manual Xcode fallback.
 
 ## Start The App
 
@@ -39,6 +39,29 @@ npm run web
 ```
 
 ## Build For App Store
+
+### Gated EAS production build
+
+The GitHub **Production mobile release** workflow is the authoritative automated production entrypoint. Its `analytics-data-quality` job runs in the protected GitHub `production` environment, loads the real EAS `production` environment, validates the expected PostHog project fingerprint/host and analytics manifest, and must pass before the dependent EAS production build starts.
+
+At present, the job intentionally fails closed because the canonical eight-stage analytics contract depends on `SWE-79` and `SWE-81`, both still `Todo`. Do not bypass the gate or treat the four current workout-loop stages as the complete customer journey.
+
+Required protected GitHub production configuration:
+
+- secret `EXPO_TOKEN`
+- secret `POSTHOG_EXPECTED_KEY_SHA256`
+- variable `POSTHOG_EXPECTED_HOST`
+
+Required EAS `production` environment:
+
+- readable plaintext/sensitive `EXPO_PUBLIC_POSTHOG_KEY`
+- readable plaintext/sensitive `EXPO_PUBLIC_POSTHOG_HOST`
+
+Do not use EAS secret visibility for these public client variables; `eas env:exec` cannot read secret-visibility values, so the production gate will classify that setup as a configuration failure.
+
+### Manual Xcode fallback
+
+The manual path does not satisfy the automated analytics release gate. Use it only for local archive diagnostics, not to bypass a blocked production release.
 
 From the repository root, open the iOS workspace in Xcode:
 

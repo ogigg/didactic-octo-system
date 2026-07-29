@@ -638,7 +638,7 @@ export default function WorkoutSummaryScreen() {
         weightUnit: wu.unit,
       },
       {
-        onSuccess: () => {
+        onSuccess: (saved) => {
           // Track workout completion events after successful save
           const totalVolume = computeTotalVolume(summary.exercises);
 
@@ -653,6 +653,7 @@ export default function WorkoutSummaryScreen() {
             duration_seconds: Math.floor(summary.durationMs / 1000),
             goal_snapshot: goalSnapshot,
             custom_goal_snapshot: customGoal ?? null,
+            occurrence_id: saved.id,
           });
 
           // Track session duration

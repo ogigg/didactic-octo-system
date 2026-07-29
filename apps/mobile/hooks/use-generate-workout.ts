@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/profiles";
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import { trackEvent } from "@/lib/track-event";
+import { createAnalyticsOccurrenceId } from "@/lib/analytics-occurrence";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import {
   convertPreviousDisplay,
@@ -91,10 +92,12 @@ export function useGenerateWorkout() {
 
   return useMutation({
     mutationFn: async ({ preferences, request }: StartTrainingRequest) => {
+      const occurrenceId = createAnalyticsOccurrenceId("workout_generated");
       await updateTrainingPreferences(preferences);
-      return generateWorkout(request);
+      const workout = await generateWorkout(request);
+      return { occurrenceId, workout };
     },
-    onSuccess: async (data, variables) => {
+    onSuccess: async ({ occurrenceId, workout: data }, variables) => {
       // Track workout generation event
       trackEvent("workout_generated", {
         generation_source: data.generation_source,
@@ -105,6 +108,7 @@ export function useGenerateWorkout() {
         difficulty: variables.request.difficulty,
         exercise_count: data.exercises.length,
         has_custom_prompt: !!variables.request.custom_prompt,
+        occurrence_id: occurrenceId,
       });
 
       const previousSetDisplays: Record<string, PreviousSetValue[]> =

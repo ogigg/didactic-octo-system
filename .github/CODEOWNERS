@@ -1,0 +1,4 @@
+/apps/mobile/analytics-journey-manifest.json @ogigg
+/apps/mobile/lib/analytics-*.ts @ogigg
+/apps/mobile/scripts/analytics-release-gate.cjs @ogigg
+/.github/workflows/analytics-release-gate.yml @ogigg

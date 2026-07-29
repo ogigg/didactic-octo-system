@@ -672,6 +672,7 @@ export function useStartPendingWorkout() {
           : null,
         was_edited: wasEdited,
         edit_count: editCount,
+        occurrence_id: pendingWorkout.id,
       });
 
       router.navigate("/workout");

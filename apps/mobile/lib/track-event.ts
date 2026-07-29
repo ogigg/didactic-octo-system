@@ -1,47 +1,54 @@
+import {
+  type EventPayload,
+  type EventName,
+  operationalJourneyEventSet,
+  validateEventPayload,
+} from "./analytics-contract";
 import { posthog } from "./posthog";
-
-// Analytics event types - all events that can be tracked
-export type EventName =
-  // Onboarding events
-  | "onboarding_step_completed"
-  | "onboarding_completed"
-  | "strength_baseline_entered"
-  // Workout events
-  | "workout_generated"
-  | "workout_queue_initialized"
-  | "workout_queue_ready"
-  | "pending_workout_generated"
-  | "pending_workout_started"
-  | "pending_workout_regenerated"
-  | "pending_workout_edited"
-  | "workout_preview_viewed"
-  | "workout_completed"
-  | "session_duration"
-  | "feedback_given"
-  | "difficulty_feedback_given"
-  | "workout_comment_submitted"
-  | "workout_summary_share_requested"
-  | "workout_summary_share_unavailable"
-  | "workout_summary_share_completed"
-  | "workout_summary_share_failed"
-  | "training_preferences_changed"
-  | "queue_state_on_open"
-  // Streak protection events
-  | "streak_status_viewed"
-  | "streak_prompt_shown"
-  | "streak_prompt_dismissed"
-  | "streak_protection_applied"
-  | "streak_lifetime_rescue_used"
-  | "streak_freeze_earned"
-  | "streak_restarted"
-  | "comeback_workout_started"
-  | "comeback_workout_completed"
-  | "streak_upgrade_tapped";
-// Future events can be added here
 
 type Primitive = string | number | boolean | null;
 type EventValue = Primitive | Primitive[];
-export type EventPayload = Record<string, EventValue>;
+export type AnalyticsEventPayload = Record<string, EventValue>;
+export type { EventName, EventPayload } from "./analytics-contract";
+
+const trackedOperationalOccurrences = new Set<string>();
+
+export function resetAnalyticsDuplicateDetector(): void {
+  trackedOperationalOccurrences.clear();
+}
+
+function isDuplicateOperationalEvent<Name extends EventName>(
+  name: Name,
+  payload: EventPayload<Name>
+): boolean {
+  if (!operationalJourneyEventSet.has(name)) return false;
+
+  const occurrenceId = payload.occurrence_id;
+  if (typeof occurrenceId !== "string") return false;
+
+  const dedupeKey = `${name}:${occurrenceId}`;
+  if (trackedOperationalOccurrences.has(dedupeKey)) return true;
+
+  trackedOperationalOccurrences.add(dedupeKey);
+  return false;
+}
+
+function reportContractViolation(
+  name: EventName,
+  issues: { code: string; path: (string | number)[] }[]
+): void {
+  if (!posthog) return;
+
+  try {
+    posthog.capture("analytics_contract_violation", {
+      event_name: name,
+      issue_codes: [...new Set(issues.map((issue) => issue.code))],
+      issue_paths: issues.map((issue) => issue.path.join(".")).filter(Boolean),
+    });
+  } catch (error) {
+    console.error("[analytics] Failed to report contract violation:", error);
+  }
+}
 
 /**
  * Thin analytics wrapper using PostHog.
@@ -52,7 +59,30 @@ export type EventPayload = Record<string, EventValue>;
  * @param name - The event name to track
  * @param payload - Event data to send with the event
  */
-export function trackEvent(name: EventName, payload: EventPayload = {}): void {
+export function trackEvent<Name extends EventName>(
+  name: Name,
+  payload: EventPayload<Name>
+): void {
+  const validation = validateEventPayload(name, payload);
+  if (!validation.success) {
+    reportContractViolation(name, validation.error.issues);
+    console.error("[analytics] Invalid event payload", {
+      event: name,
+      issues: validation.error.issues.map((issue) => ({
+        code: issue.code,
+        path: issue.path.join("."),
+      })),
+    });
+    return;
+  }
+
+  if (isDuplicateOperationalEvent(name, payload)) {
+    console.warn("[analytics] Duplicate operational event suppressed", {
+      event: name,
+    });
+    return;
+  }
+
   // Always log in development for debugging
   if (__DEV__) {
     console.log("[analytics]", name, payload);
@@ -84,7 +114,7 @@ export function setUserProperties(properties: Record<string, unknown>): void {
   if (posthog) {
     try {
       // PostHog identify sets user ID and properties
-      posthog.identify(undefined, properties as EventPayload);
+      posthog.identify(undefined, properties as AnalyticsEventPayload);
     } catch (error) {
       console.error("[analytics] Failed to set user properties:", error);
     }

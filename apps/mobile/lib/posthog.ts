@@ -1,35 +1,33 @@
 import PostHog from "posthog-react-native";
 
-// PostHog Analytics Configuration
-// Uses environment variables following Expo's convention
-const posthogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
-const posthogHost =
-  process.env.EXPO_PUBLIC_POSTHOG_HOST || "https://app.posthog.com";
+import { getAnalyticsConfigHealth, postHogConfig } from "./analytics-config";
 
-// Validate that required environment variables are set
-if (!posthogKey) {
+export const analyticsConfigHealth = getAnalyticsConfigHealth(postHogConfig);
+
+if (analyticsConfigHealth.status !== "healthy") {
   if (__DEV__) {
     console.warn(
-      "[PostHog] EXPO_PUBLIC_POSTHOG_KEY not set. Analytics will be disabled."
+      `[PostHog] Analytics configuration is ${analyticsConfigHealth.status}. Analytics will be disabled.`
     );
   }
 }
 
-// Create PostHog client instance
-// PostHog client starts immediately upon creation
-export const posthog = posthogKey
-  ? new PostHog(posthogKey, {
-      host: posthogHost,
-      captureAppLifecycleEvents: true,
-      // Additional PostHog configuration options
-      flushAt: 20, // Number of events to batch before sending
-      flushInterval: 30000, // Flush every 30 seconds
-    })
-  : null;
+export const posthog =
+  analyticsConfigHealth.status === "healthy" && postHogConfig.key
+    ? new PostHog(postHogConfig.key, {
+        host: analyticsConfigHealth.hostOrigin ?? undefined,
+        captureAppLifecycleEvents: true,
+        flushAt: 20,
+        flushInterval: 30000,
+      })
+    : null;
 
-// Log successful initialization
-if (posthog && __DEV__) {
-  console.log("[PostHog] Initialized successfully");
+if (__DEV__) {
+  if (posthog) {
+    console.log("[PostHog] Initialized successfully");
+  }
+} else {
+  console.info("[analytics] configuration health", analyticsConfigHealth);
 }
 
 /**
