@@ -84,33 +84,40 @@ export function useSaveCompletedWorkout() {
         weightUnit: input.weightUnit,
       });
 
-      const session = await createWorkoutSession(payload.session);
+      try {
+        const session = await createWorkoutSession(payload.session);
 
-      for (const ex of payload.exercises) {
-        await upsertSessionExercises(session.id, [ex.sessionExercise]);
-        await upsertSessionSets(
-          ex.sessionExercise.id,
-          ex.sets.map((s) => s.sessionSet)
-        );
+        for (const ex of payload.exercises) {
+          await upsertSessionExercises(session.id, [ex.sessionExercise]);
+          await upsertSessionSets(
+            ex.sessionExercise.id,
+            ex.sets.map((s) => s.sessionSet)
+          );
 
-        for (const set of ex.sets) {
-          await upsertSetLog(set.sessionSet.id, set.log);
+          for (const set of ex.sets) {
+            await upsertSetLog(set.sessionSet.id, set.log);
+          }
         }
+
+        await updateWorkoutSession(session.id, {
+          status: "completed",
+          completed_at: payload.completedAt,
+        });
+
+        return {
+          id: session.id,
+          exerciseOccurrences: payload.exercises.map((ex) => ({
+            exerciseId: ex.sessionExercise.exercise_id,
+            sessionExerciseId: ex.sessionExercise.id,
+            orderIndex: ex.sessionExercise.order_index,
+          })),
+        };
+      } catch (error) {
+        if (user) {
+          await syncQueue.enqueue("save_workout", payload.session.id, payload);
+        }
+        throw error;
       }
-
-      await updateWorkoutSession(session.id, {
-        status: "completed",
-        completed_at: new Date(input.summary.finishedAtMs).toISOString(),
-      });
-
-      return {
-        id: session.id,
-        exerciseOccurrences: payload.exercises.map((ex) => ({
-          exerciseId: ex.sessionExercise.exercise_id,
-          sessionExerciseId: ex.sessionExercise.id,
-          orderIndex: ex.sessionExercise.order_index,
-        })),
-      };
     },
     onSuccess: (saved, variables) => {
       queryClient.invalidateQueries({ queryKey: workoutKeys.all });
@@ -151,13 +158,6 @@ export function useSaveCompletedWorkout() {
         .catch((error) => {
           console.warn("Comeback completion tracking failed:", error);
         });
-    },
-    onError: (_error: unknown, variables: SaveWorkoutInput) => {
-      if (user) {
-        syncQueue
-          .enqueue("save_workout", user.id, variables)
-          .catch(console.warn);
-      }
     },
   });
 }

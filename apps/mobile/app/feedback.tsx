@@ -26,12 +26,15 @@ import type {
 } from "@/lib/schemas/feedback";
 import { feedbackSchema } from "@/lib/schemas/feedback";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 export default function FeedbackScreen() {
   const { t } = useTranslation("feedback");
   const router = useRouter();
+  const { diagnosticReference } = useLocalSearchParams<{
+    diagnosticReference?: string;
+  }>();
 
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -76,8 +79,10 @@ export default function FeedbackScreen() {
     resolver: zodResolver(feedbackSchema),
     defaultValues: {
       type: "bug_report",
-      title: "",
-      description: "",
+      title: diagnosticReference ? t("sync.title") : "",
+      description: diagnosticReference
+        ? t("sync.description", { reference: diagnosticReference })
+        : "",
     },
   });
 

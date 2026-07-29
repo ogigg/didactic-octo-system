@@ -26,6 +26,10 @@ export type EventName =
   | "workout_summary_share_failed"
   | "training_preferences_changed"
   | "queue_state_on_open"
+  | "sync_failed"
+  | "sync_recovery_requested"
+  | "sync_recovered"
+  | "sync_queue_items_dropped"
   // Streak protection events
   | "streak_status_viewed"
   | "streak_prompt_shown"

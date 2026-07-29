@@ -13,6 +13,12 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/api/feedback", () => ({
   sendFeedback: jest.fn(),
 }));
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, values?: { reference?: string }) =>
+      values?.reference ? `${key}:${values.reference}` : key,
+  }),
+}));
 
 import {
   render,
@@ -22,6 +28,7 @@ import {
 } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { sendFeedback } from "@/lib/api/feedback";
+import { useLocalSearchParams } from "expo-router";
 import { Alert } from "react-native";
 import FeedbackScreen from "../feedback";
 
@@ -43,6 +50,7 @@ function renderWithProviders(ui: React.ReactNode) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (useLocalSearchParams as jest.Mock).mockReturnValue({});
 });
 
 describe("FeedbackScreen", () => {
@@ -75,5 +83,18 @@ describe("FeedbackScreen", () => {
     renderWithProviders(<FeedbackScreen />);
     const inputs = screen.getAllByRole("text");
     expect(inputs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("prefills an anonymous sync reference for support", () => {
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      diagnosticReference: "SYNC-TEST0002",
+    });
+
+    renderWithProviders(<FeedbackScreen />);
+
+    expect(screen.getByLabelText("title.label").props.value).toBe("sync.title");
+    expect(screen.getByLabelText("description.label").props.value).toContain(
+      "SYNC-TEST0002"
+    );
   });
 });

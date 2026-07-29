@@ -75,6 +75,19 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Place tests alongside the code they cover when practical.
 - Prefer behavior-oriented tests using accessibility queries.
 
+## Offline save recovery
+
+Failed profile, measurement, and completed-workout writes are retained in the
+AsyncStorage-backed sync queue and hydrated even when the app launches offline.
+The root layout reflects queued writes as syncing or device-only while offline,
+keeps permanently failed items available for an idempotent retry, and offers the
+feedback flow with an anonymous diagnostic reference after a repeated failure.
+Online enqueues drain immediately, retry at bounded backoff deadlines while the
+app is active, and pause scheduled work in the background. Queue records are
+versioned so an older in-flight success cannot remove a newer edit; malformed
+storage entries are dropped individually without discarding valid or dead work.
+A normal successful save does not show status UI.
+
 ## Related Docs
 
 - `../../PROJECT.md` for current product context

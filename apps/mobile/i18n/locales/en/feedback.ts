@@ -1,4 +1,9 @@
 export const feedback = {
+  sync: {
+    title: "Workout data sync issue",
+    description:
+      "My workout data still isn't syncing.\n\nDiagnostic reference: {{reference}}",
+  },
   header: {
     title: "Feedback",
     subtitle: "Help us improve by reporting bugs or suggesting features",
