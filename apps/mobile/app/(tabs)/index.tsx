@@ -42,7 +42,6 @@ import { fetchWorkoutHistoryForDayRange } from "@/lib/api/workouts";
 import { getMondayLocal } from "@/lib/iso-week";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
-import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import type { WorkoutTemplate } from "@/stores/workout-templates-store";
 import { trackEvent, type EventPayload } from "@/lib/track-event";
@@ -130,17 +129,9 @@ export default function HomeScreen() {
 
   // Templates
   const templates = useWorkoutTemplatesStore((s) => s.templates);
-  const templateExerciseIds = useMemo(
-    () =>
-      templates.flatMap((template) => template.exercises.map((ex) => ex.id)),
-    [templates]
-  );
   const workoutExerciseIds = useMemo(
-    () => [
-      ...workoutExercises.map((exercise) => exercise.id),
-      ...templateExerciseIds,
-    ],
-    [templateExerciseIds, workoutExercises]
+    () => workoutExercises.map((exercise) => exercise.id),
+    [workoutExercises]
   );
   const { exerciseMap } = useLocalizedExerciseMap(workoutExerciseIds);
 
@@ -181,32 +172,14 @@ export default function HomeScreen() {
     router.push("/workout");
   }, [isWorkoutActive, startWorkout, t, router]);
 
-  const handleStartTemplate = useCallback(
+  const handleOpenTemplate = useCallback(
     (template: WorkoutTemplate) => {
-      if (!isWorkoutActive) {
-        const exercises: WorkoutExercise[] = template.exercises.map((ex) => ({
-          id: ex.id,
-          name: exerciseMap.get(ex.id)?.name ?? ex.name,
-          exerciseType: "weight" as const,
-          restDurationSeconds: 90,
-          notes: "",
-          difficultyFeedback: null,
-          sets: Array.from({ length: 3 }, (_, i) => ({
-            id: `set-${ex.id}-${i}-${Date.now()}`,
-            type: "working" as const,
-            kg: "",
-            reps: "",
-            durationSeconds: null,
-            rpe: null,
-            isCompleted: false,
-            previousDisplay: null,
-          })),
-        }));
-        startWorkout(template.name, exercises);
-      }
-      router.push("/workout");
+      router.push({
+        pathname: "/workout-template",
+        params: { id: template.id },
+      });
     },
-    [exerciseMap, isWorkoutActive, startWorkout, router]
+    [router]
   );
 
   const handleResumeWorkout = useCallback(() => {
@@ -498,7 +471,7 @@ export default function HomeScreen() {
                     <WorkoutTemplateCard
                       key={template.id}
                       template={template}
-                      onPress={() => handleStartTemplate(template)}
+                      onPress={() => handleOpenTemplate(template)}
                     />
                   ))}
                 </ScrollView>
