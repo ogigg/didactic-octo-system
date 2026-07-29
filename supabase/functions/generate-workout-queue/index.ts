@@ -15,6 +15,7 @@ import {
   checkGenerationAllowance,
   recordGenerationUsage,
 } from "../_shared/subscription.ts";
+import { processQueueGeneration } from "../_shared/queue-generation.ts";
 
 // ---------------------------------------------------------------------------
 // Request Schema
@@ -235,63 +236,81 @@ Deno.serve(async (req: Request) => {
     }
 
     // 11. Generate each workout sequentially
-    const results: {
-      position: number;
-      status: string;
-      source?: string;
-      error?: string;
-    }[] = [];
     const queueContext: QueueContextItem[] = [];
 
-    for (const pw of insertedWorkouts) {
-      console.log(
-        `[generate-workout-queue] Generating ${pw.queue_position}/${count} (focus: ${pw.focus_area})`
-      );
+    const results = await processQueueGeneration({
+      items: insertedWorkouts,
+      markGenerating: async (pendingWorkout) => {
+        console.log(
+          `[generate-workout-queue] Generating ${pendingWorkout.queue_position}/${count} (focus: ${pendingWorkout.focus_area})`
+        );
 
-      // Set status to 'generating'
-      await userClient
-        .from("pending_workouts")
-        .update({ status: "generating" })
-        .eq("id", pw.id);
+        const { error } = await userClient
+          .from("pending_workouts")
+          .update({ status: "generating" })
+          .eq("id", pendingWorkout.id);
 
-      // Generate
-      const genResult = await generateSingleWorkout({
-        supabaseClient: userClient,
-        userId: user.id,
-        profile: { ...profile, goal: profileGoal } as ProfileData,
-        trainingSplit: profile.training_split,
-        durationMinutes: profile.session_duration_minutes ?? 45,
-        equipment: profile.equipment_level,
-        trainingStyle: profile.training_style,
-        difficulty: profile.difficulty_level,
-        customPrompt: profile.training_custom_prompt ?? undefined,
-        focusArea: pw.focus_area ?? undefined,
-        strengthBaselines,
-        queueContext: queueContext.length > 0 ? queueContext : undefined,
-        history,
-        exercisePreferences:
-          exercisePreferences.length > 0 ? exercisePreferences : undefined,
-        recentComments: recentComments.length > 0 ? recentComments : undefined,
-      });
+        if (error) {
+          throw new Error(
+            `Failed to mark workout generating: ${error.message}`
+          );
+        }
+      },
+      generate: async (pendingWorkout) => {
+        const generated = await generateSingleWorkout({
+          supabaseClient: userClient,
+          userId: user.id,
+          profile: { ...profile, goal: profileGoal } as ProfileData,
+          trainingSplit: profile.training_split,
+          durationMinutes: profile.session_duration_minutes ?? 45,
+          equipment: profile.equipment_level,
+          trainingStyle: profile.training_style,
+          difficulty: profile.difficulty_level,
+          customPrompt: profile.training_custom_prompt ?? undefined,
+          focusArea: pendingWorkout.focus_area ?? undefined,
+          strengthBaselines,
+          queueContext: queueContext.length > 0 ? queueContext : undefined,
+          history,
+          exercisePreferences:
+            exercisePreferences.length > 0 ? exercisePreferences : undefined,
+          recentComments:
+            recentComments.length > 0 ? recentComments : undefined,
+        });
 
-      if (genResult.success && genResult.data) {
-        await userClient
+        if (
+          !generated.success ||
+          !generated.data ||
+          !generated.generationSource
+        ) {
+          throw new Error(generated.error ?? "Workout generation failed");
+        }
+
+        return {
+          data: generated.data,
+          source: generated.generationSource,
+        };
+      },
+      saveReady: async (pendingWorkout, generated) => {
+        const { error } = await userClient
           .from("pending_workouts")
           .update({
-            workout_data: genResult.data as unknown as Record<string, unknown>,
-            generation_source: genResult.generationSource,
+            workout_data: generated.data as unknown as Record<string, unknown>,
+            generation_source: generated.source,
             status: "ready",
             generated_at: new Date().toISOString(),
           })
-          .eq("id", pw.id);
+          .eq("id", pendingWorkout.id);
 
-        // Add to queue context for variety in subsequent generations
+        if (error) {
+          throw new Error(`Failed to save generated workout: ${error.message}`);
+        }
+
         queueContext.push({
-          queue_position: pw.queue_position,
-          focus_area: pw.focus_area,
+          queue_position: pendingWorkout.queue_position,
+          focus_area: pendingWorkout.focus_area,
           workout_data: {
-            workout_name: genResult.data.workout_name,
-            exercises: genResult.data.exercises.map((ex) => ({
+            workout_name: generated.data.workout_name,
+            exercises: generated.data.exercises.map((ex) => ({
               exercise_name: ex.exercise_name,
               sets: ex.sets.map((s) => ({
                 target_load_kg: s.target_load_kg,
@@ -300,29 +319,28 @@ Deno.serve(async (req: Request) => {
             })),
           },
         });
-
-        results.push({
-          position: pw.queue_position,
-          status: "ready",
-          source: genResult.generationSource,
-        });
-      } else {
-        console.error(
-          `[generate-workout-queue] Failed position ${pw.queue_position}: ${genResult.error}`
-        );
-
-        await userClient
+      },
+      markFailed: async (pendingWorkout) => {
+        const { error } = await userClient
           .from("pending_workouts")
           .update({ status: "failed" })
-          .eq("id", pw.id);
+          .eq("id", pendingWorkout.id);
 
-        results.push({
-          position: pw.queue_position,
-          status: "failed",
-          error: genResult.error,
+        if (error) {
+          throw new Error(`Failed to mark workout failed: ${error.message}`);
+        }
+      },
+      logError: ({ item, stage, error }) => {
+        console.error("[generate-workout-queue] Position failed", {
+          userId: user.id,
+          position: item.queue_position,
+          total: count,
+          focusArea: item.focus_area,
+          stage,
+          error,
         });
-      }
-    }
+      },
+    });
 
     console.log(
       `[generate-workout-queue] Complete for user ${user.id}:`,
