@@ -5,6 +5,14 @@ import {
   type ExerciseHistory,
   formatExerciseDuration,
 } from "./progression.ts";
+import {
+  EXERCISE_LOAD_SEMANTICS,
+  permitsZeroLoad,
+  summarizePrescriptionIssues,
+  validateAndRepairWorkoutPrescriptions,
+  type ExerciseLoadSemantics,
+  type PrescriptionValidationResult,
+} from "./prescription-validation.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -133,6 +141,7 @@ export interface ExerciseCatalogEntry {
   id: string;
   name: string;
   exercise_type: "weight" | "time";
+  load_semantics: ExerciseLoadSemantics;
   primary_muscles: string[];
   secondary_muscles: string[] | null;
   equipment: string[];
@@ -446,7 +455,7 @@ export function buildPrompt(
   const exerciseList = catalog
     .map(
       (e) =>
-        `- ID: ${e.id} | Name: ${e.name} | Type: ${e.exercise_type} | Muscles: ${e.primary_muscles.join(", ")} | Equipment: ${e.equipment.join(", ") || "bodyweight"} | Difficulty: ${e.difficulty_level ?? "unknown"}`
+        `- ID: ${e.id} | Name: ${e.name} | Type: ${e.exercise_type} | Load semantics: ${e.load_semantics} | Muscles: ${e.primary_muscles.join(", ")} | Equipment: ${e.equipment.join(", ") || "bodyweight"} | Difficulty: ${e.difficulty_level ?? "unknown"}`
     )
     .join("\n");
 
@@ -489,6 +498,9 @@ Response JSON schema:
 
 IMPORTANT: For exercises with Type: time, use target_duration_seconds (not target_load_kg/target_reps).
 For exercises with Type: weight, use target_load_kg and target_reps (not target_duration_seconds).
+For exercises with Load semantics: external, target_load_kg MUST be greater than zero and based conservatively on the supplied history, baseline, and difficulty. Never return zero.
+For bodyweight, bodyweight_or_external, assisted, or variable_resistance semantics, zero load is valid when no external kg load is prescribed.
+Use at least 5 reps for warmups and working sets. Three-rep working sets are only valid for intermediate or advanced strength training.
 Keep every reasoning field specific, plain-language, and under 35 words. Do not reveal hidden chain-of-thought; provide short user-facing rationale only.`;
 
   const splitLabel = trainingSplit.replace(/_/g, " ");
@@ -574,7 +586,16 @@ export function buildFallbackWorkout(
   };
   const scheme = styleSchemes[trainingStyle] ?? styleSchemes.hypertrophy;
 
-  const shuffled = [...catalog].sort(() => Math.random() - 0.5);
+  const safelyPrescribable = catalog.filter((exercise) =>
+    permitsZeroLoad(exercise.load_semantics)
+  );
+  if (safelyPrescribable.length === 0) {
+    throw new Error(
+      "No exercises with safely prescribable fallback load semantics"
+    );
+  }
+
+  const shuffled = [...safelyPrescribable].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, counts.max);
   const splitLabel = trainingSplit.replace(/_/g, " ");
 
@@ -616,7 +637,13 @@ export function buildFallbackWorkout(
         );
 
       const warmupSets: z.infer<typeof llmSetSchema>[] = isCompound
-        ? [{ set_type: "warmup" as const, target_load_kg: 0, target_reps: 10 }]
+        ? [
+            {
+              set_type: "warmup" as const,
+              target_load_kg: 0,
+              target_reps: 10,
+            },
+          ]
         : [];
 
       const workingSets: z.infer<typeof llmSetSchema>[] = Array.from(
@@ -661,7 +688,7 @@ export async function fetchExerciseCatalog(
   let exerciseQuery = supabaseClient
     .from("exercises")
     .select(
-      "id, name, exercise_type, primary_muscles, secondary_muscles, equipment, difficulty_level, image_url"
+      "id, name, exercise_type, load_semantics, primary_muscles, secondary_muscles, equipment, difficulty_level, image_url"
     )
     .eq("catalog_status", "active");
 
@@ -778,6 +805,90 @@ export function determineReplacementFocusArea(
   return "full_body";
 }
 
+export interface GeneratedExerciseForValidation {
+  exercise_id: string;
+  exercise_type: "weight" | "time";
+  sets: z.infer<typeof llmSetSchema>[];
+  progression_type: string | null;
+  previous_display: string | null;
+}
+
+export async function applyProgressionAndValidatePrescriptions(params: {
+  supabaseClient: SupabaseClient;
+  userId: string;
+  exercises: GeneratedExerciseForValidation[];
+  catalogMap: Map<string, ExerciseCatalogEntry>;
+  trainingStyle: string;
+  difficulty: string;
+}): Promise<PrescriptionValidationResult> {
+  const exerciseIds = params.exercises.map((exercise) => exercise.exercise_id);
+
+  try {
+    const { data: progressionHistory } = await params.supabaseClient.rpc(
+      "get_exercise_progression_history",
+      { p_user_id: params.userId, p_exercise_ids: exerciseIds }
+    );
+
+    if (progressionHistory?.length) {
+      const historyMap = new Map<string, ExerciseHistory>();
+      for (const row of progressionHistory as ExerciseHistory[]) {
+        historyMap.set(row.exercise_id, row);
+      }
+
+      for (const exercise of params.exercises) {
+        const history = historyMap.get(exercise.exercise_id);
+        const catalogEntry = params.catalogMap.get(exercise.exercise_id);
+        const progression = calculateProgression(
+          history ?? null,
+          catalogEntry?.equipment ?? [],
+          params.trainingStyle
+        );
+
+        if (!progression) continue;
+
+        exercise.progression_type = progression.progression_type;
+        exercise.previous_display = progression.previous_display;
+
+        if (progression.progression_type === "new_exercise") continue;
+
+        for (const set of exercise.sets) {
+          if (set.set_type !== "working") continue;
+
+          if (progression.target_duration_seconds != null) {
+            set.target_duration_seconds = progression.target_duration_seconds;
+            set.target_load_kg = undefined;
+            set.target_reps = undefined;
+          } else {
+            set.target_load_kg = progression.target_load_kg;
+            set.target_reps = progression.target_reps;
+            set.target_duration_seconds = undefined;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error(
+      "[generator] Progression override failed (non-fatal):",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+
+  return validateAndRepairWorkoutPrescriptions(
+    params.exercises.map((exercise) => ({
+      exercise_id: exercise.exercise_id,
+      exercise_type: exercise.exercise_type,
+      load_semantics:
+        params.catalogMap.get(exercise.exercise_id)?.load_semantics ??
+        EXERCISE_LOAD_SEMANTICS.EXTERNAL,
+      sets: exercise.sets,
+    })),
+    {
+      trainingStyle: params.trainingStyle,
+      difficulty: params.difficulty,
+    }
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Core: Generate Single Workout
 // ---------------------------------------------------------------------------
@@ -823,6 +934,25 @@ export async function generateSingleWorkout(
   let generationSource: "llm" | "fallback_template" | "fallback_substitution" =
     "llm";
   let workoutData: z.infer<typeof llmResponseSchema>;
+  const createSafeFallback = () => {
+    try {
+      return buildFallbackWorkout(
+        catalog,
+        trainingSplit,
+        durationMinutes,
+        trainingStyle,
+        difficulty,
+        focusArea,
+        history.length > 0
+      );
+    } catch (err) {
+      console.error(
+        "[generator] Safe fallback unavailable:",
+        err instanceof Error ? err.message : String(err)
+      );
+      return null;
+    }
+  };
 
   if (openrouterKey) {
     try {
@@ -875,8 +1005,6 @@ export async function generateSingleWorkout(
       }
 
       const llmJson = await llmResponse.json();
-      console.log("llmJson", llmJson);
-      console.log("llmJson.choices", llmJson.choices);
       const msg = llmJson.choices?.[0]?.message;
       const content = msg?.content || msg?.reasoning;
       if (!content) throw new Error("Empty LLM response");
@@ -904,27 +1032,25 @@ export async function generateSingleWorkout(
         "[generator] LLM generation failed:",
         err instanceof Error ? err.message : String(err)
       );
-      workoutData = buildFallbackWorkout(
-        catalog,
-        trainingSplit,
-        durationMinutes,
-        trainingStyle,
-        difficulty,
-        focusArea,
-        history.length > 0
-      );
+      const fallback = createSafeFallback();
+      if (!fallback) {
+        return {
+          success: false,
+          error: "No safely prescribable fallback workout available",
+        };
+      }
+      workoutData = fallback;
       generationSource = "fallback_template";
     }
   } else {
-    workoutData = buildFallbackWorkout(
-      catalog,
-      trainingSplit,
-      durationMinutes,
-      trainingStyle,
-      difficulty,
-      focusArea,
-      history.length > 0
-    );
+    const fallback = createSafeFallback();
+    if (!fallback) {
+      return {
+        success: false,
+        error: "No safely prescribable fallback workout available",
+      };
+    }
+    workoutData = fallback;
     generationSource = "fallback_template";
   }
 
@@ -935,8 +1061,7 @@ export async function generateSingleWorkout(
       exercise_id: ex.exercise_id,
       exercise_name: catalogEntry?.name ?? "Unknown Exercise",
       exercise_type: (catalogEntry?.exercise_type ?? "weight") as
-        | "weight"
-        | "time",
+        "weight" | "time",
       image: catalogEntry?.image ?? null,
       sets: ex.sets,
       rest_duration_seconds: ex.rest_duration_seconds,
@@ -947,58 +1072,33 @@ export async function generateSingleWorkout(
     };
   });
 
-  // Apply progressive overload
-  const exerciseIds = enrichedExercises.map((ex) => ex.exercise_id);
-  try {
-    const { data: progressionHistory } = await supabaseClient.rpc(
-      "get_exercise_progression_history",
-      { p_user_id: userId, p_exercise_ids: exerciseIds }
-    );
-
-    if (progressionHistory?.length) {
-      const historyMap = new Map<string, ExerciseHistory>();
-      for (const row of progressionHistory as ExerciseHistory[]) {
-        historyMap.set(row.exercise_id, row);
-      }
-
-      for (const ex of enrichedExercises) {
-        const hist = historyMap.get(ex.exercise_id);
-        const catalogEntry = catalogMap.get(ex.exercise_id);
-        const exEquipment = catalogEntry?.equipment ?? [];
-
-        const result = calculateProgression(
-          hist ?? null,
-          exEquipment,
-          trainingStyle
-        );
-        if (result) {
-          ex.progression_type = result.progression_type;
-          ex.previous_display = result.previous_display;
-
-          // Override working set targets
-          if (result.progression_type !== "new_exercise") {
-            for (const set of ex.sets) {
-              if (set.set_type === "working") {
-                if (result.target_duration_seconds != null) {
-                  set.target_duration_seconds = result.target_duration_seconds;
-                  set.target_load_kg = undefined;
-                  set.target_reps = undefined;
-                } else {
-                  set.target_load_kg = result.target_load_kg ?? 0;
-                  set.target_reps = result.target_reps ?? 1;
-                  set.target_duration_seconds = undefined;
-                }
-              }
-            }
-          }
-        }
-      }
+  const prescriptionValidation = await applyProgressionAndValidatePrescriptions(
+    {
+      supabaseClient,
+      userId,
+      exercises: enrichedExercises,
+      catalogMap,
+      trainingStyle,
+      difficulty,
     }
-  } catch (err) {
-    console.error(
-      "[generator] Progression override failed (non-fatal):",
-      err instanceof Error ? err.message : String(err)
-    );
+  );
+
+  if (prescriptionValidation.issues.length > 0) {
+    console.warn("[generator] Workout prescription validation", {
+      generationSource,
+      issueCount: prescriptionValidation.issues.length,
+      unresolvedIssueCount: prescriptionValidation.issues.filter(
+        (issue) => !issue.repaired
+      ).length,
+      issueCodes: summarizePrescriptionIssues(prescriptionValidation.issues),
+    });
+  }
+
+  if (!prescriptionValidation.valid) {
+    return {
+      success: false,
+      error: "Generated workout prescriptions failed safety validation",
+    };
   }
 
   const profileGoal = profile.goal ?? "improve_fitness";

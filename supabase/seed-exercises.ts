@@ -42,6 +42,13 @@ interface ExerciseRow {
   name: string;
   external_id: string;
   exercise_type: "weight" | "time";
+  load_semantics:
+    | "external"
+    | "bodyweight"
+    | "bodyweight_or_external"
+    | "assisted"
+    | "variable_resistance"
+    | "duration";
   primary_muscles: string[];
   secondary_muscles: string[];
   equipment: string[];
@@ -165,14 +172,12 @@ async function upsertExercises(rows: ExerciseRow[]): Promise<void> {
   let inserted = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
-    const lifecycleBatch = batch.map(
-      (row): ExerciseUpsertRow => ({
-        ...row,
-        catalog_status: "active",
-        retired_at: null,
-        replacement_exercise_id: null,
-      })
-    );
+    const lifecycleBatch = batch.map((row): ExerciseUpsertRow => ({
+      ...row,
+      catalog_status: "active",
+      retired_at: null,
+      replacement_exercise_id: null,
+    }));
     const { error } = await supabase
       .from("exercises")
       .upsert(supportsCatalogLifecycle ? lifecycleBatch : batch, {

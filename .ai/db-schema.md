@@ -128,6 +128,13 @@ Important columns:
 - `equipment`
 - `difficulty_level`
 - `exercise_type`: `weight` or `time`
+- `load_semantics`: canonical prescription invariant:
+  - `external`: working sets require a positive kg load; invalid values are rejected rather than guessed
+  - `bodyweight`: the movement is prescribed at zero external load
+  - `bodyweight_or_external`: either zero bodyweight load or a positive external load is valid
+  - `assisted`: the load field represents assistance and may be zero
+  - `variable_resistance`: resistance may not have a meaningful kg value, such as a band
+  - `duration`: the movement uses seconds instead of load/reps
 - `catalog_status`: `active` or `retired`. Active exercises are available for generation and picker browsing; retired exercises remain resolvable for exact-ID history/detail lookups.
 - `retired_at`: when the exercise left the active catalog
 - `replacement_exercise_id`: optional pointer to a preferred replacement exercise when a retired movement has a curated successor
@@ -143,6 +150,7 @@ Notes:
 
 - this table is product-critical because generated workouts should refer to known exercises
 - time-based exercise support means downstream consumers cannot assume every exercise is load/reps based
+- generated prescriptions must be validated against `load_semantics` after progression overrides and before persistence or display
 - `id` is the stable exercise identity; `name` is canonical English display/fallback text and must not be treated as identity
 - `image_url` and `video_url` are compatibility shortcuts. Rich media metadata lives in `exercise_media_assets`.
 - exercise picker filter options are derived from active `primary_muscles` and `equipment` values in this table, then localized through `catalog_label_translations`
