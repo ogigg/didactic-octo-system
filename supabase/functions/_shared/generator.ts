@@ -5,6 +5,10 @@ import {
   type ExerciseHistory,
   formatExerciseDuration,
 } from "./progression.ts";
+import {
+  getSafeStartingLoadKg,
+  repairWorkoutPrescriptions,
+} from "./prescription-validation.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -489,6 +493,8 @@ Response JSON schema:
 
 IMPORTANT: For exercises with Type: time, use target_duration_seconds (not target_load_kg/target_reps).
 For exercises with Type: weight, use target_load_kg and target_reps (not target_duration_seconds).
+For loaded weight exercises, target_load_kg MUST be greater than zero. Zero is only valid when the catalog equipment identifies a bodyweight or loadless movement.
+Use at least 5 reps for warmups and working sets. Three-rep working sets are only valid for intermediate or advanced strength training.
 Keep every reasoning field specific, plain-language, and under 35 words. Do not reveal hidden chain-of-thought; provide short user-facing rationale only.`;
 
   const splitLabel = trainingSplit.replace(/_/g, " ");
@@ -616,14 +622,21 @@ export function buildFallbackWorkout(
         );
 
       const warmupSets: z.infer<typeof llmSetSchema>[] = isCompound
-        ? [{ set_type: "warmup" as const, target_load_kg: 0, target_reps: 10 }]
+        ? [
+            {
+              set_type: "warmup" as const,
+              target_load_kg: getSafeStartingLoadKg(ex.equipment),
+              target_reps: 10,
+            },
+          ]
         : [];
 
+      const startingLoadKg = getSafeStartingLoadKg(ex.equipment);
       const workingSets: z.infer<typeof llmSetSchema>[] = Array.from(
         { length: scheme.sets },
         () => ({
           set_type: "working" as const,
-          target_load_kg: 0,
+          target_load_kg: startingLoadKg,
           target_reps: scheme.reps,
         })
       );
@@ -935,8 +948,7 @@ export async function generateSingleWorkout(
       exercise_id: ex.exercise_id,
       exercise_name: catalogEntry?.name ?? "Unknown Exercise",
       exercise_type: (catalogEntry?.exercise_type ?? "weight") as
-        | "weight"
-        | "time",
+        "weight" | "time",
       image: catalogEntry?.image ?? null,
       sets: ex.sets,
       rest_duration_seconds: ex.rest_duration_seconds,
@@ -999,6 +1011,25 @@ export async function generateSingleWorkout(
       "[generator] Progression override failed (non-fatal):",
       err instanceof Error ? err.message : String(err)
     );
+  }
+
+  const prescriptionExercises = enrichedExercises.map((exercise) => ({
+    exercise_id: exercise.exercise_id,
+    exercise_type: exercise.exercise_type,
+    equipment: catalogMap.get(exercise.exercise_id)?.equipment ?? [],
+    sets: exercise.sets,
+  }));
+  const prescriptionIssues = repairWorkoutPrescriptions(prescriptionExercises, {
+    trainingStyle,
+    difficulty,
+  });
+  if (prescriptionIssues.length > 0) {
+    console.warn("[generator] Repaired invalid workout prescriptions", {
+      userId,
+      generationSource,
+      issueCount: prescriptionIssues.length,
+      issues: prescriptionIssues,
+    });
   }
 
   const profileGoal = profile.goal ?? "improve_fitness";
