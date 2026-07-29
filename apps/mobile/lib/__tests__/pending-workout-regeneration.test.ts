@@ -16,6 +16,15 @@ import {
 } from "../../stores/pending-workout-store";
 import type { PendingWorkout } from "../api/pending-workouts";
 
+const VALID_WORKOUT = {
+  workout_name: "Ready workout",
+  warmup: null,
+  generation_source: "llm" as const,
+  goal_snapshot: "improve_fitness" as const,
+  custom_goal_snapshot: null,
+  exercises: [],
+};
+
 function createPendingWorkout(
   overrides: Partial<PendingWorkout> = {}
 ): PendingWorkout {
@@ -24,7 +33,7 @@ function createPendingWorkout(
     user_id: "22222222-2222-2222-2222-222222222222",
     queue_position: 1,
     status: "ready",
-    workout_data: null,
+    workout_data: VALID_WORKOUT,
     generation_source: null,
     focus_area: "full_body",
     generated_at: null,
@@ -32,6 +41,7 @@ function createPendingWorkout(
     regeneration_count: 0,
     regeneration_feedback: [],
     user_edits: null,
+    generation_version: 0,
     created_at: "2026-04-05T08:00:00.000Z",
     updated_at: "2026-04-05T08:00:00.000Z",
     ...overrides,
@@ -112,6 +122,19 @@ describe("pending workout selectors", () => {
     ];
 
     expect(selectReadyCount(queue)).toBe(1);
+    expect(selectIsFullyReady(queue)).toBe(false);
+  });
+
+  it("does not count or select a corrupt ready workout", () => {
+    const queue = [
+      createPendingWorkout({
+        workout_data: null,
+        workout_data_corrupt: true,
+      }),
+    ];
+
+    expect(selectNextWorkout(queue)).toBeNull();
+    expect(selectReadyCount(queue)).toBe(0);
     expect(selectIsFullyReady(queue)).toBe(false);
   });
 });

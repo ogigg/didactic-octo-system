@@ -6,6 +6,8 @@ import { syncQueue } from "@/lib/sync-queue";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { fetchProfile } from "@/lib/api/profiles";
 import { cancelAccountDeletion } from "@/lib/api/delete-account";
+import { queryClient } from "@/lib/query-client";
+import { usePendingWorkoutStore } from "@/stores/pending-workout-store";
 
 interface AuthState {
   session: Session | null;
@@ -19,8 +21,29 @@ interface AuthActions {
 }
 
 export const useAuthStore = create<AuthState & AuthActions>()((set) => {
-  async function syncOnboardingState() {
+  let activeUserId: string | null = null;
+
+  async function prepareUserState(userId: string) {
+    if (!usePendingWorkoutStore.persist.hasHydrated()) {
+      await usePendingWorkoutStore.persist.rehydrate();
+    }
+
+    if (activeUserId !== userId) {
+      queryClient.clear();
+      usePendingWorkoutStore.getState().bindUser(userId);
+      activeUserId = userId;
+    }
+  }
+
+  function clearUserState() {
+    queryClient.clear();
+    usePendingWorkoutStore.getState().reset();
+    activeUserId = null;
+  }
+
+  async function syncOnboardingState(userId: string) {
     try {
+      await prepareUserState(userId);
       if (!useOnboardingStore.persist.hasHydrated()) {
         await useOnboardingStore.persist.rehydrate();
       }
@@ -53,7 +76,9 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
       supabase.auth.getSession().then(async ({ data: { session } }) => {
         set({ session });
         if (session) {
-          await syncOnboardingState();
+          await syncOnboardingState(session.user.id);
+        } else {
+          clearUserState();
         }
         set({ isInitialized: true });
       });
@@ -66,10 +91,11 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
           event === "SIGNED_IN" || event === "INITIAL_SESSION";
 
         if (!session) {
+          clearUserState();
           set({ session, isInitialized: true });
         } else if (shouldResolveActivation) {
           set({ session, isInitialized: false });
-          void syncOnboardingState().finally(() => {
+          void syncOnboardingState(session.user.id).finally(() => {
             set({ isInitialized: true });
           });
         } else {
@@ -91,6 +117,7 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
       await supabase.auth.signOut();
       await syncQueue.flush();
       useOnboardingStore.getState().reset();
+      clearUserState();
       set({ isLoading: false });
     },
   };

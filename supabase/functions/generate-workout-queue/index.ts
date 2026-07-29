@@ -224,7 +224,7 @@ Deno.serve(async (req: Request) => {
     const { data: insertedWorkouts, error: insertError } = await userClient
       .from("pending_workouts")
       .insert(queuedWorkouts)
-      .select("id, queue_position, focus_area");
+      .select("id, queue_position, focus_area, generation_version");
 
     if (insertError || !insertedWorkouts) {
       console.error(
@@ -248,11 +248,25 @@ Deno.serve(async (req: Request) => {
         `[generate-workout-queue] Generating ${pw.queue_position}/${count} (focus: ${pw.focus_area})`
       );
 
-      // Set status to 'generating'
-      await userClient
-        .from("pending_workouts")
-        .update({ status: "generating" })
-        .eq("id", pw.id);
+      const { data: claims, error: claimError } = await userClient.rpc(
+        "claim_pending_workout_generation",
+        {
+          p_pending_workout_id: pw.id,
+          p_expected_version: pw.generation_version,
+          p_claim_reason: "initial",
+          p_allow_corrupt_ready: false,
+        }
+      );
+      const claim = Array.isArray(claims) ? claims[0] : null;
+
+      if (claimError || !claim) {
+        results.push({
+          position: pw.queue_position,
+          status: "failed",
+          error: "Generation claim was not accepted",
+        });
+        continue;
+      }
 
       // Generate
       const genResult = await generateSingleWorkout({
@@ -275,15 +289,29 @@ Deno.serve(async (req: Request) => {
       });
 
       if (genResult.success && genResult.data) {
-        await userClient
-          .from("pending_workouts")
-          .update({
-            workout_data: genResult.data as unknown as Record<string, unknown>,
-            generation_source: genResult.generationSource,
-            status: "ready",
-            generated_at: new Date().toISOString(),
-          })
-          .eq("id", pw.id);
+        const { data: completed } = await userClient.rpc(
+          "complete_pending_workout_generation",
+          {
+            p_pending_workout_id: pw.id,
+            p_generation_version: claim.generation_version,
+            p_claim_token: claim.claim_token,
+            p_workout_data: genResult.data as unknown as Record<
+              string,
+              unknown
+            >,
+            p_generation_source: genResult.generationSource,
+            p_is_regeneration: false,
+            p_regeneration_feedback: null,
+          }
+        );
+
+        if (completed !== true) {
+          results.push({
+            position: pw.queue_position,
+            status: "superseded",
+          });
+          continue;
+        }
 
         // Add to queue context for variety in subsequent generations
         queueContext.push({
@@ -311,10 +339,11 @@ Deno.serve(async (req: Request) => {
           `[generate-workout-queue] Failed position ${pw.queue_position}: ${genResult.error}`
         );
 
-        await userClient
-          .from("pending_workouts")
-          .update({ status: "failed" })
-          .eq("id", pw.id);
+        await userClient.rpc("fail_pending_workout_generation", {
+          p_pending_workout_id: pw.id,
+          p_generation_version: claim.generation_version,
+          p_claim_token: claim.claim_token,
+        });
 
         results.push({
           position: pw.queue_position,

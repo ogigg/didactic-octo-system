@@ -61,6 +61,29 @@ export const home = {
       useFallback: "Use Fallback Workout",
       contactSupport: "Contact Support",
       reference: "Support reference: {{reference}}",
+      fallbackErrorTitle: "Fallback unavailable",
+      fallbackErrorDescription:
+        "We couldn't apply the fallback workout. Try again or contact support with the reference shown.",
+      fallbackWorkout: {
+        focusAreas: {
+          push: "Push",
+          pull: "Pull",
+          legs: "Legs",
+          upper: "Upper Body",
+          lower: "Lower Body",
+          full_body: "Full Body",
+        },
+        name: "{{focusArea}} Recovery",
+        muscleGroups:
+          "This recovery plan keeps attention on {{focusArea}} so your weekly queue stays usable.",
+        trainingStrategy:
+          "It uses familiar movements with conservative targets after repeated generation attempts.",
+        notes: "Fallback template used after repeated generation attempts.",
+        exerciseMuscles:
+          "{{exerciseName}} targets {{muscles}} for this {{focusArea}} session.",
+        exerciseSelection:
+          "Selected from the available exercise catalog as a dependable fallback option.",
+      },
     },
     completed: "Done",
     exerciseCount: "+{{count}} more",

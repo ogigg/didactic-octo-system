@@ -17,6 +17,25 @@ jest.mock("@/lib/sync-queue", () => ({
   },
 }));
 
+jest.mock("@/lib/query-client", () => ({
+  queryClient: {
+    clear: jest.fn(),
+  },
+}));
+
+jest.mock("@/stores/pending-workout-store", () => ({
+  usePendingWorkoutStore: {
+    persist: {
+      hasHydrated: jest.fn(() => true),
+      rehydrate: jest.fn().mockResolvedValue(undefined),
+    },
+    getState: jest.fn().mockReturnValue({
+      bindUser: jest.fn(),
+      reset: jest.fn(),
+    }),
+  },
+}));
+
 jest.mock("@/stores/onboarding-store", () => ({
   useOnboardingStore: {
     persist: {
@@ -37,6 +56,8 @@ jest.mock("@/lib/api/profiles", () => ({
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "../auth-store";
 import { fetchProfile } from "@/lib/api/profiles";
+import { queryClient } from "@/lib/query-client";
+import { usePendingWorkoutStore } from "@/stores/pending-workout-store";
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 const mockFetchProfile = fetchProfile as jest.MockedFunction<
@@ -278,6 +299,42 @@ describe("useAuthStore", () => {
 
       expect(syncWithDatabaseMock).toHaveBeenCalledWith(mockProfile);
 
+      unsubscribe();
+    });
+
+    it("clears cached and persisted pending-workout state on account switch", async () => {
+      const firstSession = { user: { id: "first-user" } } as never;
+      const secondSession = { user: { id: "second-user" } } as never;
+      let capturedCallback: (event: string, session: unknown) => void;
+
+      (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: firstSession },
+      });
+      (mockSupabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
+        (cb) => {
+          capturedCallback = cb;
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
+      mockFetchProfile.mockResolvedValue(null);
+
+      const unsubscribe = useAuthStore.getState().initialize();
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        capturedCallback!("SIGNED_IN", secondSession);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const mockBindPendingUser = usePendingWorkoutStore.getState()
+        .bindUser as jest.Mock;
+      expect(mockBindPendingUser).toHaveBeenNthCalledWith(1, "first-user");
+      expect(mockBindPendingUser).toHaveBeenNthCalledWith(2, "second-user");
+      expect(queryClient.clear).toHaveBeenCalledTimes(2);
       unsubscribe();
     });
 

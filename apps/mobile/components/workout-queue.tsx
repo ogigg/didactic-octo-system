@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { WorkoutQueueCard } from "@/components/workout-queue-card";
@@ -17,11 +17,15 @@ import {
 } from "@/hooks/use-workout-queue";
 import {
   selectNextWorkout,
+  selectReadyCount,
   usePendingWorkoutStore,
 } from "@/stores/pending-workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useRouter } from "expo-router";
-import { getPendingWorkoutRecoveryAction } from "@/lib/pending-workout-recovery";
+import {
+  buildPendingWorkoutSupportReference,
+  getPendingWorkoutRecoveryAction,
+} from "@/lib/pending-workout-recovery";
 import { trackEvent } from "@/lib/track-event";
 
 // -----------------------------------------------------------------------------
@@ -48,13 +52,22 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
   const startedAtMs = useWorkoutStore((s) => s.startedAtMs);
 
   const nextWorkout = selectNextWorkout(queue);
-  const readyCount = queue.filter((w) => w.status === "ready").length;
+  const readyCount = selectReadyCount(queue);
 
   const startMutation = useStartPendingWorkout();
   const retryMutation = useRetryPendingWorkout();
   const fallbackMutation = useFallbackPendingWorkout();
   const rebuildQueue = useRebuildQueue();
   const recoveryAttempts = usePendingWorkoutStore((s) => s.recoveryAttempts);
+
+  useEffect(() => {
+    if (fallbackMutation.isError) {
+      Alert.alert(
+        t("queueCard.recovery.fallbackErrorTitle"),
+        t("queueCard.recovery.fallbackErrorDescription")
+      );
+    }
+  }, [fallbackMutation.isError, t]);
 
   const handleStart = useCallback(
     (workout: PendingWorkout) => {
@@ -79,7 +92,10 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
 
   const handleSupport = useCallback(
     (workout: PendingWorkout) => {
-      const reference = `GEN-${workout.id.slice(0, 8).toUpperCase()}`;
+      const reference = buildPendingWorkoutSupportReference(
+        workout.user_id,
+        workout.id
+      );
       trackEvent("activation_recovery_attempted", {
         stage: "workout_generation",
         action: "support",

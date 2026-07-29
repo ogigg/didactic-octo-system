@@ -5,11 +5,53 @@ import type { FocusArea, PendingWorkout } from "@/lib/api/pending-workouts";
 export const STALE_PENDING_WORKOUT_MS = 5 * 60 * 1000;
 export const MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS = 3;
 
+export function buildPendingWorkoutSupportReference(
+  userId: string,
+  workoutId: string
+): string {
+  return `GEN-${userId.slice(0, 8).toUpperCase()}-${workoutId
+    .slice(0, 8)
+    .toUpperCase()}`;
+}
+
 export type PendingWorkoutRecoveryAction =
   | "ready"
   | "wait"
   | "retry"
   | "fallback";
+
+export interface FallbackWorkoutCopy {
+  workoutName: (focusArea: string) => string;
+  muscleGroups: (focusArea: string) => string;
+  trainingStrategy: string;
+  notes: string;
+  exerciseMuscles: (
+    exerciseName: string,
+    muscles: string,
+    focusArea: string
+  ) => string;
+  exerciseSelection: string;
+}
+
+export function shouldTrackRecoveryExposure(
+  previousAction: "retry" | "fallback" | undefined,
+  nextAction: PendingWorkoutRecoveryAction
+): nextAction is "retry" | "fallback" {
+  return (
+    (nextAction === "retry" || nextAction === "fallback") &&
+    previousAction !== nextAction
+  );
+}
+
+export function getRecoveryTiming(
+  exposedAt: number,
+  returnedToReadyAt: number
+): { returnedToReadyAt: number; returnToReadyMs: number } {
+  return {
+    returnedToReadyAt,
+    returnToReadyMs: Math.max(0, returnedToReadyAt - exposedAt),
+  };
+}
 
 const EQUIPMENT_FILTERS: Record<
   "bodyweight" | "dumbbells" | "barbell" | "full_gym",
@@ -98,6 +140,13 @@ export function isPendingWorkoutStale(
   workout: PendingWorkout,
   now = Date.now()
 ): boolean {
+  if (
+    workout.status === "ready" &&
+    (workout.workout_data === null || workout.workout_data_corrupt === true)
+  ) {
+    return true;
+  }
+
   if (workout.status === "failed") {
     return true;
   }
@@ -116,7 +165,11 @@ export function getPendingWorkoutRecoveryAction(
   attemptCount: number,
   now = Date.now()
 ): PendingWorkoutRecoveryAction {
-  if (workout.status === "ready") {
+  if (
+    workout.status === "ready" &&
+    workout.workout_data !== null &&
+    workout.workout_data_corrupt !== true
+  ) {
     return "ready";
   }
 
@@ -134,6 +187,7 @@ export async function buildFallbackPendingWorkoutData(params: {
   equipment: "bodyweight" | "dumbbells" | "barbell" | "full_gym";
   goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
   customGoalSnapshot: string | null;
+  copy: FallbackWorkoutCopy;
 }): Promise<GenerateWorkoutResponse | null> {
   const focusArea = params.focusArea ?? "full_body";
   const searchTerms = FALLBACK_SEARCHES[focusArea];
@@ -156,19 +210,13 @@ export async function buildFallbackPendingWorkoutData(params: {
     return null;
   }
 
-  const workoutName =
-    focusArea === "full_body"
-      ? "Recovery Full Body"
-      : `${focusArea.replace("_", " ")} Recovery`.replace(/\b\w/g, (letter) =>
-          letter.toUpperCase()
-        );
+  const focusLabel = formatFocusLabel(focusArea);
 
   return {
-    workout_name: workoutName,
+    workout_name: params.copy.workoutName(focusLabel),
     reasoning: {
-      muscle_groups: `This recovery plan keeps attention on ${formatFocusLabel(focusArea)} so the weekly queue can stay usable.`,
-      training_strategy:
-        "It uses familiar movements with conservative targets after repeated generation recovery attempts.",
+      muscle_groups: params.copy.muscleGroups(focusLabel),
+      training_strategy: params.copy.trainingStrategy,
     },
     warmup: { duration_seconds: 300 },
     generation_source: "fallback_template",
@@ -180,11 +228,14 @@ export async function buildFallbackPendingWorkoutData(params: {
       exercise_type: exercise.exercise_type,
       image: exercise.image,
       rest_duration_seconds: 90,
-      notes: "Fallback template generated after repeated recovery attempts.",
+      notes: params.copy.notes,
       reasoning: {
-        muscle_groups: `${exercise.name} targets ${formatMuscleList(exercise.primary_muscles)} for this ${focusArea.replace("_", " ")} session.`,
-        exercise_selection:
-          "It was selected from the available exercise catalog as a dependable fallback option.",
+        muscle_groups: params.copy.exerciseMuscles(
+          exercise.name,
+          formatMuscleList(exercise.primary_muscles),
+          focusLabel
+        ),
+        exercise_selection: params.copy.exerciseSelection,
       },
       sets: getSetTargets(focusArea, exercise.name),
     })),
