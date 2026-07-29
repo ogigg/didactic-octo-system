@@ -1,8 +1,10 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   calculateProgression,
+  getProgressionSetTarget,
   PROGRESSION_REASON_CODES,
   type ExerciseHistory,
+  validateProgressionSetTarget,
 } from "../progression.ts";
 
 const NOW = new Date("2026-04-05T12:00:00Z");
@@ -283,6 +285,160 @@ Deno.test("caps reps at top of range", () => {
   // worst = 11, +2 = 13, but capped at 12
   assertEquals(result?.target_reps, 12);
   assertEquals(result?.progression_type, "reps_up");
+});
+
+// ---------------------------------------------------------------------------
+// Ordered set progression
+// ---------------------------------------------------------------------------
+
+Deno.test("preserves a progressive set history across generated sets", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [
+        { load_kg: 36, reps: 12, completed: true },
+        { load_kg: 41, reps: 12, completed: true },
+        { load_kg: 45, reps: 12, completed: true },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+
+  assertEquals(result?.set_targets, [
+    { target_load_kg: 38.5, target_reps: 8 },
+    { target_load_kg: 43.5, target_reps: 8 },
+    { target_load_kg: 47.5, target_reps: 8 },
+  ]);
+
+  const generatedTargets = Array.from({ length: 4 }, (_, index) =>
+    getProgressionSetTarget(result?.set_targets ?? [], index, 4)
+  );
+  assertEquals(generatedTargets, [
+    { target_load_kg: 38.5, target_reps: 8 },
+    { target_load_kg: 43.5, target_reps: 8 },
+    { target_load_kg: 43.5, target_reps: 8 },
+    { target_load_kg: 47.5, target_reps: 8 },
+  ]);
+});
+
+Deno.test(
+  "anchors ramp progression to the top set instead of the lightest",
+  () => {
+    const result = calculateProgression(
+      makeHistory({
+        working_sets: [
+          { load_kg: 36, reps: 12, completed: true },
+          { load_kg: 41, reps: 10, completed: true },
+          { load_kg: 45, reps: 8, completed: true },
+        ],
+      }),
+      ["barbell"],
+      "hypertrophy",
+      NOW
+    );
+
+    assertEquals(result?.target_load_kg, 45);
+    assertEquals(result?.progression_type, "reps_up");
+    assertEquals(result?.set_targets, [
+      { target_load_kg: 36, target_reps: 12 },
+      { target_load_kg: 41, target_reps: 12 },
+      { target_load_kg: 45, target_reps: 10 },
+    ]);
+  }
+);
+
+Deno.test("keeps a flat set history flat while progressing every set", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [
+        { load_kg: 40, reps: 10, completed: true },
+        { load_kg: 40, reps: 10, completed: true },
+        { load_kg: 40, reps: 10, completed: true },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+
+  assertEquals(result?.set_targets, [
+    { target_load_kg: 40, target_reps: 12 },
+    { target_load_kg: 40, target_reps: 12 },
+    { target_load_kg: 40, target_reps: 12 },
+  ]);
+});
+
+Deno.test("preserves a top-set and back-off pattern", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [
+        { load_kg: 40, reps: 10, completed: true },
+        { load_kg: 50, reps: 8, completed: true },
+        { load_kg: 40, reps: 10, completed: true },
+      ],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW
+  );
+
+  assertEquals(result?.set_targets, [
+    { target_load_kg: 40, target_reps: 12 },
+    { target_load_kg: 50, target_reps: 10 },
+    { target_load_kg: 40, target_reps: 12 },
+  ]);
+});
+
+Deno.test(
+  "maintains ordered targets when safety feedback blocks progression",
+  () => {
+    const result = calculateProgression(
+      makeHistory({
+        difficulty_feedback: "too_hard",
+        working_sets: [
+          { load_kg: 36, reps: 12, completed: true },
+          { load_kg: 41, reps: 10, completed: true },
+          { load_kg: 45, reps: 8, completed: true },
+        ],
+      }),
+      ["barbell"],
+      "hypertrophy",
+      NOW
+    );
+
+    assertEquals(result?.set_targets, [
+      { target_load_kg: 36, target_reps: 12 },
+      { target_load_kg: 41, target_reps: 10 },
+      { target_load_kg: 45, target_reps: 8 },
+    ]);
+    assertEquals(
+      result?.reason_code,
+      PROGRESSION_REASON_CODES.FEEDBACK_TOO_HARD
+    );
+  }
+);
+
+Deno.test("allows a generated reduction only with a safety reason", () => {
+  const historicalTarget = { target_load_kg: 45, target_reps: 8 };
+  const generatedReduction = { target_load_kg: 40, target_reps: 6 };
+
+  assertEquals(
+    validateProgressionSetTarget(
+      generatedReduction,
+      historicalTarget,
+      PROGRESSION_REASON_CODES.FEEDBACK_TOO_HARD
+    ),
+    generatedReduction
+  );
+  assertEquals(
+    validateProgressionSetTarget(
+      generatedReduction,
+      historicalTarget,
+      PROGRESSION_REASON_CODES.REP_RANGE_INCREASE
+    ),
+    historicalTarget
+  );
 });
 
 // ---------------------------------------------------------------------------

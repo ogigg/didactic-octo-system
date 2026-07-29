@@ -4,6 +4,8 @@ import {
   calculateProgression,
   type ExerciseHistory,
   formatExerciseDuration,
+  getProgressionSetTarget,
+  validateProgressionSetTarget,
 } from "./progression.ts";
 
 // ---------------------------------------------------------------------------
@@ -977,17 +979,34 @@ export async function generateSingleWorkout(
 
           // Override working set targets
           if (result.progression_type !== "new_exercise") {
-            for (const set of ex.sets) {
-              if (set.set_type === "working") {
-                if (result.target_duration_seconds != null) {
-                  set.target_duration_seconds = result.target_duration_seconds;
-                  set.target_load_kg = undefined;
-                  set.target_reps = undefined;
-                } else {
-                  set.target_load_kg = result.target_load_kg ?? 0;
-                  set.target_reps = result.target_reps ?? 1;
-                  set.target_duration_seconds = undefined;
-                }
+            const workingSets = ex.sets.filter(
+              (set) => set.set_type === "working"
+            );
+            for (const [index, set] of workingSets.entries()) {
+              const setTarget = validateProgressionSetTarget(
+                set,
+                getProgressionSetTarget(
+                  result.set_targets,
+                  index,
+                  workingSets.length
+                ),
+                result.reason_code
+              );
+              if (
+                setTarget?.target_duration_seconds != null ||
+                result.target_duration_seconds != null
+              ) {
+                set.target_duration_seconds =
+                  setTarget?.target_duration_seconds ??
+                  result.target_duration_seconds;
+                set.target_load_kg = undefined;
+                set.target_reps = undefined;
+              } else {
+                set.target_load_kg =
+                  setTarget?.target_load_kg ?? result.target_load_kg ?? 0;
+                set.target_reps =
+                  setTarget?.target_reps ?? result.target_reps ?? 1;
+                set.target_duration_seconds = undefined;
               }
             }
           }
