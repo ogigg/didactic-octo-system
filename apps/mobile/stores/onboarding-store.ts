@@ -60,8 +60,14 @@ interface OnboardingActions {
   syncWithDatabase: (params: {
     onboarding_completed: boolean;
     gender: "male" | "female" | "prefer_not_to_say" | null;
-    goal: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
-    weekly_frequency: "2" | "3" | "4" | "5_plus";
+    goal:
+      | "build_strength"
+      | "lose_weight"
+      | "improve_fitness"
+      | "custom"
+      | null;
+    custom_goal: string | null;
+    weekly_frequency: "2" | "3" | "4" | "5_plus" | null;
     equipment_level: string | null;
     difficulty_level: string | null;
   }) => void;
@@ -131,6 +137,7 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           onboarding_completed,
           gender,
           goal,
+          custom_goal,
           weekly_frequency,
           equipment_level,
           difficulty_level,
@@ -144,12 +151,15 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
               ? "other"
               : gender;
 
-        const mappedGoal: Goal | null = goal === "custom" ? null : goal;
+        const mappedGoal: Goal | null =
+          goal === "custom" || goal === null ? null : goal;
 
-        const mappedFrequency: Frequency =
-          weekly_frequency === "5_plus"
-            ? 5
-            : (parseInt(weekly_frequency, 10) as Frequency);
+        const mappedFrequency: Frequency | null =
+          weekly_frequency === null
+            ? null
+            : weekly_frequency === "5_plus"
+              ? 5
+              : (parseInt(weekly_frequency, 10) as Frequency);
 
         const mappedEquipment: Equipment | null = equipment_level
           ? (equipment_level as Equipment)
@@ -159,16 +169,47 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           ? (difficulty_level as Experience)
           : null;
 
-        set({
-          gender: mappedGender,
-          genderSkipped: gender === null,
-          goal: mappedGoal,
-          customGoal: null,
-          frequency: mappedFrequency,
-          equipment: mappedEquipment,
-          experience: mappedExperience,
-          strengthBaselines: [],
-          isCompleted: onboarding_completed,
+        const databaseActivationComplete =
+          onboarding_completed &&
+          (mappedGoal !== null ||
+            (goal === "custom" && custom_goal !== null)) &&
+          mappedFrequency !== null &&
+          mappedEquipment !== null &&
+          mappedExperience !== null;
+
+        set((state) => {
+          if (!databaseActivationComplete) {
+            return {
+              gender: mappedGender ?? state.gender,
+              genderSkipped:
+                mappedGender === null
+                  ? onboarding_completed || state.genderSkipped
+                  : false,
+              goal: goal === "custom" ? null : (mappedGoal ?? state.goal),
+              customGoal:
+                goal === "custom"
+                  ? (custom_goal ?? state.customGoal)
+                  : mappedGoal
+                    ? null
+                    : state.customGoal,
+              frequency: mappedFrequency ?? state.frequency,
+              equipment: mappedEquipment ?? state.equipment,
+              experience: mappedExperience ?? state.experience,
+              isCompleted: false,
+            };
+          }
+
+          return {
+            gender: mappedGender,
+            genderSkipped: gender === null,
+            goal: mappedGoal,
+            customGoal: goal === "custom" ? custom_goal : null,
+            frequency: mappedFrequency,
+            equipment: mappedEquipment,
+            experience: mappedExperience,
+            strengthBaselines: [],
+            isCompleted: true,
+          };
         });
       },
     }),

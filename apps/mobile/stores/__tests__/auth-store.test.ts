@@ -19,6 +19,10 @@ jest.mock("@/lib/sync-queue", () => ({
 
 jest.mock("@/stores/onboarding-store", () => ({
   useOnboardingStore: {
+    persist: {
+      hasHydrated: jest.fn(() => false),
+      rehydrate: jest.fn().mockResolvedValue(undefined),
+    },
     getState: jest.fn().mockReturnValue({
       reset: jest.fn(),
       syncWithDatabase: jest.fn(),
@@ -96,6 +100,38 @@ describe("useAuthStore", () => {
       unsubscribe();
     });
 
+    it("waits for onboarding recovery before marking an authenticated session initialized", async () => {
+      const mockSession = { user: { id: "123" } } as never;
+      let resolveProfile: (value: null) => void = () => undefined;
+      mockFetchProfile.mockReturnValue(
+        new Promise((resolve) => {
+          resolveProfile = resolve;
+        })
+      );
+      (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: mockSession },
+      });
+      (mockSupabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      });
+
+      const unsubscribe = useAuthStore.getState().initialize();
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(useAuthStore.getState().session).toBe(mockSession);
+      expect(useAuthStore.getState().isInitialized).toBe(false);
+
+      await act(async () => {
+        resolveProfile(null);
+        await Promise.resolve();
+      });
+
+      expect(useAuthStore.getState().isInitialized).toBe(true);
+      unsubscribe();
+    });
+
     it("returns unsubscribe function that calls subscription.unsubscribe", () => {
       const mockUnsubscribe = jest.fn();
       (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
@@ -141,6 +177,7 @@ describe("useAuthStore", () => {
         onboarding_completed: true as const,
         gender: "male" as const,
         goal: "build_strength" as const,
+        custom_goal: null,
         weekly_frequency: "3" as const,
         equipment_level: "full_gym" as const,
         difficulty_level: "intermediate" as const,
@@ -207,6 +244,7 @@ describe("useAuthStore", () => {
         onboarding_completed: false as const,
         gender: "female" as const,
         goal: "lose_weight" as const,
+        custom_goal: null,
         weekly_frequency: "4" as const,
         equipment_level: null as string | null,
         difficulty_level: null as string | null,

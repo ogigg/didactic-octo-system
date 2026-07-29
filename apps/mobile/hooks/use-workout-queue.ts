@@ -24,7 +24,7 @@ import { usePaywallStore } from "@/stores/paywall-store";
 import { subscriptionKeys } from "@/lib/query-keys";
 import {
   buildFallbackPendingWorkoutData,
-  isPendingWorkoutStale,
+  getPendingWorkoutRecoveryAction,
   MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
 } from "@/lib/pending-workout-recovery";
 import { getCurrentTimezoneOffsetMinutes } from "@/lib/pending-workout-regeneration";
@@ -155,13 +155,9 @@ export function useWorkoutQueueData() {
 
 export function useWorkoutQueue() {
   const { user } = useAuth();
-  const { data: profile } = useProfile();
   const queryClient = useQueryClient();
 
   const recoveryAttempts = usePendingWorkoutStore((s) => s.recoveryAttempts);
-  const recordRecoveryAttempt = usePendingWorkoutStore(
-    (s) => s.recordRecoveryAttempt
-  );
   const clearRecoveryAttempt = usePendingWorkoutStore(
     (s) => s.clearRecoveryAttempt
   );
@@ -179,7 +175,7 @@ export function useWorkoutQueue() {
   );
 
   const previousQueueRef = useRef<PendingWorkout[]>([]);
-  const recoveryInFlightRef = useRef(false);
+  const exposedRecoveryIdsRef = useRef<Set<string>>(new Set());
   const invalidationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -312,83 +308,43 @@ export function useWorkoutQueue() {
     regeneratingWorkoutIds,
   ]);
 
-  // ---- Recovery: fix stale workouts ----
+  // ---- Activation recovery exposure + successful resolution ----
 
   useEffect(() => {
-    const preferences = getGenerationPreferencesFromProfile(profile);
+    for (const workout of queue) {
+      const attemptCount = recoveryAttempts[workout.id] ?? 0;
+      const action = getPendingWorkoutRecoveryAction(workout, attemptCount);
 
-    if (
-      !user ||
-      !profile?.training_setup_completed ||
-      !preferences ||
-      queue.length === 0 ||
-      recoveryInFlightRef.current
-    ) {
-      return;
-    }
-
-    const staleWorkouts = queue.filter(isPendingWorkoutStale);
-
-    if (staleWorkouts.length === 0) {
-      return;
-    }
-
-    recoveryInFlightRef.current = true;
-
-    void (async () => {
-      try {
-        for (const workout of staleWorkouts) {
-          const attemptCount = recoveryAttempts[workout.id] ?? 0;
-
-          if (attemptCount >= MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS) {
-            const fallbackWorkout = await buildFallbackPendingWorkoutData({
-              focusArea: workout.focus_area,
-              equipment: preferences.equipment,
-              goalSnapshot: profile.goal ?? "improve_fitness",
-              customGoalSnapshot: profile.custom_goal,
-            });
-
-            if (fallbackWorkout) {
-              await replacePendingWorkoutWithFallback(
-                workout.id,
-                fallbackWorkout
-              );
-              clearRecoveryAttempt(workout.id);
-            }
-
-            continue;
-          }
-
-          await setPendingWorkoutStatus(workout.id, "generating");
-
-          try {
-            await triggerRegeneration(
-              workout.id,
-              preferences,
-              getCurrentTimezoneOffsetMinutes()
-            );
-            clearRecoveryAttempt(workout.id);
-          } catch {
-            recordRecoveryAttempt(workout.id);
-          }
-        }
-
-        await queryClient.invalidateQueries({
-          queryKey: pendingWorkoutKeys.list(),
+      if (
+        (action === "retry" || action === "fallback") &&
+        !exposedRecoveryIdsRef.current.has(workout.id)
+      ) {
+        exposedRecoveryIdsRef.current.add(workout.id);
+        trackEvent("activation_recovery_exposed", {
+          stage: "workout_generation",
+          next_action: action,
+          attempt_count: attemptCount,
+          queue_position: workout.queue_position,
         });
-      } finally {
-        recoveryInFlightRef.current = false;
       }
-    })();
-  }, [
-    clearRecoveryAttempt,
-    profile,
-    queryClient,
-    queue,
-    recordRecoveryAttempt,
-    recoveryAttempts,
-    user,
-  ]);
+
+      if (workout.status === "ready" && attemptCount > 0) {
+        trackEvent("activation_recovery_succeeded", {
+          stage: "workout_generation",
+          resolution:
+            workout.generation_source === "fallback_template"
+              ? "fallback"
+              : "retry",
+          attempt_count: attemptCount,
+          time_since_queue_started_ms: queueGenerationStartedAt
+            ? Math.max(0, Date.now() - queueGenerationStartedAt)
+            : null,
+          queue_position: workout.queue_position,
+        });
+        clearRecoveryAttempt(workout.id);
+      }
+    }
+  }, [clearRecoveryAttempt, queue, queueGenerationStartedAt, recoveryAttempts]);
 
   return { ...query, queue };
 }
@@ -520,6 +476,92 @@ export function useRegenerateWorkout() {
     },
     onSettled: (_data, _error, input) => {
       clearWorkoutRegenerating(input.pendingWorkout.id);
+    },
+  });
+}
+
+export function useRetryPendingWorkout() {
+  const { data: profile } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (pendingWorkout: PendingWorkout) => {
+      const preferences = getGenerationPreferencesFromProfile(profile);
+      if (!preferences) {
+        throw new Error("Training preferences are incomplete");
+      }
+
+      const store = usePendingWorkoutStore.getState();
+      const attemptCount = store.recoveryAttempts[pendingWorkout.id] ?? 0;
+      if (attemptCount >= MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS) {
+        throw new Error("Recovery retry limit reached");
+      }
+
+      const nextAttempt = store.recordRecoveryAttempt(pendingWorkout.id);
+      trackEvent("activation_recovery_attempted", {
+        stage: "workout_generation",
+        action: "retry",
+        attempt_count: nextAttempt,
+        queue_position: pendingWorkout.queue_position,
+      });
+
+      await setPendingWorkoutStatus(pendingWorkout.id, "generating");
+      try {
+        await triggerRegeneration(
+          pendingWorkout.id,
+          preferences,
+          getCurrentTimezoneOffsetMinutes()
+        );
+      } catch (error) {
+        await setPendingWorkoutStatus(pendingWorkout.id, "failed");
+        throw error;
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
+    },
+  });
+}
+
+export function useFallbackPendingWorkout() {
+  const { data: profile } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (pendingWorkout: PendingWorkout) => {
+      if (!profile?.equipment_level) {
+        throw new Error("Training preferences are incomplete");
+      }
+
+      trackEvent("activation_recovery_attempted", {
+        stage: "workout_generation",
+        action: "fallback",
+        attempt_count:
+          usePendingWorkoutStore.getState().recoveryAttempts[
+            pendingWorkout.id
+          ] ?? 0,
+        queue_position: pendingWorkout.queue_position,
+      });
+
+      const fallbackWorkout = await buildFallbackPendingWorkoutData({
+        focusArea: pendingWorkout.focus_area,
+        equipment: profile.equipment_level,
+        goalSnapshot: profile.goal ?? "improve_fitness",
+        customGoalSnapshot: profile.custom_goal,
+      });
+
+      if (!fallbackWorkout) {
+        throw new Error("Fallback workout is unavailable");
+      }
+
+      await replacePendingWorkoutWithFallback(
+        pendingWorkout.id,
+        fallbackWorkout
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
     },
   });
 }

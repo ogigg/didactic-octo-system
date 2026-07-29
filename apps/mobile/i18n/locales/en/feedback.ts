@@ -31,6 +31,11 @@ export const feedback = {
     title: "Error",
     message: "Failed to send feedback. Please try again.",
   },
+  recovery: {
+    title: "Workout generation recovery",
+    description:
+      "My workout could not be generated after repeated attempts.\n\nSupport reference: {{reference}}\n\nWhat happened:",
+  },
   validation: {
     titleRequired: "Title is required",
     titleTooLong: "Title must be less than 100 characters",

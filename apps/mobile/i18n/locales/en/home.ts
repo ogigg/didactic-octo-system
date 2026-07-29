@@ -50,6 +50,18 @@ export const home = {
     queued: "Up next",
     failed: "Couldn't generate",
     tryAgain: "Try Again",
+    recovery: {
+      accessibilityLabel: "Workout day {{position}} needs recovery",
+      retryTitle: "Your workout needs another try",
+      retryDescription:
+        "Your setup is saved. Try again without restarting onboarding. Attempt {{next}} of {{max}}.",
+      fallbackTitle: "We couldn't recover this workout",
+      fallbackDescription:
+        "Use a dependable fallback plan now, or contact support with the reference below.",
+      useFallback: "Use Fallback Workout",
+      contactSupport: "Contact Support",
+      reference: "Support reference: {{reference}}",
+    },
     completed: "Done",
     exerciseCount: "+{{count}} more",
     duration: "{{minutes}} min",

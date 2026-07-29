@@ -21,6 +21,9 @@ interface AuthActions {
 export const useAuthStore = create<AuthState & AuthActions>()((set) => {
   async function syncOnboardingState() {
     try {
+      if (!useOnboardingStore.persist.hasHydrated()) {
+        await useOnboardingStore.persist.rehydrate();
+      }
       const profile = await fetchProfile();
       if (profile) {
         useOnboardingStore.getState().syncWithDatabase(profile);
@@ -47,20 +50,33 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
 
     initialize: () => {
       // Get existing session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        set({ session, isInitialized: true });
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        set({ session });
         if (session) {
-          syncOnboardingState();
+          await syncOnboardingState();
         }
+        set({ isInitialized: true });
       });
 
       // Subscribe to auth state changes
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange((event, session) => {
-        set({ session, isInitialized: true });
+        const shouldResolveActivation =
+          event === "SIGNED_IN" || event === "INITIAL_SESSION";
+
+        if (!session) {
+          set({ session, isInitialized: true });
+        } else if (shouldResolveActivation) {
+          set({ session, isInitialized: false });
+          void syncOnboardingState().finally(() => {
+            set({ isInitialized: true });
+          });
+        } else {
+          set({ session });
+        }
+
         if (session) {
-          syncOnboardingState();
           if (event === "SIGNED_IN") {
             clearPendingDeletion();
           }

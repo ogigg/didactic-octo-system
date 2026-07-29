@@ -5,6 +5,12 @@ import type { FocusArea, PendingWorkout } from "@/lib/api/pending-workouts";
 export const STALE_PENDING_WORKOUT_MS = 5 * 60 * 1000;
 export const MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS = 3;
 
+export type PendingWorkoutRecoveryAction =
+  | "ready"
+  | "wait"
+  | "retry"
+  | "fallback";
+
 const EQUIPMENT_FILTERS: Record<
   "bodyweight" | "dumbbells" | "barbell" | "full_gym",
   string[]
@@ -88,15 +94,39 @@ function getSetTargets(
   }));
 }
 
-export function isPendingWorkoutStale(workout: PendingWorkout): boolean {
-  if (!["queued", "generating", "failed"].includes(workout.status)) {
+export function isPendingWorkoutStale(
+  workout: PendingWorkout,
+  now = Date.now()
+): boolean {
+  if (workout.status === "failed") {
+    return true;
+  }
+
+  if (!["queued", "generating", "regenerating"].includes(workout.status)) {
     return false;
   }
 
   return (
-    Date.now() - new Date(workout.updated_at).getTime() >
-    STALE_PENDING_WORKOUT_MS
+    now - new Date(workout.updated_at).getTime() > STALE_PENDING_WORKOUT_MS
   );
+}
+
+export function getPendingWorkoutRecoveryAction(
+  workout: PendingWorkout,
+  attemptCount: number,
+  now = Date.now()
+): PendingWorkoutRecoveryAction {
+  if (workout.status === "ready") {
+    return "ready";
+  }
+
+  if (!isPendingWorkoutStale(workout, now)) {
+    return "wait";
+  }
+
+  return attemptCount >= MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS
+    ? "fallback"
+    : "retry";
 }
 
 export async function buildFallbackPendingWorkoutData(params: {

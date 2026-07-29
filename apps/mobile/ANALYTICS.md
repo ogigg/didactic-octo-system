@@ -84,6 +84,25 @@ resetUser();
   - `has_load`: boolean
   - `source`: onboarding | settings
 
+- **activation_recovery_exposed**: A returning user sees the next recovery action
+  - `stage`: workout_generation
+  - `next_action`: retry | fallback
+  - `attempt_count`: persisted retry count
+  - `queue_position`: queue slot
+
+- **activation_recovery_attempted**: The user starts a recovery action
+  - `stage`: workout_generation
+  - `action`: retry | fallback | support
+  - `attempt_count`: persisted retry count
+  - `queue_position`: queue slot
+
+- **activation_recovery_succeeded**: A recovered queue slot becomes ready
+  - `stage`: workout_generation
+  - `resolution`: retry | fallback
+  - `attempt_count`: persisted retry count
+  - `time_since_queue_started_ms`: elapsed time across app restarts when available
+  - `queue_position`: queue slot
+
 ### Workout Events
 
 - **workout_queue_initialized**: Queue generation started

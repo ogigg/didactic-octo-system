@@ -186,6 +186,7 @@ describe("syncWithDatabase", () => {
         onboarding_completed: true,
         gender: "male",
         goal: "build_strength",
+        custom_goal: null,
         weekly_frequency: "3",
         equipment_level: "full_gym",
         difficulty_level: "intermediate",
@@ -204,6 +205,7 @@ describe("syncWithDatabase", () => {
         onboarding_completed: false,
         gender: "prefer_not_to_say",
         goal: "improve_fitness",
+        custom_goal: null,
         weekly_frequency: "2",
         equipment_level: null,
         difficulty_level: null,
@@ -219,6 +221,7 @@ describe("syncWithDatabase", () => {
         onboarding_completed: false,
         gender: null,
         goal: "lose_weight",
+        custom_goal: null,
         weekly_frequency: "5_plus",
         equipment_level: null,
         difficulty_level: null,
@@ -234,28 +237,73 @@ describe("syncWithDatabase", () => {
         onboarding_completed: false,
         gender: "female",
         goal: "custom",
+        custom_goal: "Train for climbing",
         weekly_frequency: "4",
         equipment_level: null,
         difficulty_level: null,
       });
     });
     expect(result.current.goal).toBeNull();
-    expect(result.current.customGoal).toBeNull();
+    expect(result.current.customGoal).toBe("Train for climbing");
   });
 
-  it("sets genderSkipped when gender is null", () => {
+  it("does not infer a skipped gender from an incomplete null profile", () => {
     const { result } = renderHook(() => useOnboardingStore());
     act(() => {
       result.current.syncWithDatabase({
         onboarding_completed: false,
         gender: null,
         goal: "build_strength",
+        custom_goal: null,
         weekly_frequency: "3",
         equipment_level: null,
         difficulty_level: null,
       });
     });
     expect(result.current.gender).toBeNull();
+    expect(result.current.genderSkipped).toBe(false);
+  });
+
+  it("preserves a local draft when the incomplete database profile has null fields", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.skipGender();
+      result.current.setCustomGoal("Run my first 10K");
+      result.current.setFrequency(4);
+      result.current.setEquipment("dumbbells");
+      result.current.syncWithDatabase({
+        onboarding_completed: false,
+        gender: null,
+        goal: null,
+        custom_goal: null,
+        weekly_frequency: null,
+        equipment_level: null,
+        difficulty_level: null,
+      });
+    });
+
     expect(result.current.genderSkipped).toBe(true);
+    expect(result.current.customGoal).toBe("Run my first 10K");
+    expect(result.current.frequency).toBe(4);
+    expect(result.current.equipment).toBe("dumbbells");
+    expect(result.current.getNextUnfinishedStep()).toBe("experience");
+  });
+
+  it("routes a corrupt completed profile to its first missing required step", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => {
+      result.current.syncWithDatabase({
+        onboarding_completed: true,
+        gender: null,
+        goal: "build_strength",
+        custom_goal: null,
+        weekly_frequency: "3",
+        equipment_level: null,
+        difficulty_level: null,
+      });
+    });
+
+    expect(result.current.isCompleted).toBe(false);
+    expect(result.current.getNextUnfinishedStep()).toBe("equipment");
   });
 });

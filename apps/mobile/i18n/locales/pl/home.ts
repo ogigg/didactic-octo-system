@@ -52,6 +52,18 @@ export const home = {
     queued: "Następny",
     failed: "Nie udało się wygenerować",
     tryAgain: "Spróbuj ponownie",
+    recovery: {
+      accessibilityLabel: "Trening na dzień {{position}} wymaga naprawy",
+      retryTitle: "Spróbuj ponownie przygotować trening",
+      retryDescription:
+        "Twoje ustawienia są zapisane. Ponów próbę bez rozpoczynania onboardingu od nowa. Próba {{next}} z {{max}}.",
+      fallbackTitle: "Nie udało się naprawić tego treningu",
+      fallbackDescription:
+        "Użyj teraz sprawdzonego planu awaryjnego albo skontaktuj się ze wsparciem, podając poniższy kod.",
+      useFallback: "Użyj treningu awaryjnego",
+      contactSupport: "Skontaktuj się ze wsparciem",
+      reference: "Kod dla wsparcia: {{reference}}",
+    },
     completed: "Gotowe",
     exerciseCount: "+{{count}} więcej",
     duration: "{{minutes}} min",
