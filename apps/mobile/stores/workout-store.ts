@@ -200,6 +200,15 @@ function reorderExercises(
   return reordered;
 }
 
+function deduplicateExercises(exercises: WorkoutExercise[]): WorkoutExercise[] {
+  const exerciseIds = new Set<string>();
+  return exercises.filter((exercise) => {
+    if (exerciseIds.has(exercise.id)) return false;
+    exerciseIds.add(exercise.id);
+    return true;
+  });
+}
+
 function makeEmptySet(previousDisplay: string | null = null): WorkoutSet {
   return {
     id: generateSetId(),
@@ -262,7 +271,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             isActive: true,
             workoutName: name,
             warmup,
-            exercises,
+            exercises: deduplicateExercises(exercises),
             startedAtMs: Date.now(),
             restTimer: null,
             completedWorkoutSummary: null,
@@ -377,29 +386,46 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           })),
 
         replaceExercise: (exerciseId, newExercise) =>
-          set((state) => ({
-            exercises: state.exercises.map((ex) =>
-              ex.id === exerciseId
-                ? {
-                    ...ex,
-                    id: newExercise.id,
-                    name: newExercise.name,
-                    image: newExercise.image ?? null,
-                    exerciseType: newExercise.exerciseType ?? ex.exerciseType,
-                    notes: "",
-                    reasoning: null,
-                    difficultyFeedback: null,
-                    progressionType: "new_exercise",
-                    sets: ex.sets.map((workoutSet, index) =>
-                      clearSetValues(
-                        workoutSet,
-                        newExercise.previousDisplays?.[index] ?? null
-                      )
-                    ),
-                  }
-                : ex
-            ),
-          })),
+          set((state) => {
+            const targetIndex = state.exercises.findIndex(
+              (exercise) => exercise.id === exerciseId
+            );
+            if (targetIndex === -1) return state;
+
+            const replacementWouldDuplicate = state.exercises.some(
+              (exercise, index) =>
+                exercise.id === newExercise.id && index !== targetIndex
+            );
+            if (replacementWouldDuplicate) return state;
+
+            return {
+              exercises: state.exercises.map((ex, index) =>
+                index === targetIndex
+                  ? {
+                      ...ex,
+                      id: newExercise.id,
+                      name: newExercise.name,
+                      image: newExercise.image ?? null,
+                      exerciseType: newExercise.exerciseType ?? ex.exerciseType,
+                      notes: "",
+                      reasoning: null,
+                      difficultyFeedback: null,
+                      progressionType: "new_exercise",
+                      sets: ex.sets.map((workoutSet, index) =>
+                        clearSetValues(
+                          workoutSet,
+                          newExercise.previousDisplays?.[index] ?? null
+                        )
+                      ),
+                    }
+                  : ex
+              ),
+              restTimer:
+                state.restTimer?.exerciseId === exerciseId
+                  ? null
+                  : state.restTimer,
+            };
+          }),
 
         startRestTimer: (exerciseId) => {
           const exercise = get().exercises.find((e) => e.id === exerciseId);
@@ -443,12 +469,20 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         skipRestTimer: () => set({ restTimer: null }),
 
         addExercise: (exercise) =>
-          set((state) => ({
-            exercises: [...state.exercises, makeExercise(exercise)],
-          })),
+          set((state) => {
+            if (state.exercises.some((item) => item.id === exercise.id)) {
+              return state;
+            }
+            return {
+              exercises: [...state.exercises, makeExercise(exercise)],
+            };
+          }),
 
         addExerciseAfter: (afterExerciseId, exercise) =>
           set((state) => {
+            if (state.exercises.some((item) => item.id === exercise.id)) {
+              return state;
+            }
             const index = state.exercises.findIndex(
               (ex) => ex.id === afterExerciseId
             );
@@ -497,15 +531,25 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           } else if (state) {
             // Migrate hydrated exercises to ensure new fields exist
             state.warmup = state.warmup ?? null;
-            state.exercises = state.exercises.map((ex) => ({
-              ...ex,
-              exerciseType: ex.exerciseType ?? "weight",
-              reasoning: ex.reasoning ?? null,
-              sets: ex.sets.map((s) => ({
-                ...s,
-                durationSeconds: s.durationSeconds ?? null,
-              })),
-            }));
+            state.exercises = deduplicateExercises(
+              state.exercises.map((ex) => ({
+                ...ex,
+                exerciseType: ex.exerciseType ?? "weight",
+                reasoning: ex.reasoning ?? null,
+                sets: ex.sets.map((s) => ({
+                  ...s,
+                  durationSeconds: s.durationSeconds ?? null,
+                })),
+              }))
+            );
+            if (
+              state.restTimer &&
+              !state.exercises.some(
+                (exercise) => exercise.id === state.restTimer?.exerciseId
+              )
+            ) {
+              state.restTimer = null;
+            }
             state.generationMeta = state.generationMeta
               ? {
                   ...state.generationMeta,

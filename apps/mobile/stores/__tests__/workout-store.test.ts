@@ -81,6 +81,14 @@ describe("workout store exercise replacement", () => {
     ]);
   });
 
+  it("deduplicates canonical exercises when a workout starts", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise, baseExercise], undefined);
+
+    expect(useWorkoutStore.getState().exercises).toEqual([baseExercise]);
+  });
+
   it("replaces stale previous values with the selected exercise history", () => {
     useWorkoutStore
       .getState()
@@ -101,6 +109,38 @@ describe("workout store exercise replacement", () => {
     ]);
     expect(exercise?.sets.every((set) => set.kg === "")).toBe(true);
     expect(exercise?.sets.every((set) => set.reps === "")).toBe(true);
+  });
+
+  it("rejects replacement with a canonical exercise already in the workout", () => {
+    const squat: WorkoutExercise = {
+      ...baseExercise,
+      id: "squat",
+      name: "Squat",
+    };
+    useWorkoutStore
+      .getState()
+      .startWorkout("Full body", [baseExercise, squat], undefined);
+
+    useWorkoutStore.getState().replaceExercise("bench-press", {
+      id: "squat",
+      name: "Squat",
+    });
+
+    expect(useWorkoutStore.getState().exercises).toEqual([baseExercise, squat]);
+  });
+
+  it("clears an active rest timer when its exercise is replaced", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise], undefined);
+    useWorkoutStore.getState().startRestTimer("bench-press");
+
+    useWorkoutStore.getState().replaceExercise("bench-press", {
+      id: "dumbbell-press",
+      name: "Dumbbell Press",
+    });
+
+    expect(useWorkoutStore.getState().restTimer).toBeNull();
   });
 
   it("adds a selected exercise below the current one without changing current set values", () => {
@@ -155,6 +195,23 @@ describe("workout store exercise replacement", () => {
       "77.5×10",
       null,
     ]);
+  });
+
+  it("does not add a duplicate canonical exercise", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise], undefined);
+
+    useWorkoutStore.getState().addExercise({
+      id: "bench-press",
+      name: "Bench Press",
+    });
+    useWorkoutStore.getState().addExerciseAfter("bench-press", {
+      id: "bench-press",
+      name: "Bench Press",
+    });
+
+    expect(useWorkoutStore.getState().exercises).toEqual([baseExercise]);
   });
 
   it("removes an exercise and clears its rest timer", () => {

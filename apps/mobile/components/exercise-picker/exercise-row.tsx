@@ -10,12 +10,14 @@ interface ExerciseRowProps {
   exercise: Exercise;
   onSelect: (exercise: Exercise) => void;
   mode?: "replace" | "add" | "pending_swap";
+  disabled?: boolean;
 }
 
 export const ExerciseRow = memo(function ExerciseRow({
   exercise,
   onSelect,
   mode,
+  disabled = false,
 }: ExerciseRowProps) {
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -32,8 +34,10 @@ export const ExerciseRow = memo(function ExerciseRow({
   return (
     <Pressable
       onPress={handlePress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={`${exercise.name}, ${primaryMuscle}`}
+      accessibilityState={{ disabled }}
       style={[styles.container, { borderBottomColor: border }]}
     >
       <ExerciseImage
