@@ -1,16 +1,18 @@
 # Apple Watch Prototype
 
-Interactive React prototypes for Apple Watch workout-logging layouts:
+React workspace for designing the Apple Watch workout experience.
 
-- **Set Pulse** — reps-first, optimized for the fastest possible set logging.
-- **Split Console** — weight and reps together, optimized for precise adjustment.
-- **Crown Forge (Grok 4.5)** — Digital Crown owns precision; mode switch + dial.
-- **Tide Rest (Grok 4.5)** — work is a stamp; rest becomes a full-screen recovery tide.
-- **Flick Ledger (Grok 4.5)** — gesture-first counting and logging, no steppers.
-- **Set Orbit (Grok 4.5)** — spatial set progress with a gravitational current node.
-- **Lone Signal (Grok 4.5)** — one adaptive number that changes with workout context.
+The navigation is divided into two sections:
 
-All concepts share interactive reps, load, set completion, and rest-timer state.
+- **Final design** — an interactive four-screen flow for the Exercise list,
+  Active workout, Rest timer, and Heart rate screens.
+- **Ideas** — all 12 interactive layout explorations, preserved as reference
+  material while the final flow is developed.
+
+The final flow supports navigating exercises within the current training,
+rep and load adjustment, set logging, a recovery timer, and a focused live
+heart-rate view. The idea concepts remain available as reference material and
+share their original interactive state.
 The color palette is derived from `apps/mobile/constants/theme.ts`.
 
 ## Run locally

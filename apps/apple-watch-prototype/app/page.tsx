@@ -30,6 +30,76 @@ interface LayoutOption {
   hint: string;
 }
 
+interface FinalScreenOption {
+  id: "final-list" | "final-active" | "final-rest" | "final-heart";
+  number: string;
+  name: string;
+  summary: string;
+  canvasNote: string;
+}
+
+type ScreenId = LayoutOption["id"] | FinalScreenOption["id"];
+
+interface TrainingExercise {
+  id: "bench-press" | "shoulder-press" | "cable-fly" | "triceps-pressdown";
+  name: string;
+  prescription: string;
+}
+
+const TRAINING_EXERCISES: TrainingExercise[] = [
+  {
+    id: "bench-press",
+    name: "Bench Press",
+    prescription: "4 sets · 42.5 kg",
+  },
+  {
+    id: "shoulder-press",
+    name: "Shoulder Press",
+    prescription: "4 sets · 30 kg",
+  },
+  {
+    id: "cable-fly",
+    name: "Cable Fly",
+    prescription: "4 sets · 15 kg",
+  },
+  {
+    id: "triceps-pressdown",
+    name: "Triceps Pressdown",
+    prescription: "4 sets · 20 kg",
+  },
+];
+
+const FINAL_SCREENS: FinalScreenOption[] = [
+  {
+    id: "final-list",
+    number: "A",
+    name: "Exercise list",
+    summary: "Every exercise in the current training session.",
+    canvasNote: "Choose an exercise without leaving the current workout.",
+  },
+  {
+    id: "final-active",
+    number: "B",
+    name: "Active workout",
+    summary: "The primary screen used while completing a set.",
+    canvasNote: "Rep-first logging with a quick switch to load adjustment.",
+  },
+  {
+    id: "final-rest",
+    number: "C",
+    name: "Rest timer",
+    summary: "The recovery state between completed sets.",
+    canvasNote: "A recovery-first countdown with the next set always visible.",
+  },
+  {
+    id: "final-heart",
+    number: "D",
+    name: "Heart rate",
+    summary: "A focused view for measuring training intensity.",
+    canvasNote: "A distraction-free live pulse measurement.",
+  },
+];
+
 const LAYOUTS: LayoutOption[] = [
   {
     id: "pulse",
@@ -190,6 +260,309 @@ function WatchStatus() {
   );
 }
 
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m14.5 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+interface FinalWatchProps extends WatchProps {
+  onNavigate: (screen: FinalScreenOption["id"]) => void;
+  onHeartBack: () => void;
+  activeExercise: TrainingExercise;
+  onSelectExercise: (exerciseId: TrainingExercise["id"]) => void;
+}
+
+function FinalExerciseListWatch({
+  completedSets,
+  activeExercise,
+  onSelectExercise,
+  onNavigate,
+}: FinalWatchProps) {
+  const selectExercise = (exerciseId: TrainingExercise["id"]) => {
+    onSelectExercise(exerciseId);
+    onNavigate("final-active");
+  };
+
+  return (
+    <WatchShell>
+      <div className="watch-screen final-flow-screen final-workout-list-screen">
+        <div className="final-list-status">
+          <span>10:09</span>
+          <button
+            type="button"
+            className="final-heart-link"
+            aria-label="Open heart rate"
+            onClick={() => onNavigate("final-heart")}
+          >
+            <HeartIcon />
+            142
+          </button>
+        </div>
+
+        <header className="final-list-heading">
+          <span>CURRENT TRAINING</span>
+          <h2>Push day</h2>
+        </header>
+
+        <div className="final-exercise-list">
+          {TRAINING_EXERCISES.map((exercise, index) => {
+            const isActive = exercise.id === activeExercise.id;
+
+            return (
+              <button
+                type="button"
+                key={exercise.id}
+                className={`final-exercise-list-item ${
+                  isActive ? "active" : ""
+                }`}
+                onClick={() => selectExercise(exercise.id)}
+              >
+                <span className="final-exercise-order">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="final-exercise-copy">
+                  <strong>{exercise.name}</strong>
+                  <small>{exercise.prescription}</small>
+                </span>
+                <span className="final-exercise-state">
+                  {isActive
+                    ? `${Math.min(completedSets + 1, TOTAL_SETS)}/${TOTAL_SETS}`
+                    : "NEXT"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </WatchShell>
+  );
+}
+
+function FinalActiveWorkoutWatch({
+  reps,
+  weight,
+  completedSets,
+  onRepsChange,
+  onWeightChange,
+  onComplete,
+  onNavigate,
+  activeExercise,
+}: FinalWatchProps) {
+  const [pickerMode, setPickerMode] = useState<"reps" | "weight">("reps");
+  const isReps = pickerMode === "reps";
+  const displayValue = isReps ? reps : weight;
+  const decrement = () => {
+    if (isReps) {
+      onRepsChange(Math.max(0, reps - 1));
+    } else {
+      onWeightChange(Math.max(0, Number((weight - 2.5).toFixed(1))));
+    }
+  };
+  const increment = () => {
+    if (isReps) {
+      onRepsChange(Math.min(99, reps + 1));
+    } else {
+      onWeightChange(Math.min(500, Number((weight + 2.5).toFixed(1))));
+    }
+  };
+
+  const saveSet = () => {
+    onComplete();
+    onNavigate("final-rest");
+  };
+
+  return (
+    <WatchShell>
+      <div className="watch-screen final-flow-screen final-active-screen">
+        <div className="final-screen-nav">
+          <button
+            type="button"
+            className="final-back-button"
+            aria-label="Back to workout list"
+            onClick={() => onNavigate("final-list")}
+          >
+            <BackIcon />
+          </button>
+          <button
+            type="button"
+            className="final-heart-link"
+            aria-label="Open heart rate"
+            onClick={() => onNavigate("final-heart")}
+          >
+            <HeartIcon />
+            142
+          </button>
+        </div>
+
+        <header className="final-exercise-row">
+          <h2>{activeExercise.name}</h2>
+          <strong>
+            {Math.min(completedSets + 1, TOTAL_SETS)}/{TOTAL_SETS}
+          </strong>
+        </header>
+
+        <div className="final-picker">
+          <button
+            type="button"
+            aria-label={`Decrease ${pickerMode}`}
+            onClick={decrement}
+          >
+            −
+          </button>
+          <div className="final-picker-value">
+            <strong>{displayValue}</strong>
+            <span>{isReps ? "REPS" : "KG"}</span>
+          </div>
+          <button
+            type="button"
+            className="increase"
+            aria-label={`Increase ${pickerMode}`}
+            onClick={increment}
+          >
+            +
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="final-metric-switch"
+          onClick={() => setPickerMode(isReps ? "weight" : "reps")}
+        >
+          <span>{isReps ? `${weight} kg` : `${reps} reps`}</span>
+          <small>Adjust</small>
+        </button>
+
+        <button type="button" className="final-save-set" onClick={saveSet}>
+          <CheckIcon />
+          Save set
+        </button>
+      </div>
+    </WatchShell>
+  );
+}
+
+function FinalRestTimerWatch({
+  rest,
+  isResting,
+  reps,
+  weight,
+  completedSets,
+  onRestChange,
+  onToggleTimer,
+  onNavigate,
+  activeExercise,
+}: FinalWatchProps) {
+  const progress = Math.max(0, Math.min(100, (rest / REST_DURATION) * 100));
+
+  const skipRest = () => {
+    onRestChange(0);
+    if (isResting) onToggleTimer();
+    onNavigate("final-active");
+  };
+
+  return (
+    <WatchShell>
+      <div className="watch-screen final-flow-screen final-rest-screen">
+        <div className="final-rest-nav">
+          <button type="button" onClick={skipRest}>
+            Skip
+          </button>
+          <button
+            type="button"
+            className="final-heart-link"
+            aria-label="Open heart rate"
+            onClick={() => onNavigate("final-heart")}
+          >
+            <HeartIcon />
+            142
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="final-rest-countdown"
+          onClick={onToggleTimer}
+          aria-label={isResting ? "Pause rest timer" : "Resume rest timer"}
+        >
+          <strong>{formatTime(rest)}</strong>
+          <span>{isResting ? "RESTING" : "PAUSED"}</span>
+        </button>
+
+        <div
+          className="final-rest-progress"
+          role="progressbar"
+          aria-label="Rest time remaining"
+          aria-valuemin={0}
+          aria-valuemax={REST_DURATION}
+          aria-valuenow={rest}
+        >
+          <i style={{ width: `${progress}%` }} />
+        </div>
+
+        <div className="final-next-set">
+          <span>NEXT SET</span>
+          <strong>
+            {activeExercise.name}
+            <small>
+              Set {Math.min(completedSets + 1, TOTAL_SETS)}/{TOTAL_SETS}
+            </small>
+          </strong>
+          <p>
+            {weight} kg <i>×</i> {reps}
+          </p>
+        </div>
+
+        <div className="final-rest-adjust">
+          <button
+            type="button"
+            onClick={() => onRestChange(Math.max(0, rest - 15))}
+          >
+            −15s
+          </button>
+          <button
+            type="button"
+            onClick={() => onRestChange(Math.min(300, rest + 15))}
+          >
+            +15s
+          </button>
+        </div>
+      </div>
+    </WatchShell>
+  );
+}
+
+function FinalHeartRateWatch({ onHeartBack }: FinalWatchProps) {
+  return (
+    <WatchShell>
+      <div className="watch-screen final-flow-screen final-heart-screen">
+        <div className="final-heart-nav">
+          <button
+            type="button"
+            className="final-back-button"
+            aria-label="Back"
+            onClick={onHeartBack}
+          >
+            <BackIcon />
+          </button>
+          <span>LIVE</span>
+        </div>
+
+        <div className="final-heart-measure">
+          <span className="final-heart-pulse">
+            <i />
+            <HeartIcon />
+          </span>
+          <strong>142</strong>
+          <span>BPM</span>
+        </div>
+      </div>
+    </WatchShell>
+  );
+}
+
 interface WatchProps {
   reps: number;
   weight: number;
@@ -201,6 +574,7 @@ interface WatchProps {
   onComplete: () => void;
   onToggleTimer: () => void;
   onResetTimer: () => void;
+  onRestChange: (next: number) => void;
 }
 
 function SetPulseWatch({
@@ -534,11 +908,7 @@ function CrownForgeWatch({
         </div>
 
         <div className="crown-actions">
-          <button
-            type="button"
-            aria-label="Decrease"
-            onClick={() => nudge(-1)}
-          >
+          <button type="button" aria-label="Decrease" onClick={() => nudge(-1)}>
             −
           </button>
           <button
@@ -550,11 +920,7 @@ function CrownForgeWatch({
             <CheckIcon />
             Forge
           </button>
-          <button
-            type="button"
-            aria-label="Increase"
-            onClick={() => nudge(1)}
-          >
+          <button type="button" aria-label="Increase" onClick={() => nudge(1)}>
             +
           </button>
         </div>
@@ -584,7 +950,10 @@ function TideRestWatch({
           <div className="tide-copy">
             <span className="eyebrow">RECOVER</span>
             <strong className="tide-clock">{formatTime(rest)}</strong>
-            <p>Inhale with the tide. Next: set {Math.min(completedSets + 1, TOTAL_SETS)}</p>
+            <p>
+              Inhale with the tide. Next: set{" "}
+              {Math.min(completedSets + 1, TOTAL_SETS)}
+            </p>
           </div>
           <button
             type="button"
@@ -598,7 +967,9 @@ function TideRestWatch({
             <span className="tide-label">TAP TO PAUSE</span>
           </button>
           <div className="tide-footer-quiet">
-            <span>LAST {weight} × {reps}</span>
+            <span>
+              LAST {weight} × {reps}
+            </span>
             <span>
               <HeartIcon /> 128
             </span>
@@ -649,11 +1020,7 @@ function TideRestWatch({
         </button>
 
         {rest === 0 && (
-          <button
-            type="button"
-            className="tide-skip"
-            onClick={onToggleTimer}
-          >
+          <button type="button" className="tide-skip" onClick={onToggleTimer}>
             Restart rest
           </button>
         )}
@@ -734,10 +1101,7 @@ function FlickLedgerWatch({
         onWeightChange(next);
         setGestureHint(`${next} KG`);
       } else {
-        const next =
-          dx > 0
-            ? Math.min(99, reps + 1)
-            : Math.max(0, reps - 1);
+        const next = dx > 0 ? Math.min(99, reps + 1) : Math.max(0, reps - 1);
         onRepsChange(next);
         setGestureHint(`${next} REPS`);
       }
@@ -747,7 +1111,9 @@ function FlickLedgerWatch({
 
   return (
     <WatchShell>
-      <div className={`watch-screen flick-screen ${flash ? `flash-${flash}` : ""}`}>
+      <div
+        className={`watch-screen flick-screen ${flash ? `flash-${flash}` : ""}`}
+      >
         <WatchStatus />
         <div className="flick-top">
           <span className="eyebrow">
@@ -954,7 +1320,9 @@ function LoneSignalWatch({
       <WatchShell>
         <div className="watch-screen signal-screen signal-rest">
           <WatchStatus />
-          <span className="signal-kicker">UNTIL SET {Math.min(completedSets + 1, TOTAL_SETS)}</span>
+          <span className="signal-kicker">
+            UNTIL SET {Math.min(completedSets + 1, TOTAL_SETS)}
+          </span>
           <button
             type="button"
             className="signal-hero rest"
@@ -965,7 +1333,9 @@ function LoneSignalWatch({
           </button>
           <span className="signal-sub">TAP TO PAUSE</span>
           <div className="signal-whisper">
-            <span>{weight} × {reps}</span>
+            <span>
+              {weight} × {reps}
+            </span>
             <span>
               <HeartIcon /> 124
             </span>
@@ -977,7 +1347,9 @@ function LoneSignalWatch({
 
   return (
     <WatchShell>
-      <div className={`watch-screen signal-screen signal-work ${holding ? "holding" : ""}`}>
+      <div
+        className={`watch-screen signal-screen signal-work ${holding ? "holding" : ""}`}
+      >
         <WatchStatus />
         <span className="signal-kicker">
           SET {Math.min(completedSets + 1, TOTAL_SETS)} · {weight} KG
@@ -1092,7 +1464,9 @@ function RepDrumWatch({
       <WatchShell>
         <div className="watch-screen drum-screen drum-asleep">
           <WatchStatus />
-          <span className="drum-kicker">DRUM SLEEPS · SET {Math.min(completedSets + 1, TOTAL_SETS)} NEXT</span>
+          <span className="drum-kicker">
+            DRUM SLEEPS · SET {Math.min(completedSets + 1, TOTAL_SETS)} NEXT
+          </span>
           <button
             type="button"
             className="drum-rest-ring"
@@ -1107,7 +1481,9 @@ function RepDrumWatch({
               <small>TAP TO PAUSE</small>
             </span>
           </button>
-          <span className="drum-quiet">LAST HIT · {weight} KG × {reps}</span>
+          <span className="drum-quiet">
+            LAST HIT · {weight} KG × {reps}
+          </span>
         </div>
       </WatchShell>
     );
@@ -1118,7 +1494,9 @@ function RepDrumWatch({
       <div className={`watch-screen drum-screen ${arming ? "arming" : ""}`}>
         <WatchStatus />
         <div className="drum-top">
-          <span className="eyebrow">SET {Math.min(completedSets + 1, TOTAL_SETS)} · {weight} KG</span>
+          <span className="eyebrow">
+            SET {Math.min(completedSets + 1, TOTAL_SETS)} · {weight} KG
+          </span>
           <button
             type="button"
             className="drum-undo"
@@ -1151,7 +1529,9 @@ function RepDrumWatch({
           <span key={ripple} className="drum-ripple" aria-hidden="true" />
           <span className="drum-hold-fill" aria-hidden="true" />
           <strong className="drum-count">{reps}</strong>
-          <span className="drum-sub">{arming ? "KEEP HOLDING TO LOG" : "TAP · EACH REP"}</span>
+          <span className="drum-sub">
+            {arming ? "KEEP HOLDING TO LOG" : "TAP · EACH REP"}
+          </span>
         </div>
 
         <div className="drum-rail">
@@ -1186,9 +1566,7 @@ function SessionRailWatch({
   }, [completedSets]);
 
   return (
-    <WatchShell
-      onCrownClick={() => setFocusSet((s) => (s % TOTAL_SETS) + 1)}
-    >
+    <WatchShell onCrownClick={() => setFocusSet((s) => (s % TOTAL_SETS) + 1)}>
       <div className="watch-screen rail-screen">
         <WatchStatus />
         <div className="rail-body">
@@ -1196,7 +1574,11 @@ function SessionRailWatch({
             type="button"
             className={`rail-rest-col ${isResting ? "live" : ""}`}
             onClick={onToggleTimer}
-            aria-label={isResting ? `Resting, ${formatTime(rest)} left. Tap to pause.` : "Start rest timer"}
+            aria-label={
+              isResting
+                ? `Resting, ${formatTime(rest)} left. Tap to pause.`
+                : "Start rest timer"
+            }
           >
             <i style={{ height: `${restProgress}%` }} />
             <span>{formatTime(rest)}</span>
@@ -1219,17 +1601,24 @@ function SessionRailWatch({
                           type="button"
                           aria-label="Decrease weight"
                           onClick={() =>
-                            onWeightChange(Math.max(0, Number((weight - 2.5).toFixed(1))))
+                            onWeightChange(
+                              Math.max(0, Number((weight - 2.5).toFixed(1)))
+                            )
                           }
                         >
                           −
                         </button>
-                        <span>{weight}<small>KG</small></span>
+                        <span>
+                          {weight}
+                          <small>KG</small>
+                        </span>
                         <button
                           type="button"
                           aria-label="Increase weight"
                           onClick={() =>
-                            onWeightChange(Math.min(500, Number((weight + 2.5).toFixed(1))))
+                            onWeightChange(
+                              Math.min(500, Number((weight + 2.5).toFixed(1)))
+                            )
                           }
                         >
                           +
@@ -1243,7 +1632,10 @@ function SessionRailWatch({
                         >
                           −
                         </button>
-                        <span>{reps}<small>REPS</small></span>
+                        <span>
+                          {reps}
+                          <small>REPS</small>
+                        </span>
                         <button
                           type="button"
                           aria-label="Increase reps"
@@ -1252,7 +1644,11 @@ function SessionRailWatch({
                           +
                         </button>
                       </div>
-                      <button type="button" className="rail-log" onClick={onComplete}>
+                      <button
+                        type="button"
+                        className="rail-log"
+                        onClick={onComplete}
+                      >
                         <CheckIcon /> LOG SET {set}
                       </button>
                     </div>
@@ -1321,7 +1717,9 @@ function PlateStackWatch({
 
   const stripPlate = (index: number) => {
     const denom = plates[index];
-    onWeightChange(Math.max(BAR_WEIGHT, Number((weight - denom * 2).toFixed(2))));
+    onWeightChange(
+      Math.max(BAR_WEIGHT, Number((weight - denom * 2).toFixed(2)))
+    );
   };
 
   return (
@@ -1329,11 +1727,19 @@ function PlateStackWatch({
       <div className="watch-screen plates-screen">
         <WatchStatus />
         <div className="plates-top">
-          <span className="eyebrow">SET {Math.min(completedSets + 1, TOTAL_SETS)} · BAR {BAR_WEIGHT}</span>
-          <strong className="plates-total">{weight}<small>KG</small></strong>
+          <span className="eyebrow">
+            SET {Math.min(completedSets + 1, TOTAL_SETS)} · BAR {BAR_WEIGHT}
+          </span>
+          <strong className="plates-total">
+            {weight}
+            <small>KG</small>
+          </strong>
         </div>
 
-        <div className="plates-bar" aria-label={`Bar loaded to ${weight} kilograms`}>
+        <div
+          className="plates-bar"
+          aria-label={`Bar loaded to ${weight} kilograms`}
+        >
           <span className="plates-sleeve" aria-hidden="true" />
           <span className="plates-collar" aria-hidden="true" />
           {plates.map((denom, index) => (
@@ -1348,7 +1754,9 @@ function PlateStackWatch({
               {denom}
             </button>
           ))}
-          {plates.length === 0 && <span className="plates-empty">EMPTY BAR</span>}
+          {plates.length === 0 && (
+            <span className="plates-empty">EMPTY BAR</span>
+          )}
         </div>
 
         <div className="plates-rack" role="group" aria-label="Add plates">
@@ -1380,7 +1788,10 @@ function PlateStackWatch({
             aria-label={`${reps} reps chalked. Tap to add one.`}
           >
             {Array.from({ length: tallies }, (_, i) => (
-              <i key={i} className={`chalk ${(i + 1) % 5 === 0 ? "five" : ""}`} />
+              <i
+                key={i}
+                className={`chalk ${(i + 1) % 5 === 0 ? "five" : ""}`}
+              />
             ))}
             {reps > 12 && <em>+{reps - 12}</em>}
             {reps === 0 && <em>TAP TO CHALK</em>}
@@ -1457,7 +1868,9 @@ function HeartGateWatch({
             disabled={!gateOpen}
             onClick={onToggleTimer}
           >
-            {gateOpen ? `BEGIN SET ${Math.min(completedSets + 1, TOTAL_SETS)}` : "RECOVERING"}
+            {gateOpen
+              ? `BEGIN SET ${Math.min(completedSets + 1, TOTAL_SETS)}`
+              : "RECOVERING"}
           </button>
           <span className="gate-whisper">
             {weight} KG × {reps} QUEUED · BREATHE LOW
@@ -1472,7 +1885,8 @@ function HeartGateWatch({
       <div className="watch-screen gate-screen gate-work">
         <WatchStatus />
         <span className="gate-kicker live">
-          SET {Math.min(completedSets + 1, TOTAL_SETS)} LIVE · <HeartIcon /> {simulatedHR}
+          SET {Math.min(completedSets + 1, TOTAL_SETS)} LIVE · <HeartIcon />{" "}
+          {simulatedHR}
         </span>
         <div className="gate-work-row">
           <button
@@ -1531,11 +1945,17 @@ function VerdictWatch({
           <WatchStatus />
           {lastVerdict && (
             <span className={`verdict-stamp ${lastVerdict}`}>
-              {lastVerdict === "short" ? "SHORT" : lastVerdict === "hit" ? "HIT" : "BEAT"}
+              {lastVerdict === "short"
+                ? "SHORT"
+                : lastVerdict === "hit"
+                  ? "HIT"
+                  : "BEAT"}
             </span>
           )}
           <div className="verdict-next-card">
-            <span>NEXT CONTRACT · SET {Math.min(completedSets + 1, TOTAL_SETS)}</span>
+            <span>
+              NEXT CONTRACT · SET {Math.min(completedSets + 1, TOTAL_SETS)}
+            </span>
             <strong>
               {weight} <em>×</em> {reps}
             </strong>
@@ -1559,7 +1979,9 @@ function VerdictWatch({
       <div className="watch-screen verdict-screen">
         <WatchStatus />
         <div className="verdict-card">
-          <span>THE CONTRACT · SET {Math.min(completedSets + 1, TOTAL_SETS)}</span>
+          <span>
+            THE CONTRACT · SET {Math.min(completedSets + 1, TOTAL_SETS)}
+          </span>
           <strong>
             {weight} <em>×</em> {reps}
           </strong>
@@ -1583,15 +2005,27 @@ function VerdictWatch({
         </div>
 
         <div className="verdict-panel" role="group" aria-label="Judge the set">
-          <button type="button" className="verdict-btn short" onClick={() => judge("short")}>
+          <button
+            type="button"
+            className="verdict-btn short"
+            onClick={() => judge("short")}
+          >
             <strong>SHORT</strong>
             <small>−1 REP</small>
           </button>
-          <button type="button" className="verdict-btn hit" onClick={() => judge("hit")}>
+          <button
+            type="button"
+            className="verdict-btn hit"
+            onClick={() => judge("hit")}
+          >
             <strong>HIT</strong>
             <small>AS PLANNED</small>
           </button>
-          <button type="button" className="verdict-btn beat" onClick={() => judge("beat")}>
+          <button
+            type="button"
+            className="verdict-btn beat"
+            onClick={() => judge("beat")}
+          >
             <strong>BEAT</strong>
             <small>+1 REP</small>
           </button>
@@ -1632,8 +2066,27 @@ function renderWatch(id: LayoutOption["id"], props: WatchProps) {
   }
 }
 
+function renderFinalWatch(id: FinalScreenOption["id"], props: FinalWatchProps) {
+  switch (id) {
+    case "final-list":
+      return <FinalExerciseListWatch {...props} />;
+    case "final-active":
+      return <FinalActiveWorkoutWatch {...props} />;
+    case "final-rest":
+      return <FinalRestTimerWatch {...props} />;
+    case "final-heart":
+      return <FinalHeartRateWatch {...props} />;
+    default:
+      return <FinalExerciseListWatch {...props} />;
+  }
+}
+
 export default function Home() {
-  const [selectedId, setSelectedId] = useState<LayoutOption["id"]>("pulse");
+  const [selectedId, setSelectedId] = useState<ScreenId>("final-active");
+  const [heartReturnScreen, setHeartReturnScreen] =
+    useState<FinalScreenOption["id"]>("final-active");
+  const [activeExerciseId, setActiveExerciseId] =
+    useState<TrainingExercise["id"]>("bench-press");
   const [reps, setReps] = useState(10);
   const [weight, setWeight] = useState(42.5);
   const [rest, setRest] = useState(67);
@@ -1661,10 +2114,25 @@ export default function Home() {
     return () => window.clearTimeout(timeout);
   }, [confirmation]);
 
-  const selected = useMemo(
-    () => LAYOUTS.find((layout) => layout.id === selectedId) ?? LAYOUTS[0],
+  const selectedFinal = useMemo(
+    () => FINAL_SCREENS.find((screen) => screen.id === selectedId),
     [selectedId]
   );
+  const selectedIdea = useMemo(
+    () => LAYOUTS.find((layout) => layout.id === selectedId),
+    [selectedId]
+  );
+  const selected = selectedFinal ?? selectedIdea ?? FINAL_SCREENS[0];
+  const isFinalDesign = Boolean(selectedFinal);
+  const selectedIndex = isFinalDesign
+    ? FINAL_SCREENS.findIndex((screen) => screen.id === selected.id) + 1
+    : LAYOUTS.findIndex((layout) => layout.id === selected.id) + 1;
+  const selectedGroupLength = isFinalDesign
+    ? FINAL_SCREENS.length
+    : LAYOUTS.length;
+  const activeExercise =
+    TRAINING_EXERCISES.find((exercise) => exercise.id === activeExerciseId) ??
+    TRAINING_EXERCISES[0];
 
   const completeSet = useCallback(() => {
     setCompletedSets((current) => Math.min(current + 1, TOTAL_SETS));
@@ -1677,6 +2145,23 @@ export default function Home() {
     setRest(REST_DURATION);
     setIsResting(false);
   }, []);
+
+  const navigateFinal = useCallback(
+    (screen: FinalScreenOption["id"]) => {
+      if (screen === "final-heart" && selectedId !== "final-heart") {
+        const currentFinal = FINAL_SCREENS.some(
+          (candidate) => candidate.id === selectedId
+        );
+        setHeartReturnScreen(
+          currentFinal
+            ? (selectedId as FinalScreenOption["id"])
+            : "final-active"
+        );
+      }
+      setSelectedId(screen);
+    },
+    [selectedId]
+  );
 
   const sharedProps: WatchProps = {
     reps,
@@ -1692,6 +2177,20 @@ export default function Home() {
       setIsResting((current) => !current);
     },
     onResetTimer: resetTimer,
+    onRestChange: setRest,
+  };
+
+  const finalProps: FinalWatchProps = {
+    ...sharedProps,
+    activeExercise,
+    onNavigate: navigateFinal,
+    onHeartBack: () => setSelectedId(heartReturnScreen),
+    onSelectExercise: (exerciseId) => {
+      if (exerciseId !== activeExerciseId) {
+        setActiveExerciseId(exerciseId);
+        setCompletedSets(0);
+      }
+    },
   };
 
   return (
@@ -1709,38 +2208,73 @@ export default function Home() {
         </a>
 
         <div className="sidebar-intro">
-          <span className="section-kicker">CONCEPT INDEX</span>
-          <h1>Twelve ways to stay in the set.</h1>
-          <p>Tap a concept, then use the controls directly on the watch.</p>
+          <span className="section-kicker">DESIGN WORKSPACE</span>
+          <h1>From ideas to the final watch.</h1>
+          <p>
+            Build the final flow on clean canvases, informed by the concept
+            explorations below.
+          </p>
         </div>
 
-        <nav className="layout-list" aria-label="Apple Watch layout concepts">
-          {LAYOUTS.map((layout) => (
-            <button
-              key={layout.id}
-              className={`layout-option ${
-                selectedId === layout.id ? "active" : ""
-              }`}
-              onClick={() => setSelectedId(layout.id)}
-              aria-pressed={selectedId === layout.id}
-            >
-              <span className="layout-number">{layout.number}</span>
-              <span>
-                <strong>{layout.name}</strong>
-                <small>{layout.summary}</small>
-              </span>
-              <span className="layout-arrow">↗</span>
-            </button>
-          ))}
+        <nav className="prototype-nav" aria-label="Apple Watch designs">
+          <section className="concept-group final-design-group">
+            <div className="concept-group-heading">
+              <span>FINAL DESIGN</span>
+              <small>{String(FINAL_SCREENS.length).padStart(2, "0")}</small>
+            </div>
+            <div className="layout-list final-layout-list">
+              {FINAL_SCREENS.map((screen) => (
+                <button
+                  key={screen.id}
+                  className={`layout-option final-layout-option ${
+                    selectedId === screen.id ? "active" : ""
+                  }`}
+                  onClick={() => navigateFinal(screen.id)}
+                  aria-pressed={selectedId === screen.id}
+                >
+                  <span className="layout-number">{screen.number}</span>
+                  <span>
+                    <strong>{screen.name}</strong>
+                    <small>{screen.summary}</small>
+                  </span>
+                  <span className="layout-arrow">↗</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="concept-group ideas-group">
+            <div className="concept-group-heading">
+              <span>IDEAS</span>
+              <small>{String(LAYOUTS.length).padStart(2, "0")}</small>
+            </div>
+            <div className="layout-list ideas-layout-list">
+              {LAYOUTS.map((layout) => (
+                <button
+                  key={layout.id}
+                  className={`layout-option ${
+                    selectedId === layout.id ? "active" : ""
+                  }`}
+                  onClick={() => setSelectedId(layout.id)}
+                  aria-pressed={selectedId === layout.id}
+                >
+                  <span className="layout-number">{layout.number}</span>
+                  <span>
+                    <strong>{layout.name}</strong>
+                    <small>{layout.summary}</small>
+                  </span>
+                  <span className="layout-arrow">↗</span>
+                </button>
+              ))}
+            </div>
+          </section>
         </nav>
 
         <div className="sidebar-note">
           <span className="note-dot" />
           <span>
             <strong>Interactive prototype</strong>
-            <small>
-              Reps, load and timer are shared across all concepts.
-            </small>
+            <small>Reps, load and timer are shared across all concepts.</small>
           </span>
         </div>
       </aside>
@@ -1748,12 +2282,14 @@ export default function Home() {
       <section className="stage" id="top">
         <header className="stage-header">
           <div>
-            <span className="section-kicker">APPLE WATCH · 45 MM</span>
+            <span className="section-kicker">
+              {isFinalDesign ? "FINAL DESIGN" : "IDEA"} · APPLE WATCH · 45 MM
+            </span>
             <h2>{selected.name}</h2>
           </div>
           <span className="concept-count">
-            {selected.number}{" "}
-            <i>/ {String(LAYOUTS.length).padStart(2, "0")}</i>
+            {String(selectedIndex).padStart(2, "0")}{" "}
+            <i>/ {String(selectedGroupLength).padStart(2, "0")}</i>
           </span>
         </header>
 
@@ -1765,9 +2301,14 @@ export default function Home() {
             <span className="measurement measurement-height">484 PX</span>
 
             <div className="watch-shadow" />
-            {renderWatch(selectedId, sharedProps)}
+            {isFinalDesign
+              ? renderFinalWatch(
+                  selected.id as FinalScreenOption["id"],
+                  finalProps
+                )
+              : renderWatch(selected.id as LayoutOption["id"], sharedProps)}
 
-            {confirmation && (
+            {!isFinalDesign && confirmation && (
               <div className="set-toast" role="status">
                 <CheckIcon />
                 Set logged
@@ -1775,32 +2316,56 @@ export default function Home() {
             )}
           </div>
 
-          <div className="concept-details">
-            <div className="principle">
-              <span>DESIGN PRINCIPLE</span>
-              <strong>{selected.principle}</strong>
-            </div>
+          {isFinalDesign ? (
+            <div className="concept-details final-canvas-details">
+              <div className="principle">
+                <span>FINAL FLOW</span>
+                <strong>{selected.name}</strong>
+              </div>
 
-            <div className="detail-grid">
-              <div>
-                <span>LIVE SET</span>
-                <strong>{reps} reps</strong>
+              <div className="canvas-state">
+                <span className="canvas-state-dot" />
+                <span>
+                  <strong>Interactive screen</strong>
+                  <small>{(selected as FinalScreenOption).canvasNote}</small>
+                </span>
               </div>
-              <div>
-                <span>LOAD</span>
-                <strong>{weight} kg</strong>
-              </div>
-              <div>
-                <span>REST</span>
-                <strong>{formatTime(rest)}</strong>
-              </div>
-            </div>
 
-            <p className="interaction-hint">
-              <span>TRY IT</span>
-              {selected.hint}
-            </p>
-          </div>
+              <p className="interaction-hint">
+                <span>FLOW</span>
+                Navigate directly inside the watch. Saving a set starts rest;
+                heart rate opens from the live workout and returns where you
+                left off.
+              </p>
+            </div>
+          ) : (
+            <div className="concept-details">
+              <div className="principle">
+                <span>DESIGN PRINCIPLE</span>
+                <strong>{(selected as LayoutOption).principle}</strong>
+              </div>
+
+              <div className="detail-grid">
+                <div>
+                  <span>LIVE SET</span>
+                  <strong>{reps} reps</strong>
+                </div>
+                <div>
+                  <span>LOAD</span>
+                  <strong>{weight} kg</strong>
+                </div>
+                <div>
+                  <span>REST</span>
+                  <strong>{formatTime(rest)}</strong>
+                </div>
+              </div>
+
+              <p className="interaction-hint">
+                <span>TRY IT</span>
+                {(selected as LayoutOption).hint}
+              </p>
+            </div>
+          )}
         </div>
 
         <footer className="stage-footer">
