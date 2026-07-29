@@ -66,6 +66,21 @@ export const home = {
     exerciseCount_other: "{{count}} ćwiczenia",
     empty: "Utwórz pierwszy własny trening",
     newWorkoutName: "Nowy trening",
+    reviewTemplate: "Przejrzyj {{name}}",
+  },
+  templateDetail: {
+    modeLabel: "Przegląd szablonu",
+    description:
+      "Przejrzyj poniższe ćwiczenia. Trening rozpocznie się dopiero po wybraniu opcji Zacznij trening.",
+    exercisesTitle: "Ćwiczenia",
+    startWorkout: "Zacznij trening",
+    activeWorkoutTitle: "Trening jest już w toku",
+    activeWorkoutMessage:
+      "Ukończ lub odrzuć aktywny trening przed rozpoczęciem tego szablonu.",
+    notFoundTitle: "Nie znaleziono szablonu",
+    notFoundMessage:
+      "Ten zapisany trening nie jest już dostępny. Wróć do sekcji Moje treningi i wybierz inny szablon.",
+    back: "Wróć",
   },
   history: {
     seeAll: "Zobacz historię treningów",

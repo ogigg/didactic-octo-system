@@ -179,6 +179,10 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="workout-template"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="exercise-detail"
                   options={{
                     presentation: "fullScreenModal",
