@@ -228,22 +228,27 @@ describe("fetchPreviousSetDisplays", () => {
 });
 
 describe("createWorkoutSession", () => {
-  it("inserts and returns validated session", async () => {
+  it("upserts and returns a validated session for idempotent retries", async () => {
     mockAuthenticatedUser();
-    const mockInsert = jest.fn();
+    const mockUpsert = jest.fn();
     const mockSelect = jest.fn().mockReturnValue({
       single: jest.fn().mockResolvedValue({ data: validSession, error: null }),
     });
     (mockSupabase.from as jest.Mock).mockReturnValue({
-      insert: mockInsert.mockReturnValue({ select: mockSelect }),
+      upsert: mockUpsert.mockReturnValue({ select: mockSelect }),
     });
 
     const result = await createWorkoutSession({
+      id: validSession.id,
       name: "Push Day",
       goal_snapshot: "build_strength",
     });
 
     expect(mockSupabase.from).toHaveBeenCalledWith("workout_sessions");
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: validSession.id, name: "Push Day" }),
+      { onConflict: "id" }
+    );
     expect(result.name).toBe("Push Day");
   });
 

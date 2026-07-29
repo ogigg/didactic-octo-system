@@ -2,6 +2,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { SyncQueue } from "../sync-queue";
 
+const mockTrackEvent = jest.fn();
+jest.mock("@/lib/track-event", () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
+
 // Mock AsyncStorage
 jest.mock("@react-native-async-storage/async-storage", () => ({
   getItem: jest.fn(),
@@ -19,6 +24,10 @@ describe("SyncQueue", () => {
     mockAsyncStorage.getItem.mockResolvedValue(null);
     mockAsyncStorage.setItem.mockResolvedValue(undefined);
     queue = new SyncQueue();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe("enqueue()", () => {
@@ -40,7 +49,9 @@ describe("SyncQueue", () => {
         payload: { name: "test" },
         status: "pending",
         retryCount: 0,
+        recoveryAttempts: 0,
       });
+      expect(stored[0].diagnosticReference).toMatch(/^SYNC-[A-Z0-9]{8}$/);
     });
 
     it("deduplicates by id + operation using last-write-wins", async () => {
@@ -92,7 +103,13 @@ describe("SyncQueue", () => {
       await queue.enqueue("upsert_profile", "user-1", { name: "test" });
       await queue.processQueue();
 
-      expect(handler).toHaveBeenCalledWith({ name: "test" });
+      expect(handler).toHaveBeenCalledWith(
+        { name: "test" },
+        expect.objectContaining({
+          id: "user-1",
+          operation: "upsert_profile",
+        })
+      );
       const lastCall =
         mockAsyncStorage.setItem.mock.calls[
           mockAsyncStorage.setItem.mock.calls.length - 1
@@ -144,6 +161,14 @@ describe("SyncQueue", () => {
       const stored = JSON.parse(lastCall[1] as string);
       expect(stored[0].status).toBe("dead");
       expect(stored[0].retryCount).toBe(15);
+      expect(stored).toHaveLength(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        "sync_failed",
+        expect.objectContaining({
+          diagnostic_reference: expect.stringMatching(/^SYNC-/),
+          operation: "op",
+        })
+      );
     });
 
     it("skips items whose nextRetryAt is in the future", async () => {
@@ -243,6 +268,7 @@ describe("SyncQueue", () => {
       queue = new SyncQueue();
 
       await queue.retryDeadItems();
+      await queue.retryDeadItems();
 
       const lastCall =
         mockAsyncStorage.setItem.mock.calls[
@@ -252,6 +278,100 @@ describe("SyncQueue", () => {
       expect(stored[0].status).toBe("pending");
       expect(stored[0].retryCount).toBe(0);
       expect(stored[0].nextRetryAt).toBe(0);
+      expect(stored[0].recoveryAttempts).toBe(1);
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("health status", () => {
+    it("reports local preservation without claiming cloud save while offline", async () => {
+      queue.setOnline(false);
+      await queue.enqueue("save_workout", "session-1", { workout: "safe" });
+
+      expect(queue.getHealthSnapshot()).toMatchObject({
+        state: "offline",
+        pendingCount: 1,
+        failedCount: 0,
+      });
+
+      await queue.processQueue();
+      expect(mockAsyncStorage.setItem).toHaveBeenCalled();
+    });
+
+    it("stays silent after a normal successful sync", async () => {
+      queue.registerHandler("op", jest.fn().mockResolvedValue(undefined));
+      await queue.enqueue("op", "id-1", {});
+      await queue.processQueue();
+
+      expect(queue.getHealthSnapshot()).toEqual({
+        state: "saved",
+        pendingCount: 0,
+        failedCount: 0,
+        diagnosticReference: undefined,
+        canContactSupport: false,
+      });
+    });
+
+    it("offers support immediately when a user-requested retry fails", async () => {
+      const item = {
+        id: "id-1",
+        operation: "op",
+        payload: {},
+        updatedAt: Date.now(),
+        retryCount: 15,
+        nextRetryAt: 0,
+        createdAt: Date.now(),
+        status: "dead",
+        recoveryAttempts: 0,
+        diagnosticReference: "SYNC-TEST0001",
+      };
+      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify([item]));
+      queue = new SyncQueue();
+      queue.registerHandler(
+        "op",
+        jest.fn().mockRejectedValue(new Error("fail"))
+      );
+
+      await queue.retryDeadItems();
+      await queue.processQueue();
+
+      expect(queue.getHealthSnapshot()).toEqual({
+        state: "failed",
+        pendingCount: 0,
+        failedCount: 1,
+        diagnosticReference: "SYNC-TEST0001",
+        canContactSupport: true,
+      });
+    });
+
+    it("reports recovery only after a user-requested retry succeeds", async () => {
+      const item = {
+        id: "id-1",
+        operation: "op",
+        payload: {},
+        updatedAt: Date.now(),
+        retryCount: 15,
+        nextRetryAt: 0,
+        createdAt: Date.now(),
+        status: "dead",
+        recoveryAttempts: 0,
+        diagnosticReference: "SYNC-TEST0002",
+      };
+      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify([item]));
+      queue = new SyncQueue();
+      queue.registerHandler("op", jest.fn().mockResolvedValue(undefined));
+
+      await queue.retryDeadItems();
+      await queue.processQueue();
+
+      expect(queue.getHealthSnapshot().state).toBe("recovered");
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        "sync_recovered",
+        expect.objectContaining({
+          diagnostic_reference: "SYNC-TEST0002",
+          recovery_attempt: 1,
+        })
+      );
     });
   });
 

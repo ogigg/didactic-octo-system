@@ -21,4 +21,18 @@ export const common = {
   media: {
     exerciseIllustration: "Ilustracja ćwiczenia {{exerciseName}}",
   },
+  sync: {
+    syncing: "Zapisywanie zmian…",
+    offline:
+      "Zapisano na tym urządzeniu. Zsynchronizujemy dane po odzyskaniu połączenia.",
+    failed:
+      "Twoje dane są bezpieczne na tym urządzeniu, ale synchronizacja się nie udała.",
+    failedAgain:
+      "Nadal nie można zsynchronizować. Twoje dane pozostają bezpieczne na tym urządzeniu.",
+    recovered: "Twoje dane zostały zapisane na koncie.",
+    retry: "Ponów",
+    retrying: "Ponawianie",
+    support: "Skontaktuj się z pomocą",
+    reference: "Numer zgłoszenia: {{reference}}",
+  },
 } as const;

@@ -1,4 +1,7 @@
-import { mapWorkoutStoreToDb } from "@/lib/api/workout-mappers";
+import {
+  mapWorkoutStoreToDb,
+  type WorkoutDbPayload,
+} from "@/lib/api/workout-mappers";
 import {
   createWorkoutSession,
   updateWorkoutSession,
@@ -10,25 +13,53 @@ import { upsertProfile } from "@/lib/api/profiles";
 import type { OnboardingData } from "@/lib/api/profiles";
 import { upsertMeasurement } from "@/lib/api/body-measurements";
 import type { MeasurementInput } from "@/lib/api/body-measurements";
-import { syncQueue } from "@/lib/sync-queue";
+import { syncQueue, type SyncQueueItem } from "@/lib/sync-queue";
 
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
 
-interface SaveWorkoutPayload {
+interface LegacySaveWorkoutPayload {
   summary: WorkoutSummary;
   goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
   customGoalSnapshot?: string;
   weightUnit?: WeightUnit;
 }
 
-async function handleSaveWorkout(payload: unknown): Promise<void> {
-  const input = payload as SaveWorkoutPayload;
-  const dbPayload = mapWorkoutStoreToDb(input.summary, {
-    goalSnapshot: input.goalSnapshot,
-    customGoalSnapshot: input.customGoalSnapshot,
-    weightUnit: input.weightUnit,
+function isWorkoutDbPayload(payload: unknown): payload is WorkoutDbPayload {
+  if (!payload || typeof payload !== "object") return false;
+  const candidate = payload as Partial<WorkoutDbPayload>;
+  return (
+    typeof candidate.session?.id === "string" &&
+    typeof candidate.completedAt === "string" &&
+    Array.isArray(candidate.exercises)
+  );
+}
+
+function migrateLegacySaveWorkoutPayload(
+  payload: unknown,
+  item: SyncQueueItem
+): WorkoutDbPayload {
+  if (isWorkoutDbPayload(payload)) return payload;
+
+  const legacy = payload as LegacySaveWorkoutPayload;
+  const migrated = mapWorkoutStoreToDb(legacy.summary, {
+    goalSnapshot: legacy.goalSnapshot,
+    customGoalSnapshot: legacy.customGoalSnapshot,
+    weightUnit: legacy.weightUnit,
   });
+
+  // Freeze generated identifiers before the first recovery attempt. If a
+  // partial write fails, the persisted queue item remains safe to replay.
+  item.id = migrated.session.id;
+  item.payload = migrated;
+  return migrated;
+}
+
+async function handleSaveWorkout(
+  payload: unknown,
+  item: SyncQueueItem
+): Promise<void> {
+  const dbPayload = migrateLegacySaveWorkoutPayload(payload, item);
 
   const session = await createWorkoutSession(dbPayload.session);
 
@@ -46,7 +77,7 @@ async function handleSaveWorkout(payload: unknown): Promise<void> {
 
   await updateWorkoutSession(session.id, {
     status: "completed",
-    completed_at: new Date(input.summary.finishedAtMs).toISOString(),
+    completed_at: dbPayload.completedAt,
   });
 }
 

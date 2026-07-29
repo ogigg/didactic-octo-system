@@ -16,6 +16,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
+import { SyncHealthBanner } from "@/components/sync-health-banner";
 import { ToastHost } from "@/components/ui/toast-host";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -65,17 +66,23 @@ export default function RootLayout() {
 
   useEffect(() => {
     registerSyncHandlers();
-    syncQueue.processQueue();
+    void NetInfo.fetch().then((state) => {
+      const isOnline = state.isConnected === true;
+      syncQueue.setOnline(isOnline);
+      if (isOnline) void syncQueue.processQueue();
+    });
 
     const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
-      if (state.isConnected) {
-        syncQueue.processQueue();
+      const isOnline = state.isConnected === true;
+      syncQueue.setOnline(isOnline);
+      if (isOnline) {
+        void syncQueue.processQueue();
       }
     });
 
     const appStateSub = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
-        syncQueue.processQueue();
+        void syncQueue.processQueue();
         flushHealthRetryQueue().catch((error) => {
           console.warn("Health retry queue flush failed:", error);
         });
@@ -223,6 +230,7 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
               </Stack>
+              <SyncHealthBanner />
               <ToastHost />
               <StatusBar style="auto" />
             </ThemeProvider>

@@ -177,6 +177,7 @@ export type DeleteWorkoutSessionResult = z.infer<
 // -----------------------------------------------------------------------------
 
 export interface CreateWorkoutSessionInput {
+  id?: string;
   name?: string;
   warmup?: {
     duration_seconds: number;
@@ -429,16 +430,20 @@ export async function createWorkoutSession(
 
   const { data, error } = await supabase
     .from("workout_sessions")
-    .insert({
-      user_id: userId,
-      name: input.name ?? null,
-      warmup_duration_seconds: input.warmup?.duration_seconds ?? null,
-      warmup_completed: input.warmup?.completed ?? false,
-      generation_source: input.generation_source ?? "llm",
-      goal_snapshot: input.goal_snapshot,
-      custom_goal_snapshot: input.custom_goal_snapshot ?? null,
-      started_at: input.started_at ?? new Date().toISOString(),
-    })
+    .upsert(
+      {
+        ...(input.id ? { id: input.id } : {}),
+        user_id: userId,
+        name: input.name ?? null,
+        warmup_duration_seconds: input.warmup?.duration_seconds ?? null,
+        warmup_completed: input.warmup?.completed ?? false,
+        generation_source: input.generation_source ?? "llm",
+        goal_snapshot: input.goal_snapshot,
+        custom_goal_snapshot: input.custom_goal_snapshot ?? null,
+        started_at: input.started_at ?? new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    )
     .select()
     .single();
 
