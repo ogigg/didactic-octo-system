@@ -19,6 +19,7 @@ At a high level:
 - the mobile app owns onboarding, workout execution, local interaction state, and resilience for interrupted sessions
 - Supabase owns authentication, persistent data, and server-side business logic
 - the AI generation pipeline produces workouts from user context and history, then validates the output before it becomes user-facing
+- deterministic progression validation preserves ordered ramp-up, top-set, and back-off patterns from recent working sets; safety-driven reductions are bounded and expose their reason code to the mobile reasoning UI
 
 ## System Diagram
 

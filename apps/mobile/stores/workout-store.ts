@@ -1,4 +1,5 @@
 import type { ExerciseImageData } from "@/lib/exercise-media";
+import type { ProgressionReasonCode } from "@/lib/progression-reasoning";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import {
@@ -48,6 +49,8 @@ export interface WorkoutExercise {
     | "maintained"
     | "new_exercise"
     | null;
+  progressionReasonCode?: ProgressionReasonCode | null;
+  progressionIsDeload?: boolean;
 }
 
 interface RestTimerState {

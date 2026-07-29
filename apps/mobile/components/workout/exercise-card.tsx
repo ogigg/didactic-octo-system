@@ -25,6 +25,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import type { ExerciseImageData } from "@/lib/exercise-media";
+import { getProgressionReasonTranslationKey } from "@/lib/progression-reasoning";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -66,6 +67,10 @@ export function ExerciseCard({
   const { data: personalRecords } = usePersonalRecords();
 
   const isTimeExercise = (exercise.exerciseType ?? "weight") === "time";
+  const progressionReasonKey = getProgressionReasonTranslationKey(
+    exercise.progressionReasonCode,
+    exercise.progressionIsDeload ?? false
+  );
 
   const baseline = useMemo(() => {
     const record = personalRecords?.find((r) => r.exercise_id === exercise.id);
@@ -358,6 +363,10 @@ export function ExerciseCard({
             {
               label: t("reasoning.exerciseSelection"),
               text: exercise.reasoning?.exercise_selection,
+            },
+            {
+              label: t("reasoning.progressionAdjustment"),
+              text: progressionReasonKey ? t(progressionReasonKey) : null,
             },
           ]}
         />

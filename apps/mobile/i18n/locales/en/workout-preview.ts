@@ -27,6 +27,31 @@ export const workoutPreview = {
     muscleGroups: "Muscle groups",
     trainingStrategy: "Training strategy",
     exerciseSelection: "Exercise choice",
+    progressionAdjustment: "Progression adjustment",
+    progression: {
+      staleHistoryHold:
+        "Targets were held because the available performance history is stale.",
+      staleHistoryDeload:
+        "Targets were reduced conservatively because the available performance history is stale.",
+      feedbackTooHardHold:
+        "Targets were held because the previous session was rated too hard.",
+      feedbackTooHardDeload:
+        "Targets were reduced conservatively because the previous session was rated too hard.",
+      highRpeHold:
+        "Targets were held because a recent working set reached RPE 9 or higher.",
+      highRpeDeload:
+        "Targets were reduced conservatively because a recent working set reached RPE 9 or higher.",
+      feedbackConflictHold:
+        "Targets were held because easy feedback conflicted with a recent RPE of 9 or higher.",
+      feedbackConflictDeload:
+        "Targets were reduced conservatively because easy feedback conflicted with a recent RPE of 9 or higher.",
+      feedbackTooEasy:
+        "Targets increased because the previous session was rated too easy.",
+      repRangeIncrease:
+        "Repetitions increased within the configured training range.",
+      weightIncrement: "Load increased by the configured equipment increment.",
+      timeIncrement: "Duration increased by the configured time increment.",
+    },
     planAccessibility: "Show workout reasoning",
     exerciseAccessibility: "Show reasoning for {{exerciseName}}",
   },

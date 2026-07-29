@@ -391,6 +391,66 @@ Deno.test("preserves a top-set and back-off pattern", () => {
 });
 
 Deno.test(
+  "retains the peak and back-off when downsampling four sets to three",
+  () => {
+    const targets = [
+      { target_load_kg: 40, target_reps: 10 },
+      { target_load_kg: 50, target_reps: 8 },
+      { target_load_kg: 45, target_reps: 10 },
+      { target_load_kg: 40, target_reps: 12 },
+    ];
+
+    assertEquals(
+      Array.from({ length: 3 }, (_, index) =>
+        getProgressionSetTarget(targets, index, 3)
+      ),
+      [targets[0], targets[1], targets[3]]
+    );
+  }
+);
+
+Deno.test(
+  "retains the peak and back-off when downsampling five sets to three",
+  () => {
+    const targets = [
+      { target_load_kg: 35, target_reps: 12 },
+      { target_load_kg: 42.5, target_reps: 10 },
+      { target_load_kg: 50, target_reps: 8 },
+      { target_load_kg: 45, target_reps: 10 },
+      { target_load_kg: 40, target_reps: 12 },
+    ];
+
+    assertEquals(
+      Array.from({ length: 3 }, (_, index) =>
+        getProgressionSetTarget(targets, index, 3)
+      ),
+      [targets[0], targets[2], targets[4]]
+    );
+  }
+);
+
+Deno.test("single-set mapping uses reps to break equal-load ties", () => {
+  const targets = [
+    { target_load_kg: 40, target_reps: 8 },
+    { target_load_kg: 40, target_reps: 12 },
+  ];
+
+  assertEquals(getProgressionSetTarget(targets, 0, 1), targets[1]);
+});
+
+Deno.test(
+  "single-set mapping keeps the top load ahead of lower high-rep sets",
+  () => {
+    const targets = [
+      { target_load_kg: 40, target_reps: 20 },
+      { target_load_kg: 50, target_reps: 5 },
+    ];
+
+    assertEquals(getProgressionSetTarget(targets, 0, 1), targets[1]);
+  }
+);
+
+Deno.test(
   "maintains ordered targets when safety feedback blocks progression",
   () => {
     const result = calculateProgression(
@@ -438,6 +498,64 @@ Deno.test("allows a generated reduction only with a safety reason", () => {
       PROGRESSION_REASON_CODES.REP_RANGE_INCREASE
     ),
     historicalTarget
+  );
+});
+
+Deno.test(
+  "bounds malformed safety reductions to configured deload limits",
+  () => {
+    assertEquals(
+      validateProgressionSetTarget(
+        { target_load_kg: 0, target_reps: 1 },
+        { target_load_kg: 45, target_reps: 8 },
+        PROGRESSION_REASON_CODES.HIGH_RPE
+      ),
+      { target_load_kg: 38.25, target_reps: 6 }
+    );
+  }
+);
+
+Deno.test("keeps bodyweight zero valid while bounding rep reductions", () => {
+  assertEquals(
+    validateProgressionSetTarget(
+      { target_load_kg: 0, target_reps: 1 },
+      { target_load_kg: 0, target_reps: 8 },
+      PROGRESSION_REASON_CODES.HIGH_RPE
+    ),
+    { target_load_kg: 0, target_reps: 6 }
+  );
+});
+
+Deno.test("bounds malformed duration reductions", () => {
+  assertEquals(
+    validateProgressionSetTarget(
+      { target_duration_seconds: 1 },
+      { target_duration_seconds: 60 },
+      PROGRESSION_REASON_CODES.HIGH_RPE
+    ),
+    { target_duration_seconds: 51 }
+  );
+});
+
+Deno.test("rejects weighted zero history but accepts bodyweight zero", () => {
+  const zeroLoadHistory = makeHistory({
+    working_sets: [
+      { load_kg: 0, reps: 10, completed: true },
+      { load_kg: 0, reps: 8, completed: true },
+    ],
+  });
+
+  assertEquals(
+    calculateProgression(zeroLoadHistory, ["barbell"], "hypertrophy", NOW),
+    null
+  );
+  assertEquals(
+    calculateProgression(zeroLoadHistory, ["bodyweight"], "hypertrophy", NOW)
+      ?.set_targets,
+    [
+      { target_load_kg: 0, target_reps: 12 },
+      { target_load_kg: 0, target_reps: 10 },
+    ]
   );
 });
 

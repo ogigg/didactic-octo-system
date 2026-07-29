@@ -51,6 +51,9 @@ function mapResponseToWorkoutExercises(
       reasoning: ex.reasoning ?? null,
       difficultyFeedback: null,
       exerciseType: ex.exercise_type ?? "weight",
+      progressionType: ex.progression_type ?? null,
+      progressionReasonCode: ex.progression_reason_code ?? null,
+      progressionIsDeload: ex.progression_is_deload ?? false,
       sets: ex.sets.map((set, i): WorkoutSet => {
         const previousDisplay =
           set.set_type === "working"

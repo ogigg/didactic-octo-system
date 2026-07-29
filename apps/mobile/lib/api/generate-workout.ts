@@ -1,4 +1,8 @@
 import { exerciseImageSchema } from "@/lib/exercise-media";
+import {
+  PROGRESSION_REASON_CODES,
+  type ProgressionReasonCode,
+} from "@/lib/progression-reasoning";
 import { supabase } from "@/lib/supabase";
 import { z } from "zod";
 
@@ -55,6 +59,13 @@ export const progressionTypeSchema = z.enum([
 
 export type ProgressionType = z.infer<typeof progressionTypeSchema>;
 
+export const progressionReasonCodeSchema = z.enum(
+  Object.values(PROGRESSION_REASON_CODES) as [
+    ProgressionReasonCode,
+    ...ProgressionReasonCode[],
+  ]
+);
+
 const generatedExerciseSchema = z.object({
   exercise_id: z.string(),
   exercise_name: z.string(),
@@ -66,6 +77,8 @@ const generatedExerciseSchema = z.object({
   sets: z.array(generatedSetSchema),
   progression_type: progressionTypeSchema.nullable().optional(),
   previous_display: z.string().nullable().optional(),
+  progression_reason_code: progressionReasonCodeSchema.nullable().optional(),
+  progression_is_deload: z.boolean().default(false).optional(),
 });
 
 export const generateWorkoutResponseSchema = z.object({
