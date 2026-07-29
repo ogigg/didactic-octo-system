@@ -54,6 +54,9 @@ export default function ExercisePickerScreen() {
   const replaceExercise = useWorkoutStore((s) => s.replaceExercise);
   const addExercise = useWorkoutStore((s) => s.addExercise);
   const addExerciseAfter = useWorkoutStore((s) => s.addExerciseAfter);
+  const hydrateExercisePreviousDisplays = useWorkoutStore(
+    (s) => s.hydrateExercisePreviousDisplays
+  );
   const workoutExercises = useWorkoutStore((s) => s.exercises);
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
   const { data: profile } = useProfile();
@@ -79,6 +82,7 @@ export default function ExercisePickerScreen() {
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isAddingRef = useRef(false);
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchText(text);
@@ -202,20 +206,73 @@ export default function ExercisePickerScreen() {
     [weightUnit]
   );
 
-  const addBelowCurrentExercise = useCallback(
-    async (exercise: Exercise) => {
-      if (!exerciseId) return;
-      const previousDisplays = await getPreviousDisplays(exercise);
-      addExerciseAfter(exerciseId, {
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
-        previousDisplays,
-      });
-      router.back();
+  const showAddError = useCallback(
+    (error: unknown) => {
+      console.warn("[exercise-picker] failed to add exercise", error);
+      Alert.alert(t("addError.title"), t("addError.message"));
     },
-    [addExerciseAfter, exerciseId, getPreviousDisplays, router]
+    [t]
+  );
+
+  const showPersistenceError = useCallback(
+    (error: unknown) => {
+      console.warn("[exercise-picker] failed to persist added exercise", error);
+      Alert.alert(t("saveError.title"), t("saveError.message"));
+    },
+    [t]
+  );
+
+  const hydratePreviousDisplays = useCallback(
+    (exercise: Exercise) => {
+      void getPreviousDisplays(exercise).then((previousDisplays) => {
+        if (previousDisplays.length === 0) return;
+
+        void hydrateExercisePreviousDisplays(
+          exercise.id,
+          previousDisplays
+        ).catch((error) => {
+          console.warn(
+            "[exercise-picker] failed to persist previous set displays",
+            error
+          );
+        });
+      });
+    },
+    [getPreviousDisplays, hydrateExercisePreviousDisplays]
+  );
+
+  const addBelowCurrentExercise = useCallback(
+    (exercise: Exercise) => {
+      if (!exerciseId || isAddingRef.current) return;
+      isAddingRef.current = true;
+
+      let persistence: Promise<void>;
+      try {
+        persistence = addExerciseAfter(exerciseId, {
+          id: exercise.id,
+          name: exercise.name,
+          image: exercise.image,
+          exerciseType: exercise.exercise_type,
+        });
+      } catch (error) {
+        isAddingRef.current = false;
+        showAddError(error);
+        return;
+      }
+
+      router.back();
+      void persistence
+        .then(() => hydratePreviousDisplays(exercise))
+        .catch(showPersistenceError);
+    },
+    [
+      addExerciseAfter,
+      exerciseId,
+      hydratePreviousDisplays,
+      router,
+      showAddError,
+      showPersistenceError,
+    ]
   );
 
   const handleSelect = useCallback(
@@ -231,14 +288,27 @@ export default function ExercisePickerScreen() {
         return;
       }
       if (mode === "add") {
-        const previousDisplays = await getPreviousDisplays(exercise);
-        addExercise({
-          id: exercise.id,
-          name: exercise.name,
-          image: exercise.image,
-          exerciseType: exercise.exercise_type,
-          previousDisplays,
-        });
+        if (isAddingRef.current) return;
+        isAddingRef.current = true;
+
+        let persistence: Promise<void>;
+        try {
+          persistence = addExercise({
+            id: exercise.id,
+            name: exercise.name,
+            image: exercise.image,
+            exerciseType: exercise.exercise_type,
+          });
+        } catch (error) {
+          isAddingRef.current = false;
+          showAddError(error);
+          return;
+        }
+        router.back();
+        void persistence
+          .then(() => hydratePreviousDisplays(exercise))
+          .catch(showPersistenceError);
+        return;
       } else if (exerciseId) {
         if (hasLoggedValues()) {
           Alert.alert(t("replaceConfirm.title"), t("replaceConfirm.message"), [
@@ -264,11 +334,13 @@ export default function ExercisePickerScreen() {
       exerciseId,
       addExercise,
       addBelowCurrentExercise,
-      getPreviousDisplays,
       hasLoggedValues,
+      hydratePreviousDisplays,
       replaceCurrentExercise,
       router,
       setSwapResult,
+      showAddError,
+      showPersistenceError,
       t,
     ]
   );
