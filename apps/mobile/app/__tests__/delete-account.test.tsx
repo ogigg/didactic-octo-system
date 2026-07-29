@@ -83,6 +83,13 @@ describe("DeleteAccountScreen", () => {
     expect(screen.getByText("cta.delete")).toBeTruthy();
   });
 
+  it("passes the localized back accessibility label to the header", () => {
+    renderScreen();
+    expect(
+      screen.getByRole("button", { name: "accessibility.back" })
+    ).toBeTruthy();
+  });
+
   it("keeps the destructive CTA disabled until the user types DELETE", () => {
     renderScreen();
     const cta = screen.getByRole("button", {

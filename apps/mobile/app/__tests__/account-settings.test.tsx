@@ -1,4 +1,6 @@
 const mockNavigate = jest.fn();
+const mockOpenSubscriptionManagement = jest.fn(() => Promise.resolve());
+let mockIsProActive = false;
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({
@@ -13,9 +15,12 @@ jest.mock("expo-router", () => ({
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) =>
-      key === "deletion.accessibilityLabel"
-        ? "Delete account, destructive action"
-        : key,
+      (
+        ({
+          "accessibility.back": "Go back",
+          "deletion.accessibilityLabel": "Delete account, destructive action",
+        }) as Record<string, string>
+      )[key] ?? key,
   }),
 }));
 
@@ -27,13 +32,34 @@ jest.mock("@/components/ambient-glow", () => ({
   AmbientGlow: () => null,
 }));
 
-import { fireEvent, render, screen } from "@testing-library/react-native";
+jest.mock("@/hooks/use-subscription", () => ({
+  useSubscription: () => ({
+    isProActive: mockIsProActive,
+  }),
+}));
+
+jest.mock("@/lib/subscription-management", () => ({
+  openSubscriptionManagement: () => mockOpenSubscriptionManagement(),
+}));
+
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
+import { Alert } from "react-native";
 
 import AccountSettingsScreen from "../account-settings";
+
+const alertSpy = jest.spyOn(Alert, "alert");
 
 describe("AccountSettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsProActive = false;
+    mockOpenSubscriptionManagement.mockResolvedValue(undefined);
   });
 
   it("keeps subscription management separate from account deletion", () => {
@@ -55,5 +81,68 @@ describe("AccountSettingsScreen", () => {
     );
 
     expect(mockNavigate).toHaveBeenCalledWith("/delete-account");
+  });
+
+  it("localizes the back button accessibility label", () => {
+    render(<AccountSettingsScreen />);
+
+    expect(screen.getByRole("button", { name: "Go back" })).toBeTruthy();
+  });
+
+  it("warns active subscribers before deletion and offers store management", async () => {
+    mockIsProActive = true;
+    render(<AccountSettingsScreen />);
+
+    fireEvent.press(
+      screen.getByRole("button", {
+        name: "Delete account, destructive action",
+      })
+    );
+
+    expect(mockNavigate).not.toHaveBeenCalledWith("/delete-account");
+    const buttons = alertSpy.mock.calls.at(-1)?.[2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+
+    await act(async () => {
+      buttons
+        .find((button) => button.text === "deletion.subscriptionWarning.manage")
+        ?.onPress?.();
+    });
+    expect(mockOpenSubscriptionManagement).toHaveBeenCalledTimes(1);
+
+    buttons.find((button) => button.style === "destructive")?.onPress?.();
+    expect(mockNavigate).toHaveBeenCalledWith("/delete-account");
+  });
+
+  it("shows a localized error when pre-deletion store management fails", async () => {
+    mockIsProActive = true;
+    mockOpenSubscriptionManagement.mockRejectedValue(new Error("unavailable"));
+    render(<AccountSettingsScreen />);
+
+    fireEvent.press(
+      screen.getByRole("button", {
+        name: "Delete account, destructive action",
+      })
+    );
+    const buttons = alertSpy.mock.calls.at(-1)?.[2] as {
+      text: string;
+      onPress?: () => void;
+    }[];
+
+    await act(async () => {
+      buttons
+        .find((button) => button.text === "deletion.subscriptionWarning.manage")
+        ?.onPress?.();
+    });
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenLastCalledWith(
+        "subscription.errorTitle",
+        "subscription.errorMessage"
+      )
+    );
   });
 });

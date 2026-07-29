@@ -29,5 +29,17 @@ describe("Polish locale resources", () => {
     expect(resources.pl.profile.stats.trainingsCompleted).toBe(
       "UKOŃCZONE TRENINGI"
     );
+    expect(resources.pl.accountSettings.accessibility.back).toBe("Wróć");
+    expect(resources.pl.deleteAccount.accessibility.back).toBe("Wróć");
+    expect(resources.pl.subscription.screen.backAccessibilityLabel).toBe(
+      "Wróć"
+    );
+    expect(resources.en.deleteAccount.retention.body).toContain(
+      "user-owned app data"
+    );
+    expect(resources.en.deleteAccount.retention.body).not.toContain("legal");
+    expect(resources.pl.deleteAccount.retention.body).toContain(
+      "dane aplikacji należące do użytkownika"
+    );
   });
 });

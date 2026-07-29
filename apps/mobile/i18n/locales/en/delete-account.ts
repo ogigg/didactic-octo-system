@@ -2,13 +2,16 @@ export const deleteAccount = {
   header: {
     title: "Delete Account",
   },
+  accessibility: {
+    back: "Go back",
+  },
   warning: {
     title: "Grace period: 14 days",
     body: "Your account will be scheduled for deletion. You have 14 days to change your mind — simply sign back in and your account is restored. After that, your account data is permanently deleted and cannot be recovered.",
   },
   retention: {
-    heading: "What may be retained",
-    body: "Limited records may be retained when required for security, fraud prevention, legal, or regulatory obligations. They cannot be used to restore your account.",
+    heading: "What remains after deletion",
+    body: "After 14 days, your sign-in account and user-owned app data are deleted from the app database and cannot be restored. Apple or Google may keep purchase and billing records under their own policies.",
   },
   subscription: {
     heading: "Subscription cancellation",
@@ -31,7 +34,7 @@ export const deleteAccount = {
   finalConfirm: {
     title: "Schedule account deletion?",
     message:
-      "You'll be signed out of every device. Sign back in within 14 days to cancel; after that, your account data cannot be recovered. Store subscriptions must be cancelled separately, and limited records may be retained where required.",
+      "You'll be signed out of every device. Sign back in within 14 days to cancel; after that, your sign-in account and user-owned app data cannot be recovered. Store billing continues until cancelled, and Apple or Google may keep their purchase records.",
     confirm: "Schedule Deletion",
     cancel: "Cancel",
   },

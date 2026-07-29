@@ -1,6 +1,6 @@
 import { type Href, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
@@ -10,16 +10,54 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useSubscription } from "@/hooks/use-subscription";
+import { openSubscriptionManagement } from "@/lib/subscription-management";
 
 export default function AccountSettingsScreen() {
   const { t } = useTranslation("accountSettings");
   const router = useRouter();
+  const { isProActive } = useSubscription();
 
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
 
   const navigate = (route: Href) => router.navigate(route);
+
+  async function handleManageSubscription() {
+    try {
+      await openSubscriptionManagement();
+    } catch {
+      Alert.alert(t("subscription.errorTitle"), t("subscription.errorMessage"));
+    }
+  }
+
+  function handleDeleteAccount() {
+    if (!isProActive) {
+      navigate("/delete-account");
+      return;
+    }
+
+    Alert.alert(
+      t("deletion.subscriptionWarning.title"),
+      t("deletion.subscriptionWarning.message"),
+      [
+        {
+          text: t("deletion.subscriptionWarning.cancel"),
+          style: "cancel",
+        },
+        {
+          text: t("deletion.subscriptionWarning.manage"),
+          onPress: () => void handleManageSubscription(),
+        },
+        {
+          text: t("deletion.subscriptionWarning.continue"),
+          style: "destructive",
+          onPress: () => navigate("/delete-account"),
+        },
+      ]
+    );
+  }
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
@@ -28,6 +66,7 @@ export default function AccountSettingsScreen() {
         <ScreenHeader
           title={t("header.title")}
           titleStyle={Typography.titleMd}
+          backAccessibilityLabel={t("accessibility.back")}
         />
 
         <ScrollView
@@ -76,7 +115,7 @@ export default function AccountSettingsScreen() {
                 icon="person.crop.circle.badge.xmark"
                 label={t("deletion.label")}
                 description={t("deletion.description")}
-                onPress={() => navigate("/delete-account")}
+                onPress={handleDeleteAccount}
                 accessibilityLabel={t("deletion.accessibilityLabel")}
                 position="only"
               />

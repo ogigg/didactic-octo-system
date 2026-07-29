@@ -160,6 +160,7 @@ export default function DeleteAccountScreen() {
           title={t("header.title")}
           titleStyle={Typography.titleMd}
           onBack={isPending ? () => {} : undefined}
+          backAccessibilityLabel={t("accessibility.back")}
         />
 
         <KeyboardAvoidingView

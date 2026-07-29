@@ -2,13 +2,16 @@ export const deleteAccount = {
   header: {
     title: "Usuń konto",
   },
+  accessibility: {
+    back: "Wróć",
+  },
   warning: {
     title: "Okres ochronny: 14 dni",
     body: "Twoje konto zostanie zaplanowane do usunięcia. Masz 14 dni, aby zmienić zdanie — wystarczy zalogować się ponownie, a konto zostanie przywrócone. Po tym czasie dane konta zostaną trwale usunięte i nie będzie można ich odzyskać.",
   },
   retention: {
-    heading: "Co może zostać zachowane",
-    body: "Ograniczone dane mogą zostać zachowane, jeśli wymagają tego względy bezpieczeństwa, zapobieganie oszustwom lub obowiązki prawne i regulacyjne. Nie można ich użyć do przywrócenia konta.",
+    heading: "Co pozostaje po usunięciu",
+    body: "Po 14 dniach konto logowania i dane aplikacji należące do użytkownika zostaną usunięte z bazy aplikacji bez możliwości przywrócenia. Apple lub Google mogą zachować dane zakupów i płatności zgodnie z własnymi zasadami.",
   },
   subscription: {
     heading: "Anulowanie subskrypcji",
@@ -31,7 +34,7 @@ export const deleteAccount = {
   finalConfirm: {
     title: "Zaplanować usunięcie konta?",
     message:
-      "Zostaniesz wylogowany ze wszystkich urządzeń. Zaloguj się ponownie w ciągu 14 dni, aby anulować; później nie będzie można odzyskać danych konta. Subskrypcje w sklepie trzeba anulować osobno, a ograniczone dane mogą zostać zachowane, jeśli jest to wymagane.",
+      "Zostaniesz wylogowany ze wszystkich urządzeń. Zaloguj się ponownie w ciągu 14 dni, aby anulować; później nie będzie można odzyskać konta logowania ani danych aplikacji należących do użytkownika. Opłaty w sklepie trwają do anulowania, a Apple lub Google mogą zachować dane zakupów.",
     confirm: "Zaplanuj usunięcie",
     cancel: "Anuluj",
   },
