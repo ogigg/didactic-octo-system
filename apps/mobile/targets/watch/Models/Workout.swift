@@ -53,13 +53,13 @@ struct WatchSet: Codable, Equatable, Identifiable {
 }
 
 struct WatchSyncEnvelope {
-    let revision: Int
+    let revision: Int64
     let snapshot: WatchWorkoutSnapshot
     let acknowledgedCommandIDs: [String]
 
     init?(dictionary: [String: Any]) {
         guard (dictionary["protocolVersion"] as? NSNumber)?.intValue == watchSyncProtocolVersion,
-            let revision = (dictionary["revision"] as? NSNumber)?.intValue,
+            let revision = (dictionary["revision"] as? NSNumber)?.int64Value,
             let payload = dictionary["payload"] as? String,
             let data = payload.data(using: .utf8)
         else { return nil }
@@ -79,7 +79,7 @@ struct WatchSyncEnvelope {
 struct WatchCommand: Codable, Identifiable {
     let protocolVersion: Int
     let commandID: String
-    let baseRevision: Int
+    let baseRevision: Int64
     let sentAt: String
     let type: CommandType
     let payload: String

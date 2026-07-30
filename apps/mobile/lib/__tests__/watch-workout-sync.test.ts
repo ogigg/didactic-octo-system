@@ -43,6 +43,19 @@ const exercises: WorkoutExercise[] = [
 ];
 
 describe("watch workout synchronization", () => {
+  it("preserves revisions above the physical Watch Int32 range", () => {
+    const revision = 1_775_000_000_123;
+    const snapshot = buildActiveWatchSnapshot({
+      workoutName: "Physical Watch",
+      startedAtMs: revision,
+      exercises,
+      restTimer: null,
+    });
+
+    expect(makeWatchEnvelope(snapshot, revision).revision).toBe(revision);
+    expect(revision).toBeGreaterThan(2_147_483_647);
+  });
+
   it("builds a full stable-ID snapshot with an anchored rest end date", () => {
     const snapshot = buildActiveWatchSnapshot({
       workoutName: "Push day",

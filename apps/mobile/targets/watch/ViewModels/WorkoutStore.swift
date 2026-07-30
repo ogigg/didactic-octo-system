@@ -13,7 +13,7 @@ final class WorkoutCoordinator {
     }
 
     var snapshot: WatchWorkoutSnapshot?
-    private(set) var revision: Int
+    private(set) var revision: Int64
     var screen: Screen = .exerciseList
     var loadKg = 0.0
     var reps = 0
@@ -49,7 +49,9 @@ final class WorkoutCoordinator {
     }
 
     init() {
-        revision = UserDefaults.standard.integer(forKey: revisionDefaultsKey)
+        revision =
+            (UserDefaults.standard.object(forKey: revisionDefaultsKey) as? NSNumber)?
+            .int64Value ?? 0
         connectivity.onEnvelope = { [weak self] envelope in
             self?.apply(envelope)
         }
