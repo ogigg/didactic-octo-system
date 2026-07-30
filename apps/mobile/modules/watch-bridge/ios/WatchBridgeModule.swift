@@ -24,18 +24,13 @@ public final class WatchBridgeModule: Module {
       let session = WCSession.default
       var envelope = incomingEnvelope
       envelope["acknowledgedCommandIDs"] = self.sessionDelegate.acknowledgedCommandIDs
-      guard session.activationState == .activated else {
-        self.sessionDelegate.pendingApplicationContext = envelope
-        session.activate()
-        return
-      }
-
-      // Application context is the durable, latest-wins canonical snapshot.
-      try session.updateApplicationContext(envelope)
+      // Persist first so a paired Watch whose companion is still installing
+      // does not turn normal installation state into a rejected JS promise.
+      self.sessionDelegate.queueApplicationContext(envelope, on: session)
 
       // A reachable message makes the UI feel immediate. The watch rejects
       // stale revisions, so receiving both paths is harmless.
-      if session.isReachable {
+      if session.isWatchAppInstalled && session.isReachable {
         session.sendMessage(envelope, replyHandler: nil) { error in
           print("[WatchBridge] immediate state delivery failed:", error)
         }
@@ -52,6 +47,10 @@ public final class WatchBridgeModule: Module {
 
     Function("isWatchPaired") { () -> Bool in
       WCSession.isSupported() && WCSession.default.isPaired
+    }
+
+    Function("isWatchAppInstalled") { () -> Bool in
+      WCSession.isSupported() && WCSession.default.isWatchAppInstalled
     }
 
     Function("isWatchReachable") { () -> Bool in

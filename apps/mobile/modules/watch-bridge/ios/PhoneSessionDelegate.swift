@@ -25,6 +25,35 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     UserDefaults.standard.array(forKey: pendingDefaultsKey) as? [[String: Any]] ?? []
   }
 
+  func queueApplicationContext(
+    _ applicationContext: [String: Any],
+    on session: WCSession
+  ) {
+    pendingApplicationContext = applicationContext
+    flushPendingApplicationContext(on: session)
+  }
+
+  func flushPendingApplicationContext(on session: WCSession) {
+    guard session.activationState == .activated else {
+      session.activate()
+      return
+    }
+    guard session.isPaired, session.isWatchAppInstalled,
+          let pendingApplicationContext
+    else {
+      return
+    }
+
+    do {
+      try session.updateApplicationContext(pendingApplicationContext)
+      self.pendingApplicationContext = nil
+    } catch {
+      // Keep the latest snapshot persisted. Watch installation and
+      // connectivity state can change after the phone app has launched.
+      print("[WatchBridge] pending application context failed:", error)
+    }
+  }
+
   func acknowledge(commandID: String) {
     let remaining = pendingActions.filter {
       ($0["commandID"] as? String) != commandID
@@ -49,14 +78,8 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
       print("[WatchBridge] activation failed:", error)
       return
     }
-    guard activationState == .activated, let pendingApplicationContext else {
-      return
-    }
-    do {
-      try session.updateApplicationContext(pendingApplicationContext)
-      self.pendingApplicationContext = nil
-    } catch {
-      print("[WatchBridge] pending application context failed:", error)
+    if activationState == .activated {
+      flushPendingApplicationContext(on: session)
     }
   }
 
@@ -64,6 +87,10 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
 
   func sessionDidDeactivate(_ session: WCSession) {
     session.activate()
+  }
+
+  func sessionWatchStateDidChange(_ session: WCSession) {
+    flushPendingApplicationContext(on: session)
   }
 
   func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {

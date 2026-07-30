@@ -14,6 +14,7 @@ interface NativeWatchBridge {
   drainPendingActions(): Promise<Record<string, unknown>[]>;
   acknowledgeCommand(commandID: string): Promise<void>;
   isWatchPaired(): boolean;
+  isWatchAppInstalled(): boolean;
   isWatchReachable(): boolean;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
@@ -57,6 +58,10 @@ export async function sendWorkoutState(
 
 export function isWatchPaired(): boolean {
   return getNative()?.isWatchPaired() ?? false;
+}
+
+export function isWatchAppInstalled(): boolean {
+  return getNative()?.isWatchAppInstalled() ?? false;
 }
 
 export function isWatchReachable(): boolean {

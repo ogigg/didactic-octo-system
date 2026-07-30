@@ -118,3 +118,10 @@ xcodebuild -workspace Sweaty.xcworkspace -scheme SweatyWatch build
 
 The checked-in `targets/watch` directory is the source of truth; generated
 `ios` files remain disposable.
+
+For a paired physical Watch, installing the iPhone development build does not
+always install its companion immediately. Open the Watch app on the iPhone,
+find Sweaty under **Available Apps**, and tap **Install**. If it is not listed,
+open `ios/Sweaty.xcworkspace`, select the `SweatyWatch` scheme and the paired
+Watch destination, then run it once from Xcode. The phone bridge keeps the
+latest workout snapshot queued while the companion is installing.

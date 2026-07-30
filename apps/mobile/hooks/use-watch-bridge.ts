@@ -46,6 +46,10 @@ export function useWatchBridge(): void {
   useEffect(() => {
     if (Platform.OS !== "ios") return;
 
+    function reportBridgeError(operation: string, error: unknown): void {
+      console.warn(`[WatchBridge] ${operation} failed:`, error);
+    }
+
     async function publishCanonicalState(): Promise<void> {
       const state = useWorkoutStore.getState();
       if (!isWatchPaired()) return;
@@ -71,7 +75,9 @@ export function useWatchBridge(): void {
       }
     }
 
-    void publishCanonicalState();
+    void publishCanonicalState().catch((error: unknown) => {
+      reportBridgeError("initial state publication", error);
+    });
 
     const unsubscribeStore = useWorkoutStore.subscribe(
       (state) => ({
@@ -87,7 +93,9 @@ export function useWatchBridge(): void {
         if (!applyingWatchCommandRef.current) {
           acceptedSetUpdateBasesRef.current.clear();
         }
-        void publishCanonicalState();
+        void publishCanonicalState().catch((error: unknown) => {
+          reportBridgeError("state publication", error);
+        });
       }
     );
 
@@ -241,22 +249,28 @@ export function useWatchBridge(): void {
             Array.from(processedCommandIDsRef.current).slice(-100)
           );
         }
-        void publishCanonicalState();
+        void publishCanonicalState().catch((error: unknown) => {
+          reportBridgeError("post-command state publication", error);
+        });
       }
     }
 
-    const subscription = onWatchAction((rawAction) => {
-      actionQueueRef.current = actionQueueRef.current.then(() =>
-        applyRawAction(rawAction)
-      );
-    });
-    void drainPendingWatchActions().then((actions) => {
-      actions.forEach((action) => {
-        actionQueueRef.current = actionQueueRef.current.then(() =>
-          applyRawAction(action)
-        );
+    function enqueueRawAction(rawAction: unknown): void {
+      actionQueueRef.current = actionQueueRef.current
+        .then(() => applyRawAction(rawAction))
+        .catch((error: unknown) => {
+          reportBridgeError("watch action processing", error);
+        });
+    }
+
+    const subscription = onWatchAction(enqueueRawAction);
+    void drainPendingWatchActions()
+      .then((actions) => {
+        actions.forEach(enqueueRawAction);
+      })
+      .catch((error: unknown) => {
+        reportBridgeError("pending action drain", error);
       });
-    });
 
     return () => {
       unsubscribeStore();
