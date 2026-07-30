@@ -17,11 +17,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { ToastHost } from "@/components/ui/toast-host";
+import { WatchBridgeHost } from "@/components/watch-bridge-host";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useDeepLinks } from "@/hooks/use-deep-links";
 import { useLiveActivityActions } from "@/hooks/use-live-activity-actions";
-import { useWatchBridge } from "@/hooks/use-watch-bridge";
 import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
@@ -52,7 +52,6 @@ export default function RootLayout() {
   // Drain background-safe Live Activity actions (Skip Rest, Adjust Rest, …)
   // queued in the shared App Group by widget App Intents.
   useLiveActivityActions();
-  useWatchBridge();
 
   useEffect(() => {
     const unsubscribe = initialize();
@@ -119,6 +118,7 @@ export default function RootLayout() {
         <View style={[styles.root, { backgroundColor: colors.background }]}>
           <AmbientGlow variant="hero" />
           <QueryClientProvider client={queryClient}>
+            <WatchBridgeHost />
             <ThemeProvider value={theme}>
               <Stack
                 screenOptions={{
