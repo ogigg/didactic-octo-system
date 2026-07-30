@@ -28,12 +28,21 @@ private struct ExerciseListView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(coordinator.snapshot?.name ?? "Workout")
+                        Text(
+                            coordinator.snapshot?.name
+                                ?? String(localized: "Workout")
+                        )
                             .font(.headline)
                             .lineLimit(2)
-                        Text("\(coordinator.completedSetCount)/\(coordinator.totalSetCount) sets")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            watchLocalizedFormat(
+                                "%lld/%lld sets",
+                                coordinator.completedSetCount,
+                                coordinator.totalSetCount
+                            )
+                        )
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     }
                     Spacer()
                     HeartRateButton()
@@ -44,15 +53,17 @@ private struct ExerciseListView: View {
                         coordinator.selectExercise(exercise.id)
                     } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: exercise.sets.allSatisfy(\.isCompleted)
-                                ? "checkmark.circle.fill"
-                                : exercise.id == coordinator.selectedExercise?.id
-                                    ? "circle.inset.filled"
-                                    : "circle")
-                                .foregroundStyle(
-                                    exercise.sets.allSatisfy(\.isCompleted)
-                                        ? WatchTheme.success : WatchTheme.primary
-                                )
+                            Image(
+                                systemName: exercise.sets.allSatisfy(\.isCompleted)
+                                    ? "checkmark.circle.fill"
+                                    : exercise.id == coordinator.selectedExercise?.id
+                                        ? "circle.inset.filled"
+                                        : "circle"
+                            )
+                            .foregroundStyle(
+                                exercise.sets.allSatisfy(\.isCompleted)
+                                    ? WatchTheme.success : WatchTheme.primary
+                            )
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(exercise.name)
                                     .font(.caption)
@@ -64,26 +75,38 @@ private struct ExerciseListView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Text("\(exercise.sets.filter(\.isCompleted).count)/\(exercise.sets.count)")
-                                .font(.caption2)
-                                .monospacedDigit()
+                            Text(
+                                "\(exercise.sets.filter(\.isCompleted).count)/\(exercise.sets.count)"
+                            )
+                            .font(.caption2)
+                            .monospacedDigit()
                         }
                     }
                     .buttonStyle(.plain)
                     .padding(8)
                     .background(WatchTheme.surface, in: RoundedRectangle(cornerRadius: 11))
-                    .accessibilityLabel("\(exercise.name), \(exercise.sets.filter(\.isCompleted).count) of \(exercise.sets.count) sets complete")
+                    .accessibilityLabel(
+                        watchLocalizedFormat(
+                            "%@, %lld of %lld sets complete",
+                            exercise.name,
+                            exercise.sets.filter(\.isCompleted).count,
+                            exercise.sets.count
+                        )
+                    )
                 }
 
-                Button(
-                    endConfirmation ? "Tap again to end" : "End workout",
-                    role: endConfirmation ? .destructive : nil
-                ) {
+                Button(role: endConfirmation ? .destructive : nil) {
                     if endConfirmation {
                         coordinator.finishWorkout()
                     } else {
                         endConfirmation = true
                     }
+                } label: {
+                    Text(
+                        endConfirmation
+                            ? String(localized: "Tap again to end")
+                            : String(localized: "End workout")
+                    )
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -92,15 +115,30 @@ private struct ExerciseListView: View {
     }
 
     private func exerciseSummary(_ exercise: WatchExercise) -> String {
-        guard let set = exercise.sets.first else { return "No sets" }
+        guard let set = exercise.sets.first else {
+            return String(localized: "No sets")
+        }
         let reps = Int(set.targetReps ?? 0)
         if exercise.exerciseType == .time {
-            return "\(exercise.sets.count) sets · \(set.durationSeconds ?? 0)s"
+            return watchLocalizedFormat(
+                "%lld sets · %lld seconds",
+                exercise.sets.count,
+                set.durationSeconds ?? 0
+            )
         }
         if let load = set.targetLoadKg {
-            return "\(exercise.sets.count) × \(reps) · \(load.formatted()) kg"
+            return watchLocalizedFormat(
+                "%lld × %lld · %@ kg",
+                exercise.sets.count,
+                reps,
+                load.formatted()
+            )
         }
-        return "\(exercise.sets.count) × \(reps)"
+        return watchLocalizedFormat(
+            "%lld × %lld",
+            exercise.sets.count,
+            reps
+        )
     }
 }
 
@@ -121,8 +159,9 @@ struct HeartRateButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
-            coordinator.health.heartRate.map { "Heart rate \($0) beats per minute" }
-                ?? "Heart rate unavailable"
+            coordinator.health.heartRate.map {
+                watchLocalizedFormat("Heart rate %lld beats per minute", $0)
+            } ?? String(localized: "Heart rate unavailable")
         )
     }
 }

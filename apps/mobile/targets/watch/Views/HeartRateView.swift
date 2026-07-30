@@ -29,8 +29,8 @@ struct HeartRateView: View {
                 .monospacedDigit()
                 .accessibilityLabel(
                     coordinator.health.heartRate.map {
-                        "\($0) beats per minute"
-                    } ?? "Heart rate unavailable"
+                        watchLocalizedFormat("%lld beats per minute", $0)
+                    } ?? String(localized: "Heart rate unavailable")
                 )
 
             Text("BPM")
@@ -38,13 +38,21 @@ struct HeartRateView: View {
                 .foregroundStyle(.secondary)
 
             if let current = coordinator.health.heartRate,
-               let previous = coordinator.heartRateAtLastSet {
+                let previous = coordinator.heartRateAtLastSet
+            {
                 let delta = current - previous
-                Text(delta == 0 ? "No change since last set" :
-                    "\(delta > 0 ? "+" : "")\(delta) BPM since last set")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                Text(
+                    delta == 0
+                        ? String(localized: "No change since last set")
+                        : watchLocalizedFormat(
+                            "%@%lld BPM since last set",
+                            delta > 0 ? "+" : "",
+                            delta
+                        )
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             } else {
                 Text("Recovery trend appears after you log a set.")
                     .font(.caption2)

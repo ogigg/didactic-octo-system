@@ -15,11 +15,13 @@ struct WatchWorkoutSnapshot: Codable, Equatable {
     enum Status: String, Codable {
         case active
         case completed
+        case cancelled
     }
 }
 
 struct WatchExercise: Codable, Equatable, Identifiable {
     var id: String
+    var catalogExerciseId: String
     var name: String
     var exerciseType: ExerciseType
     var restDurationSeconds: Int
@@ -57,9 +59,9 @@ struct WatchSyncEnvelope {
 
     init?(dictionary: [String: Any]) {
         guard (dictionary["protocolVersion"] as? NSNumber)?.intValue == watchSyncProtocolVersion,
-              let revision = (dictionary["revision"] as? NSNumber)?.intValue,
-              let payload = dictionary["payload"] as? String,
-              let data = payload.data(using: .utf8)
+            let revision = (dictionary["revision"] as? NSNumber)?.intValue,
+            let payload = dictionary["payload"] as? String,
+            let data = payload.data(using: .utf8)
         else { return nil }
 
         let decoder = JSONDecoder()

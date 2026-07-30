@@ -22,8 +22,11 @@ import {
   useRemoveExercisePreference,
 } from "@/hooks/use-exercise-preference-mutations";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import type { WorkoutExercise } from "@/stores/workout-store";
-import { useWorkoutStore } from "@/stores/workout-store";
+import {
+  getExerciseOccurrenceId,
+  type WorkoutExercise,
+  useWorkoutStore,
+} from "@/stores/workout-store";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -112,6 +115,7 @@ export function ExerciseCard({
   const textSecondary = useThemeColor({}, "textSecondary");
   const exerciseName = displayName ?? exercise.name;
   const exerciseImage = image ?? exercise.image ?? null;
+  const occurrenceId = getExerciseOccurrenceId(exercise);
 
   const handleExercisePress = useCallback(() => {
     router.push({
@@ -122,15 +126,18 @@ export function ExerciseCard({
 
   const handleAddSet = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    addSet(exercise.id);
-  }, [addSet, exercise.id]);
+    addSet(occurrenceId);
+  }, [addSet, occurrenceId]);
 
   const handleReplace = useCallback(() => {
     router.push({
       pathname: "/exercise-picker",
-      params: { exerciseId: exercise.id },
+      params: {
+        exerciseId: exercise.id,
+        occurrenceId,
+      },
     });
-  }, [router, exercise.id]);
+  }, [router, exercise.id, occurrenceId]);
 
   const handleRemove = useCallback(() => {
     Alert.alert(
@@ -141,23 +148,23 @@ export function ExerciseCard({
         {
           text: t("removeExercise.confirmRemove"),
           style: "destructive",
-          onPress: () => removeExercise(exercise.id),
+          onPress: () => removeExercise(occurrenceId),
         },
       ]
     );
-  }, [exercise.id, exerciseName, removeExercise, t]);
+  }, [exerciseName, occurrenceId, removeExercise, t]);
 
   const handleNotesChange = useCallback(
     (text: string) => {
-      updateNotes(exercise.id, text);
+      updateNotes(occurrenceId, text);
     },
-    [updateNotes, exercise.id]
+    [updateNotes, occurrenceId]
   );
 
   const handleToggleComplete = useCallback(
     (set: WorkoutExercise["sets"][number]) => {
       const willComplete = !set.isCompleted;
-      toggleSetComplete(exercise.id, set.id);
+      toggleSetComplete(occurrenceId, set.id);
 
       if (!willComplete || isTimeExercise) return;
 
@@ -189,7 +196,7 @@ export function ExerciseCard({
     },
     [
       toggleSetComplete,
-      exercise.id,
+      occurrenceId,
       isTimeExercise,
       buildRecordInputs,
       baseline,
@@ -308,7 +315,7 @@ export function ExerciseCard({
             }}
             set={set}
             setIndex={currentWorkingIndex}
-            exerciseId={exercise.id}
+            exerciseId={occurrenceId}
             exerciseType={exercise.exerciseType ?? "weight"}
             isRecord={isRecordStatus(
               recordStatuses.get(set.id) ?? {
@@ -318,13 +325,13 @@ export function ExerciseCard({
             )}
             onToggleComplete={() => handleToggleComplete(set)}
             onUpdateField={(field, value) =>
-              updateSetField(exercise.id, set.id, field, value)
+              updateSetField(occurrenceId, set.id, field, value)
             }
             onUpdateDuration={(seconds) =>
-              updateSetDuration(exercise.id, set.id, seconds)
+              updateSetDuration(occurrenceId, set.id, seconds)
             }
-            onUpdateRpe={(rpe) => updateSetRpe(exercise.id, set.id, rpe)}
-            onRemove={() => removeSet(exercise.id, set.id)}
+            onUpdateRpe={(rpe) => updateSetRpe(occurrenceId, set.id, rpe)}
+            onRemove={() => removeSet(occurrenceId, set.id)}
             onSubmitReps={hasNextSet ? () => focusNextSet(setIndex) : undefined}
           />
         );
@@ -372,7 +379,7 @@ export function ExerciseCard({
         onReplace={handleReplace}
         onRemove={handleRemove}
         onPreferenceSelect={() => setPrefSheetVisible(true)}
-        onReorder={() => onReorder?.(exercise.id)}
+        onReorder={() => onReorder?.(occurrenceId)}
       />
 
       {/* Exercise Preference Sheet */}

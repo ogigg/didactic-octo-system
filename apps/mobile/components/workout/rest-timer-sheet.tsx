@@ -9,7 +9,11 @@ import {
   getNextUp,
   getRestTimerProgress,
 } from "@/lib/rest-timer";
-import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
+import {
+  getExerciseOccurrenceId,
+  useWorkoutStore,
+  type WorkoutExercise,
+} from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -145,7 +149,10 @@ export function RestTimerSheet({ onClose }: RestTimerSheetProps) {
 
   const exerciseIds = useMemo(() => {
     if (!restTimer) return [];
-    const ids = [restTimer.exerciseId];
+    const restingExercise = exercises.find(
+      (exercise) => getExerciseOccurrenceId(exercise) === restTimer.exerciseId
+    );
+    const ids = restingExercise ? [restingExercise.id] : [];
     const nextUp = getNextUp(exercises, restTimer.exerciseId);
     if (nextUp.kind === "exercise") ids.push(nextUp.exercise.id);
     return ids;
@@ -179,7 +186,9 @@ export function RestTimerSheet({ onClose }: RestTimerSheetProps) {
   // single frame before the parent unmounts this sheet.
   if (!restTimer) return null;
 
-  const exercise = exercises.find((ex) => ex.id === restTimer.exerciseId);
+  const exercise = exercises.find(
+    (item) => getExerciseOccurrenceId(item) === restTimer.exerciseId
+  );
   const { durationSeconds, remainingSeconds, progress } = getRestTimerProgress(
     restTimer.startedAtMs,
     restTimer.durationSeconds,

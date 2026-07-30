@@ -3,9 +3,18 @@ import WatchConnectivity
 
 final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
   var onWatchAction: (([String: Any]) -> Void)?
-  var pendingApplicationContext: [String: Any]?
   private let defaultsKey = "WatchBridge.acknowledgedCommandIDs"
   private let pendingDefaultsKey = "WatchBridge.pendingActions"
+  private let pendingContextDefaultsKey = "WatchBridge.pendingApplicationContext"
+
+  var pendingApplicationContext: [String: Any]? {
+    get {
+      UserDefaults.standard.dictionary(forKey: pendingContextDefaultsKey)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: pendingContextDefaultsKey)
+    }
+  }
 
   var acknowledgedCommandIDs: [String] {
     Array(Set(UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []))
@@ -43,8 +52,12 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     guard activationState == .activated, let pendingApplicationContext else {
       return
     }
-    try? session.updateApplicationContext(pendingApplicationContext)
-    self.pendingApplicationContext = nil
+    do {
+      try session.updateApplicationContext(pendingApplicationContext)
+      self.pendingApplicationContext = nil
+    } catch {
+      print("[WatchBridge] pending application context failed:", error)
+    }
   }
 
   func sessionDidBecomeInactive(_ session: WCSession) {}

@@ -1,4 +1,8 @@
-import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
+import {
+  getExerciseOccurrenceId,
+  type WorkoutExercise,
+  type WorkoutSet,
+} from "@/stores/workout-store";
 
 export interface RestTimerProgress {
   durationSeconds: number;
@@ -53,7 +57,9 @@ export function getNextUp(
   exercises: WorkoutExercise[],
   exerciseId: string
 ): NextUp {
-  const index = exercises.findIndex((ex) => ex.id === exerciseId);
+  const index = exercises.findIndex(
+    (exercise) => getExerciseOccurrenceId(exercise) === exerciseId
+  );
   if (index === -1) return { kind: "done" };
 
   const exercise = exercises[index];

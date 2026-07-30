@@ -1,5 +1,16 @@
 import SwiftUI
 
+func watchLocalizedFormat(
+    _ key: String,
+    _ arguments: CVarArg...
+) -> String {
+    String(
+        format: NSLocalizedString(key, comment: ""),
+        locale: Locale.current,
+        arguments: arguments
+    )
+}
+
 @main
 struct WorkoutWatchApp: App {
     @State private var coordinator = WorkoutCoordinator()
@@ -9,6 +20,9 @@ struct WorkoutWatchApp: App {
             ContentView()
                 .environment(coordinator)
                 .preferredColorScheme(.dark)
+        }
+        .backgroundTask(.watchConnectivity) {
+            await coordinator.waitForPendingConnectivityContent()
         }
     }
 }

@@ -7,20 +7,67 @@ import Observation
 final class HealthKitClient: NSObject, HKWorkoutSessionDelegate,
     HKLiveWorkoutBuilderDelegate
 {
+    private enum SessionState {
+        case idle
+        case starting
+        case active
+        case ending
+    }
+
     var heartRate: Int?
-    var isSessionActive = false
+    var isSessionActive: Bool { state == .active }
 
     private let healthStore = HKHealthStore()
     private var workoutSession: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    private var state = SessionState.idle
+    private var startTask: Task<Bool, Never>?
+    private var endTask: Task<UUID?, Never>?
 
     func startWorkout(at startDate: Date) async -> Bool {
-        guard HKHealthStore.isHealthDataAvailable(), !isSessionActive else {
-            return isSessionActive
+        if let startTask {
+            return await startTask.value
         }
-        let workoutType = HKWorkoutType.workoutType()
-        let heartRateType = HKQuantityType(.heartRate)
+        if let endTask {
+            _ = await endTask.value
+        }
+        guard state == .idle else { return state == .active }
+
+        let task = Task { @MainActor [weak self] in
+            await self?.performStart(at: startDate) ?? false
+        }
+        startTask = task
+        let result = await task.value
+        startTask = nil
+        return result
+    }
+
+    func endWorkout() async -> UUID? {
+        if let endTask {
+            return await endTask.value
+        }
+        if let startTask {
+            _ = await startTask.value
+        }
+        guard state == .active else { return nil }
+
+        let task = Task { @MainActor [weak self] in
+            await self?.performEnd()
+        }
+        endTask = task
+        let result = await task.value
+        endTask = nil
+        return result
+    }
+
+    private func performStart(at startDate: Date) async -> Bool {
+        guard HKHealthStore.isHealthDataAvailable(), state == .idle else {
+            return state == .active
+        }
+        state = .starting
         do {
+            let workoutType = HKWorkoutType.workoutType()
+            let heartRateType = HKQuantityType(.heartRate)
             try await healthStore.requestAuthorization(
                 toShare: [workoutType],
                 read: [heartRateType]
@@ -44,16 +91,18 @@ final class HealthKitClient: NSObject, HKWorkoutSessionDelegate,
             self.builder = builder
             session.startActivity(with: startDate)
             try await builder.beginCollection(at: startDate)
-            isSessionActive = true
+            state = .active
             return true
         } catch {
             print("[SweatyWatch] HealthKit start failed:", error)
+            reset()
             return false
         }
     }
 
-    func endWorkout() async -> UUID? {
-        guard isSessionActive, let builder else { return nil }
+    private func performEnd() async -> UUID? {
+        guard state == .active, let builder else { return nil }
+        state = .ending
         workoutSession?.end()
         do {
             try await builder.endCollection(at: .now)
@@ -91,9 +140,11 @@ final class HealthKitClient: NSObject, HKWorkoutSessionDelegate,
     ) {
         guard collectedTypes.contains(HKQuantityType(.heartRate)) else { return }
         Task { @MainActor in
-            guard let statistics = workoutBuilder.statistics(
-                for: HKQuantityType(.heartRate)
-            ), let quantity = statistics.mostRecentQuantity() else { return }
+            guard
+                let statistics = workoutBuilder.statistics(
+                    for: HKQuantityType(.heartRate)
+                ), let quantity = statistics.mostRecentQuantity()
+            else { return }
             let unit = HKUnit.count().unitDivided(by: .minute())
             self.heartRate = Int(quantity.doubleValue(for: unit).rounded())
         }
@@ -102,7 +153,7 @@ final class HealthKitClient: NSObject, HKWorkoutSessionDelegate,
     private func reset() {
         workoutSession = nil
         builder = nil
-        isSessionActive = false
+        state = .idle
         heartRate = nil
     }
 }

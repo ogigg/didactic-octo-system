@@ -35,6 +35,7 @@ export interface WatchActionPayload {
   loadKg?: number;
   reps?: number;
   deltaSeconds?: number;
+  restId?: string;
   completedAt?: string;
   healthWorkoutUUID?: string;
 }

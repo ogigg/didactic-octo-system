@@ -17,18 +17,28 @@ struct SetLoggerView: View {
                 } label: {
                     Image(systemName: "minus")
                 }
-                .accessibilityLabel(metric == .reps ? "Decrease reps" : "Decrease load")
+                .accessibilityLabel(
+                    metric == .reps
+                        ? String(localized: "Decrease reps")
+                        : String(localized: "Decrease load")
+                )
 
                 Spacer()
                 VStack(spacing: 0) {
-                    Text(metric == .reps
-                        ? "\(coordinator.reps)"
-                        : coordinator.loadKg.formatted())
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                    Text(metric == .reps ? "REPS" : "KG")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                    Text(
+                        metric == .reps
+                            ? "\(coordinator.reps)"
+                            : coordinator.loadKg.formatted()
+                    )
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    Text(
+                        metric == .reps
+                            ? String(localized: "REPS")
+                            : String(localized: "KG")
+                    )
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
                 }
                 .focusable()
                 .digitalCrownRotation(
@@ -47,14 +57,22 @@ struct SetLoggerView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel(metric == .reps ? "Increase reps" : "Increase load")
+                .accessibilityLabel(
+                    metric == .reps
+                        ? String(localized: "Increase reps")
+                        : String(localized: "Increase load")
+                )
             }
 
             HStack(spacing: 5) {
-                metricButton(.reps, label: "REPS", value: "\(coordinator.reps)")
+                metricButton(
+                    .reps,
+                    label: String(localized: "REPS"),
+                    value: "\(coordinator.reps)"
+                )
                 metricButton(
                     .load,
-                    label: "LOAD KG",
+                    label: String(localized: "LOAD KG"),
                     value: coordinator.loadKg.formatted()
                 )
             }
@@ -105,7 +123,9 @@ struct SetLoggerView: View {
         }
         .buttonStyle(.bordered)
         .tint(metric == candidate ? WatchTheme.primary : .secondary)
-        .accessibilityLabel("\(label), \(value)")
+        .accessibilityLabel(
+            watchLocalizedFormat("%@, %@", label, value)
+        )
         .accessibilityAddTraits(metric == candidate ? .isSelected : [])
     }
 }

@@ -13,7 +13,7 @@ final class WorkoutCoordinator {
     }
 
     var snapshot: WatchWorkoutSnapshot?
-    var revision = 0
+    private(set) var revision: Int
     var screen: Screen = .exerciseList
     var loadKg = 0.0
     var reps = 0
@@ -23,6 +23,7 @@ final class WorkoutCoordinator {
     let health = HealthKitClient()
 
     private var healthOwnershipSentForWorkoutID: String?
+    private let revisionDefaultsKey = "SweatyWatch.lastAppliedRevision"
 
     var selectedExercise: WatchExercise? {
         guard let snapshot else { return nil }
@@ -48,6 +49,7 @@ final class WorkoutCoordinator {
     }
 
     init() {
+        revision = UserDefaults.standard.integer(forKey: revisionDefaultsKey)
         connectivity.onEnvelope = { [weak self] envelope in
             self?.apply(envelope)
         }
@@ -57,14 +59,17 @@ final class WorkoutCoordinator {
         connectivity.activate()
     }
 
+    func waitForPendingConnectivityContent() async {
+        await connectivity.waitForPendingContent()
+    }
+
     func apply(_ envelope: WatchSyncEnvelope) {
         connectivity.acknowledge(envelope.acknowledgedCommandIDs)
-        guard envelope.revision >= revision
-                || envelope.snapshot.workoutId != snapshot?.workoutId
-        else { return }
+        guard envelope.revision > revision else { return }
 
         let previousWorkoutID = snapshot?.workoutId
         revision = envelope.revision
+        UserDefaults.standard.set(revision, forKey: revisionDefaultsKey)
         snapshot = envelope.snapshot
 
         if previousWorkoutID != envelope.snapshot.workoutId {
@@ -126,19 +131,26 @@ final class WorkoutCoordinator {
     }
 
     func adjustRest(by seconds: Int) {
-        send(.adjustRest, payload: ["deltaSeconds": seconds])
+        guard let rest = snapshot?.rest else { return }
+        send(
+            .adjustRest,
+            payload: ["deltaSeconds": seconds, "restId": rest.id]
+        )
     }
 
     func pauseRest() {
-        send(.pauseRest)
+        guard let rest = snapshot?.rest else { return }
+        send(.pauseRest, payload: ["restId": rest.id])
     }
 
     func resumeRest() {
-        send(.resumeRest)
+        guard let rest = snapshot?.rest else { return }
+        send(.resumeRest, payload: ["restId": rest.id])
     }
 
     func skipRest() {
-        send(.skipRest)
+        guard let rest = snapshot?.rest else { return }
+        send(.skipRest, payload: ["restId": rest.id])
         if var snapshot {
             snapshot.rest = nil
             self.snapshot = snapshot
@@ -160,9 +172,9 @@ final class WorkoutCoordinator {
 
     func showNextExercise() {
         guard let snapshot, let selectedExercise,
-              let index = snapshot.exercises.firstIndex(where: {
-                  $0.id == selectedExercise.id
-              })
+            let index = snapshot.exercises.firstIndex(where: {
+                $0.id == selectedExercise.id
+            })
         else {
             screen = .exerciseList
             return
@@ -185,12 +197,12 @@ final class WorkoutCoordinator {
 
     private func optimisticallyComplete(exerciseID: String, setID: String) {
         guard var snapshot,
-              let exerciseIndex = snapshot.exercises.firstIndex(where: {
-                  $0.id == exerciseID
-              }),
-              let setIndex = snapshot.exercises[exerciseIndex].sets.firstIndex(where: {
-                  $0.id == setID
-              })
+            let exerciseIndex = snapshot.exercises.firstIndex(where: {
+                $0.id == exerciseID
+            }),
+            let setIndex = snapshot.exercises[exerciseIndex].sets.firstIndex(where: {
+                $0.id == setID
+            })
         else { return }
         snapshot.exercises[exerciseIndex].sets[setIndex].actualLoadKg = loadKg
         snapshot.exercises[exerciseIndex].sets[setIndex].actualReps = Double(reps)
@@ -200,14 +212,31 @@ final class WorkoutCoordinator {
 
     private func manageHealthWorkout() {
         guard let snapshot else { return }
-        if snapshot.status == .completed {
-            Task { _ = await health.endWorkout() }
+        if snapshot.status != .active {
+            let terminalWorkoutID = snapshot.workoutId
+            let shouldClearCancelledSnapshot = snapshot.status == .cancelled
+            Task {
+                _ = await health.endWorkout()
+                if shouldClearCancelledSnapshot,
+                    self.snapshot?.workoutId == terminalWorkoutID,
+                    self.snapshot?.status == .cancelled
+                {
+                    self.snapshot = nil
+                }
+            }
             return
         }
         guard healthOwnershipSentForWorkoutID != snapshot.workoutId else { return }
+        let workoutID = snapshot.workoutId
         Task {
             if await health.startWorkout(at: snapshot.startedAt) {
-                healthOwnershipSentForWorkoutID = snapshot.workoutId
+                guard self.snapshot?.workoutId == workoutID,
+                    self.snapshot?.status == .active
+                else {
+                    _ = await health.endWorkout()
+                    return
+                }
+                healthOwnershipSentForWorkoutID = workoutID
                 send(.healthWorkoutStarted)
             }
         }
@@ -215,15 +244,16 @@ final class WorkoutCoordinator {
 
     private func send(_ type: WatchCommand.CommandType, payload: [String: Any] = [:]) {
         guard let snapshot,
-              JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload),
-              let payloadString = String(data: data, encoding: .utf8)
+            JSONSerialization.isValidJSONObject(payload),
+            let data = try? JSONSerialization.data(withJSONObject: payload),
+            let payloadString = String(data: data, encoding: .utf8)
         else { return }
         var correlatedPayload = payload
         correlatedPayload["workoutId"] = snapshot.workoutId
-        guard let correlatedData = try? JSONSerialization.data(
-            withJSONObject: correlatedPayload
-        ), let correlatedString = String(data: correlatedData, encoding: .utf8)
+        guard
+            let correlatedData = try? JSONSerialization.data(
+                withJSONObject: correlatedPayload
+            ), let correlatedString = String(data: correlatedData, encoding: .utf8)
         else { return }
 
         let command = WatchCommand(

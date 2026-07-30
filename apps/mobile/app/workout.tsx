@@ -18,7 +18,11 @@ import {
   countLoggedWorkoutSets,
   hasLoggedWorkoutData,
 } from "@/lib/workout-session-state";
-import { useWorkoutStore } from "@/stores/workout-store";
+import {
+  getExerciseOccurrenceId,
+  useWorkoutStore,
+} from "@/stores/workout-store";
+import { publishCancelledWorkoutToWatch } from "@/lib/watch-workout-publisher";
 import { useKeepAwake } from "expo-keep-awake";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -79,7 +83,7 @@ export default function WorkoutScreen() {
   const exerciseOrderItems = useMemo<ExerciseOrderItem[]>(
     () =>
       exercises.map((exercise) => ({
-        id: exercise.id,
+        id: getExerciseOccurrenceId(exercise),
         name: exerciseMap.get(exercise.id)?.name ?? exercise.name,
         image: exercise.image ?? exerciseMap.get(exercise.id)?.image ?? null,
       })),
@@ -120,7 +124,8 @@ export default function WorkoutScreen() {
         ex.sets.some((s) => !s.isCompleted)
       );
       if (firstIncomplete) {
-        const yOffset = exerciseLayouts.current[firstIncomplete.id];
+        const yOffset =
+          exerciseLayouts.current[getExerciseOccurrenceId(firstIncomplete)];
         if (yOffset !== undefined && yOffset > 0) {
           scrollRef.current?.scrollTo({ y: yOffset, animated: true });
         }
@@ -180,9 +185,13 @@ export default function WorkoutScreen() {
   }, [router]);
 
   const handleFinish = useCallback(() => {
-    const discardWorkout = () => {
-      clearWorkout();
-      router.replace("/(tabs)");
+    const discardWorkout = async () => {
+      try {
+        await publishCancelledWorkoutToWatch(useWorkoutStore.getState());
+      } finally {
+        clearWorkout();
+        router.replace("/(tabs)");
+      }
     };
     const confirmDiscardWorkout = () => {
       const loggedSets = countLoggedWorkoutSets(exercises);
@@ -196,7 +205,7 @@ export default function WorkoutScreen() {
           {
             text: t("finish.confirmDiscard"),
             style: "destructive",
-            onPress: discardWorkout,
+            onPress: () => void discardWorkout(),
           },
         ]
       );
@@ -213,7 +222,7 @@ export default function WorkoutScreen() {
           text: t("finish.confirmDiscard"),
           style: "destructive",
           isPreferred: true,
-          onPress: discardWorkout,
+          onPress: () => void discardWorkout(),
         },
         {
           text: t("finish.confirmFinish"),
@@ -374,11 +383,11 @@ export default function WorkoutScreen() {
                       <WarmupCard />
                       {exercises.map((exercise) => (
                         <Reanimated.View
-                          key={exercise.id}
+                          key={getExerciseOccurrenceId(exercise)}
                           layout={EXERCISE_LAYOUT_TRANSITION}
                           onLayout={(e) =>
                             handleExerciseLayout(
-                              exercise.id,
+                              getExerciseOccurrenceId(exercise),
                               e.nativeEvent.layout.y
                             )
                           }

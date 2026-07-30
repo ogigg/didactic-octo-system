@@ -93,15 +93,20 @@ Native application.
 - The phone publishes versioned full workout snapshots with
   `WCSession.updateApplicationContext`; reachable watches also receive the same
   snapshot immediately with `sendMessage`.
-- The watch uses stable workout, exercise, and set IDs. Mutations are persisted
-  in an idempotent command outbox, delivered with `sendMessage` and
-  `transferUserInfo`, and removed only after the phone acknowledges them in a
-  later snapshot.
+- Phone discard publishes a `cancelled` terminal snapshot before clearing
+  local state so the watch can end its HealthKit workout.
+- The watch uses stable workout, exercise-occurrence, and set IDs. Catalog IDs
+  remain separate so repeated exercises are independently editable. Mutations
+  are persisted in an idempotent command outbox, delivered with `sendMessage`
+  and `transferUserInfo`, and removed only after the phone acknowledges them in
+  a later snapshot.
 - Rest timers use an absolute ISO-8601 end date so reconnects and suspension do
   not reset the countdown.
 - A watch-led session owns the HealthKit workout. The resulting HealthKit UUID
   is correlated back to the phone summary, which prevents the phone from
   writing a duplicate workout.
+- `targets/watch/Info.plist` enables `workout-processing`, and the SwiftUI scene
+  holds watch-connectivity background work until pending transfers drain.
 
 After changing the target config or adding native files, regenerate and build:
 

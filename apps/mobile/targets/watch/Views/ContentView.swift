@@ -8,8 +8,10 @@ struct ContentView: View {
             if let snapshot = coordinator.snapshot {
                 if snapshot.status == .completed {
                     WorkoutCompleteView(snapshot: snapshot)
-                } else {
+                } else if snapshot.status == .active {
                     ActiveWorkoutView()
+                } else {
+                    WaitingView()
                 }
             } else {
                 WaitingView()
@@ -28,10 +30,12 @@ struct WaitingView: View {
                 .foregroundStyle(WatchTheme.primary)
             Text("Ready to train")
                 .font(.headline)
-            Text("Start a workout on your iPhone. It will appear here even if your watch reconnects later.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            Text(
+                "Start a workout on your iPhone. It will appear here even if your watch reconnects later."
+            )
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
         }
         .padding()
         .accessibilityElement(children: .combine)
@@ -58,13 +62,26 @@ private struct WorkoutCompleteView: View {
                     .font(.system(size: 42))
                     .foregroundStyle(WatchTheme.success)
                     .accessibilityHidden(true)
-                Text("\(snapshot.name) complete")
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
+                Text(
+                    watchLocalizedFormat(
+                        "%@ complete",
+                        snapshot.name
+                    )
+                )
+                .font(.headline)
+                .multilineTextAlignment(.center)
 
                 HStack {
-                    summaryStat("\(completedSets)", label: "Sets")
-                    summaryStat(volume.formatted(.number.precision(.fractionLength(0))), label: "kg volume")
+                    summaryStat(
+                        "\(completedSets)",
+                        label: String(localized: "Sets")
+                    )
+                    summaryStat(
+                        volume.formatted(
+                            .number.precision(.fractionLength(0))
+                        ),
+                        label: String(localized: "kg volume")
+                    )
                 }
 
                 ForEach(snapshot.exercises) { exercise in
@@ -72,8 +89,14 @@ private struct WorkoutCompleteView: View {
                         Text(exercise.name)
                             .lineLimit(2)
                         Spacer()
-                        Text("\(exercise.sets.filter(\.isCompleted).count)/\(exercise.sets.count)")
-                            .foregroundStyle(.secondary)
+                        Text(
+                            watchLocalizedFormat(
+                                "%lld/%lld",
+                                exercise.sets.filter(\.isCompleted).count,
+                                exercise.sets.count
+                            )
+                        )
+                        .foregroundStyle(.secondary)
                     }
                     .font(.caption)
                     .accessibilityElement(children: .combine)

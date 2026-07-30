@@ -19,7 +19,8 @@ struct ExerciseDetailView: View {
                 }
 
                 if let exercise = coordinator.selectedExercise,
-                   let set = coordinator.currentSet {
+                    let set = coordinator.currentSet
+                {
                     Text(exercise.name)
                         .font(.headline)
                         .lineLimit(3)
@@ -30,8 +31,14 @@ struct ExerciseDetailView: View {
                         .foregroundStyle(.secondary)
 
                     HStack {
-                        prescription("TARGET", setDisplay(set))
-                        prescription("LAST TIME", set.previousDisplay ?? "—")
+                        prescription(
+                            String(localized: "TARGET"),
+                            setDisplay(set)
+                        )
+                        prescription(
+                            String(localized: "LAST TIME"),
+                            set.previousDisplay ?? "—"
+                        )
                     }
 
                     SetLoggerView()
@@ -44,7 +51,9 @@ struct ExerciseDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(WatchTheme.primary)
-                    .accessibilityHint("Logs this set and starts the rest timer")
+                    .accessibilityHint(
+                        String(localized: "Logs this set and starts the rest timer")
+                    )
 
                     ForEach(Array(exercise.sets.enumerated()), id: \.element.id) {
                         index, loggedSet in
@@ -79,18 +88,26 @@ struct ExerciseDetailView: View {
 
     private func setLabel(exercise: WatchExercise, set: WatchSet) -> String {
         let index = (exercise.sets.firstIndex(where: { $0.id == set.id }) ?? 0) + 1
-        return "SET \(index) OF \(exercise.sets.count)"
+        return watchLocalizedFormat(
+            "SET %lld OF %lld",
+            index,
+            exercise.sets.count
+        )
     }
 
     private func setDisplay(_ set: WatchSet) -> String {
         if let seconds = set.durationSeconds {
-            return "\(seconds)s"
+            return watchLocalizedFormat("%lld seconds", seconds)
         }
         let reps = Int(set.actualReps ?? set.targetReps ?? 0)
         guard let load = set.actualLoadKg ?? set.targetLoadKg else {
-            return "\(reps) reps"
+            return watchLocalizedFormat("%lld reps", reps)
         }
-        return "\(reps) × \(load.formatted()) kg"
+        return watchLocalizedFormat(
+            "%lld × %@ kg",
+            reps,
+            load.formatted()
+        )
     }
 
     private func prescription(_ label: String, _ value: String) -> some View {
@@ -119,7 +136,10 @@ struct ExerciseCompleteView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 36))
                     .foregroundStyle(WatchTheme.success)
-                Text(coordinator.selectedExercise?.name ?? "Exercise complete")
+                Text(
+                    coordinator.selectedExercise?.name
+                        ?? String(localized: "Exercise complete")
+                )
                     .font(.headline)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
@@ -127,8 +147,14 @@ struct ExerciseCompleteView: View {
                 if let exercise = coordinator.selectedExercise {
                     let completed = exercise.sets.filter(\.isCompleted)
                     HStack {
-                        stat("\(completed.count)", label: "Sets")
-                        stat(volume(completed), label: "Volume")
+                        stat(
+                            "\(completed.count)",
+                            label: String(localized: "Sets")
+                        )
+                        stat(
+                            volume(completed),
+                            label: String(localized: "Volume")
+                        )
                     }
                 }
 
@@ -150,7 +176,7 @@ struct ExerciseCompleteView: View {
         let kilograms = sets.reduce(0) {
             $0 + ($1.actualLoadKg ?? 0) * ($1.actualReps ?? 0)
         }
-        return "\(Int(kilograms)) kg"
+        return watchLocalizedFormat("%lld kg", Int(kilograms))
     }
 
     private func stat(_ value: String, label: String) -> some View {

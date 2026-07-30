@@ -10,6 +10,10 @@
   <string>Sweaty saves workout sessions to Apple Health.</string>
   <key>WKApplication</key>
   <true/>
+  <key>WKBackgroundModes</key>
+  <array>
+    <string>workout-processing</string>
+  </array>
   <key>WKCompanionAppBundleIdentifier</key>
   <string>com.ogig.sweaty</string>
 </dict>

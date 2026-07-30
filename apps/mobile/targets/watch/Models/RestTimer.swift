@@ -1,6 +1,7 @@
 import Foundation
 
 struct RestTimerState: Codable, Equatable {
+    var id: String
     var exerciseId: String
     var durationSeconds: Int
     var endDate: Date?

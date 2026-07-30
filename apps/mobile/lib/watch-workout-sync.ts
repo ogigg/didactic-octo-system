@@ -11,6 +11,7 @@ import type {
   WorkoutExercise,
   WorkoutSummary,
 } from "@/stores/workout-store";
+import { getExerciseOccurrenceId } from "@/stores/workout-store";
 
 export interface WatchSetSnapshot {
   id: string;
@@ -26,6 +27,7 @@ export interface WatchSetSnapshot {
 
 export interface WatchExerciseSnapshot {
   id: string;
+  catalogExerciseId: string;
   name: string;
   exerciseType: "weight" | "time";
   restDurationSeconds: number;
@@ -35,6 +37,7 @@ export interface WatchExerciseSnapshot {
 }
 
 export interface WatchRestSnapshot {
+  id: string;
   exerciseId: string;
   durationSeconds: number;
   endDate: string | null;
@@ -44,7 +47,7 @@ export interface WatchRestSnapshot {
 export interface WatchWorkoutSnapshot {
   workoutId: string;
   name: string;
-  status: "active" | "completed";
+  status: "active" | "completed" | "cancelled";
   startedAt: string;
   finishedAt: string | null;
   selectedExerciseId: string | null;
@@ -78,6 +81,7 @@ const actionPayloadSchema = z.object({
   loadKg: z.number().finite().min(0).max(1_500).optional(),
   reps: z.number().int().min(0).max(1_000).optional(),
   deltaSeconds: z.number().int().min(-600).max(600).optional(),
+  restId: z.string().min(1).optional(),
   completedAt: z.string().datetime().optional(),
   healthWorkoutUUID: z.string().uuid().optional(),
 });
@@ -90,12 +94,10 @@ function numericValue(value: string): number | null {
 function firstIncompleteExerciseId(
   exercises: WorkoutExercise[]
 ): string | null {
-  return (
-    exercises.find((exercise) => exercise.sets.some((set) => !set.isCompleted))
-      ?.id ??
-    exercises.at(-1)?.id ??
-    null
-  );
+  const exercise =
+    exercises.find((item) => item.sets.some((set) => !set.isCompleted)) ??
+    exercises.at(-1);
+  return exercise ? getExerciseOccurrenceId(exercise) : null;
 }
 
 function exerciseSnapshots(
@@ -103,7 +105,8 @@ function exerciseSnapshots(
   localizedNames?: ReadonlyMap<string, string>
 ): WatchExerciseSnapshot[] {
   return exercises.map((exercise) => ({
-    id: exercise.id,
+    id: getExerciseOccurrenceId(exercise),
+    catalogExerciseId: exercise.id,
     name: localizedNames?.get(exercise.id) ?? exercise.name,
     exerciseType: exercise.exerciseType,
     restDurationSeconds: exercise.restDurationSeconds,
@@ -128,6 +131,7 @@ function restSnapshot(
 ): WatchRestSnapshot | null {
   if (!restTimer) return null;
   return {
+    id: restTimer.id ?? `legacy-rest-${restTimer.startedAtMs}`,
     exerciseId: restTimer.exerciseId,
     durationSeconds: restTimer.durationSeconds,
     endDate:
@@ -149,7 +153,7 @@ export function buildActiveWatchSnapshot(input: {
   localizedNames?: ReadonlyMap<string, string>;
 }): WatchWorkoutSnapshot {
   const validSelection = input.exercises.some(
-    (exercise) => exercise.id === input.selectedExerciseId
+    (exercise) => getExerciseOccurrenceId(exercise) === input.selectedExerciseId
   );
   return {
     workoutId: `workout-${input.startedAtMs}`,
@@ -162,6 +166,25 @@ export function buildActiveWatchSnapshot(input: {
       : firstIncompleteExerciseId(input.exercises),
     exercises: exerciseSnapshots(input.exercises, input.localizedNames),
     rest: restSnapshot(input.restTimer),
+  };
+}
+
+export function buildCancelledWatchSnapshot(input: {
+  workoutName: string;
+  startedAtMs: number;
+  exercises: WorkoutExercise[];
+  localizedNames?: ReadonlyMap<string, string>;
+  cancelledAtMs?: number;
+}): WatchWorkoutSnapshot {
+  return {
+    workoutId: `workout-${input.startedAtMs}`,
+    name: input.workoutName,
+    status: "cancelled",
+    startedAt: new Date(input.startedAtMs).toISOString(),
+    finishedAt: new Date(input.cancelledAtMs ?? Date.now()).toISOString(),
+    selectedExerciseId: null,
+    exercises: exerciseSnapshots(input.exercises, input.localizedNames),
+    rest: null,
   };
 }
 
@@ -219,4 +242,57 @@ export function parseWatchAction(
     envelope: envelopeResult.data,
     payload: payloadResult.data,
   };
+}
+
+export interface WatchActionReconciliationContext {
+  currentRevision: number;
+  workoutId: string | null;
+  isActive: boolean;
+  exerciseExists: boolean;
+  setState: "missing" | "incomplete" | "completed";
+  restId: string | null;
+  canReconcileStaleSetMutation?: boolean;
+}
+
+export function shouldApplyWatchAction(
+  parsed: NonNullable<ReturnType<typeof parseWatchAction>>,
+  context: WatchActionReconciliationContext
+): boolean {
+  const { envelope, payload } = parsed;
+  if (
+    !context.isActive ||
+    payload.workoutId !== context.workoutId ||
+    envelope.baseRevision > context.currentRevision
+  ) {
+    return false;
+  }
+
+  switch (envelope.type) {
+    case "selectExercise":
+      return context.exerciseExists;
+    case "updateSet":
+    case "completeSet":
+      return (
+        (envelope.baseRevision === context.currentRevision ||
+          context.canReconcileStaleSetMutation === true) &&
+        context.setState === "incomplete"
+      );
+    case "adjustRest":
+    case "pauseRest":
+    case "resumeRest":
+    case "skipRest":
+      return payload.restId !== undefined && payload.restId === context.restId;
+    case "healthWorkoutStarted":
+    case "finishWorkout":
+      return true;
+  }
+}
+
+export function registerWatchCommand(
+  commandID: string,
+  processedCommandIDs: Set<string>
+): boolean {
+  if (processedCommandIDs.has(commandID)) return false;
+  processedCommandIDs.add(commandID);
+  return true;
 }

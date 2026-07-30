@@ -23,15 +23,24 @@ struct RestTimerView: View {
                         HeartRateButton()
                     }
 
-                    Text(remaining > 0 ? "REST" : "READY")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        remaining > 0
+                            ? String(localized: "REST")
+                            : String(localized: "READY")
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
 
                     Text(format(remaining))
                         .font(.system(size: 45, weight: .light, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(remaining == 0 ? WatchTheme.success : .primary)
-                        .accessibilityLabel("\(remaining) seconds remaining")
+                        .accessibilityLabel(
+                            watchLocalizedFormat(
+                                "%lld seconds remaining",
+                                remaining
+                            )
+                        )
 
                     ProgressView(
                         value: Double(remaining),
@@ -54,16 +63,27 @@ struct RestTimerView: View {
                                     coordinator.pauseRest()
                                 }
                             } label: {
-                                Image(systemName: rest?.isPaused == true ? "play.fill" : "pause.fill")
+                                Image(
+                                    systemName: rest?.isPaused == true ? "play.fill" : "pause.fill")
                             }
-                            .accessibilityLabel(rest?.isPaused == true ? "Resume rest timer" : "Pause rest timer")
+                            .accessibilityLabel(
+                                rest?.isPaused == true
+                                    ? String(localized: "Resume rest timer")
+                                    : String(localized: "Pause rest timer")
+                            )
 
-                            Button(skipConfirmation ? "Skip?" : "Skip") {
+                            Button {
                                 if skipConfirmation {
                                     coordinator.skipRest()
                                 } else {
                                     skipConfirmation = true
                                 }
+                            } label: {
+                                Text(
+                                    skipConfirmation
+                                        ? String(localized: "Skip?")
+                                        : String(localized: "Skip")
+                                )
                             }
                             .tint(skipConfirmation ? .red : .secondary)
                         }
@@ -76,7 +96,8 @@ struct RestTimerView: View {
                     .font(.caption)
 
                     if let exercise = coordinator.selectedExercise,
-                       let set = coordinator.currentSet {
+                        let set = coordinator.currentSet
+                    {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("NEXT SET")
                                 .font(.system(size: 9, weight: .semibold))
@@ -111,12 +132,19 @@ struct RestTimerView: View {
 
     private func target(_ set: WatchSet) -> String {
         if let duration = set.durationSeconds {
-            return "Target \(duration) seconds"
+            return watchLocalizedFormat(
+                "Target %lld seconds",
+                duration
+            )
         }
         let reps = Int(set.actualReps ?? set.targetReps ?? 0)
         if let load = set.actualLoadKg ?? set.targetLoadKg {
-            return "Target \(reps) × \(load.formatted()) kg"
+            return watchLocalizedFormat(
+                "Target %lld × %@ kg",
+                reps,
+                load.formatted()
+            )
         }
-        return "Target \(reps) reps"
+        return watchLocalizedFormat("Target %lld reps", reps)
     }
 }

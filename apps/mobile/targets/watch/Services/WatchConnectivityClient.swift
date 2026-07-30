@@ -16,7 +16,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     override init() {
         super.init()
         if let data = UserDefaults.standard.data(forKey: outboxKey),
-           let stored = try? JSONDecoder().decode([WatchCommand].self, from: data) {
+            let stored = try? JSONDecoder().decode([WatchCommand].self, from: data)
+        {
             outbox = stored
         }
     }
@@ -25,6 +26,19 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         guard WCSession.isSupported() else { return }
         session.delegate = self
         session.activate()
+    }
+
+    func waitForPendingContent() async {
+        guard WCSession.isSupported() else { return }
+        activate()
+        while !Task.isCancelled {
+            if session.activationState == .activated,
+               !session.hasContentPending
+            {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
     }
 
     func enqueue(_ command: WatchCommand) {
