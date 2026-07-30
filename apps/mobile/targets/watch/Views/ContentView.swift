@@ -17,7 +17,10 @@ struct ContentView: View {
                 WaitingView()
             }
         }
-        .background(WatchTheme.background)
+        .background {
+            WatchTheme.background
+                .ignoresSafeArea()
+        }
         .task { coordinator.start() }
     }
 }
