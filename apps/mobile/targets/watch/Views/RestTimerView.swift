@@ -127,7 +127,9 @@ struct RestTimerView: View {
     }
 
     private func format(_ seconds: Int) -> String {
-        String(format: "%d:%02d", seconds / 60, seconds % 60)
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        return "\(minutes):\(remainingSeconds < 10 ? "0" : "")\(remainingSeconds)"
     }
 
     private func target(_ set: WatchSet) -> String {

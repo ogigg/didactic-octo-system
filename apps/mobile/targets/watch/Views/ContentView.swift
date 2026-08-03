@@ -4,22 +4,24 @@ struct ContentView: View {
     @Environment(WorkoutCoordinator.self) private var coordinator
 
     var body: some View {
-        Group {
-            if let snapshot = coordinator.snapshot {
-                if snapshot.status == .completed {
-                    WorkoutCompleteView(snapshot: snapshot)
-                } else if snapshot.status == .active {
-                    ActiveWorkoutView()
+        ZStack {
+            WatchTheme.background
+                .ignoresSafeArea()
+
+            Group {
+                if let snapshot = coordinator.snapshot {
+                    if snapshot.status == .completed {
+                        WorkoutCompleteView(snapshot: snapshot)
+                    } else if snapshot.status == .active {
+                        ActiveWorkoutView()
+                    } else {
+                        WaitingView()
+                    }
                 } else {
                     WaitingView()
                 }
-            } else {
-                WaitingView()
             }
-        }
-        .background {
-            WatchTheme.background
-                .ignoresSafeArea()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task { coordinator.start() }
     }
@@ -40,6 +42,7 @@ struct WaitingView: View {
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
         .accessibilityElement(children: .combine)
     }

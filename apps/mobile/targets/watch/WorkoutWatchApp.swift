@@ -4,10 +4,19 @@ func watchLocalizedFormat(
     _ key: String,
     _ arguments: CVarArg...
 ) -> String {
-    String(
+    // Swift Int has a different C format width across Apple Watch ABIs.
+    // Normalize it to Int64 so localized %lld placeholders are always valid.
+    let normalizedArguments: [CVarArg] = arguments.map { argument in
+        if let value = argument as? Int {
+            return Int64(value)
+        }
+        return argument
+    }
+
+    return String(
         format: NSLocalizedString(key, comment: ""),
         locale: Locale.current,
-        arguments: arguments
+        arguments: normalizedArguments
     )
 }
 
