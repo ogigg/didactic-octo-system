@@ -222,6 +222,29 @@ describe("workout store exercise replacement", () => {
     ).toEqual(["row", "bench-press", "squat"]);
   });
 
+  it("updates only the selected occurrence when catalog exercises repeat", () => {
+    useWorkoutStore.getState().startWorkout(
+      "Duplicate bench",
+      [
+        { ...baseExercise, occurrenceId: "bench-first" },
+        {
+          ...baseExercise,
+          occurrenceId: "bench-second",
+          sets: [{ ...baseExercise.sets[0]!, id: "second-set", kg: "60" }],
+        },
+      ],
+      undefined
+    );
+
+    useWorkoutStore
+      .getState()
+      .updateSetField("bench-second", "second-set", "kg", "70");
+
+    const [first, second] = useWorkoutStore.getState().exercises;
+    expect(first?.sets[0]?.kg).toBe("80");
+    expect(second?.sets[0]?.kg).toBe("70");
+  });
+
   it("adjusts remaining rest time without changing planned rest duration", () => {
     const startedAtMs = new Date("2026-06-03T10:00:00.000Z").getTime();
     const dateNowSpy = jest.spyOn(Date, "now");
@@ -231,6 +254,8 @@ describe("workout store exercise replacement", () => {
       useWorkoutStore
         .getState()
         .startWorkout("Push day", [baseExercise], undefined);
+      const occurrenceId =
+        useWorkoutStore.getState().exercises[0]?.occurrenceId;
       useWorkoutStore.getState().startRestTimer("bench-press");
 
       dateNowSpy.mockReturnValue(startedAtMs + 10_000);
@@ -238,7 +263,7 @@ describe("workout store exercise replacement", () => {
 
       const restTimer = useWorkoutStore.getState().restTimer;
       expect(restTimer).toMatchObject({
-        exerciseId: "bench-press",
+        exerciseId: occurrenceId,
         durationSeconds: 120,
         startedAtMs: startedAtMs - 15_000,
       });

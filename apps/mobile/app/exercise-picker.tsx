@@ -41,8 +41,13 @@ type PickerMode = "replace" | "add" | "pending_swap";
 export default function ExercisePickerScreen() {
   const { t } = useTranslation("exercisePicker");
   const router = useRouter();
-  const { exerciseId, mode: modeParam } = useLocalSearchParams<{
+  const {
+    exerciseId,
+    occurrenceId,
+    mode: modeParam,
+  } = useLocalSearchParams<{
     exerciseId?: string;
+    occurrenceId?: string;
     mode?: string;
   }>();
   const mode: PickerMode =
@@ -60,8 +65,13 @@ export default function ExercisePickerScreen() {
   const weightUnit: WeightUnit = (profile?.weight_unit as WeightUnit) ?? "kg";
   const { filterOptions, labelMaps } = useExerciseFilterOptions();
   const activeExercise = useMemo(
-    () => workoutExercises.find((ex) => ex.id === exerciseId),
-    [exerciseId, workoutExercises]
+    () =>
+      workoutExercises.find(
+        (exercise) =>
+          exercise.occurrenceId === occurrenceId ||
+          (!occurrenceId && exercise.id === exerciseId)
+      ),
+    [exerciseId, occurrenceId, workoutExercises]
   );
 
   // Fetch current exercise details for suggestion ranking (replace mode only)
@@ -173,7 +183,7 @@ export default function ExercisePickerScreen() {
   const replaceCurrentExercise = useCallback(
     (exercise: Exercise) => {
       if (!exerciseId) return;
-      replaceExercise(exerciseId, {
+      replaceExercise(occurrenceId ?? exerciseId, {
         id: exercise.id,
         name: exercise.name,
         image: exercise.image,
@@ -181,7 +191,7 @@ export default function ExercisePickerScreen() {
       });
       router.back();
     },
-    [exerciseId, replaceExercise, router]
+    [exerciseId, occurrenceId, replaceExercise, router]
   );
 
   const getPreviousDisplays = useCallback(

@@ -82,3 +82,46 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - `../../.ai/architecture.md` for architecture details
 - `../../.ai/i18n.md` for translation workflow
 - `../../project-wiki/guides/running-and-releasing-mobile-app.md` for running and release commands
+
+## Apple Watch companion
+
+The native watchOS 10 companion lives in `targets/watch` and is generated into
+the iOS project by `@bacons/apple-targets`. It is not a separate Expo or React
+Native application.
+
+- The phone Zustand workout store is authoritative.
+- The phone publishes versioned full workout snapshots with
+  `WCSession.updateApplicationContext`; reachable watches also receive the same
+  snapshot immediately with `sendMessage`.
+- Phone discard publishes a `cancelled` terminal snapshot before clearing
+  local state so the watch can end its HealthKit workout.
+- The watch uses stable workout, exercise-occurrence, and set IDs. Catalog IDs
+  remain separate so repeated exercises are independently editable. Mutations
+  are persisted in an idempotent command outbox, delivered with `sendMessage`
+  and `transferUserInfo`, and removed only after the phone acknowledges them in
+  a later snapshot.
+- Rest timers use an absolute ISO-8601 end date so reconnects and suspension do
+  not reset the countdown.
+- A watch-led session owns the HealthKit workout. The resulting HealthKit UUID
+  is correlated back to the phone summary, which prevents the phone from
+  writing a duplicate workout.
+- `targets/watch/Info.plist` enables `workout-processing`, and the SwiftUI scene
+  holds watch-connectivity background work until pending transfers drain.
+
+After changing the target config or adding native files, regenerate and build:
+
+```bash
+npx expo prebuild -p ios --clean
+cd ios && pod install
+xcodebuild -workspace Sweaty.xcworkspace -scheme SweatyWatch build
+```
+
+The checked-in `targets/watch` directory is the source of truth; generated
+`ios` files remain disposable.
+
+For a paired physical Watch, installing the iPhone development build does not
+always install its companion immediately. Open the Watch app on the iPhone,
+find Sweaty under **Available Apps**, and tap **Install**. If it is not listed,
+open `ios/Sweaty.xcworkspace`, select the `SweatyWatch` scheme and the paired
+Watch destination, then run it once from Xcode. The phone bridge keeps the
+latest workout snapshot queued while the companion is installing.

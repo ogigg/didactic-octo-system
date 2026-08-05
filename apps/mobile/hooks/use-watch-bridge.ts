@@ -1,126 +1,34 @@
+import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import {
+  buildActiveWatchSnapshot,
+  buildCompletedWatchSnapshot,
+  parseWatchAction,
+  registerWatchCommand,
+  shouldApplyWatchAction,
+} from "@/lib/watch-workout-sync";
+import {
+  currentWatchRevision,
+  publishWatchSnapshot,
+} from "@/lib/watch-workout-publisher";
+import {
+  acknowledgeWatchCommand,
+  drainPendingWatchActions,
   isWatchPaired,
-  onSetCompleted,
-  sendWorkoutEnded,
-  sendWorkoutState,
-} from "../modules/watch-bridge/src";
-import type { WatchWorkoutState } from "../modules/watch-bridge/src";
-import { useWorkoutStore } from "../stores/workout-store";
-import type { WorkoutExercise } from "../stores/workout-store";
+  onWatchAction,
+} from "@/modules/watch-bridge/src";
+import { useWorkoutStore } from "@/stores/workout-store";
 
-// ---------------------------------------------------------------------------
-// Derive the watch-facing workout state from the Zustand store
-// ---------------------------------------------------------------------------
-
-interface WatchWorkout {
-  id: string;
-  name: string;
-  exercises: WatchExercisePayload[];
-}
-
-interface WatchExercisePayload {
-  id: string;
-  name: string;
-  restDurationSeconds: number;
-  notes: string | null;
-  sets: WatchSetPayload[];
-  progressionType: string | null;
-  previousDisplay: string | null;
-}
-
-interface WatchSetPayload {
-  id: string;
-  setType: "warmup" | "working";
-  targetLoadKg: number | null;
-  targetReps: number | null;
-}
-
-function toWatchWorkout(
-  name: string,
-  startedAtMs: number,
-  exercises: WorkoutExercise[],
-  localizedNames?: ReadonlyMap<string, string>
-): WatchWorkout {
-  return {
-    id: `workout-${startedAtMs}`,
-    name,
-    exercises: exercises.map((ex) => ({
-      id: ex.id,
-      name: localizedNames?.get(ex.id) ?? ex.name,
-      restDurationSeconds: ex.restDurationSeconds,
-      notes: ex.notes || null,
-      sets: ex.sets.map((s) => ({
-        id: s.id,
-        setType: s.type,
-        targetLoadKg: s.kg ? parseFloat(s.kg) : null,
-        targetReps: s.reps ? parseInt(s.reps, 10) : null,
-      })),
-      progressionType: ex.progressionType ?? null,
-      previousDisplay: ex.sets[0]?.previousDisplay ?? null,
-    })),
-  };
-}
-
-function findCurrentIndices(exercises: WorkoutExercise[]): {
-  exerciseIndex: number;
-  setIndex: number;
-} {
-  for (let ei = 0; ei < exercises.length; ei++) {
-    const si = exercises[ei].sets.findIndex((s) => !s.isCompleted);
-    if (si !== -1) return { exerciseIndex: ei, setIndex: si };
-  }
-  // All complete — point at last
-  const lastEx = Math.max(0, exercises.length - 1);
-  const lastSet = Math.max(0, (exercises[lastEx]?.sets.length ?? 1) - 1);
-  return { exerciseIndex: lastEx, setIndex: lastSet };
-}
-
-function buildWatchState(
-  name: string,
-  startedAtMs: number,
-  exercises: WorkoutExercise[],
-  restTimer: {
-    exerciseId: string;
-    startedAtMs: number;
-    durationSeconds: number;
-  } | null,
-  localizedNames?: ReadonlyMap<string, string>
-): WatchWorkoutState {
-  const workout = toWatchWorkout(name, startedAtMs, exercises, localizedNames);
-  const { exerciseIndex, setIndex } = findCurrentIndices(exercises);
-
-  const state: WatchWorkoutState = {
-    workout: JSON.stringify(workout),
-    currentExerciseIndex: exerciseIndex,
-    currentSetIndex: setIndex,
-  };
-
-  if (restTimer) {
-    state.restTimer = JSON.stringify({
-      startedAt: new Date(restTimer.startedAtMs).toISOString(),
-      durationSeconds: restTimer.durationSeconds,
-    });
-  }
-
-  return state;
-}
-
-// Simple hash to avoid sending identical state
-function stateHash(s: WatchWorkoutState): string {
-  return `${s.workout}-${s.currentExerciseIndex}-${s.currentSetIndex}-${s.restTimer ?? "none"}`;
-}
-
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
-
-export function useWatchBridge() {
-  const lastHashRef = useRef<string | null>(null);
-  const exercisesForNames = useWorkoutStore((s) => s.exercises);
+export function useWatchBridge(): void {
+  const router = useRouter();
+  const actionQueueRef = useRef(Promise.resolve());
+  const processedCommandIDsRef = useRef(new Set<string>());
+  const acceptedSetUpdateBasesRef = useRef(new Map<string, number>());
+  const applyingWatchCommandRef = useRef(false);
+  const exercisesForNames = useWorkoutStore((state) => state.exercises);
   const { exerciseMap } = useLocalizedExerciseMap(
     exercisesForNames.map((exercise) => exercise.id)
   );
@@ -137,100 +45,236 @@ export function useWatchBridge() {
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
-    if (!isWatchPaired()) return;
 
-    const { isActive, workoutName, exercises, startedAtMs, restTimer } =
-      useWorkoutStore.getState();
-
-    // Send initial state if workout is active
-    if (isActive && startedAtMs) {
-      const state = buildWatchState(
-        workoutName,
-        startedAtMs,
-        exercises,
-        restTimer,
-        localizedNamesRef.current
-      );
-      lastHashRef.current = stateHash(state);
-      sendWorkoutState(state);
+    function reportBridgeError(operation: string, error: unknown): void {
+      console.warn(`[WatchBridge] ${operation} failed:`, error);
     }
 
-    // Subscribe to store changes
-    const unsubscribeStore = useWorkoutStore.subscribe(
-      (s) => ({
-        isActive: s.isActive,
-        workoutName: s.workoutName,
-        exercises: s.exercises,
-        startedAtMs: s.startedAtMs,
-        restTimer: s.restTimer,
-      }),
-      async (slice) => {
-        if (!slice.isActive || !slice.startedAtMs) {
-          if (lastHashRef.current !== null) {
-            await sendWorkoutEnded();
-            lastHashRef.current = null;
-          }
-          return;
-        }
-
-        const state = buildWatchState(
-          slice.workoutName,
-          slice.startedAtMs,
-          slice.exercises,
-          slice.restTimer,
-          localizedNamesRef.current
+    async function publishCanonicalState(): Promise<void> {
+      const state = useWorkoutStore.getState();
+      if (!isWatchPaired()) return;
+      if (state.isActive && state.startedAtMs) {
+        await publishWatchSnapshot(
+          buildActiveWatchSnapshot({
+            workoutName: state.workoutName,
+            startedAtMs: state.startedAtMs,
+            exercises: state.exercises,
+            restTimer: state.restTimer,
+            selectedExerciseId: state.watchSelectedExerciseId,
+            localizedNames: localizedNamesRef.current,
+          })
         );
-        const hash = stateHash(state);
-        if (hash === lastHashRef.current) return;
+      } else if (state.completedWorkoutSummary) {
+        await publishWatchSnapshot(
+          buildCompletedWatchSnapshot(
+            state.completedWorkoutSummary,
+            state.startedAtMs,
+            localizedNamesRef.current
+          )
+        );
+      }
+    }
 
-        lastHashRef.current = hash;
-        await sendWorkoutState(state);
+    void publishCanonicalState().catch((error: unknown) => {
+      reportBridgeError("initial state publication", error);
+    });
+
+    const unsubscribeStore = useWorkoutStore.subscribe(
+      (state) => ({
+        isActive: state.isActive,
+        workoutName: state.workoutName,
+        exercises: state.exercises,
+        startedAtMs: state.startedAtMs,
+        restTimer: state.restTimer,
+        completedWorkoutSummary: state.completedWorkoutSummary,
+        watchSelectedExerciseId: state.watchSelectedExerciseId,
+      }),
+      () => {
+        if (!applyingWatchCommandRef.current) {
+          acceptedSetUpdateBasesRef.current.clear();
+        }
+        void publishCanonicalState().catch((error: unknown) => {
+          reportBridgeError("state publication", error);
+        });
       }
     );
 
-    // Listen for set completions from the watch
-    const subscription = onSetCompleted((completion) => {
-      const { exercises: currentExercises, toggleSetComplete } =
-        useWorkoutStore.getState();
+    async function applyRawAction(rawAction: unknown): Promise<void> {
+      const parsed = parseWatchAction(rawAction);
+      if (!parsed) return;
 
-      // Find the exercise and set by exerciseId + setIndex
-      const exercise = currentExercises.find(
-        (e) => e.id === completion.exerciseId
-      );
-      if (!exercise) return;
-
-      const set = exercise.sets[completion.setIndex];
-      if (!set || set.isCompleted) return;
-
-      // Update kg/reps from watch values before completing
-      const { updateSetField } = useWorkoutStore.getState();
-      if (completion.loadKg > 0) {
-        updateSetField(
-          completion.exerciseId,
-          set.id,
-          "kg",
-          String(completion.loadKg)
-        );
+      const { envelope, payload } = parsed;
+      if (
+        !registerWatchCommand(
+          envelope.commandID,
+          processedCommandIDsRef.current
+        )
+      ) {
+        await acknowledgeWatchCommand(envelope.commandID);
+        return;
       }
-      if (completion.reps > 0) {
-        updateSetField(
-          completion.exerciseId,
-          set.id,
-          "reps",
-          String(completion.reps)
-        );
-      }
+      try {
+        const store = useWorkoutStore.getState();
+        const workoutId = store.startedAtMs
+          ? `workout-${store.startedAtMs}`
+          : null;
+        const exercise = payload.exerciseId
+          ? store.exercises.find(
+              (item) => item.occurrenceId === payload.exerciseId
+            )
+          : undefined;
+        const set = payload.setId
+          ? exercise?.sets.find((item) => item.id === payload.setId)
+          : undefined;
+        const exerciseOccurrenceId = exercise?.occurrenceId;
 
-      toggleSetComplete(completion.exerciseId, set.id);
-    });
+        const currentRestId = store.restTimer?.id;
+        const setMutationKey =
+          workoutId && payload.exerciseId && payload.setId
+            ? `${workoutId}:${payload.exerciseId}:${payload.setId}`
+            : null;
+        const payloadMatchesSet =
+          set !== undefined &&
+          (payload.loadKg !== undefined || payload.reps !== undefined) &&
+          (payload.loadKg === undefined || Number(set.kg) === payload.loadKg) &&
+          (payload.reps === undefined || Number(set.reps) === payload.reps);
+        const targetsCurrentRest =
+          payload.restId !== undefined && payload.restId === currentRestId;
+        if (
+          !shouldApplyWatchAction(parsed, {
+            currentRevision: currentWatchRevision(),
+            workoutId,
+            isActive: store.isActive,
+            exerciseExists: exercise !== undefined,
+            setState: !set
+              ? "missing"
+              : set.isCompleted
+                ? "completed"
+                : "incomplete",
+            restId: currentRestId ?? null,
+            canReconcileStaleSetMutation:
+              payloadMatchesSet ||
+              (setMutationKey !== null &&
+                acceptedSetUpdateBasesRef.current.get(setMutationKey) ===
+                  envelope.baseRevision),
+          })
+        ) {
+          return;
+        }
+
+        applyingWatchCommandRef.current = true;
+        if (
+          (envelope.type === "updateSet" || envelope.type === "completeSet") &&
+          setMutationKey &&
+          envelope.baseRevision === currentWatchRevision()
+        ) {
+          acceptedSetUpdateBasesRef.current.set(
+            setMutationKey,
+            envelope.baseRevision
+          );
+        }
+
+        switch (envelope.type) {
+          case "selectExercise":
+            if (exerciseOccurrenceId) {
+              store.setWatchSelectedExercise(exerciseOccurrenceId);
+            }
+            return;
+          case "updateSet":
+            if (!exerciseOccurrenceId || !set || set.isCompleted) return;
+            if (payload.loadKg !== undefined) {
+              store.updateSetField(
+                exerciseOccurrenceId,
+                set.id,
+                "kg",
+                String(payload.loadKg)
+              );
+            }
+            if (payload.reps !== undefined) {
+              store.updateSetField(
+                exerciseOccurrenceId,
+                set.id,
+                "reps",
+                String(payload.reps)
+              );
+            }
+            return;
+          case "completeSet":
+            if (!exerciseOccurrenceId || !set || set.isCompleted) return;
+            if (payload.loadKg !== undefined) {
+              store.updateSetField(
+                exerciseOccurrenceId,
+                set.id,
+                "kg",
+                String(payload.loadKg)
+              );
+            }
+            if (payload.reps !== undefined) {
+              store.updateSetField(
+                exerciseOccurrenceId,
+                set.id,
+                "reps",
+                String(payload.reps)
+              );
+            }
+            store.toggleSetComplete(exerciseOccurrenceId, set.id);
+            return;
+          case "adjustRest":
+            if (targetsCurrentRest && payload.deltaSeconds !== undefined) {
+              store.adjustRestTimer(payload.deltaSeconds);
+            }
+            return;
+          case "pauseRest":
+            if (targetsCurrentRest) store.pauseRestTimer();
+            return;
+          case "resumeRest":
+            if (targetsCurrentRest) store.resumeRestTimer();
+            return;
+          case "skipRest":
+            if (targetsCurrentRest) store.skipRestTimer();
+            return;
+          case "healthWorkoutStarted":
+            store.markHealthWorkoutOwnedByWatch();
+            return;
+          case "finishWorkout":
+            store.finishWorkout(payload.healthWorkoutUUID);
+            router.push("/workout-summary");
+            return;
+        }
+      } finally {
+        applyingWatchCommandRef.current = false;
+        await acknowledgeWatchCommand(envelope.commandID);
+        if (processedCommandIDsRef.current.size > 200) {
+          processedCommandIDsRef.current = new Set(
+            Array.from(processedCommandIDsRef.current).slice(-100)
+          );
+        }
+        void publishCanonicalState().catch((error: unknown) => {
+          reportBridgeError("post-command state publication", error);
+        });
+      }
+    }
+
+    function enqueueRawAction(rawAction: unknown): void {
+      actionQueueRef.current = actionQueueRef.current
+        .then(() => applyRawAction(rawAction))
+        .catch((error: unknown) => {
+          reportBridgeError("watch action processing", error);
+        });
+    }
+
+    const subscription = onWatchAction(enqueueRawAction);
+    void drainPendingWatchActions()
+      .then((actions) => {
+        actions.forEach(enqueueRawAction);
+      })
+      .catch((error: unknown) => {
+        reportBridgeError("pending action drain", error);
+      });
 
     return () => {
       unsubscribeStore();
       subscription.remove();
-      if (lastHashRef.current !== null) {
-        sendWorkoutEnded();
-        lastHashRef.current = null;
-      }
     };
-  }, []);
+  }, [router]);
 }
