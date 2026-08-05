@@ -3,6 +3,7 @@
   "deploymentTarget": "10.0",
   "name": "SweatyWatch",
   "bundleIdentifier": "com.ogig.sweaty.SweatyWatch",
+  "icon": "../../assets/images/icon.png",
   "colors": {
     "$accent": "#5AAEE0"
   },

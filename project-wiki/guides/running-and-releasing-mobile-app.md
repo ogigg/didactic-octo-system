@@ -40,7 +40,18 @@ npm run web
 
 ## Build For App Store
 
-From the repository root, open the iOS workspace in Xcode:
+If Apple target config changed (for example watch icon or entitlements), regenerate the native project first from `apps/mobile`:
+
+```bash
+npx expo prebuild -p ios --clean
+cd ios && pod install
+```
+
+The watch companion must include an app icon. That comes from
+`targets/watch/expo-target.config.json` → `icon`. Without it, App Store Connect
+rejects the upload with missing `CFBundleIconName` / watch icon errors.
+
+Then open the iOS workspace in Xcode:
 
 ```bash
 cd apps/mobile/ios

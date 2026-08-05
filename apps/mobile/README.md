@@ -107,6 +107,10 @@ Native application.
   writing a duplicate workout.
 - `targets/watch/Info.plist` enables `workout-processing`, and the SwiftUI scene
   holds watch-connectivity background work until pending transfers drain.
+- `expo-target.config.json` sets `icon` to the shared app icon. App Store /
+  TestFlight validation requires a watch `AppIcon` asset catalog and
+  `CFBundleIconName`; `@bacons/apple-targets` generates both from that config
+  during prebuild.
 
 After changing the target config or adding native files, regenerate and build:
 
