@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sweaty — App Icon Concepts</title>
+<style>
+  :root {
+    --ink: #121416;
+    --azure: #3898D8;
+    --indigo: #5E6EE0;
+    --paper: #FFFFFF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #F4F5F7;
+    color: var(--ink);
+    padding: 64px 24px;
+  }
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 32px;
+  }
+  header.page {
+    max-width: 1180px;
+    margin: 0 auto 48px;
+  }
+  header.page h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  header.page p {
+    margin-top: 8px;
+    color: #5c626b;
+    font-size: 15px;
+  }
+  article.concept {
+    background: var(--paper);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 1px 2px rgba(18, 20, 22, 0.06), 0 12px 32px rgba(18, 20, 22, 0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  article.concept svg {
+    width: 100%;
+    height: auto;
+    border-radius: 22.37%;
+    display: block;
+  }
+  article.concept h2 {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  article.concept p {
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: #4a5058;
+  }
+  .source {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: #9aa0a8;
+  }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <h1>Sweaty — App Icon Concepts</h1>
+  <p>Three sculptural marks for an AI training companion: quiet intensity, intelligent direction, continuity across sessions.</p>
+</header>
+
+<main>
+
+  <!-- Concept 1 — Quiet Continuum -->
+  <article class="concept" data-source="Cursor · Fable 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="icon-continuum" xmlns="http://www.w3.org/2000/svg">
+      <title id="icon-continuum">Quiet Continuum — a single unbroken S-curved training path that hands off to the next session</title>
+      <defs>
+        <linearGradient id="continuum-flow" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#3898D8"/>
+          <stop offset="1" stop-color="#5E6EE0"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" fill="#121416"/>
+      <!-- one continuous stroke: hidden S geometry, drawn as a training path -->
+      <path d="M 336 300
+               C 668 300 700 486 512 512
+               C 324 538 356 724 688 724"
+            fill="none"
+            stroke="url(#continuum-flow)"
+            stroke-width="98"
+            stroke-linecap="round"/>
+      <!-- the next session: the path resumes just beyond the pause -->
+      <circle cx="812" cy="724" r="49" fill="#FFFFFF"/>
+    </svg>
+    <h2>Quiet Continuum</h2>
+    <p>One unbroken stroke traces a subtle S through the frame and pauses just short of a waiting node — the next session the intelligence has already planned.</p>
+    <span class="source">Cursor · Fable 5 Medium</span>
+  </article>
+
+  <!-- Concept 2 — Rep Cadence -->
+  <article class="concept" data-source="Cursor · Fable 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="icon-cadence" xmlns="http://www.w3.org/2000/svg">
+      <title id="icon-cadence">Rep Cadence — three ascending pillars of effort marking measured progression</title>
+      <rect width="1024" height="1024" fill="#121416"/>
+      <!-- asymmetric ascending cadence: session, session, breakthrough -->
+      <rect x="228" y="548" width="130" height="212" rx="65" fill="#3898D8"/>
+      <rect x="446" y="420" width="130" height="340" rx="65" fill="#5E6EE0"/>
+      <rect x="664" y="264" width="130" height="496" rx="65" fill="#FFFFFF"/>
+      <!-- the counted rep: a quiet marker above the first pillar, where the next set begins -->
+      <circle cx="293" cy="416" r="42" fill="#FFFFFF"/>
+    </svg>
+    <h2>Rep Cadence</h2>
+    <p>Three rounded pillars rise off-axis like logged sessions gaining load, while a lone counter dot above the shortest bar marks where the program quietly begins its next cycle.</p>
+    <span class="source">Cursor · Fable 5 Medium</span>
+  </article>
+
+  <!-- Concept 3 — Carved Meridian (monochrome) -->
+  <article class="concept" data-source="Cursor · Fable 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="icon-meridian" xmlns="http://www.w3.org/2000/svg">
+      <title id="icon-meridian">Carved Meridian — a monochrome disc of effort with an S-shaped channel of negative space cut through it</title>
+      <rect width="1024" height="1024" fill="#121416"/>
+      <circle cx="512" cy="512" r="316" fill="#FFFFFF"/>
+      <!-- negative space: the training current carved out of the mass -->
+      <path d="M 512 196
+               C 312 196 312 512 512 512
+               C 712 512 712 828 512 828"
+            fill="none"
+            stroke="#121416"
+            stroke-width="92"
+            stroke-linecap="round"/>
+    </svg>
+    <h2>Carved Meridian</h2>
+    <p>A solid monochrome disc — accumulated work — is split by an S-shaped channel of negative space, controlled energy routed through mass rather than drawn on top of it.</p>
+    <span class="source">Cursor · Fable 5 Medium</span>
+  </article>
+
+</main>
+
+</body>
+</html>

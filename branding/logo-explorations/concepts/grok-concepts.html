@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sweaty — App Icon Concepts</title>
+  <style>
+    :root {
+      --bg: #0c0d0f;
+      --surface: #121416;
+      --ink: #ffffff;
+      --muted: #9aa3ad;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 48px 24px 64px;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    h1 {
+      font-weight: 600;
+      font-size: 1.25rem;
+      letter-spacing: 0.02em;
+      margin: 0 0 8px;
+    }
+    .intro {
+      color: var(--muted);
+      margin: 0 0 40px;
+      font-size: 0.95rem;
+    }
+    main {
+      display: grid;
+      gap: 40px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      max-width: 1100px;
+    }
+    .concept {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 28px 24px 32px;
+    }
+    .concept svg {
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      height: auto;
+      border-radius: 22%;
+      background: #121416;
+    }
+    .concept h2 {
+      margin: 20px 0 8px;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .concept p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sweaty — App Logo Concepts</h1>
+  <p class="intro">Three icon-only directions: quiet intensity, intelligent progression, controlled energy.</p>
+  <main>
+
+    <article class="concept" data-source="Cursor · Grok 4.5 High">
+      <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-pulse-rungs">
+        <title id="title-pulse-rungs">Sweaty icon concept Pulse Rungs</title>
+        <rect width="1024" height="1024" fill="#121416" />
+        <!-- Vertical spine -->
+        <rect x="478" y="196" width="68" height="632" rx="34" fill="#FFFFFF" />
+        <!-- Five repeated rungs, lengths shorten upward = progressive load stack -->
+        <rect x="268" y="668" width="488" height="72" rx="36" fill="#3898D8" />
+        <rect x="298" y="548" width="428" height="72" rx="36" fill="#3898D8" />
+        <rect x="328" y="428" width="368" height="72" rx="36" fill="#5E6EE0" />
+        <rect x="358" y="308" width="308" height="72" rx="36" fill="#5E6EE0" />
+        <rect x="388" y="188" width="248" height="72" rx="36" fill="#FFFFFF" />
+      </svg>
+      <h2>Pulse Rungs</h2>
+      <p>Repeated horizontal intervals climb a central spine, reading as progressive overload distilled into a ladder of quiet intensity.</p>
+    </article>
+
+    <article class="concept" data-source="Cursor · Grok 4.5 High">
+      <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-interval-staves">
+        <title id="title-interval-staves">Sweaty icon concept Interval Staves</title>
+        <rect width="1024" height="1024" fill="#121416" />
+        <!-- Work / rest staves as a readable beat: short–tall–short–tall–short–mid -->
+        <rect x="176" y="392" width="88" height="240" rx="44" fill="#3898D8" />
+        <rect x="292" y="220" width="88" height="584" rx="44" fill="#FFFFFF" />
+        <rect x="408" y="392" width="88" height="240" rx="44" fill="#5E6EE0" />
+        <rect x="524" y="168" width="88" height="688" rx="44" fill="#FFFFFF" />
+        <rect x="640" y="392" width="88" height="240" rx="44" fill="#3898D8" />
+        <rect x="756" y="268" width="88" height="488" rx="44" fill="#5E6EE0" />
+        <!-- Shared baseline ties the rhythm into one mark -->
+        <rect x="176" y="656" width="668" height="48" rx="24" fill="#FFFFFF" />
+      </svg>
+      <h2>Interval Staves</h2>
+      <p>Alternating short and tall columns lock into a work–rest beat, making intelligent interval structure readable as a single silhouette.</p>
+    </article>
+
+    <article class="concept" data-source="Cursor · Grok 4.5 High">
+      <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-continuity-orbit">
+        <title id="title-continuity-orbit">Sweaty icon concept Continuity Orbit</title>
+        <rect width="1024" height="1024" fill="#121416" />
+        <!-- Outer continuous lane -->
+        <path fill="#5E6EE0" fill-rule="evenodd" d="
+          M 512 176
+          C 326 176 176 326 176 512
+          C 176 698 326 848 512 848
+          C 698 848 848 698 848 512
+          C 848 326 698 176 512 176
+          Z
+          M 512 288
+          C 635 288 736 389 736 512
+          C 736 635 635 736 512 736
+          C 389 736 288 635 288 512
+          C 288 389 389 288 512 288
+          Z" />
+        <!-- Inner lane for depth / dual continuity -->
+        <path fill="#3898D8" fill-rule="evenodd" d="
+          M 512 336
+          C 415 336 336 415 336 512
+          C 336 609 415 688 512 688
+          C 609 688 688 609 688 512
+          C 688 415 609 336 512 336
+          Z
+          M 512 424
+          C 463 424 424 463 424 512
+          C 424 561 463 600 512 600
+          C 561 600 600 561 600 512
+          C 600 463 561 424 512 424
+          Z" />
+        <!-- Directional aperture in the track (forward break) -->
+        <path fill="#121416" d="
+          M 560 176
+          L 720 176
+          A 336 336 0 0 1 848 360
+          L 736 420
+          A 224 224 0 0 0 660 288
+          L 560 288
+          Z" />
+        <!-- Advancing capsule on the circuit -->
+        <rect x="668" y="220" width="112" height="72" rx="36" fill="#FFFFFF" transform="rotate(38 724 256)" />
+        <!-- Stable core node -->
+        <circle cx="512" cy="512" r="64" fill="#FFFFFF" />
+      </svg>
+      <h2>Continuity Orbit</h2>
+      <p>A dual-lane circuit with a directional break and advancing capsule signals session-to-session continuity without breaking the loop.</p>
+    </article>
+
+  </main>
+</body>
+</html>

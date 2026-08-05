@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sweaty — App Icon Concepts</title>
+<style>
+  :root {
+    --ink: #121416;
+    --blue: #3898D8;
+    --indigo: #5E6EE0;
+    --paper: #FFFFFF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0B0C0E;
+    color: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 64px 32px 96px;
+  }
+  header { max-width: 1200px; margin: 0 auto 56px; }
+  header h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; }
+  header p { margin-top: 10px; color: #9BA1A8; font-size: 15px; max-width: 560px; line-height: 1.55; }
+  main {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px;
+  }
+  .concept {
+    background: #15181B;
+    border: 1px solid #23272B;
+    border-radius: 20px;
+    padding: 28px;
+  }
+  .concept svg {
+    display: block; width: 100%; height: auto;
+    border-radius: 12px;
+  }
+  .concept h2 { margin-top: 22px; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+  .concept p { margin-top: 8px; font-size: 14px; line-height: 1.6; color: #9BA1A8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sweaty — App Icon Concepts</h1>
+  <p>Three original marks for a mobile AI workout app. Quiet intensity, intelligent direction, and continuity across sessions, built from native vector geometry inside a 72% central safe area.</p>
+</header>
+<main>
+
+  <article class="concept" data-source="Cursor · Kimi K3 High">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-lattice">
+      <title id="title-lattice">Sweaty app icon concept Lattice: a dark rounded tile holding a three-by-three module grid whose ascending diagonal glows blue, indigo, and white</title>
+      <!-- Precise modular geometry: uniform modules, one rising diagonal of progress -->
+      <rect x="144" y="144" width="736" height="736" rx="170" fill="#121416"/>
+      <g fill="#FFFFFF" opacity="0.14">
+        <rect x="264" y="264" width="128" height="128" rx="28"/>
+        <rect x="448" y="264" width="128" height="128" rx="28"/>
+        <rect x="264" y="448" width="128" height="128" rx="28"/>
+        <rect x="632" y="448" width="128" height="128" rx="28"/>
+        <rect x="448" y="632" width="128" height="128" rx="28"/>
+        <rect x="632" y="632" width="128" height="128" rx="28"/>
+      </g>
+      <rect x="264" y="632" width="128" height="128" rx="28" fill="#3898D8"/>
+      <rect x="448" y="448" width="128" height="128" rx="28" fill="#5E6EE0"/>
+      <rect x="632" y="264" width="128" height="128" rx="28" fill="#FFFFFF"/>
+    </svg>
+    <h2>Lattice</h2>
+    <p>A disciplined grid of identical training modules where one diagonal ignites from blue through indigo to white, reading as sessions compounding into measurable upward progress.</p>
+  </article>
+
+  <article class="concept" data-source="Cursor · Kimi K3 High">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-heading">
+      <title id="title-heading">Sweaty app icon concept Heading: a single folded gradient ribbon forming an upward caret on a dark rounded tile</title>
+      <!-- Minimal two-shape mark: tile plus one continuous folded path -->
+      <defs>
+        <linearGradient id="heading-gradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#3898D8"/>
+          <stop offset="1" stop-color="#5E6EE0"/>
+        </linearGradient>
+      </defs>
+      <rect x="144" y="144" width="736" height="736" rx="170" fill="#121416"/>
+      <path d="M 348 664 L 512 500 L 676 664" fill="none" stroke="url(#heading-gradient)" stroke-width="120" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h2>Heading</h2>
+    <p>A single uninterrupted ribbon folds once and rises like a course correction mid-workout, its blue-to-indigo flow suggesting an AI that keeps redirecting effort toward the next peak.</p>
+  </article>
+
+  <article class="concept" data-source="Cursor · Kimi K3 High">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-continuum">
+      <title id="title-continuum">Sweaty app icon concept Continuum: a white disc with two stepped arcs whose white negative space spirals inward toward a blue core</title>
+      <!-- Negative-space mark: the white spiral channel between arcs is the path -->
+      <circle cx="512" cy="512" r="368" fill="#FFFFFF"/>
+      <circle cx="512" cy="512" r="300" fill="none" stroke="#121416" stroke-width="76" stroke-dasharray="1413.7 471.2" transform="rotate(180 512 512)"/>
+      <circle cx="512" cy="512" r="168" fill="none" stroke="#5E6EE0" stroke-width="76" stroke-dasharray="791.7 263.9" transform="rotate(270 512 512)"/>
+      <circle cx="512" cy="512" r="74" fill="#3898D8"/>
+    </svg>
+    <h2>Continuum</h2>
+    <p>Two stepped arcs carve a white spiral channel that winds inward from dark through indigo to a blue core, turning continuity and session-over-session progression into the mark's negative space.</p>
+  </article>
+
+</main>
+</body>
+</html>

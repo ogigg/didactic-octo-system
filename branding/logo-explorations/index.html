@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Twenty app icon explorations for Sweaty, an intelligent workout app."
+    />
+    <title>Sweaty — App Icon Explorations</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap");
+
+      :root {
+        color-scheme: dark;
+        --ink: #f2f4f7;
+        --muted: #8b929a;
+        --line: rgba(255, 255, 255, 0.1);
+        --line-bright: rgba(255, 255, 255, 0.2);
+        --paper: #0b0d0f;
+        --panel: #121416;
+        --blue: #3898d8;
+        --violet: #5e6ee0;
+        --mono: "DM Mono", ui-monospace, monospace;
+        --sans: "Manrope", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 82% -5%, rgba(56, 152, 216, 0.15), transparent 28rem),
+          radial-gradient(circle at 12% 20%, rgba(94, 110, 224, 0.08), transparent 24rem),
+          var(--paper);
+        font-family: var(--sans);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .page {
+        width: min(1600px, 100%);
+        margin: 0 auto;
+        padding: 0 32px 64px;
+      }
+
+      .masthead {
+        min-height: 70vh;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.43fr);
+        gap: 8vw;
+        align-items: end;
+        padding: 54px 0 64px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow,
+      .meta,
+      .source,
+      .number,
+      .filter-label {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #b8bdc5;
+        margin: 0 0 28px;
+      }
+
+      .eyebrow::before {
+        width: 30px;
+        height: 2px;
+        content: "";
+        background: linear-gradient(90deg, var(--blue), var(--violet));
+      }
+
+      h1 {
+        max-width: 900px;
+        margin: 0;
+        font-size: clamp(64px, 10vw, 160px);
+        font-weight: 600;
+        line-height: 0.84;
+        letter-spacing: -0.075em;
+      }
+
+      h1 span {
+        color: transparent;
+        -webkit-text-stroke: 1px rgba(255, 255, 255, 0.36);
+      }
+
+      .intro {
+        align-self: end;
+        padding-bottom: 8px;
+      }
+
+      .intro p {
+        max-width: 440px;
+        margin: 0 0 34px;
+        color: #aeb4bc;
+        font-size: clamp(16px, 1.4vw, 21px);
+        line-height: 1.55;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .stat {
+        padding: 18px 0;
+      }
+
+      .stat + .stat {
+        padding-left: 24px;
+        border-left: 1px solid var(--line);
+      }
+
+      .stat strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .controls {
+        position: sticky;
+        z-index: 20;
+        top: 0;
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 0;
+        background: rgba(11, 13, 15, 0.9);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(18px);
+      }
+
+      .filter-wrap {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .filter-label {
+        flex: none;
+        color: var(--muted);
+      }
+
+      .filters {
+        display: flex;
+        gap: 7px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .filters::-webkit-scrollbar {
+        display: none;
+      }
+
+      .chip,
+      .mask-toggle,
+      .action {
+        color: #b7bdc4;
+        background: transparent;
+        border: 1px solid var(--line);
+        cursor: pointer;
+        transition: 180ms ease;
+      }
+
+      .chip {
+        flex: none;
+        padding: 9px 12px;
+        border-radius: 999px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.03em;
+      }
+
+      .chip:hover,
+      .chip.active,
+      .mask-toggle:hover,
+      .action:hover {
+        color: #fff;
+        border-color: var(--line-bright);
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .chip.active {
+        border-color: rgba(56, 152, 216, 0.5);
+        box-shadow: inset 0 0 0 1px rgba(56, 152, 216, 0.14);
+      }
+
+      .mask-toggle {
+        flex: none;
+        padding: 9px 12px;
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-left: 1px solid var(--line);
+      }
+
+      .concept {
+        position: relative;
+        min-width: 0;
+        padding: 18px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        transition: background 220ms ease;
+      }
+
+      .concept:hover {
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .concept[hidden] {
+        display: none;
+      }
+
+      .concept > svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: #121416;
+        border-radius: 25.5%;
+        box-shadow:
+          0 18px 60px rgba(0, 0, 0, 0.32),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+        transition:
+          border-radius 250ms ease,
+          transform 250ms ease,
+          box-shadow 250ms ease;
+      }
+
+      .concept:hover > svg {
+        transform: translateY(-3px);
+        box-shadow:
+          0 26px 70px rgba(0, 0, 0, 0.42),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      }
+
+      .gallery.square .concept > svg {
+        border-radius: 0;
+      }
+
+      .card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 45px;
+        color: var(--muted);
+      }
+
+      .number {
+        color: #d5d9de;
+      }
+
+      .source {
+        max-width: 72%;
+        overflow: hidden;
+        color: #777e87;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .concept h2 {
+        margin: 22px 0 8px;
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+      }
+
+      .concept > p {
+        min-height: 64px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .card-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 20px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+      }
+
+      .sizes {
+        display: flex;
+        gap: 10px;
+        align-items: end;
+      }
+
+      .sizes svg {
+        display: block;
+        overflow: hidden;
+        border-radius: 23%;
+      }
+
+      .sizes svg:first-child {
+        width: 32px;
+        height: 32px;
+      }
+
+      .sizes svg:last-child {
+        width: 18px;
+        height: 18px;
+      }
+
+      .action {
+        padding: 8px 10px;
+        border-radius: 7px;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .concept.is-shortlisted::after {
+        position: absolute;
+        top: 72px;
+        right: 28px;
+        width: 9px;
+        height: 9px;
+        content: "";
+        background: #fff;
+        border-radius: 50%;
+        box-shadow: 0 0 0 5px rgba(56, 152, 216, 0.24);
+      }
+
+      .footer {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 30px;
+        padding: 64px 0 18px;
+      }
+
+      .footer strong {
+        font-size: clamp(28px, 4vw, 58px);
+        font-weight: 500;
+        letter-spacing: -0.055em;
+      }
+
+      .footer p {
+        max-width: 390px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 1100px) {
+        .gallery {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 800px) {
+        .page {
+          padding-inline: 18px;
+        }
+
+        .masthead {
+          min-height: auto;
+          grid-template-columns: 1fr;
+          gap: 52px;
+          padding-top: 80px;
+        }
+
+        .controls {
+          align-items: flex-start;
+        }
+
+        .filter-wrap {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .gallery {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 520px) {
+        .page {
+          padding-inline: 12px;
+        }
+
+        .controls {
+          align-items: stretch;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .filter-wrap,
+        .filters {
+          width: 100%;
+        }
+
+        .mask-toggle {
+          align-self: flex-start;
+        }
+
+        h1 {
+          font-size: 28vw;
+        }
+
+        .gallery {
+          grid-template-columns: 1fr;
+        }
+
+        .concept > p {
+          min-height: auto;
+        }
+
+        .footer {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">App icon study / 01</p>
+          <h1>Sweaty<span>.</span></h1>
+        </div>
+        <div class="intro">
+          <p>
+            Twenty ways to express quiet intensity: training direction,
+            continuity, and progress—without the usual fitness clichés.
+          </p>
+          <div class="stats" aria-label="Study overview">
+            <div class="stat"><strong>20</strong><span>Vector marks</span></div>
+            <div class="stat"><strong>6</strong><span>Independent passes</span></div>
+          </div>
+        </div>
+      </header>
+
+      <nav class="controls" aria-label="Gallery controls">
+        <div class="filter-wrap">
+          <span class="filter-label">Filter</span>
+          <div class="filters" role="group" aria-label="Filter concepts by source">
+            <button class="chip active" type="button" data-filter="all">All 20</button>
+          </div>
+        </div>
+        <button class="mask-toggle" type="button" aria-pressed="false">
+          Square preview
+        </button>
+      </nav>
+
+      <section class="gallery" aria-label="Sweaty app icon concepts">
+        <article class="concept" data-source="GPT-5.6 Sol">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sol-continuum-title">
+    <title id="sol-continuum-title">Continuum — an angular continuous ribbon forming a subtle letter S</title>
+    <defs>
+      <linearGradient id="sol-continuum-gradient" x1="278" y1="250" x2="760" y2="780" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#3898D8" />
+        <stop offset="1" stop-color="#5E6EE0" />
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="#121416" />
+    <path
+      fill="url(#sol-continuum-gradient)"
+      fill-rule="evenodd"
+      d="M367 222h290c86 0 156 70 156 156 0 62-36 118-93 143l-301 132c-18 8-29 25-29 45 0 27 22 49 49 49h220c26 0 48-22 48-48 0-19-11-36-28-44l-58-26 153-67 9 4c66 30 108 95 108 168 0 102-83 184-184 184H417c-102 0-184-82-184-184 0-74 44-141 112-170l299-131c16-7 26-22 26-39 0-24-19-43-43-43H407c-25 0-46 21-46 46 0 18 11 35 28 42l60 27-153 67-9-4c-66-30-108-96-108-168 0-102 84-185 188-185Zm81 224 133-58H425l23 58Zm127 199-133 58h157l-24-58Z"
+    />
+  </svg>
+  <h2>Continuum</h2>
+  <p>A single adaptive ribbon traces a restrained S, expressing workouts that learn, flow forward, and never reset to zero.</p>
+</article>
+<article class="concept" data-source="GPT-5.6 Sol">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sol-ascent-title">
+    <title id="sol-ascent-title">Measured Ascent — four rising modules joined into an upward cadence</title>
+    <defs>
+      <linearGradient id="sol-ascent-gradient" x1="258" y1="750" x2="757" y2="270" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#3898D8" />
+        <stop offset="1" stop-color="#5E6EE0" />
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="#121416" />
+    <path
+      fill="url(#sol-ascent-gradient)"
+      d="M221 649c0-30 24-54 54-54h96c30 0 54 24 54 54v100c0 30-24 54-54 54h-96c-30 0-54-24-54-54V649Zm189-190c0-30 24-54 54-54h96c30 0 54 24 54 54v290c0 30-24 54-54 54h-96c-30 0-54-24-54-54V459Zm189-190c0-30 24-54 54-54h96c30 0 54 24 54 54v480c0 30-24 54-54 54h-96c-30 0-54-24-54-54V269Z"
+    />
+    <path
+      fill="#121416"
+      d="M322 629a32 32 0 0 1 32-32h24a32 32 0 0 1 32 32v26a32 32 0 0 1-32 32h-24a32 32 0 0 1-32-32v-26Zm189-190a32 32 0 0 1 32-32h24a32 32 0 0 1 32 32v26a32 32 0 0 1-32 32h-24a32 32 0 0 1-32-32v-26Z"
+    />
+  </svg>
+  <h2>Measured Ascent</h2>
+  <p>Three calm, connected training blocks rise in deliberate increments, turning progressive overload into a compact, confident silhouette.</p>
+</article>
+<article class="concept" data-source="GPT-5.6 Sol">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sol-guided-title">
+    <title id="sol-guided-title">Guided Momentum — nested forward forms creating a precise upward path</title>
+    <defs>
+      <linearGradient id="sol-guided-gradient" x1="252" y1="758" x2="760" y2="257" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#3898D8" />
+        <stop offset="1" stop-color="#5E6EE0" />
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="#121416" />
+    <path
+      fill="url(#sol-guided-gradient)"
+      fill-rule="evenodd"
+      d="M512 180 844 512 512 844 180 512l97-97 235 235 138-138-138-138-89 89 100 100-96 96-197-197 282-282Zm0 194 138 138-138 138-138-138 138-138Z"
+    />
+    <path fill="#121416" d="m512 443 69 69-69 69-69-69 69-69Z" />
+  </svg>
+  <h2>Guided Momentum</h2>
+  <p>Nested directional forms converge on one clear route, reflecting an app that quietly decides the next best step and keeps users moving.</p>
+</article>
+<article class="concept" data-source="GPT-5.6 Sol">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sol-cycle-title">
+    <title id="sol-cycle-title">Next Cycle — a broken training loop resolving into a rising terminal</title>
+    <defs>
+      <linearGradient id="sol-cycle-gradient" x1="272" y1="746" x2="756" y2="271" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#3898D8" />
+        <stop offset="1" stop-color="#5E6EE0" />
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" fill="#121416" />
+    <path
+      fill="url(#sol-cycle-gradient)"
+      d="M512 194c88 0 169 36 227 94l-97 97a184 184 0 1 0 42 196H564l165-165 165 165h-69c-31 145-160 249-313 249-176 0-318-142-318-318s142-318 318-318Z"
+    />
+    <path
+      fill="#121416"
+      d="M512 374a138 138 0 1 0 0 276 138 138 0 0 0 0-276Zm-54 73h108c7 0 12 5 12 12v27c0 7-5 12-12 12H458c-7 0-12-5-12-12v-27c0-7 5-12 12-12Zm0 80h108c7 0 12 5 12 12v27c0 7-5 12-12 12H458c-7 0-12-5-12-12v-27c0-7 5-12 12-12Z"
+    />
+  </svg>
+  <h2>Next Cycle</h2>
+  <p>An almost-complete loop resolves into a lifted endpoint, capturing the rhythm of finish, learn, and begin the smarter next session.</p>
+</article>
+<article class="concept" data-source="GPT-5.6 Terra">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="terra-orbit-rise-title" xmlns="http://www.w3.org/2000/svg">
+    <title id="terra-orbit-rise-title">Orbit Rise app icon</title>
+    <defs>
+      <linearGradient id="terra-orbit-rise-gradient" x1="250" y1="210" x2="776" y2="814" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#3898D8"/>
+        <stop offset="1" stop-color="#5E6EE0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" rx="224" fill="#121416"/>
+    <path fill="url(#terra-orbit-rise-gradient)" fill-rule="evenodd" d="M511 174C325 174 181 318 181 504c0 132 77 248 194 302l49-108c-75-35-124-109-124-194 0-117 95-212 212-212 80 0 151 45 188 111l107-52c-57-108-168-177-296-177Zm231 262-95 46c20 33 31 71 31 111 0 117-95 212-212 212-37 0-72-9-103-27l-64 94c50 33 108 51 168 51 186 0 330-144 330-330 0-61-17-120-48-171Z"/>
+    <path fill="#121416" d="M640 232 838 232 838 430 760 430 760 310 640 310z"/>
+    <path fill="#121416" d="M187 589 305 589 305 709 425 709 425 787 187 787z"/>
+    <path fill="url(#terra-orbit-rise-gradient)" d="M541 356h111l-83 147h-111z"/>
+  </svg>
+  <h2>Orbit Rise</h2>
+  <p>A broken progress orbit turns one completed session into the momentum for the next, with a clipped diagonal that quietly points forward.</p>
+</article>
+<article class="concept" data-source="GPT-5.6 Terra">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="terra-setline-title" xmlns="http://www.w3.org/2000/svg">
+    <title id="terra-setline-title">Setline app icon</title>
+    <rect width="1024" height="1024" rx="224" fill="#121416"/>
+    <path fill="#3898D8" d="M319 215h386c58 0 105 47 105 105v80H692v-50c0-16-13-29-29-29H361c-16 0-29 13-29 29v72c0 16 13 29 29 29h302c81 0 147 66 147 147v106c0 58-47 105-105 105H319c-58 0-105-47-105-105v-80h118v50c0 16 13 29 29 29h302c16 0 29-13 29-29v-98c0-16-13-29-29-29H361c-81 0-147-66-147-147V320c0-58 47-105 105-105Z"/>
+    <path fill="#121416" d="M369 338h286v94H369zM369 592h286v94H369z"/>
+    <path fill="#5E6EE0" d="M655 215h50c58 0 105 47 105 105v80H692v-50c0-16-13-29-29-29h-8zM369 809h-50c-58 0-105-47-105-105v-80h118v50c0 16 13 29 29 29h8z"/>
+  </svg>
+  <h2>Setline</h2>
+  <p>A single, measured S-shaped track is divided into clean intervals, expressing repetitions, dependable structure, and training continuity.</p>
+</article>
+<article class="concept" data-source="GPT-5.6 Terra">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="terra-relay-title" xmlns="http://www.w3.org/2000/svg">
+    <title id="terra-relay-title">Relay app icon</title>
+    <defs>
+      <linearGradient id="terra-relay-gradient" x1="234" y1="212" x2="796" y2="808" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#3898D8"/>
+        <stop offset="1" stop-color="#5E6EE0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" rx="224" fill="#121416"/>
+    <path fill="url(#terra-relay-gradient)" d="M512 176 780 331v310L512 796 244 641V331Zm0 139L365 400v170l147 85 147-85V400Zm0-139v139l147 85 121-69v310l-121-70-147 85v140l268-155V331Z" fill-rule="evenodd"/>
+    <path fill="#121416" d="m512 315 147 85v170l-147 85-147-85V400zm0 126-38 22v44l38 22 38-22v-44z" fill-rule="evenodd"/>
+  </svg>
+  <h2>Relay</h2>
+  <p>Three linked directional turns form a compact loop, making the app feel like a reliable relay between plan, effort, and progression.</p>
+</article>
+<article class="concept" data-source="GPT-5.6 Terra">
+  <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="terra-switchback-title" xmlns="http://www.w3.org/2000/svg">
+    <title id="terra-switchback-title">Switchback app icon</title>
+    <defs>
+      <linearGradient id="terra-switchback-gradient" x1="294" y1="230" x2="730" y2="794" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#3898D8"/>
+        <stop offset="1" stop-color="#5E6EE0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" rx="224" fill="#121416"/>
+    <path fill="url(#terra-switchback-gradient)" d="M704 198H404c-107 0-194 87-194 194s87 194 194 194h216c42 0 76 34 76 76s-34 76-76 76H320v118h300c107 0 194-87 194-194s-87-194-194-194H404c-42 0-76-34-76-76s34-76 76-76h300z"/>
+    <path fill="#121416" d="M378 318h290v88H404c-25 0-46 20-46 46 0 12 5 23 13 32l-83 55c-30-39-48-87-48-139 0-101 72-185 168-202zm258 300h-290v88h274c25 0 46-20 46-46 0-12-5-23-13-32l83-55c30 39 48 87 48 139 0 101-72 185-168 202z"/>
+    <path fill="#E8E8E8" d="m700 229 103 103-103 103v-64H559v-78h141zm-376 359-103-103 103-103v64h141v78H324z"/>
+  </svg>
+  <h2>Switchback</h2>
+  <p>A flowing double switchback turns the letter S into a route of deliberate advances, with opposing cues for adjustment and forward movement.</p>
+</article>
+<article class="concept" data-source="Cursor · Fable 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="icon-continuum" xmlns="http://www.w3.org/2000/svg">
+      <title id="icon-continuum">Quiet Continuum — a single unbroken S-curved training path that hands off to the next session</title>
+      <defs>
+        <linearGradient id="continuum-flow" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#3898D8"/>
+          <stop offset="1" stop-color="#5E6EE0"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" fill="#121416"/>
+      <!-- one continuous stroke: hidden S geometry, drawn as a training path -->
+      <path d="M 336 300
+               C 668 300 700 486 512 512
+               C 324 538 356 724 688 724"
+            fill="none"
+            stroke="url(#continuum-flow)"
+            stroke-width="98"
+            stroke-linecap="round"/>
+      <!-- the next session: the path resumes just beyond the pause -->
+      <circle cx="812" cy="724" r="49" fill="#FFFFFF"/>
+    </svg>
+    <h2>Quiet Continuum</h2>
+    <p>One unbroken stroke traces a subtle S through the frame and pauses just short of a waiting node — the next session the intelligence has already planned.</p>
+    <span class="source">Cursor · Fable 5 Medium</span>
+  </article>
+<article class="concept" data-source="Cursor · Fable 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="icon-cadence" xmlns="http://www.w3.org/2000/svg">
+      <title id="icon-cadence">Rep Cadence — three ascending pillars of effort marking measured progression</title>
+      <rect width="1024" height="1024" fill="#121416"/>
+      <!-- asymmetric ascending cadence: session, session, breakthrough -->
+      <rect x="228" y="548" width="130" height="212" rx="65" fill="#3898D8"/>
+      <rect x="446" y="420" width="130" height="340" rx="65" fill="#5E6EE0"/>
+      <rect x="664" y="264" width="130" height="496" rx="65" fill="#FFFFFF"/>
+      <!-- the counted rep: a quiet marker above the first pillar, where the next set begins -->
+      <circle cx="293" cy="416" r="42" fill="#FFFFFF"/>
+    </svg>
+    <h2>Rep Cadence</h2>
+    <p>Three rounded pillars rise off-axis like logged sessions gaining load, while a lone counter dot above the shortest bar marks where the program quietly begins its next cycle.</p>
+    <span class="source">Cursor · Fable 5 Medium</span>
+  </article>
+<article class="concept" data-source="Cursor · Fable 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="icon-meridian" xmlns="http://www.w3.org/2000/svg">
+      <title id="icon-meridian">Carved Meridian — a monochrome disc of effort with an S-shaped channel of negative space cut through it</title>
+      <rect width="1024" height="1024" fill="#121416"/>
+      <circle cx="512" cy="512" r="316" fill="#FFFFFF"/>
+      <!-- negative space: the training current carved out of the mass -->
+      <path d="M 512 196
+               C 312 196 312 512 512 512
+               C 712 512 712 828 512 828"
+            fill="none"
+            stroke="#121416"
+            stroke-width="92"
+            stroke-linecap="round"/>
+    </svg>
+    <h2>Carved Meridian</h2>
+    <p>A solid monochrome disc — accumulated work — is split by an S-shaped channel of negative space, controlled energy routed through mass rather than drawn on top of it.</p>
+    <span class="source">Cursor · Fable 5 Medium</span>
+  </article>
+<article class="concept" data-source="Cursor · Opus 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sweaty-ascent-ladder-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="sweaty-ascent-ladder-title">Sweaty app icon: a stepped path climbing from deep blue to white</title>
+      <rect x="0" y="0" width="1024" height="1024" rx="232" fill="#121416"/>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M212 672 H412 V558" stroke="#3898D8" stroke-width="92"/>
+        <path d="M412 666 V512 H612 V398" stroke="#5E6EE0" stroke-width="92"/>
+        <path d="M612 406 V352 H812" stroke="#FFFFFF" stroke-width="92"/>
+      </g>
+    </svg>
+    <h2>Ascent Ladder</h2>
+    <p>One unbroken path steps upward in three equal gains, each tread lighter than the last, so the mark reads as measured progression carried across sessions.</p>
+  </article>
+<article class="concept" data-source="Cursor · Opus 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sweaty-split-summit-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="sweaty-split-summit-title">Sweaty app icon: a disc cut into three rising strata by two angled negative-space channels</title>
+      <rect x="0" y="0" width="1024" height="1024" rx="232" fill="#121416"/>
+      <path d="M190.4 585.7 L512 400 L833.6 585.7 A330 330 0 1 0 190.4 585.7 Z" fill="#FFFFFF"/>
+      <path d="M213.4 652.4 L512 480 L810.6 652.4 A330 330 0 0 1 774.7 711.7 L512 560 L249.3 711.7 A330 330 0 0 1 213.4 652.4 Z" fill="#5E6EE0"/>
+      <path d="M298.3 763.4 L512 640 L725.7 763.4 A330 330 0 0 1 298.3 763.4 Z" fill="#3898D8"/>
+    </svg>
+    <h2>Split Summit</h2>
+    <p>A single disc is cleaved by two angled channels of pure negative space, the strata widening as they climb toward a resolved white peak.</p>
+  </article>
+<article class="concept" data-source="Cursor · Opus 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sweaty-counterload-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="sweaty-counterload-title">Sweaty app icon: an open ring under load with a lighter arc arching over its gap</title>
+      <rect x="0" y="0" width="1024" height="1024" rx="232" fill="#121416"/>
+      <g fill="none" stroke-linecap="round">
+        <path d="M638 293.8 A252 252 0 1 1 386 293.8" stroke="#3898D8" stroke-width="96"/>
+        <path d="M322.7 241.7 A330 330 0 0 1 597.4 193.2" stroke="#5E6EE0" stroke-width="72"/>
+        <path d="M580.6 189.2 A330 330 0 0 1 701.3 241.7" stroke="#FFFFFF" stroke-width="72"/>
+      </g>
+    </svg>
+    <h2>Counterload</h2>
+    <p>A heavy open ring holds the load while a lighter arc springs across its gap and releases into white, the geometry of stored effort turning into direction.</p>
+  </article>
+<article class="concept" data-source="Cursor · Grok 4.5 High">
+      <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-pulse-rungs">
+        <title id="title-pulse-rungs">Sweaty icon concept Pulse Rungs</title>
+        <rect width="1024" height="1024" fill="#121416" />
+        <!-- Vertical spine -->
+        <rect x="478" y="196" width="68" height="632" rx="34" fill="#FFFFFF" />
+        <!-- Five repeated rungs, lengths shorten upward = progressive load stack -->
+        <rect x="268" y="668" width="488" height="72" rx="36" fill="#3898D8" />
+        <rect x="298" y="548" width="428" height="72" rx="36" fill="#3898D8" />
+        <rect x="328" y="428" width="368" height="72" rx="36" fill="#5E6EE0" />
+        <rect x="358" y="308" width="308" height="72" rx="36" fill="#5E6EE0" />
+        <rect x="388" y="188" width="248" height="72" rx="36" fill="#FFFFFF" />
+      </svg>
+      <h2>Pulse Rungs</h2>
+      <p>Repeated horizontal intervals climb a central spine, reading as progressive overload distilled into a ladder of quiet intensity.</p>
+    </article>
+<article class="concept" data-source="Cursor · Grok 4.5 High">
+      <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-interval-staves">
+        <title id="title-interval-staves">Sweaty icon concept Interval Staves</title>
+        <rect width="1024" height="1024" fill="#121416" />
+        <!-- Work / rest staves as a readable beat: short–tall–short–tall–short–mid -->
+        <rect x="176" y="392" width="88" height="240" rx="44" fill="#3898D8" />
+        <rect x="292" y="220" width="88" height="584" rx="44" fill="#FFFFFF" />
+        <rect x="408" y="392" width="88" height="240" rx="44" fill="#5E6EE0" />
+        <rect x="524" y="168" width="88" height="688" rx="44" fill="#FFFFFF" />
+        <rect x="640" y="392" width="88" height="240" rx="44" fill="#3898D8" />
+        <rect x="756" y="268" width="88" height="488" rx="44" fill="#5E6EE0" />
+        <!-- Shared baseline ties the rhythm into one mark -->
+        <rect x="176" y="656" width="668" height="48" rx="24" fill="#FFFFFF" />
+      </svg>
+      <h2>Interval Staves</h2>
+      <p>Alternating short and tall columns lock into a work–rest beat, making intelligent interval structure readable as a single silhouette.</p>
+    </article>
+<article class="concept" data-source="Cursor · Grok 4.5 High">
+      <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-continuity-orbit">
+        <title id="title-continuity-orbit">Sweaty icon concept Continuity Orbit</title>
+        <rect width="1024" height="1024" fill="#121416" />
+        <!-- Outer continuous lane -->
+        <path fill="#5E6EE0" fill-rule="evenodd" d="
+          M 512 176
+          C 326 176 176 326 176 512
+          C 176 698 326 848 512 848
+          C 698 848 848 698 848 512
+          C 848 326 698 176 512 176
+          Z
+          M 512 288
+          C 635 288 736 389 736 512
+          C 736 635 635 736 512 736
+          C 389 736 288 635 288 512
+          C 288 389 389 288 512 288
+          Z" />
+        <!-- Inner lane for depth / dual continuity -->
+        <path fill="#3898D8" fill-rule="evenodd" d="
+          M 512 336
+          C 415 336 336 415 336 512
+          C 336 609 415 688 512 688
+          C 609 688 688 609 688 512
+          C 688 415 609 336 512 336
+          Z
+          M 512 424
+          C 463 424 424 463 424 512
+          C 424 561 463 600 512 600
+          C 561 600 600 561 600 512
+          C 600 463 561 424 512 424
+          Z" />
+        <!-- Directional aperture in the track (forward break) -->
+        <path fill="#121416" d="
+          M 560 176
+          L 720 176
+          A 336 336 0 0 1 848 360
+          L 736 420
+          A 224 224 0 0 0 660 288
+          L 560 288
+          Z" />
+        <!-- Advancing capsule on the circuit -->
+        <rect x="668" y="220" width="112" height="72" rx="36" fill="#FFFFFF" transform="rotate(38 724 256)" />
+        <!-- Stable core node -->
+        <circle cx="512" cy="512" r="64" fill="#FFFFFF" />
+      </svg>
+      <h2>Continuity Orbit</h2>
+      <p>A dual-lane circuit with a directional break and advancing capsule signals session-to-session continuity without breaking the loop.</p>
+    </article>
+<article class="concept" data-source="Cursor · Kimi K3 High">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-lattice">
+      <title id="title-lattice">Sweaty app icon concept Lattice: a dark rounded tile holding a three-by-three module grid whose ascending diagonal glows blue, indigo, and white</title>
+      <!-- Precise modular geometry: uniform modules, one rising diagonal of progress -->
+      <rect x="144" y="144" width="736" height="736" rx="170" fill="#121416"/>
+      <g fill="#FFFFFF" opacity="0.14">
+        <rect x="264" y="264" width="128" height="128" rx="28"/>
+        <rect x="448" y="264" width="128" height="128" rx="28"/>
+        <rect x="264" y="448" width="128" height="128" rx="28"/>
+        <rect x="632" y="448" width="128" height="128" rx="28"/>
+        <rect x="448" y="632" width="128" height="128" rx="28"/>
+        <rect x="632" y="632" width="128" height="128" rx="28"/>
+      </g>
+      <rect x="264" y="632" width="128" height="128" rx="28" fill="#3898D8"/>
+      <rect x="448" y="448" width="128" height="128" rx="28" fill="#5E6EE0"/>
+      <rect x="632" y="264" width="128" height="128" rx="28" fill="#FFFFFF"/>
+    </svg>
+    <h2>Lattice</h2>
+    <p>A disciplined grid of identical training modules where one diagonal ignites from blue through indigo to white, reading as sessions compounding into measurable upward progress.</p>
+  </article>
+<article class="concept" data-source="Cursor · Kimi K3 High">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-heading">
+      <title id="title-heading">Sweaty app icon concept Heading: a single folded gradient ribbon forming an upward caret on a dark rounded tile</title>
+      <!-- Minimal two-shape mark: tile plus one continuous folded path -->
+      <defs>
+        <linearGradient id="heading-gradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#3898D8"/>
+          <stop offset="1" stop-color="#5E6EE0"/>
+        </linearGradient>
+      </defs>
+      <rect x="144" y="144" width="736" height="736" rx="170" fill="#121416"/>
+      <path d="M 348 664 L 512 500 L 676 664" fill="none" stroke="url(#heading-gradient)" stroke-width="120" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h2>Heading</h2>
+    <p>A single uninterrupted ribbon folds once and rises like a course correction mid-workout, its blue-to-indigo flow suggesting an AI that keeps redirecting effort toward the next peak.</p>
+  </article>
+<article class="concept" data-source="Cursor · Kimi K3 High">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="title-continuum">
+      <title id="title-continuum">Sweaty app icon concept Continuum: a white disc with two stepped arcs whose white negative space spirals inward toward a blue core</title>
+      <!-- Negative-space mark: the white spiral channel between arcs is the path -->
+      <circle cx="512" cy="512" r="368" fill="#FFFFFF"/>
+      <circle cx="512" cy="512" r="300" fill="none" stroke="#121416" stroke-width="76" stroke-dasharray="1413.7 471.2" transform="rotate(180 512 512)"/>
+      <circle cx="512" cy="512" r="168" fill="none" stroke="#5E6EE0" stroke-width="76" stroke-dasharray="791.7 263.9" transform="rotate(270 512 512)"/>
+      <circle cx="512" cy="512" r="74" fill="#3898D8"/>
+    </svg>
+    <h2>Continuum</h2>
+    <p>Two stepped arcs carve a white spiral channel that winds inward from dark through indigo to a blue core, turning continuity and session-over-session progression into the mark's negative space.</p>
+  </article>
+      </section>
+
+      <footer class="footer">
+        <strong>Pick the one<br />you remember.</strong>
+        <p>
+          Shortlist promising directions, inspect them at true icon sizes, and
+          download any source SVG. The strongest mark should work before its
+          story is explained.
+        </p>
+      </footer>
+    </main>
+
+    <script>
+      const gallery = document.querySelector(".gallery");
+      const concepts = [...document.querySelectorAll(".concept")];
+      const filterBar = document.querySelector(".filters");
+      const maskToggle = document.querySelector(".mask-toggle");
+      const sources = [...new Set(concepts.map((item) => item.dataset.source))];
+
+      const slugify = (value) =>
+        value
+          .toLowerCase()
+          .normalize("NFKD")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+
+      sources.forEach((source) => {
+        const button = document.createElement("button");
+        button.className = "chip";
+        button.type = "button";
+        button.dataset.filter = source;
+        button.textContent = source.replace("Cursor · ", "");
+        filterBar.append(button);
+      });
+
+      concepts.forEach((concept, index) => {
+        const svg = concept.querySelector(":scope > svg");
+        const name = concept.querySelector("h2").textContent.trim();
+        const top = document.createElement("div");
+        const foot = document.createElement("div");
+        const sizes = document.createElement("div");
+        const download = document.createElement("button");
+        const shortlist = document.createElement("button");
+
+        top.className = "card-top";
+        top.innerHTML =
+          '<span class="number">' +
+          String(index + 1).padStart(2, "0") +
+          '</span><span class="source">' +
+          concept.dataset.source +
+          "</span>";
+        concept.prepend(top);
+
+        sizes.className = "sizes";
+        sizes.setAttribute("aria-label", "32 and 18 pixel previews");
+        sizes.append(svg.cloneNode(true), svg.cloneNode(true));
+
+        download.className = "action";
+        download.type = "button";
+        download.textContent = "SVG";
+        download.setAttribute("aria-label", "Download " + name + " as SVG");
+        download.addEventListener("click", () => {
+          const clone = svg.cloneNode(true);
+          clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+          const blob = new Blob([clone.outerHTML], { type: "image/svg+xml" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = "sweaty-" + slugify(name) + ".svg";
+          link.click();
+          URL.revokeObjectURL(link.href);
+        });
+
+        shortlist.className = "action";
+        shortlist.type = "button";
+        shortlist.textContent = "Shortlist";
+        shortlist.setAttribute("aria-pressed", "false");
+        shortlist.addEventListener("click", () => {
+          const selected = concept.classList.toggle("is-shortlisted");
+          shortlist.setAttribute("aria-pressed", String(selected));
+          shortlist.textContent = selected ? "Selected" : "Shortlist";
+        });
+
+        foot.className = "card-foot";
+        foot.append(sizes, shortlist, download);
+        concept.append(foot);
+      });
+
+      filterBar.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-filter]");
+        if (!button) return;
+        document.querySelectorAll(".chip").forEach((chip) => {
+          chip.classList.toggle("active", chip === button);
+        });
+        concepts.forEach((concept) => {
+          concept.hidden =
+            button.dataset.filter !== "all" &&
+            concept.dataset.source !== button.dataset.filter;
+        });
+      });
+
+      maskToggle.addEventListener("click", () => {
+        const square = gallery.classList.toggle("square");
+        maskToggle.setAttribute("aria-pressed", String(square));
+        maskToggle.textContent = square ? "App mask preview" : "Square preview";
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sweaty — App Icon Concepts</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 64px 32px 96px;
+    background: #F4F5F7;
+    color: #121416;
+    font: 16px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header { max-width: 1120px; margin: 0 auto 48px; }
+  header h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.02em; }
+  header p { margin: 0; max-width: 62ch; color: #5A6068; }
+  .grid {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 32px;
+  }
+  .concept {
+    background: #FFFFFF;
+    border: 1px solid #E3E6EA;
+    border-radius: 20px;
+    padding: 28px;
+  }
+  .concept svg { width: 100%; height: auto; display: block; border-radius: 22%; }
+  .concept h2 { margin: 22px 0 6px; font-size: 19px; letter-spacing: -0.01em; }
+  .concept p { margin: 0; color: #5A6068; font-size: 14.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sweaty — app icon concepts</h1>
+  <p>Three original geometric marks built on tension, compression and release. Icon only: no wordmark, no letterforms, no illustration.</p>
+</header>
+
+<main class="grid">
+
+  <article class="concept" data-source="Cursor · Opus 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sweaty-ascent-ladder-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="sweaty-ascent-ladder-title">Sweaty app icon: a stepped path climbing from deep blue to white</title>
+      <rect x="0" y="0" width="1024" height="1024" rx="232" fill="#121416"/>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M212 672 H412 V558" stroke="#3898D8" stroke-width="92"/>
+        <path d="M412 666 V512 H612 V398" stroke="#5E6EE0" stroke-width="92"/>
+        <path d="M612 406 V352 H812" stroke="#FFFFFF" stroke-width="92"/>
+      </g>
+    </svg>
+    <h2>Ascent Ladder</h2>
+    <p>One unbroken path steps upward in three equal gains, each tread lighter than the last, so the mark reads as measured progression carried across sessions.</p>
+  </article>
+
+  <article class="concept" data-source="Cursor · Opus 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sweaty-split-summit-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="sweaty-split-summit-title">Sweaty app icon: a disc cut into three rising strata by two angled negative-space channels</title>
+      <rect x="0" y="0" width="1024" height="1024" rx="232" fill="#121416"/>
+      <path d="M190.4 585.7 L512 400 L833.6 585.7 A330 330 0 1 0 190.4 585.7 Z" fill="#FFFFFF"/>
+      <path d="M213.4 652.4 L512 480 L810.6 652.4 A330 330 0 0 1 774.7 711.7 L512 560 L249.3 711.7 A330 330 0 0 1 213.4 652.4 Z" fill="#5E6EE0"/>
+      <path d="M298.3 763.4 L512 640 L725.7 763.4 A330 330 0 0 1 298.3 763.4 Z" fill="#3898D8"/>
+    </svg>
+    <h2>Split Summit</h2>
+    <p>A single disc is cleaved by two angled channels of pure negative space, the strata widening as they climb toward a resolved white peak.</p>
+  </article>
+
+  <article class="concept" data-source="Cursor · Opus 5 Medium">
+    <svg viewBox="0 0 1024 1024" role="img" aria-labelledby="sweaty-counterload-title" xmlns="http://www.w3.org/2000/svg">
+      <title id="sweaty-counterload-title">Sweaty app icon: an open ring under load with a lighter arc arching over its gap</title>
+      <rect x="0" y="0" width="1024" height="1024" rx="232" fill="#121416"/>
+      <g fill="none" stroke-linecap="round">
+        <path d="M638 293.8 A252 252 0 1 1 386 293.8" stroke="#3898D8" stroke-width="96"/>
+        <path d="M322.7 241.7 A330 330 0 0 1 597.4 193.2" stroke="#5E6EE0" stroke-width="72"/>
+        <path d="M580.6 189.2 A330 330 0 0 1 701.3 241.7" stroke="#FFFFFF" stroke-width="72"/>
+      </g>
+    </svg>
+    <h2>Counterload</h2>
+    <p>A heavy open ring holds the load while a lighter arc springs across its gap and releases into white, the geometry of stored effort turning into direction.</p>
+  </article>
+
+</main>
+</body>
+</html>
