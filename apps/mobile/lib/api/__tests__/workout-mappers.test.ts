@@ -216,6 +216,87 @@ describe("mapWorkoutStoreToDb", () => {
     expect(result.exercises[0].sets[1].sessionSet.set_type).toBe("working");
   });
 
+  it("persists W 20x10 plus three working 40x10 with sequential set numbers", () => {
+    const summary: WorkoutSummary = {
+      ...mockSummary,
+      exercises: [
+        {
+          id: "exercise-1",
+          name: "Bench Press",
+          exerciseType: "weight",
+          restDurationSeconds: 90,
+          notes: "",
+          difficultyFeedback: "ok",
+          sets: [
+            {
+              id: "wu",
+              type: "warmup",
+              kg: "20",
+              reps: "10",
+              durationSeconds: null,
+              rpe: null,
+              isCompleted: true,
+              previousDisplay: null,
+            },
+            {
+              id: "w1",
+              type: "working",
+              kg: "40",
+              reps: "10",
+              durationSeconds: null,
+              rpe: 8,
+              isCompleted: true,
+              previousDisplay: null,
+            },
+            {
+              id: "w2",
+              type: "working",
+              kg: "40",
+              reps: "10",
+              durationSeconds: null,
+              rpe: 8,
+              isCompleted: true,
+              previousDisplay: null,
+            },
+            {
+              id: "w3",
+              type: "working",
+              kg: "40",
+              reps: "10",
+              durationSeconds: null,
+              rpe: 8,
+              isCompleted: true,
+              previousDisplay: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = mapWorkoutStoreToDb(summary, {
+      goalSnapshot: "build_strength",
+    });
+    const sets = result.exercises[0].sets;
+
+    expect(sets.map((entry) => entry.sessionSet.set_type)).toEqual([
+      "warmup",
+      "working",
+      "working",
+      "working",
+    ]);
+    expect(sets.map((entry) => entry.sessionSet.set_number)).toEqual([
+      1, 2, 3, 4,
+    ]);
+    expect(sets[0].log).toEqual({
+      actual_load_kg: 20,
+      actual_reps: 10,
+      completed: true,
+    });
+    expect(sets.slice(1).map((entry) => entry.log.actual_load_kg)).toEqual([
+      40, 40, 40,
+    ]);
+  });
+
   it("generates unique UUIDs for session exercises and sets", () => {
     const result = mapWorkoutStoreToDb(mockSummary, {
       goalSnapshot: "build_strength",

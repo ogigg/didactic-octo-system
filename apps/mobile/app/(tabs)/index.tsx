@@ -38,16 +38,20 @@ import {
 import { useProfile } from "@/hooks/use-profile-query";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { getTargetQueueCount } from "@/lib/pending-workout-queue";
-import { fetchWorkoutHistoryForDayRange } from "@/lib/api/workouts";
+import {
+  fetchPreviousSetDisplays,
+  fetchWorkoutHistoryForDayRange,
+} from "@/lib/api/workouts";
+import { buildTemplateWorkoutExercises } from "@/lib/start-template-workout";
 import { getMondayLocal } from "@/lib/iso-week";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
-import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import type { WorkoutTemplate } from "@/stores/workout-templates-store";
 import { trackEvent, type EventPayload } from "@/lib/track-event";
 import type { StreakStatus } from "@/lib/api/streak-protection";
 import { markComebackWorkoutStarted } from "@/lib/comeback-workout";
+import type { WeightUnit } from "@/lib/unit-conversion";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -182,31 +186,24 @@ export default function HomeScreen() {
   }, [isWorkoutActive, startWorkout, t, router]);
 
   const handleStartTemplate = useCallback(
-    (template: WorkoutTemplate) => {
+    async (template: WorkoutTemplate) => {
       if (!isWorkoutActive) {
-        const exercises: WorkoutExercise[] = template.exercises.map((ex) => ({
-          id: ex.id,
-          name: exerciseMap.get(ex.id)?.name ?? ex.name,
-          exerciseType: "weight" as const,
-          restDurationSeconds: 90,
-          notes: "",
-          difficultyFeedback: null,
-          sets: Array.from({ length: 3 }, (_, i) => ({
-            id: `set-${ex.id}-${i}-${Date.now()}`,
-            type: "working" as const,
-            kg: "",
-            reps: "",
-            durationSeconds: null,
-            rpe: null,
-            isCompleted: false,
-            previousDisplay: null,
-          })),
-        }));
+        const weightUnit: WeightUnit =
+          (profile?.weight_unit as WeightUnit) ?? "kg";
+        const previousById = await fetchPreviousSetDisplays(
+          template.exercises.map((ex) => ex.id),
+          weightUnit
+        ).catch(() => ({}));
+
+        const exercises = buildTemplateWorkoutExercises(template.exercises, {
+          resolveName: (id, fallback) => exerciseMap.get(id)?.name ?? fallback,
+          previousById,
+        });
         startWorkout(template.name, exercises);
       }
       router.push("/workout");
     },
-    [exerciseMap, isWorkoutActive, startWorkout, router]
+    [exerciseMap, isWorkoutActive, profile?.weight_unit, startWorkout, router]
   );
 
   const handleResumeWorkout = useCallback(() => {
@@ -498,7 +495,9 @@ export default function HomeScreen() {
                     <WorkoutTemplateCard
                       key={template.id}
                       template={template}
-                      onPress={() => handleStartTemplate(template)}
+                      onPress={() => {
+                        void handleStartTemplate(template);
+                      }}
                     />
                   ))}
                 </ScrollView>

@@ -1,4 +1,11 @@
 import type { ExerciseImageData } from "@/lib/exercise-media";
+import {
+  buildExerciseSets,
+  countWorkingSets,
+  makeEmptyWorkingSet,
+  normalizeSetsForExerciseType,
+} from "@/lib/exercise-set-structure";
+import type { ExercisePreviousSets } from "@/lib/workout-previous-sets";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import {
@@ -128,7 +135,8 @@ interface WorkoutActions {
       name: string;
       image?: ExerciseImageData;
       exerciseType?: "weight" | "time";
-    }
+    },
+    previous?: ExercisePreviousSets
   ) => void;
   startRestTimer: (exerciseId: string) => void;
   adjustRestTimer: (deltaSeconds: number) => void;
@@ -140,7 +148,7 @@ interface WorkoutActions {
     name: string;
     image?: ExerciseImageData;
     exerciseType?: "weight" | "time";
-    previousDisplays?: string[];
+    previous?: ExercisePreviousSets;
     reasoning?: WorkoutExerciseReasoning | null;
   }) => void;
   addExerciseAfter: (
@@ -150,7 +158,7 @@ interface WorkoutActions {
       name: string;
       image?: ExerciseImageData;
       exerciseType?: "weight" | "time";
-      previousDisplays?: string[];
+      previous?: ExercisePreviousSets;
       reasoning?: WorkoutExerciseReasoning | null;
     }
   ) => void;
@@ -242,53 +250,53 @@ function reorderExercises(
   return reordered;
 }
 
-function makeEmptySet(previousDisplay: string | null = null): WorkoutSet {
-  return {
-    id: generateSetId(),
-    type: "working",
-    kg: "",
-    reps: "",
-    durationSeconds: null,
-    rpe: null,
-    isCompleted: false,
-    previousDisplay,
-  };
-}
-
-function clearSetValues(set: WorkoutSet): WorkoutSet {
-  return {
-    ...set,
-    kg: "",
-    reps: "",
-    durationSeconds: null,
-    rpe: null,
-    isCompleted: false,
-    previousDisplay: null,
-  };
-}
-
 function makeExercise(exercise: {
   id: string;
   name: string;
   image?: ExerciseImageData;
   exerciseType?: "weight" | "time";
-  previousDisplays?: string[];
+  previous?: ExercisePreviousSets;
   reasoning?: WorkoutExerciseReasoning | null;
 }): WorkoutExercise {
+  const exerciseType = exercise.exerciseType ?? "weight";
   return {
     id: exercise.id,
     occurrenceId: generateOccurrenceId(),
     name: exercise.name,
     image: exercise.image ?? null,
-    exerciseType: exercise.exerciseType ?? "weight",
+    exerciseType,
     restDurationSeconds: 90,
     notes: "",
     reasoning: exercise.reasoning ?? null,
     difficultyFeedback: null,
-    sets: Array.from({ length: 3 }, (_, index) =>
-      makeEmptySet(exercise.previousDisplays?.[index] ?? null)
-    ),
+    sets: buildExerciseSets({
+      exerciseType,
+      previous: exercise.previous,
+    }),
   };
+}
+
+/** Pure v0→v1 persisted-store migration helper for deterministic unit tests. */
+export function migratePersistedWorkoutExercisesFromV0(
+  exercises: WorkoutExercise[]
+): WorkoutExercise[] {
+  return exercises.map((exercise) => {
+    const exerciseType = exercise.exerciseType ?? "weight";
+    if (exerciseType !== "weight") {
+      return { ...exercise, exerciseType };
+    }
+
+    const hasWarmup = exercise.sets.some((set) => set.type === "warmup");
+    if (hasWarmup) {
+      return { ...exercise, exerciseType };
+    }
+
+    return {
+      ...exercise,
+      exerciseType,
+      sets: normalizeSetsForExerciseType(exerciseType, exercise.sets),
+    };
+  });
 }
 
 export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
@@ -402,7 +410,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             exercises: updateExerciseSets(
               state.exercises,
               exerciseId,
-              (sets) => [...sets, makeEmptySet()]
+              (sets) => [...sets, makeEmptyWorkingSet()]
             ),
           })),
 
@@ -448,29 +456,38 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
               : state.completedWorkoutSummary,
           })),
 
-        replaceExercise: (exerciseId, newExercise) =>
+        replaceExercise: (exerciseId, newExercise, previous) =>
           set((state) => {
             const occurrence = resolveExerciseOccurrence(
               state.exercises,
               exerciseId
             );
             return {
-              exercises: state.exercises.map((ex) =>
-                ex === occurrence
-                  ? {
-                      ...ex,
-                      id: newExercise.id,
-                      name: newExercise.name,
-                      image: newExercise.image ?? null,
-                      exerciseType: newExercise.exerciseType ?? ex.exerciseType,
-                      notes: "",
-                      reasoning: null,
-                      difficultyFeedback: null,
-                      progressionType: "new_exercise",
-                      sets: ex.sets.map(clearSetValues),
-                    }
-                  : ex
-              ),
+              exercises: state.exercises.map((ex) => {
+                if (ex !== occurrence) return ex;
+
+                const exerciseType =
+                  newExercise.exerciseType ?? ex.exerciseType;
+                const workingCount = countWorkingSets(ex.sets);
+                const sets = buildExerciseSets({
+                  exerciseType,
+                  workingCount,
+                  previous,
+                });
+
+                return {
+                  ...ex,
+                  id: newExercise.id,
+                  name: newExercise.name,
+                  image: newExercise.image ?? null,
+                  exerciseType,
+                  notes: "",
+                  reasoning: null,
+                  difficultyFeedback: null,
+                  progressionType: "new_exercise",
+                  sets,
+                };
+              }),
             };
           }),
 
@@ -638,7 +655,25 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
       }),
       {
         name: "active-workout-storage",
+        version: 1,
         storage: createJSONStorage(() => AsyncStorage),
+        migrate: (persistedState, version) => {
+          if (!persistedState || typeof persistedState !== "object") {
+            return persistedState as WorkoutState;
+          }
+
+          const state = persistedState as WorkoutState & {
+            exercises?: WorkoutExercise[];
+          };
+
+          if (version < 1 && Array.isArray(state.exercises)) {
+            state.exercises = migratePersistedWorkoutExercisesFromV0(
+              state.exercises
+            );
+          }
+
+          return state;
+        },
         onRehydrateStorage: () => (state, error) => {
           if (error) {
             console.warn("[workout-store] hydration failed, resetting:", error);

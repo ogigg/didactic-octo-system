@@ -63,8 +63,14 @@ function getExerciseMatches(
 
 function getSetTargets(
   focusArea: FocusArea,
-  exerciseName: string
-): { target_load_kg: number; target_reps: number; set_type: "working" }[] {
+  exerciseName: string,
+  exerciseType: "weight" | "time"
+): {
+  set_type: "warmup" | "working";
+  target_load_kg?: number;
+  target_reps?: number;
+  target_duration_seconds?: number;
+}[] {
   const lowerName = exerciseName.toLowerCase();
   const compound =
     lowerName.includes("press") ||
@@ -73,19 +79,34 @@ function getSetTargets(
     lowerName.includes("row") ||
     lowerName.includes("pulldown");
 
-  if (focusArea === "legs" || focusArea === "lower") {
-    return Array.from({ length: compound ? 4 : 3 }, () => ({
-      set_type: "working",
-      target_load_kg: 0,
-      target_reps: compound ? 8 : 12,
+  const workingCount = compound ? 4 : 3;
+
+  if (exerciseType === "time") {
+    return Array.from({ length: workingCount }, () => ({
+      set_type: "working" as const,
+      target_duration_seconds: 40,
     }));
   }
 
-  return Array.from({ length: compound ? 4 : 3 }, () => ({
-    set_type: "working",
+  const workingReps =
+    focusArea === "legs" || focusArea === "lower"
+      ? compound
+        ? 8
+        : 12
+      : compound
+        ? 10
+        : 12;
+
+  const working = Array.from({ length: workingCount }, () => ({
+    set_type: "working" as const,
     target_load_kg: 0,
-    target_reps: compound ? 10 : 12,
+    target_reps: workingReps,
   }));
+
+  return [
+    { set_type: "warmup" as const, target_load_kg: 0, target_reps: 10 },
+    ...working,
+  ];
 }
 
 export function isPendingWorkoutStale(workout: PendingWorkout): boolean {
@@ -156,7 +177,7 @@ export async function buildFallbackPendingWorkoutData(params: {
         exercise_selection:
           "It was selected from the available exercise catalog as a dependable fallback option.",
       },
-      sets: getSetTargets(focusArea, exercise.name),
+      sets: getSetTargets(focusArea, exercise.name, exercise.exercise_type),
     })),
   };
 }

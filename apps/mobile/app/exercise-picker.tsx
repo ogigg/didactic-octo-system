@@ -13,7 +13,7 @@ import { useWorkoutStore } from "@/stores/workout-store";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WeightUnit } from "@/lib/unit-conversion";
-import type { PreviousSetValue } from "@/lib/workout-previous-sets";
+import type { ExercisePreviousSets } from "@/lib/workout-previous-sets";
 import { Spacing, Typography } from "@/constants/theme";
 import type { Exercise } from "@/lib/api/exercises";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -180,23 +180,24 @@ export default function ExercisePickerScreen() {
     );
   }, [activeExercise]);
 
-  const replaceCurrentExercise = useCallback(
-    (exercise: Exercise) => {
-      if (!exerciseId) return;
-      replaceExercise(occurrenceId ?? exerciseId, {
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
-      });
-      router.back();
+  const selectionInFlightRef = useRef(false);
+
+  const runExclusiveSelection = useCallback(
+    async (action: () => Promise<void>) => {
+      if (selectionInFlightRef.current) return;
+      selectionInFlightRef.current = true;
+      try {
+        await action();
+      } finally {
+        selectionInFlightRef.current = false;
+      }
     },
-    [exerciseId, occurrenceId, replaceExercise, router]
+    []
   );
 
   const getPreviousDisplays = useCallback(
-    async (exercise: Exercise) => {
-      const previousSets: Record<string, PreviousSetValue[]> =
+    async (exercise: Exercise): Promise<ExercisePreviousSets | undefined> => {
+      const previousSets: Record<string, ExercisePreviousSets> =
         await fetchPreviousSetDisplays([exercise.id], weightUnit).catch(
           (error) => {
             console.warn(
@@ -207,30 +208,67 @@ export default function ExercisePickerScreen() {
           }
         );
 
-      return previousSets[exercise.id]?.map((set) => set.display) ?? [];
+      return previousSets[exercise.id];
     },
     [weightUnit]
+  );
+
+  const replaceCurrentExercise = useCallback(
+    async (exercise: Exercise) => {
+      if (!exerciseId) return;
+      await runExclusiveSelection(async () => {
+        const previous = await getPreviousDisplays(exercise);
+        replaceExercise(
+          occurrenceId ?? exerciseId,
+          {
+            id: exercise.id,
+            name: exercise.name,
+            image: exercise.image,
+            exerciseType: exercise.exercise_type,
+          },
+          previous
+        );
+        router.back();
+      });
+    },
+    [
+      exerciseId,
+      getPreviousDisplays,
+      occurrenceId,
+      replaceExercise,
+      router,
+      runExclusiveSelection,
+    ]
   );
 
   const addBelowCurrentExercise = useCallback(
     async (exercise: Exercise) => {
       if (!exerciseId) return;
-      const previousDisplays = await getPreviousDisplays(exercise);
-      addExerciseAfter(exerciseId, {
-        id: exercise.id,
-        name: exercise.name,
-        image: exercise.image,
-        exerciseType: exercise.exercise_type,
-        previousDisplays,
+      await runExclusiveSelection(async () => {
+        const previous = await getPreviousDisplays(exercise);
+        addExerciseAfter(exerciseId, {
+          id: exercise.id,
+          name: exercise.name,
+          image: exercise.image,
+          exerciseType: exercise.exercise_type,
+          previous,
+        });
+        router.back();
       });
-      router.back();
     },
-    [addExerciseAfter, exerciseId, getPreviousDisplays, router]
+    [
+      addExerciseAfter,
+      exerciseId,
+      getPreviousDisplays,
+      router,
+      runExclusiveSelection,
+    ]
   );
 
   const handleSelect = useCallback(
     async (exercise: Exercise) => {
       if (mode === "pending_swap") {
+        if (selectionInFlightRef.current) return;
         setSwapResult({
           id: exercise.id,
           name: exercise.name,
@@ -241,30 +279,39 @@ export default function ExercisePickerScreen() {
         return;
       }
       if (mode === "add") {
-        const previousDisplays = await getPreviousDisplays(exercise);
-        addExercise({
-          id: exercise.id,
-          name: exercise.name,
-          image: exercise.image,
-          exerciseType: exercise.exercise_type,
-          previousDisplays,
+        await runExclusiveSelection(async () => {
+          const previous = await getPreviousDisplays(exercise);
+          addExercise({
+            id: exercise.id,
+            name: exercise.name,
+            image: exercise.image,
+            exerciseType: exercise.exercise_type,
+            previous,
+          });
+          router.back();
         });
-      } else if (exerciseId) {
+        return;
+      }
+      if (exerciseId) {
         if (hasLoggedValues()) {
           Alert.alert(t("replaceConfirm.title"), t("replaceConfirm.message"), [
             {
               text: t("replaceConfirm.override"),
               style: "destructive",
-              onPress: () => replaceCurrentExercise(exercise),
+              onPress: () => {
+                void replaceCurrentExercise(exercise);
+              },
             },
             {
               text: t("replaceConfirm.addBelow"),
-              onPress: () => addBelowCurrentExercise(exercise),
+              onPress: () => {
+                void addBelowCurrentExercise(exercise);
+              },
             },
           ]);
           return;
         }
-        replaceCurrentExercise(exercise);
+        await replaceCurrentExercise(exercise);
         return;
       }
       router.back();
@@ -278,6 +325,7 @@ export default function ExercisePickerScreen() {
       hasLoggedValues,
       replaceCurrentExercise,
       router,
+      runExclusiveSelection,
       setSwapResult,
       t,
     ]

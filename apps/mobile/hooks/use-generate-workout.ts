@@ -9,11 +9,15 @@ import {
   updateTrainingPreferences,
 } from "@/lib/api/profiles";
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
+import {
+  applyPreviousSetsToWorkoutSets,
+  normalizeGeneratedExerciseSets,
+} from "@/lib/exercise-set-structure";
 import { trackEvent } from "@/lib/track-event";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import {
   convertPreviousDisplay,
-  type PreviousSetValue,
+  type ExercisePreviousSets,
 } from "@/lib/workout-previous-sets";
 import type {
   GenerationMeta,
@@ -32,36 +36,21 @@ export interface StartTrainingRequest {
 function mapResponseToWorkoutExercises(
   response: GenerateWorkoutResponse,
   weightUnit: WeightUnit = "kg",
-  previousSetDisplays: Record<string, PreviousSetValue[]> = {}
+  previousSetDisplays: Record<string, ExercisePreviousSets> = {}
 ): WorkoutExercise[] {
   return response.exercises.map((ex) => {
+    const exerciseType = ex.exercise_type ?? "weight";
     const fallbackPreviousDisplay = convertPreviousDisplay(
       ex.previous_display,
       weightUnit
     );
-    const previousSets = previousSetDisplays[ex.exercise_id];
-    let workingIndex = 0;
-
-    return {
-      id: ex.exercise_id,
-      name: ex.exercise_name,
-      image: ex.image ?? null,
-      restDurationSeconds: ex.rest_duration_seconds,
-      notes: ex.notes ?? "",
-      reasoning: ex.reasoning ?? null,
-      difficultyFeedback: null,
-      exerciseType: ex.exercise_type ?? "weight",
-      sets: ex.sets.map((set, i): WorkoutSet => {
-        const previousDisplay =
-          set.set_type === "working"
-            ? (previousSets?.[workingIndex]?.display ?? fallbackPreviousDisplay)
-            : null;
-
-        if (set.set_type === "working") {
-          workingIndex += 1;
-        }
-
-        return {
+    const normalizedSets = normalizeGeneratedExerciseSets(
+      exerciseType,
+      ex.sets
+    );
+    const sets = applyPreviousSetsToWorkoutSets(
+      normalizedSets.map(
+        (set, i): WorkoutSet => ({
           id: `set-${ex.exercise_id}-${i}-${Date.now()}`,
           type: set.set_type,
           kg:
@@ -76,9 +65,23 @@ function mapResponseToWorkoutExercises(
           durationSeconds: set.target_duration_seconds ?? null,
           rpe: null,
           isCompleted: false,
-          previousDisplay,
-        };
-      }),
+          previousDisplay: null,
+        })
+      ),
+      previousSetDisplays[ex.exercise_id],
+      fallbackPreviousDisplay
+    );
+
+    return {
+      id: ex.exercise_id,
+      name: ex.exercise_name,
+      image: ex.image ?? null,
+      restDurationSeconds: ex.rest_duration_seconds,
+      notes: ex.notes ?? "",
+      reasoning: ex.reasoning ?? null,
+      difficultyFeedback: null,
+      exerciseType,
+      sets,
     };
   });
 }
@@ -107,7 +110,7 @@ export function useGenerateWorkout() {
         has_custom_prompt: !!variables.request.custom_prompt,
       });
 
-      const previousSetDisplays: Record<string, PreviousSetValue[]> =
+      const previousSetDisplays: Record<string, ExercisePreviousSets> =
         await fetchPreviousSetDisplays(
           data.exercises.map((ex) => ex.exercise_id),
           weightUnit

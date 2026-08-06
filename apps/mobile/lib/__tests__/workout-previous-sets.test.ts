@@ -4,6 +4,8 @@ import {
   formatPreviousWeightSet,
   parsePreviousWeightDisplay,
 } from "@/lib/workout-previous-sets";
+import { applyPreviousSetsToWorkoutSets } from "@/lib/exercise-set-structure";
+import type { WorkoutSet } from "@/stores/workout-store";
 
 describe("workout previous set helpers", () => {
   it("formats previous weight sets in the selected unit", () => {
@@ -35,5 +37,61 @@ describe("workout previous set helpers", () => {
       load: "176.4",
       reps: "5",
     });
+  });
+
+  it("maps legacy working-only history onto warmup/working channels", () => {
+    const sets: WorkoutSet[] = [
+      {
+        id: "w",
+        type: "warmup",
+        kg: "",
+        reps: "",
+        durationSeconds: null,
+        rpe: null,
+        isCompleted: false,
+        previousDisplay: null,
+      },
+      {
+        id: "1",
+        type: "working",
+        kg: "",
+        reps: "",
+        durationSeconds: null,
+        rpe: null,
+        isCompleted: false,
+        previousDisplay: null,
+      },
+      {
+        id: "2",
+        type: "working",
+        kg: "",
+        reps: "",
+        durationSeconds: null,
+        rpe: null,
+        isCompleted: false,
+        previousDisplay: null,
+      },
+      {
+        id: "3",
+        type: "working",
+        kg: "",
+        reps: "",
+        durationSeconds: null,
+        rpe: null,
+        isCompleted: false,
+        previousDisplay: null,
+      },
+    ];
+
+    expect(
+      applyPreviousSetsToWorkoutSets(sets, {
+        warmup: null,
+        working: [
+          { setNumber: 1, display: "40×10" },
+          { setNumber: 2, display: "40×10" },
+          { setNumber: 3, display: "40×10" },
+        ],
+      }).map((set) => set.previousDisplay)
+    ).toEqual([null, "40×10", "40×10", "40×10"]);
   });
 });
