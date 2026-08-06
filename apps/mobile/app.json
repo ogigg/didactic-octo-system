@@ -39,7 +39,6 @@
       "expo-apple-authentication",
       "expo-notifications",
       "@bacons/apple-targets",
-      "./plugins/with-watch-connectivity.cjs",
       "./plugins/with-ios-object-version.cjs",
       "./plugins/with-live-activities-plist.cjs",
       "./plugins/with-app-group.cjs",
