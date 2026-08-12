@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Describe the current system structure, main data flows, and boundary-level technical decisions.
-> **Last reviewed:** 2026-04-11
+> **Last reviewed:** 2026-08-12
 
 ## Scope Of This Document
 
@@ -110,12 +110,25 @@ User performs workout
 
 The watchOS companion is a native SwiftUI target generated from
 `apps/mobile/targets/watch`. The phone-side Zustand store remains canonical.
-The phone sends versioned full snapshots through WatchConnectivity application
-context, while the watch sends stable-ID commands through a persistent,
-idempotent outbox. Immediate messages improve latency and queued user-info
-transfers preserve actions across disconnections. The watch owns HealthKit
-collection for watch-led sessions and returns the saved workout UUID so the
-phone does not create a duplicate HealthKit workout.
+The phone sends versioned full snapshots through one WatchConnectivity
+application-context writer, while the watch sends stable-ID commands through a
+persistent, idempotent outbox. The protocol-v1 workout JSON remains the legacy
+`payload`; optional top-level settings fields are additive so older Watch builds
+continue to decode workouts. Immediate messages improve latency and queued
+user-info transfers preserve actions across disconnections. The watch owns
+HealthKit collection for watch-led sessions and returns the saved workout UUID
+so the phone does not create a duplicate HealthKit workout.
+
+Apple Watch preferences are device-local iPhone state with safe field defaults
+and an independent monotonic settings revision. A settings-only change uses
+durable `transferUserInfo` plus a reachable-only immediate message; it never
+replaces application context, manufactures an empty workout, or advances the
+workout revision. Each later workout envelope also carries the current settings
+snapshot and revision so the latest application context can heal a missed
+immediate delivery. The Watch validates and persists settings separately from
+the workout high-water mark, and delayed settings messages cannot overwrite a
+newer revision. Unpaired, uninstalled, and temporarily unreachable states still
+allow local editing and queued delivery.
 
 Exercise occurrence IDs are distinct from catalog IDs so duplicate exercises
 in one session remain independently addressable. Phone discard publishes a
@@ -123,6 +136,13 @@ terminal cancellation before clearing local state. The watch persists a global
 revision high-water mark to reject delayed snapshots from older workouts,
 enables watchOS workout background processing, and drains pending
 WatchConnectivity transfers from a SwiftUI background task.
+
+Watch settings govern rest warning timing (10 seconds by default), rest-end and
+set-completion haptics (on), quick adjustment size (15 seconds), automatic rest
+presentation (on), zero-time behavior (stay on timer), skip/end confirmations
+(on), and heart-rate/previous-performance visibility (on). They do not change
+phone notifications or sounds, Digital Crown feedback, watchOS language,
+units, or HealthKit collection and workout ownership.
 
 ### Workout History Deletion
 

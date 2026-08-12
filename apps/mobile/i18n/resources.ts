@@ -21,6 +21,7 @@ import { subscription } from "./locales/en/subscription";
 import { healthSync } from "./locales/en/health-sync";
 import { deleteAccount } from "./locales/en/delete-account";
 import { streakProtection } from "./locales/en/streak-protection";
+import { watchSettings } from "./locales/en/watch-settings";
 import { auth as authPl } from "./locales/pl/auth";
 import { common as commonPl } from "./locales/pl/common";
 import { home as homePl } from "./locales/pl/home";
@@ -44,6 +45,7 @@ import { subscription as subscriptionPl } from "./locales/pl/subscription";
 import { healthSync as healthSyncPl } from "./locales/pl/health-sync";
 import { deleteAccount as deleteAccountPl } from "./locales/pl/delete-account";
 import { streakProtection as streakProtectionPl } from "./locales/pl/streak-protection";
+import { watchSettings as watchSettingsPl } from "./locales/pl/watch-settings";
 
 export const resources = {
   en: {
@@ -70,6 +72,7 @@ export const resources = {
     healthSync,
     deleteAccount,
     streakProtection,
+    watchSettings,
   },
   pl: {
     auth: authPl,
@@ -95,6 +98,7 @@ export const resources = {
     healthSync: healthSyncPl,
     deleteAccount: deleteAccountPl,
     streakProtection: streakProtectionPl,
+    watchSettings: watchSettingsPl,
   },
 } as const;
 

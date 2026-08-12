@@ -4,14 +4,22 @@ import {
   WATCH_SYNC_PROTOCOL_VERSION,
   type WatchActionEnvelope,
   type WatchActionPayload,
+  type WatchSettingsEnvelope,
+  type WatchSettingsSnapshot,
   type WatchSyncEnvelope,
 } from "@/modules/watch-bridge/src";
+import { sanitizeWatchSettings } from "@/stores/watch-settings-store";
 import type {
   RestTimerState,
   WorkoutExercise,
   WorkoutSummary,
 } from "@/stores/workout-store";
 import { getExerciseOccurrenceId } from "@/stores/workout-store";
+
+export type {
+  WatchSettingsEnvelope,
+  WatchSettingsSnapshot,
+} from "@/modules/watch-bridge/src";
 
 export interface WatchSetSnapshot {
   id: string;
@@ -53,6 +61,83 @@ export interface WatchWorkoutSnapshot {
   selectedExerciseId: string | null;
   exercises: WatchExerciseSnapshot[];
   rest: WatchRestSnapshot | null;
+}
+
+/** Runtime contract for preferences crossing the JS/native boundary. */
+export const watchSettingsSnapshotSchema = z.object({
+  schemaVersion: z.literal(1),
+  restWarningSeconds: z.union([
+    z.literal(0),
+    z.literal(5),
+    z.literal(10),
+    z.literal(15),
+    z.literal(30),
+  ]),
+  restEndHapticsEnabled: z.boolean(),
+  restAdjustmentSeconds: z.union([z.literal(10), z.literal(15), z.literal(30)]),
+  autoShowRestTimer: z.boolean(),
+  restCompletionBehavior: z.enum(["stayOnTimer", "openNextSet"]),
+  setCompletionHapticsEnabled: z.boolean(),
+  confirmSkipRest: z.boolean(),
+  confirmEndWorkout: z.boolean(),
+  showHeartRate: z.boolean(),
+  showPreviousPerformance: z.boolean(),
+});
+
+const watchSettingsEnvelopeSchema = z.object({
+  protocolVersion: z.literal(WATCH_SYNC_PROTOCOL_VERSION),
+  kind: z.literal("watchSettings"),
+  settingsRevision: z.number().int().positive(),
+  sentAt: z.string().datetime(),
+  payload: z.string().min(1),
+});
+
+export { watchSettingsEnvelopeSchema };
+
+/**
+ * Normalize settings independently so one malformed persisted/UI value does
+ * not discard valid sibling preferences.
+ */
+export function buildWatchSettingsSnapshot(
+  state: Partial<WatchSettingsSnapshot>
+): WatchSettingsSnapshot {
+  return sanitizeWatchSettings(state);
+}
+
+export function makeWatchSettingsEnvelope(
+  snapshot: WatchSettingsSnapshot,
+  settingsRevision: number
+): WatchSettingsEnvelope {
+  const safeSnapshot = watchSettingsSnapshotSchema.parse(
+    buildWatchSettingsSnapshot(snapshot)
+  );
+  if (!Number.isSafeInteger(settingsRevision) || settingsRevision <= 0) {
+    throw new Error("watch settings revision must be a positive integer");
+  }
+  const envelope: WatchSettingsEnvelope = {
+    protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
+    kind: "watchSettings",
+    settingsRevision,
+    sentAt: new Date().toISOString(),
+    payload: JSON.stringify(safeSnapshot),
+  };
+  return watchSettingsEnvelopeSchema.parse(envelope);
+}
+
+export function parseWatchSettingsEnvelope(
+  value: unknown
+): { envelope: WatchSettingsEnvelope; snapshot: WatchSettingsSnapshot } | null {
+  const result = watchSettingsEnvelopeSchema.safeParse(value);
+  if (!result.success) return null;
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(result.data.payload);
+  } catch {
+    return null;
+  }
+  const snapshot = watchSettingsSnapshotSchema.safeParse(decoded);
+  if (!snapshot.success) return null;
+  return { envelope: result.data, snapshot: snapshot.data };
 }
 
 const actionEnvelopeSchema = z.object({
@@ -211,10 +296,12 @@ export function buildCompletedWatchSnapshot(
 
 export function makeWatchEnvelope(
   snapshot: WatchWorkoutSnapshot,
-  revision: number
+  revision: number,
+  settingsSnapshot?: WatchSettingsSnapshot,
+  settingsRevision?: number
 ): WatchSyncEnvelope {
   const sentAt = new Date().toISOString();
-  return {
+  const envelope: WatchSyncEnvelope = {
     protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
     messageId: `${snapshot.workoutId}-${revision}`,
     revision,
@@ -223,6 +310,19 @@ export function makeWatchEnvelope(
     payload: JSON.stringify(snapshot),
     acknowledgedCommandIDs: [],
   };
+  if (
+    settingsSnapshot !== undefined &&
+    Number.isSafeInteger(settingsRevision) &&
+    (settingsRevision as number) > 0
+  ) {
+    envelope.settingsRevision = settingsRevision;
+    envelope.watchSettingsPayload = JSON.stringify(
+      watchSettingsSnapshotSchema.parse(
+        buildWatchSettingsSnapshot(settingsSnapshot)
+      )
+    );
+  }
+  return envelope;
 }
 
 export function parseWatchAction(

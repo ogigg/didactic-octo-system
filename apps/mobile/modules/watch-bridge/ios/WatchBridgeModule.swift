@@ -32,7 +32,27 @@ public final class WatchBridgeModule: Module {
       // stale revisions, so receiving both paths is harmless.
       if session.isWatchAppInstalled && session.isReachable {
         session.sendMessage(envelope, replyHandler: nil) { error in
-          print("[WatchBridge] immediate state delivery failed:", error)
+          let code = (error as NSError).code
+          print("[WatchBridge] immediate state delivery failed reason=\(code)")
+        }
+      }
+    }
+
+    AsyncFunction("sendWatchSettings") { (incomingEnvelope: [String: Any]) in
+      guard WCSession.isSupported() else { return }
+      let session = WCSession.default
+
+      // Settings use the durable user-info lane. The delegate retains one
+      // latest pre-activation envelope until WatchConnectivity accepts it.
+      self.sessionDelegate.queueSettingsUserInfo(incomingEnvelope, on: session)
+
+      // Reachable delivery is only a latency optimization. It is safe to
+      // receive this alongside the queued user-info copy because the Watch
+      // applies settings by their independent monotonic revision.
+      if session.isWatchAppInstalled && session.isReachable {
+        session.sendMessage(incomingEnvelope, replyHandler: nil) { error in
+          let code = (error as NSError).code
+          print("[WatchBridge] immediate settings delivery failed reason=\(code)")
         }
       }
     }

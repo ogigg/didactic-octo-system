@@ -1,7 +1,10 @@
 import {
   buildActiveWatchSnapshot,
   buildCancelledWatchSnapshot,
+  buildWatchSettingsSnapshot,
   makeWatchEnvelope,
+  makeWatchSettingsEnvelope,
+  parseWatchSettingsEnvelope,
   parseWatchAction,
   registerWatchCommand,
   shouldApplyWatchAction,
@@ -54,6 +57,38 @@ describe("watch workout synchronization", () => {
 
     expect(makeWatchEnvelope(snapshot, revision).revision).toBe(revision);
     expect(revision).toBeGreaterThan(2_147_483_647);
+  });
+
+  it("keeps the legacy workout payload unchanged while adding settings", () => {
+    const snapshot = buildActiveWatchSnapshot({
+      workoutName: "Compatibility",
+      startedAtMs: Date.parse("2026-07-29T10:00:00.000Z"),
+      exercises,
+      restTimer: null,
+    });
+    const settings = buildWatchSettingsSnapshot({
+      restWarningSeconds: 5,
+      showHeartRate: false,
+    });
+    const envelope = makeWatchEnvelope(snapshot, 10, settings, 22);
+
+    expect(JSON.parse(envelope.payload)).toEqual(snapshot);
+    expect(envelope).toMatchObject({
+      settingsRevision: 22,
+      watchSettingsPayload: JSON.stringify(settings),
+    });
+    expect(
+      parseWatchSettingsEnvelope(makeWatchSettingsEnvelope(settings, 22))
+    ).toMatchObject({
+      envelope: { kind: "watchSettings", settingsRevision: 22 },
+      snapshot: settings,
+    });
+  });
+
+  it("rejects nonpositive settings revisions instead of creating a reset", () => {
+    expect(() =>
+      makeWatchSettingsEnvelope(buildWatchSettingsSnapshot({}), 0)
+    ).toThrow("watch settings revision must be a positive integer");
   });
 
   it("builds a full stable-ID snapshot with an anchored rest end date", () => {

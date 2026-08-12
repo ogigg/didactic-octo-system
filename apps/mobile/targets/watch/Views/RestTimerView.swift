@@ -3,7 +3,6 @@ import SwiftUI
 struct RestTimerView: View {
     @Environment(WorkoutCoordinator.self) private var coordinator
     @State private var skipConfirmation = false
-    @State private var didAlertCompletion = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -73,7 +72,9 @@ struct RestTimerView: View {
                             )
 
                             Button {
-                                if skipConfirmation {
+                                if !coordinator.watchSettings.confirmSkipRest {
+                                    coordinator.skipRest()
+                                } else if skipConfirmation {
                                     coordinator.skipRest()
                                 } else {
                                     skipConfirmation = true
@@ -85,13 +86,33 @@ struct RestTimerView: View {
                                         : String(localized: "Skip")
                                 )
                             }
-                            .tint(skipConfirmation ? .red : .secondary)
+                            .tint(
+                                skipConfirmation || !coordinator.watchSettings.confirmSkipRest
+                                    ? .red
+                                    : .secondary
+                            )
+                            .accessibilityLabel(
+                                coordinator.watchSettings.confirmSkipRest && !skipConfirmation
+                                    ? String(localized: "Skip rest, confirmation required")
+                                    : String(localized: "Skip rest")
+                            )
                         }
                     }
 
+                    let adjustment = coordinator.watchSettings.restAdjustmentSeconds
                     HStack {
-                        Button("−15s") { coordinator.adjustRest(by: -15) }
-                        Button("+15s") { coordinator.adjustRest(by: 15) }
+                        Button("−\(adjustment)s") {
+                            coordinator.adjustRest(by: -adjustment)
+                        }
+                        .accessibilityLabel(
+                            watchLocalizedFormat("Decrease rest by %lld seconds", adjustment)
+                        )
+                        Button("+\(adjustment)s") {
+                            coordinator.adjustRest(by: adjustment)
+                        }
+                        .accessibilityLabel(
+                            watchLocalizedFormat("Increase rest by %lld seconds", adjustment)
+                        )
                     }
                     .font(.caption)
 
@@ -116,11 +137,8 @@ struct RestTimerView: View {
                     }
                 }
                 .padding(.horizontal, 7)
-                .onChange(of: remaining) { oldValue, newValue in
-                    if oldValue > 0, newValue == 0, !didAlertCompletion {
-                        didAlertCompletion = true
-                        HapticsClient.restTimerComplete()
-                    }
+                .onChange(of: rest?.id) { _, _ in
+                    skipConfirmation = false
                 }
             }
         }

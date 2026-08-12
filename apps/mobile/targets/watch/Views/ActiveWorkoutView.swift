@@ -96,7 +96,9 @@ private struct ExerciseListView: View {
                 }
 
                 Button(role: endConfirmation ? .destructive : nil) {
-                    if endConfirmation {
+                    if !coordinator.watchSettings.confirmEndWorkout {
+                        coordinator.finishWorkout()
+                    } else if endConfirmation {
                         coordinator.finishWorkout()
                     } else {
                         endConfirmation = true
@@ -109,6 +111,16 @@ private struct ExerciseListView: View {
                     )
                 }
                 .frame(maxWidth: .infinity)
+                .accessibilityLabel(
+                    coordinator.watchSettings.confirmEndWorkout && !endConfirmation
+                        ? String(localized: "End workout, confirmation required")
+                        : String(localized: "End workout")
+                )
+                .accessibilityHint(
+                    coordinator.watchSettings.confirmEndWorkout && !endConfirmation
+                        ? String(localized: "Tap twice to finish this workout")
+                        : String(localized: "Finishes this workout")
+                )
             }
             .padding(.horizontal, 6)
         }
@@ -146,22 +158,24 @@ struct HeartRateButton: View {
     @Environment(WorkoutCoordinator.self) private var coordinator
 
     var body: some View {
-        Button {
-            coordinator.screen = .heartRate
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: "heart.fill")
-                Text(coordinator.health.heartRate.map(String.init) ?? "—")
-                    .monospacedDigit()
+        if coordinator.watchSettings.showHeartRate {
+            Button {
+                coordinator.screen = .heartRate
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "heart.fill")
+                    Text(coordinator.health.heartRate.map(String.init) ?? "—")
+                        .monospacedDigit()
+                }
+                .font(.caption)
+                .foregroundStyle(.red)
             }
-            .font(.caption)
-            .foregroundStyle(.red)
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                coordinator.health.heartRate.map {
+                    watchLocalizedFormat("Heart rate %lld beats per minute", $0)
+                } ?? String(localized: "Heart rate unavailable")
+            )
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(
-            coordinator.health.heartRate.map {
-                watchLocalizedFormat("Heart rate %lld beats per minute", $0)
-            } ?? String(localized: "Heart rate unavailable")
-        )
     }
 }

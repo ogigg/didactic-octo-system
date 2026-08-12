@@ -12,6 +12,7 @@ export const profile = {
   sections: {
     tracking: "Śledzenie",
     settings: "Trening",
+    devices: "Urządzenia",
     account: "Konto",
   },
   nav: {
@@ -23,6 +24,7 @@ export const profile = {
     trainingPreferences: "Preferencje",
     strengthBaselines: "Siła",
     health: "Zdrowie",
+    watch: "Apple Watch",
     feedback: "Opinie",
     deleteAccount: "Usuń konto",
   },
