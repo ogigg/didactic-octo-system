@@ -46,7 +46,8 @@ type IconName =
   | "globe"
   | "megaphone.fill"
   | "star.fill"
-  | "heart.text.square";
+  | "heart.text.square"
+  | "applewatch";
 
 interface NavItem {
   icon: IconName;
@@ -58,6 +59,7 @@ interface NavItem {
     | "nav.trainingPreferences"
     | "nav.strengthBaselines"
     | "nav.health"
+    | "nav.watch"
     | "nav.subscription"
     | "nav.feedback";
   route?: Href;
@@ -114,6 +116,14 @@ const ACCOUNT_ITEMS: NavItem[] = [
     icon: "megaphone.fill",
     labelKey: "nav.feedback",
     route: "/feedback",
+  },
+];
+
+const DEVICE_ITEMS: NavItem[] = [
+  {
+    icon: "applewatch",
+    labelKey: "nav.watch",
+    route: "/watch-settings",
   },
 ];
 
@@ -364,6 +374,13 @@ export default function ProfileScreen() {
                 );
               })}
             </ListGroup>
+          </View>
+
+          {/* Devices group — available on every platform so Android/web users
+              can understand where the companion experience lives. */}
+          <View style={styles.group}>
+            <SectionHeader title={t("sections.devices")} />
+            {renderGroup(DEVICE_ITEMS)}
           </View>
 
           {/* Account group */}
