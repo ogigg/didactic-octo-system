@@ -19,6 +19,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { normalizeAuthError, trackEvent } from "@/lib/track-event";
 import { supabase } from "@/lib/supabase";
 import {
   type AuthValidationKey,
@@ -49,12 +50,18 @@ export default function SignUpScreen() {
 
   async function onSubmit(data: SignUpFormData) {
     setAuthError(null);
+    trackEvent("signup_started", { auth_method: "email" });
     const { error, data: authData } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
     });
 
     if (error) {
+      trackEvent("signup_failed", {
+        auth_method: "email",
+        error_code: normalizeAuthError(error),
+        failure_stage: "password",
+      });
       setAuthError(
         error.message.toLowerCase().includes("already")
           ? t("errors.emailAlreadyInUse")
@@ -64,6 +71,10 @@ export default function SignUpScreen() {
     }
 
     // If email confirmation is required, identities will be empty or session null
+    trackEvent("user_signed_up", {
+      auth_method: "email",
+      is_email_confirmation_required: !authData.session,
+    });
     if (!authData.session) {
       setSuccessEmail(data.email);
     }

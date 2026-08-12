@@ -4,6 +4,12 @@ import {
   type WorkoutExercise,
 } from "../workout-store";
 
+jest.mock("@/lib/track-event", () => ({
+  trackEvent: jest.fn(),
+}));
+
+import { trackEvent } from "@/lib/track-event";
+
 const baseExercise: WorkoutExercise = {
   id: "bench-press",
   name: "Bench Press",
@@ -38,7 +44,54 @@ const baseExercise: WorkoutExercise = {
 
 describe("workout store exercise replacement", () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     useWorkoutStore.getState().clearWorkout();
+  });
+
+  it("creates a durable session id and tracks first-set and 50% milestones once", () => {
+    const exercise: WorkoutExercise = {
+      ...baseExercise,
+      sets: baseExercise.sets.map((set) => ({
+        ...set,
+        isCompleted: false,
+        kg: "",
+        reps: "",
+        rpe: null,
+      })),
+    };
+
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [exercise], undefined, null, {
+        workoutSource: "manual",
+      });
+    const sessionId = useWorkoutStore.getState().workoutSessionId;
+
+    expect(sessionId).toEqual(expect.any(String));
+    expect(useWorkoutStore.getState().workoutSource).toBe("manual");
+    expect(trackEvent).toHaveBeenCalledWith(
+      "workout_started",
+      expect.objectContaining({ workout_session_id: sessionId })
+    );
+
+    const firstSetId = exercise.sets[0]!.id;
+    const secondSetId = exercise.sets[1]!.id;
+    useWorkoutStore.getState().toggleSetComplete("bench-press", firstSetId);
+    useWorkoutStore.getState().toggleSetComplete("bench-press", secondSetId);
+    useWorkoutStore.getState().toggleSetComplete("bench-press", secondSetId);
+
+    expect(trackEvent).toHaveBeenCalledTimes(3);
+    expect(trackEvent).toHaveBeenCalledWith(
+      "workout_first_set_logged",
+      expect.objectContaining({ workout_session_id: sessionId })
+    );
+    expect(trackEvent).toHaveBeenCalledWith(
+      "workout_progress_reached",
+      expect.objectContaining({
+        workout_session_id: sessionId,
+        progress_percent: 50,
+      })
+    );
   });
 
   it("clears set values when replacing an exercise", () => {

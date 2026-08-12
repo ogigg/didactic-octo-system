@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Platform, StyleSheet } from "react-native";
 
 import { supabase } from "@/lib/supabase";
+import { normalizeAuthError, trackEvent } from "@/lib/track-event";
 
 export function AppleSignInButton() {
   const [isLoading, setIsLoading] = useState(false);
@@ -13,6 +14,8 @@ export function AppleSignInButton() {
 
   async function handleAppleSignIn() {
     setIsLoading(true);
+    trackEvent("signin_started", { auth_method: "apple" });
+
     try {
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -21,20 +24,37 @@ export function AppleSignInButton() {
         ],
       });
 
-      if (credential.identityToken) {
-        await supabase.auth.signInWithIdToken({
-          provider: "apple",
-          token: credential.identityToken,
+      if (!credential.identityToken) {
+        trackEvent("signin_failed", {
+          auth_method: "apple",
+          error_code: "missing_token",
+          failure_stage: "provider",
         });
-        // onAuthStateChange handles routing
+        return;
       }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: credential.identityToken,
+      });
+
+      if (error) {
+        trackEvent("signin_failed", {
+          auth_method: "apple",
+          error_code: normalizeAuthError(error),
+          failure_stage: "supabase",
+        });
+        return;
+      }
+
+      trackEvent("user_signed_in", { auth_method: "apple" });
+      // onAuthStateChange handles routing
     } catch (e: unknown) {
-      const error = e as { code?: string };
-      if (error.code === "ERR_REQUEST_CANCELED") {
-        // User cancelled — do nothing
-      } else {
-        console.warn("[apple-sign-in] error:", error);
-      }
+      trackEvent("signin_failed", {
+        auth_method: "apple",
+        error_code: normalizeAuthError(e),
+        failure_stage: "provider",
+      });
     } finally {
       setIsLoading(false);
     }

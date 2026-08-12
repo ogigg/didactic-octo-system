@@ -1,6 +1,7 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import type { StrengthBaseline } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
+import { useOnboardingStepAnalytics } from "@/lib/onboarding-analytics";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
@@ -22,6 +23,7 @@ export default function StrengthScreen() {
   const { equipment, experience, strengthBaselines, setStrengthBaselines } =
     useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
+  useOnboardingStepAnalytics("strength", editMode);
 
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
@@ -32,6 +34,8 @@ export default function StrengthScreen() {
   function handleContinue() {
     trackEvent("onboarding_step_completed", {
       step: "strength",
+      step_index: 6,
+      edit_mode: editMode === "1",
       skipped: strengthBaselines.length === 0,
     });
     strengthBaselines.forEach((baseline) => {
@@ -51,6 +55,8 @@ export default function StrengthScreen() {
   function handleSkip() {
     trackEvent("onboarding_step_completed", {
       step: "strength",
+      step_index: 6,
+      edit_mode: editMode === "1",
       skipped: true,
     });
     if (editMode === "1") {

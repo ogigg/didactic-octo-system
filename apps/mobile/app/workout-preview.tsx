@@ -227,7 +227,9 @@ export default function WorkoutPreviewScreen() {
       if (!workout) return;
 
       trackEvent("workout_preview_viewed", {
+        workout_id: workout.id,
         queue_position: workout.queue_position,
+        generation_source: workout.generation_source,
         time_on_screen_ms: Math.max(0, Date.now() - openedAtRef.current),
       });
     };

@@ -27,6 +27,7 @@ import {
   signInSchema,
 } from "@/lib/schemas/auth";
 import { supabase } from "@/lib/supabase";
+import { normalizeAuthError, trackEvent } from "@/lib/track-event";
 
 export default function SignInScreen() {
   const { t } = useTranslation("auth");
@@ -52,19 +53,26 @@ export default function SignInScreen() {
 
   async function onSubmit(data: SignInFormData) {
     setAuthError(null);
-    console.log("onSubmit", data);
+    trackEvent("signin_started", { auth_method: "email" });
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
-    console.log("error", error);
     if (error) {
+      trackEvent("signin_failed", {
+        auth_method: "email",
+        error_code: normalizeAuthError(error),
+        failure_stage: "password",
+      });
       setAuthError(
         error.message.toLowerCase().includes("invalid")
           ? t("errors.invalidCredentials")
           : t("errors.generic")
       );
+      return;
     }
+
+    trackEvent("user_signed_in", { auth_method: "email" });
     // Success handled by onAuthStateChange → auth store → index.tsx routing
   }
 

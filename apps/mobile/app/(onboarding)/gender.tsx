@@ -1,5 +1,6 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
+import { useOnboardingStepAnalytics } from "@/lib/onboarding-analytics";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
@@ -25,6 +26,7 @@ const OPTIONS: GenderOption[] = [
 export default function GenderScreen() {
   const { gender, setGender, skipGender } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
+  useOnboardingStepAnalytics("gender", editMode);
 
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
@@ -38,7 +40,12 @@ export default function GenderScreen() {
   }
 
   function handleContinue() {
-    trackEvent("onboarding_step_completed", { step: "gender", skipped: false });
+    trackEvent("onboarding_step_completed", {
+      step: "gender",
+      step_index: 1,
+      edit_mode: editMode === "1",
+      skipped: false,
+    });
     if (editMode === "1") {
       router.back();
     } else {
@@ -48,7 +55,12 @@ export default function GenderScreen() {
 
   function handleSkip() {
     skipGender();
-    trackEvent("onboarding_step_completed", { step: "gender", skipped: true });
+    trackEvent("onboarding_step_completed", {
+      step: "gender",
+      step_index: 1,
+      edit_mode: editMode === "1",
+      skipped: true,
+    });
     if (editMode === "1") {
       router.back();
     } else {

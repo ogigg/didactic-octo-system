@@ -1,6 +1,7 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import type { Experience } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
+import { useOnboardingStepAnalytics } from "@/lib/onboarding-analytics";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
@@ -47,6 +48,7 @@ const OPTIONS: ExperienceOption[] = [
 export default function ExperienceScreen() {
   const { experience, setExperience } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
+  useOnboardingStepAnalytics("experience", editMode);
 
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
@@ -62,6 +64,8 @@ export default function ExperienceScreen() {
     if (!canContinue) return;
     trackEvent("onboarding_step_completed", {
       step: "experience",
+      step_index: 5,
+      edit_mode: editMode === "1",
       skipped: false,
     });
     if (editMode === "1") {

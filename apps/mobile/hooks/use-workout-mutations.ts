@@ -40,6 +40,7 @@ import {
 } from "@/lib/query-keys";
 import { syncQueue } from "@/lib/sync-queue";
 import { trackEvent } from "@/lib/track-event";
+import { normalizeAnalyticsError } from "@/lib/analytics-errors";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
 import {
@@ -154,7 +155,14 @@ export function useSaveCompletedWorkout() {
           console.warn("Comeback completion tracking failed:", error);
         });
     },
-    onError: (_error: unknown, variables: SaveWorkoutInput) => {
+    onError: (error: unknown, variables: SaveWorkoutInput) => {
+      const normalizedError = normalizeAnalyticsError(error);
+      trackEvent("workout_save_failed", {
+        workout_session_id: variables.summary.workoutSessionId ?? null,
+        workout_source: variables.summary.workoutSource ?? null,
+        workout_id: variables.summary.workoutId ?? null,
+        ...normalizedError,
+      });
       if (user) {
         const stableWorkoutId = `${user.id}-${
           variables.summary.finishedAtMs - variables.summary.durationMs
