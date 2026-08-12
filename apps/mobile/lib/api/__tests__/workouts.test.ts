@@ -190,10 +190,13 @@ describe("fetchPreviousSetDisplays", () => {
       "kg"
     );
 
-    expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual([
-      { setNumber: 1, display: "80×8" },
-      { setNumber: 2, display: "80×7" },
-    ]);
+    expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual({
+      warmup: null,
+      working: [
+        { setNumber: 1, display: "80×8" },
+        { setNumber: 2, display: "80×7" },
+      ],
+    });
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
       "get_exercise_progression_history",
       {
@@ -203,7 +206,43 @@ describe("fetchPreviousSetDisplays", () => {
     );
   });
 
-  it("accepts progression history rows without rpe or session_id", async () => {
+  it("maps warmup and working channels from the same latest completed session", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          exercise_id: "550e8400-e29b-41d4-a716-446655440001",
+          exercise_type: "weight",
+          session_id: "550e8400-e29b-41d4-a716-446655440010",
+          session_completed_at: "2026-03-22T11:00:00Z",
+          difficulty_feedback: null,
+          warmup_sets: [{ load_kg: 20, reps: 10, completed: true }],
+          working_sets: [
+            { load_kg: 40, reps: 10, rpe: 8, completed: true },
+            { load_kg: 40, reps: 10, rpe: 8, completed: true },
+            { load_kg: 40, reps: 10, rpe: 8, completed: true },
+          ],
+        },
+      ],
+      error: null,
+    });
+
+    const result = await fetchPreviousSetDisplays(
+      ["550e8400-e29b-41d4-a716-446655440001"],
+      "kg"
+    );
+
+    expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual({
+      warmup: "20×10",
+      working: [
+        { setNumber: 1, display: "40×10" },
+        { setNumber: 2, display: "40×10" },
+        { setNumber: 3, display: "40×10" },
+      ],
+    });
+  });
+
+  it("accepts progression history rows without rpe, session_id, or warmup_sets", async () => {
     mockAuthenticatedUser();
     (mockSupabase.rpc as jest.Mock).mockResolvedValue({
       data: [
@@ -221,9 +260,10 @@ describe("fetchPreviousSetDisplays", () => {
       "kg"
     );
 
-    expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual([
-      { setNumber: 1, display: "60×10" },
-    ]);
+    expect(result["550e8400-e29b-41d4-a716-446655440001"]).toEqual({
+      warmup: null,
+      working: [{ setNumber: 1, display: "60×10" }],
+    });
   });
 });
 

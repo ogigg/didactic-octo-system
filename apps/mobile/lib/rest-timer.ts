@@ -1,4 +1,8 @@
-import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
+import {
+  getExerciseOccurrenceId,
+  type WorkoutExercise,
+  type WorkoutSet,
+} from "@/stores/workout-store";
 
 export interface RestTimerProgress {
   durationSeconds: number;
@@ -9,14 +13,16 @@ export interface RestTimerProgress {
 export function getRestTimerProgress(
   startedAtMs: number,
   durationSeconds: number,
-  nowMs: number
+  nowMs: number,
+  pausedRemainingSeconds?: number
 ): RestTimerProgress {
   const safeDurationSeconds = Math.max(1, durationSeconds);
-  const elapsedSeconds = (nowMs - startedAtMs) / 1000;
-  const remainingSeconds = Math.min(
-    safeDurationSeconds,
-    Math.max(0, safeDurationSeconds - elapsedSeconds)
-  );
+  const remainingSeconds =
+    pausedRemainingSeconds ??
+    Math.min(
+      safeDurationSeconds,
+      Math.max(0, safeDurationSeconds - (nowMs - startedAtMs) / 1000)
+    );
 
   return {
     durationSeconds: safeDurationSeconds,
@@ -51,7 +57,9 @@ export function getNextUp(
   exercises: WorkoutExercise[],
   exerciseId: string
 ): NextUp {
-  const index = exercises.findIndex((ex) => ex.id === exerciseId);
+  const index = exercises.findIndex(
+    (exercise) => getExerciseOccurrenceId(exercise) === exerciseId
+  );
   if (index === -1) return { kind: "done" };
 
   const exercise = exercises[index];

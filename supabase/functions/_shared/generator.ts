@@ -22,6 +22,56 @@ export const EXERCISE_COUNTS: Record<number, { min: number; max: number }> = {
   90: { min: 8, max: 12 },
 };
 
+/** Keep exactly one leading warmup for weight; strip warmups for time. Idempotent. */
+export function normalizeGeneratedExerciseSets<
+  T extends {
+    set_type: "warmup" | "working";
+    target_load_kg?: number;
+    target_reps?: number;
+    target_duration_seconds?: number;
+  },
+>(exerciseType: "weight" | "time", sets: T[]): T[] {
+  const working = sets.filter((set) => set.set_type === "working");
+
+  if (exerciseType === "time") {
+    if (working.length > 0) {
+      return working.map((set) => ({
+        ...set,
+        set_type: "working" as const,
+      }));
+    }
+
+    return [
+      {
+        set_type: "working",
+        target_duration_seconds: 40,
+      } as T,
+    ];
+  }
+
+  const preservedWorking =
+    working.length > 0
+      ? working
+      : ([
+          {
+            set_type: "working",
+            target_load_kg: 0,
+            target_reps: 10,
+          },
+        ] as T[]);
+
+  const firstWarmup = sets.find((set) => set.set_type === "warmup");
+  const warmup = firstWarmup
+    ? { ...firstWarmup, set_type: "warmup" as const }
+    : ({
+        set_type: "warmup",
+        target_load_kg: 0,
+        target_reps: 10,
+      } as T);
+
+  return [warmup, ...preservedWorking];
+}
+
 // ---------------------------------------------------------------------------
 // Zod Schemas
 // ---------------------------------------------------------------------------
@@ -531,7 +581,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 - Tailor set/rep schemes to "${trainingStyle}" style (strength: heavy/low reps, hypertrophy: moderate/8-12 reps, endurance: light/high reps, circuit: varied/minimal rest)
 - Adjust complexity and load for "${difficulty}" level
 - For "${splitLabel}" split, choose an appropriate muscle group focus for today's session
-- Include 1 warmup set per compound exercise (lower weight, higher reps)
+- Include 1 warmup set per weight exercise (lower weight, higher reps). Time exercises should only include working sets.
 - Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)
 - If feedback was "too_hard", maintain or slightly reduce load/duration
 - For new exercises (no history), use moderate starting weights or durations (20-45s for time exercises)
@@ -609,16 +659,6 @@ export function buildFallbackWorkout(
         };
       }
 
-      const isCompound =
-        ex.primary_muscles.length > 1 ||
-        ["barbell", "dumbbell"].some((eq) =>
-          ex.equipment.some((e) => e.toLowerCase().includes(eq))
-        );
-
-      const warmupSets: z.infer<typeof llmSetSchema>[] = isCompound
-        ? [{ set_type: "warmup" as const, target_load_kg: 0, target_reps: 10 }]
-        : [];
-
       const workingSets: z.infer<typeof llmSetSchema>[] = Array.from(
         { length: scheme.sets },
         () => ({
@@ -630,7 +670,14 @@ export function buildFallbackWorkout(
 
       return {
         exercise_id: ex.id,
-        sets: [...warmupSets, ...workingSets],
+        sets: normalizeGeneratedExerciseSets("weight", [
+          {
+            set_type: "warmup" as const,
+            target_load_kg: 0,
+            target_reps: 10,
+          },
+          ...workingSets,
+        ]),
         rest_duration_seconds: scheme.rest,
         notes: null,
         reasoning: buildDefaultExerciseReasoning({
@@ -928,17 +975,18 @@ export async function generateSingleWorkout(
     generationSource = "fallback_template";
   }
 
-  // Enrich with exercise names and types
+  // Enrich with exercise names and types; normalize set structure once type is known.
   const enrichedExercises = workoutData.exercises.map((ex) => {
     const catalogEntry = catalogMap.get(ex.exercise_id);
+    const exerciseType = (catalogEntry?.exercise_type ?? "weight") as
+      | "weight"
+      | "time";
     return {
       exercise_id: ex.exercise_id,
       exercise_name: catalogEntry?.name ?? "Unknown Exercise",
-      exercise_type: (catalogEntry?.exercise_type ?? "weight") as
-        | "weight"
-        | "time",
+      exercise_type: exerciseType,
       image: catalogEntry?.image ?? null,
-      sets: ex.sets,
+      sets: normalizeGeneratedExerciseSets(exerciseType, ex.sets),
       rest_duration_seconds: ex.rest_duration_seconds,
       notes: ex.notes,
       reasoning: ex.reasoning ?? null,

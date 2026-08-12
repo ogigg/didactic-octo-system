@@ -42,6 +42,8 @@ import {
 import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
+import { getWorkingSetLabel } from "@/lib/exercise-set-structure";
+import { applyPendingExerciseSwap } from "@/lib/pending-exercise-swap";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { trackEvent } from "@/lib/track-event";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
@@ -238,14 +240,7 @@ export default function WorkoutPreviewScreen() {
         setLocalExercises((prev) =>
           prev.map((ex, i) =>
             i === swapIndexRef.current
-              ? {
-                  ...ex,
-                  exercise_id: swapResult.id,
-                  exercise_name: swapResult.name,
-                  exercise_type: swapResult.exerciseType ?? ex.exercise_type,
-                  image: swapResult.image ?? null,
-                  reasoning: null,
-                }
+              ? applyPendingExerciseSwap(ex, swapResult)
               : ex
           )
         );
@@ -1035,6 +1030,8 @@ function ReadSetsTable({
   t,
 }: ReadSetsTableProps) {
   const { label: unitLabel, format } = useWeightUnit();
+  const warning = useThemeColor({}, "warning");
+  let workingOrdinal = 0;
 
   return (
     <View style={styles.setsContainer}>
@@ -1054,59 +1051,67 @@ function ReadSetsTable({
         </Text>
       </View>
       {/* Rows */}
-      {sets.map((set, i) => (
-        <View
-          key={i}
-          style={[
-            styles.setRow,
-            i < sets.length - 1 && { borderBottomColor: border },
-          ]}
-        >
-          <Text
+      {sets.map((set, i) => {
+        const label = getWorkingSetLabel(
+          set.set_type,
+          set.set_type === "working" ? workingOrdinal++ : 0
+        );
+        return (
+          <View
+            key={i}
             style={[
-              Typography.caption,
-              { color: textSecondary },
-              styles.colSet,
+              styles.setRow,
+              i < sets.length - 1 && { borderBottomColor: border },
             ]}
           >
-            {i + 1}
-          </Text>
-          <Text
-            style={[
-              Typography.micro,
-              {
-                color: set.set_type === "warmup" ? textMuted : textSecondary,
-              },
-              styles.colType,
-            ]}
-            numberOfLines={1}
-          >
-            {set.set_type === "warmup"
-              ? t("exerciseList.warmup")
-              : t("exerciseList.working")}
-          </Text>
-          <Text
-            style={[
-              Typography.bodyMedium,
-              { color: text },
-              styles.colData,
-              { fontVariant: ["tabular-nums"] },
-            ]}
-          >
-            {set.target_load_kg ? format(set.target_load_kg) : "—"}
-          </Text>
-          <Text
-            style={[
-              Typography.bodyMedium,
-              { color: text },
-              styles.colData,
-              { fontVariant: ["tabular-nums"] },
-            ]}
-          >
-            {set.target_reps || "—"}
-          </Text>
-        </View>
-      ))}
+            <Text
+              style={[
+                Typography.caption,
+                {
+                  color: set.set_type === "warmup" ? warning : textSecondary,
+                },
+                styles.colSet,
+              ]}
+            >
+              {label}
+            </Text>
+            <Text
+              style={[
+                Typography.micro,
+                {
+                  color: set.set_type === "warmup" ? warning : textSecondary,
+                },
+                styles.colType,
+              ]}
+              numberOfLines={1}
+            >
+              {set.set_type === "warmup"
+                ? t("exerciseList.warmup")
+                : t("exerciseList.working")}
+            </Text>
+            <Text
+              style={[
+                Typography.bodyMedium,
+                { color: text },
+                styles.colData,
+                { fontVariant: ["tabular-nums"] },
+              ]}
+            >
+              {set.target_load_kg ? format(set.target_load_kg) : "—"}
+            </Text>
+            <Text
+              style={[
+                Typography.bodyMedium,
+                { color: text },
+                styles.colData,
+                { fontVariant: ["tabular-nums"] },
+              ]}
+            >
+              {set.target_reps || "—"}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -1145,6 +1150,9 @@ function EditSetsTable({
   t,
 }: EditSetsTableProps) {
   const wu = useWeightUnit();
+  const warning = useThemeColor({}, "warning");
+  let workingOrdinal = 0;
+
   return (
     <View style={styles.setsContainer}>
       {/* Column headers */}
@@ -1152,9 +1160,9 @@ function EditSetsTable({
         <Text style={[Typography.label, { color: textMuted }, styles.colSet]}>
           {t("setHeader.set")}
         </Text>
-        <Text
-          style={[Typography.label, { color: textMuted }, styles.colType]}
-        />
+        <Text style={[Typography.label, { color: textMuted }, styles.colType]}>
+          {t("setHeader.type")}
+        </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
           {t("edit.kg", { unit: wu.label })}
         </Text>
@@ -1163,27 +1171,45 @@ function EditSetsTable({
         </Text>
       </View>
       {/* Editable rows */}
-      {sets.map((set, i) => (
-        <EditSetRow
-          key={i}
-          setIndex={i}
-          set={set}
-          exerciseIndex={exerciseIndex}
-          text={text}
-          textMuted={textMuted}
-          border={border}
-          inputFill={inputFill}
-          inputFillFocused={inputFillFocused}
-          isLast={i === sets.length - 1}
-          onUpdateSet={onUpdateSet}
-        />
-      ))}
+      {sets.map((set, i) => {
+        const setLabel = getWorkingSetLabel(
+          set.set_type,
+          set.set_type === "working" ? workingOrdinal++ : 0
+        );
+        return (
+          <EditSetRow
+            key={i}
+            setIndex={i}
+            setLabel={setLabel}
+            setLabelColor={set.set_type === "warmup" ? warning : textMuted}
+            typeLabel={
+              set.set_type === "warmup"
+                ? t("exerciseList.warmup")
+                : t("exerciseList.working")
+            }
+            typeLabelColor={set.set_type === "warmup" ? warning : textMuted}
+            set={set}
+            exerciseIndex={exerciseIndex}
+            text={text}
+            textMuted={textMuted}
+            border={border}
+            inputFill={inputFill}
+            inputFillFocused={inputFillFocused}
+            isLast={i === sets.length - 1}
+            onUpdateSet={onUpdateSet}
+          />
+        );
+      })}
     </View>
   );
 }
 
 interface EditSetRowProps {
   setIndex: number;
+  setLabel: string;
+  setLabelColor: string;
+  typeLabel: string;
+  typeLabelColor: string;
   set: LocalSet;
   exerciseIndex: number;
   text: string;
@@ -1202,6 +1228,10 @@ interface EditSetRowProps {
 
 function EditSetRow({
   setIndex,
+  setLabel,
+  setLabelColor,
+  typeLabel,
+  typeLabelColor,
   set,
   exerciseIndex,
   text,
@@ -1217,21 +1247,17 @@ function EditSetRow({
 
   return (
     <View style={[styles.setRow, !isLast && { borderBottomColor: border }]}>
-      <Text style={[Typography.caption, { color: textMuted }, styles.colSet]}>
-        {setIndex + 1}
+      <Text
+        style={[Typography.caption, { color: setLabelColor }, styles.colSet]}
+      >
+        {setLabel}
       </Text>
-      <View style={styles.colType}>
-        <Text
-          style={[
-            Typography.micro,
-            {
-              color: set.set_type === "warmup" ? textMuted : text,
-            },
-          ]}
-        >
-          {set.set_type === "warmup" ? "W" : ""}
-        </Text>
-      </View>
+      <Text
+        style={[Typography.micro, { color: typeLabelColor }, styles.colType]}
+        numberOfLines={1}
+      >
+        {typeLabel}
+      </Text>
       <View style={styles.colData}>
         <TextInput
           style={[

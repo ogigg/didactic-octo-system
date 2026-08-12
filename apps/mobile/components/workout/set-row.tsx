@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Animated,
   Dimensions,
@@ -62,6 +63,7 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
   }: SetRowProps,
   ref
 ) {
+  const { t } = useTranslation("workout");
   const { label: unitLabel } = useWeightUnit();
   const [rpePickerVisible, setRpePickerVisible] = useState(false);
   const [kgFocused, setKgFocused] = useState(false);
@@ -104,6 +106,9 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
   const isWarmup = set.type === "warmup";
   const workingIndex = set.type === "working" ? setIndex + 1 : null;
   const setLabel = isWarmup ? "W" : String(workingIndex);
+  const accessibleSetLabel = isWarmup
+    ? t("setRow.warmupSet")
+    : t("setRow.workingSet", { number: workingIndex });
   const setLabelColor = isWarmup ? warning : textSecondary;
 
   const handleKgChange = useCallback(
@@ -349,8 +354,10 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
               accessibilityRole="button"
               accessibilityLabel={
                 set.previousDisplay
-                  ? `Previous: ${set.previousDisplay}. Tap to fill.`
-                  : "No previous data"
+                  ? t("setRow.previousFill", {
+                      display: set.previousDisplay,
+                    })
+                  : t("setRow.previousEmpty")
               }
             >
               <Text style={[Typography.caption, { color: textMuted }]}>
@@ -386,7 +393,10 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={textDisabled}
-                  accessibilityLabel={`Weight in ${unitLabel} for set ${setLabel}`}
+                  accessibilityLabel={t("setRow.weightForSet", {
+                    unit: unitLabel,
+                    set: accessibleSetLabel,
+                  })}
                   selectTextOnFocus
                 />
 
@@ -412,7 +422,9 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={textDisabled}
-                  accessibilityLabel={`Reps for set ${setLabel}`}
+                  accessibilityLabel={t("setRow.repsForSet", {
+                    set: accessibleSetLabel,
+                  })}
                   selectTextOnFocus
                 />
               </>
@@ -421,7 +433,10 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
             <Pressable
               onPress={() => setRpePickerVisible(true)}
               accessibilityRole="button"
-              accessibilityLabel={`RPE for set ${setLabel}: ${set.rpe ?? "not set"}`}
+              accessibilityLabel={t("setRow.rpeForSet", {
+                set: accessibleSetLabel,
+                value: set.rpe ?? t("setRow.rpeNotSet"),
+              })}
               style={[styles.rpeButton, { backgroundColor: inputFill }]}
             >
               <Text
@@ -452,7 +467,13 @@ export const SetRow = forwardRef<SetRowHandle, SetRowProps>(function SetRow(
                   onPressIn={handleCompletePressIn}
                   onPressOut={handleCompletePressOut}
                   accessibilityRole="checkbox"
-                  accessibilityLabel={`Set ${setLabel}: ${set.isCompleted ? "completed" : "not completed"}${showRecord ? ", personal record" : ""}`}
+                  accessibilityLabel={t("setRow.completeToggle", {
+                    set: accessibleSetLabel,
+                    status: set.isCompleted
+                      ? t("setRow.completed")
+                      : t("setRow.notCompleted"),
+                    record: showRecord ? t("setRow.personalRecord") : "",
+                  })}
                   accessibilityState={{ checked: set.isCompleted }}
                   style={[
                     styles.checkbox,

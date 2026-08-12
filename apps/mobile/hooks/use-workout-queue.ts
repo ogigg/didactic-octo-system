@@ -4,7 +4,14 @@ import { useRouter } from "expo-router";
 
 import { useAuth } from "@/hooks/use-auth";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
-import { convertPreviousDisplay } from "@/lib/workout-previous-sets";
+import {
+  convertPreviousDisplay,
+  type ExercisePreviousSets,
+} from "@/lib/workout-previous-sets";
+import {
+  applyPreviousSetsToWorkoutSets,
+  normalizeGeneratedExerciseSets,
+} from "@/lib/exercise-set-structure";
 import { useProfile, type Profile } from "@/hooks/use-profile-query";
 import {
   deletePendingWorkout,
@@ -45,7 +52,6 @@ import {
   type WorkoutSet,
 } from "@/stores/workout-store";
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
-import type { PreviousSetValue } from "@/lib/workout-previous-sets";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 
 // -----------------------------------------------------------------------------
@@ -104,25 +110,10 @@ function getGenerationPreferencesFromProfile(
 
 function applyPreviousSetDisplays(
   sets: WorkoutSet[],
-  previousSets: PreviousSetValue[] | undefined,
+  previousSets: ExercisePreviousSets | undefined,
   fallbackDisplay: string | null
 ): WorkoutSet[] {
-  let workingIndex = 0;
-
-  return sets.map((set) => {
-    if (set.type !== "working") {
-      return { ...set, previousDisplay: null };
-    }
-
-    const previousDisplay =
-      previousSets?.[workingIndex]?.display ?? fallbackDisplay;
-    workingIndex += 1;
-
-    return {
-      ...set,
-      previousDisplay,
-    };
-  });
+  return applyPreviousSetsToWorkoutSets(sets, previousSets, fallbackDisplay);
 }
 
 // -----------------------------------------------------------------------------
@@ -589,7 +580,7 @@ export function useStartPendingWorkout() {
           input.exercises ?? input.pendingWorkout.workout_data.exercises,
       };
 
-      const previousSetDisplays: Record<string, PreviousSetValue[]> =
+      const previousSetDisplays: Record<string, ExercisePreviousSets> =
         await fetchPreviousSetDisplays(
           workoutData.exercises.map((ex) => ex.exercise_id),
           weightUnit
@@ -597,45 +588,51 @@ export function useStartPendingWorkout() {
 
       const exercises: WorkoutExercise[] = workoutData.exercises.map(
         (ex, exIndex) => {
+          const exerciseType =
+            (ex.exercise_type as "weight" | "time") ?? "weight";
           const fallbackPreviousDisplay = convertPreviousDisplay(
             ex.previous_display,
             weightUnit
           );
-          const sets = ex.sets.map((set, setIndex) => ({
-            id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
-            type: set.set_type,
-            kg:
-              set.target_load_kg != null
-                ? String(
-                    Math.round(
-                      convertWeight(set.target_load_kg, weightUnit) * 10
-                    ) / 10
-                  )
-                : "",
-            reps: set.target_reps != null ? String(set.target_reps) : "",
-            durationSeconds:
-              (set as { target_duration_seconds?: number | null })
-                .target_duration_seconds ?? null,
-            rpe: null,
-            isCompleted: false,
-            previousDisplay: null,
-          }));
+          const normalizedSets = normalizeGeneratedExerciseSets(
+            exerciseType,
+            ex.sets
+          );
+          const sets = applyPreviousSetDisplays(
+            normalizedSets.map((set, setIndex) => ({
+              id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
+              type: set.set_type,
+              kg:
+                set.target_load_kg != null
+                  ? String(
+                      Math.round(
+                        convertWeight(set.target_load_kg, weightUnit) * 10
+                      ) / 10
+                    )
+                  : "",
+              reps: set.target_reps != null ? String(set.target_reps) : "",
+              durationSeconds:
+                (set as { target_duration_seconds?: number | null })
+                  .target_duration_seconds ?? null,
+              rpe: null,
+              isCompleted: false,
+              previousDisplay: null,
+            })),
+            previousSetDisplays[ex.exercise_id],
+            fallbackPreviousDisplay
+          );
 
           return {
             id: ex.exercise_id,
             name: ex.exercise_name,
             image: ex.image ?? null,
-            exerciseType: (ex.exercise_type as "weight" | "time") ?? "weight",
+            exerciseType,
             restDurationSeconds: ex.rest_duration_seconds,
             notes: ex.notes ?? "",
             reasoning: ex.reasoning ?? null,
             difficultyFeedback: null,
             progressionType: ex.progression_type ?? null,
-            sets: applyPreviousSetDisplays(
-              sets,
-              previousSetDisplays[ex.exercise_id],
-              fallbackPreviousDisplay
-            ),
+            sets,
           };
         }
       );

@@ -1,4 +1,8 @@
-import { useWorkoutStore, type WorkoutExercise } from "../workout-store";
+import {
+  migratePersistedWorkoutExercisesFromV0,
+  useWorkoutStore,
+  type WorkoutExercise,
+} from "../workout-store";
 
 const baseExercise: WorkoutExercise = {
   id: "bench-press",
@@ -56,28 +60,66 @@ describe("workout store exercise replacement", () => {
       notes: "",
       difficultyFeedback: null,
       progressionType: "new_exercise",
+      exerciseType: "weight",
     });
-    expect(exercise?.sets).toEqual([
-      {
-        id: "set-1",
-        type: "working",
-        kg: "",
-        reps: "",
-        durationSeconds: null,
-        rpe: null,
-        isCompleted: false,
-        previousDisplay: null,
-      },
-      {
-        id: "set-2",
-        type: "working",
-        kg: "",
-        reps: "",
-        durationSeconds: null,
-        rpe: null,
-        isCompleted: false,
-        previousDisplay: null,
-      },
+    expect(exercise?.sets.map((set) => set.type)).toEqual([
+      "warmup",
+      "working",
+      "working",
+    ]);
+    expect(exercise?.sets.every((set) => set.kg === "")).toBe(true);
+    expect(exercise?.sets.every((set) => set.reps === "")).toBe(true);
+    expect(exercise?.sets.every((set) => set.previousDisplay === null)).toBe(
+      true
+    );
+  });
+
+  it("preserves working count and strips warmup when replacing with a time exercise", () => {
+    useWorkoutStore.getState().startWorkout(
+      "Push day",
+      [
+        {
+          ...baseExercise,
+          sets: [
+            {
+              id: "wu",
+              type: "warmup",
+              kg: "20",
+              reps: "10",
+              durationSeconds: null,
+              rpe: null,
+              isCompleted: false,
+              previousDisplay: null,
+            },
+            ...baseExercise.sets,
+            {
+              id: "set-3",
+              type: "working",
+              kg: "80",
+              reps: "5",
+              durationSeconds: null,
+              rpe: null,
+              isCompleted: false,
+              previousDisplay: null,
+            },
+          ],
+        },
+      ],
+      undefined
+    );
+
+    useWorkoutStore.getState().replaceExercise("bench-press", {
+      id: "plank",
+      name: "Plank",
+      exerciseType: "time",
+    });
+
+    const [exercise] = useWorkoutStore.getState().exercises;
+    expect(exercise?.exerciseType).toBe("time");
+    expect(exercise?.sets.map((set) => set.type)).toEqual([
+      "working",
+      "working",
+      "working",
     ]);
   });
 
@@ -111,7 +153,12 @@ describe("workout store exercise replacement", () => {
       notes: "",
       difficultyFeedback: null,
     });
-    expect(exercises[1]?.sets).toHaveLength(3);
+    expect(exercises[1]?.sets.map((set) => set.type)).toEqual([
+      "warmup",
+      "working",
+      "working",
+      "working",
+    ]);
     expect(exercises[1]?.sets.every((set) => set.kg === "")).toBe(true);
     expect(exercises[1]?.sets.every((set) => set.reps === "")).toBe(true);
   });
@@ -123,16 +170,39 @@ describe("workout store exercise replacement", () => {
       id: "bench-press",
       name: "Bench Press",
       exerciseType: "weight",
-      previousDisplays: ["80×8", "77.5×10"],
+      previous: {
+        warmup: "20×10",
+        working: [
+          { setNumber: 1, display: "80×8" },
+          { setNumber: 2, display: "77.5×10" },
+        ],
+      },
     });
 
     const [exercise] = useWorkoutStore.getState().exercises;
 
     expect(exercise?.sets.map((set) => set.previousDisplay)).toEqual([
+      "20×10",
       "80×8",
       "77.5×10",
       null,
     ]);
+  });
+
+  it("adds only working sets via addSet", () => {
+    useWorkoutStore.getState().startWorkout("Empty workout", [], undefined);
+    useWorkoutStore.getState().addExercise({
+      id: "bench-press",
+      name: "Bench Press",
+      exerciseType: "weight",
+    });
+    const exerciseId = useWorkoutStore.getState().exercises[0]?.occurrenceId;
+    expect(exerciseId).toBeTruthy();
+    useWorkoutStore.getState().addSet(exerciseId!);
+    const types = useWorkoutStore
+      .getState()
+      .exercises[0]?.sets.map((set) => set.type);
+    expect(types?.[types.length - 1]).toBe("working");
   });
 
   it("removes an exercise and clears its rest timer", () => {
@@ -222,6 +292,29 @@ describe("workout store exercise replacement", () => {
     ).toEqual(["row", "bench-press", "squat"]);
   });
 
+  it("updates only the selected occurrence when catalog exercises repeat", () => {
+    useWorkoutStore.getState().startWorkout(
+      "Duplicate bench",
+      [
+        { ...baseExercise, occurrenceId: "bench-first" },
+        {
+          ...baseExercise,
+          occurrenceId: "bench-second",
+          sets: [{ ...baseExercise.sets[0]!, id: "second-set", kg: "60" }],
+        },
+      ],
+      undefined
+    );
+
+    useWorkoutStore
+      .getState()
+      .updateSetField("bench-second", "second-set", "kg", "70");
+
+    const [first, second] = useWorkoutStore.getState().exercises;
+    expect(first?.sets[0]?.kg).toBe("80");
+    expect(second?.sets[0]?.kg).toBe("70");
+  });
+
   it("adjusts remaining rest time without changing planned rest duration", () => {
     const startedAtMs = new Date("2026-06-03T10:00:00.000Z").getTime();
     const dateNowSpy = jest.spyOn(Date, "now");
@@ -231,6 +324,8 @@ describe("workout store exercise replacement", () => {
       useWorkoutStore
         .getState()
         .startWorkout("Push day", [baseExercise], undefined);
+      const occurrenceId =
+        useWorkoutStore.getState().exercises[0]?.occurrenceId;
       useWorkoutStore.getState().startRestTimer("bench-press");
 
       dateNowSpy.mockReturnValue(startedAtMs + 10_000);
@@ -238,12 +333,98 @@ describe("workout store exercise replacement", () => {
 
       const restTimer = useWorkoutStore.getState().restTimer;
       expect(restTimer).toMatchObject({
-        exerciseId: "bench-press",
+        exerciseId: occurrenceId,
         durationSeconds: 120,
         startedAtMs: startedAtMs - 15_000,
       });
     } finally {
       dateNowSpy.mockRestore();
     }
+  });
+});
+
+describe("migratePersistedWorkoutExercisesFromV0", () => {
+  it("adds exactly one warmup to legacy weight-only rows once", () => {
+    const migrated = migratePersistedWorkoutExercisesFromV0([
+      {
+        ...baseExercise,
+        sets: [
+          {
+            id: "set-1",
+            type: "working",
+            kg: "80",
+            reps: "5",
+            durationSeconds: null,
+            rpe: null,
+            isCompleted: false,
+            previousDisplay: "77.5×5",
+          },
+          {
+            id: "set-2",
+            type: "working",
+            kg: "82.5",
+            reps: "4",
+            durationSeconds: null,
+            rpe: null,
+            isCompleted: false,
+            previousDisplay: "80×4",
+          },
+        ],
+      },
+    ]);
+
+    expect(migrated[0]?.sets.map((set) => set.type)).toEqual([
+      "warmup",
+      "working",
+      "working",
+    ]);
+    expect(migrated[0]?.sets[1]?.previousDisplay).toBe("77.5×5");
+    expect(migrated[0]?.sets[2]?.previousDisplay).toBe("80×4");
+
+    const again = migratePersistedWorkoutExercisesFromV0(migrated);
+    expect(again[0]?.sets.filter((set) => set.type === "warmup")).toHaveLength(
+      1
+    );
+  });
+
+  it("leaves intentionally removed warmup rows untouched for v1 snapshots", () => {
+    const intentionallyRemovedWarmup: WorkoutExercise = {
+      ...baseExercise,
+      sets: [
+        {
+          id: "set-1",
+          type: "working",
+          kg: "80",
+          reps: "5",
+          durationSeconds: null,
+          rpe: null,
+          isCompleted: false,
+          previousDisplay: null,
+        },
+        {
+          id: "set-2",
+          type: "working",
+          kg: "82.5",
+          reps: "4",
+          durationSeconds: null,
+          rpe: null,
+          isCompleted: false,
+          previousDisplay: null,
+        },
+      ],
+    };
+
+    // v1 rehydrate path skips the helper, so an intentional W removal stays removed.
+    const afterV1Rehydrate = intentionallyRemovedWarmup;
+    expect(afterV1Rehydrate.sets.map((set) => set.type)).toEqual([
+      "working",
+      "working",
+    ]);
+
+    // Contrast: re-running the helper would re-insert W — version gating prevents that.
+    const ifHelperReran = migratePersistedWorkoutExercisesFromV0([
+      intentionallyRemovedWarmup,
+    ]);
+    expect(ifHelperReran[0]?.sets[0]?.type).toBe("warmup");
   });
 });

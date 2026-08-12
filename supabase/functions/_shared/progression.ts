@@ -24,6 +24,8 @@ export interface ExerciseHistory {
   session_completed_at: string;
   difficulty_feedback: "too_easy" | "ok" | "too_hard" | null;
   working_sets: WorkingSetRecord[] | null;
+  /** Present on newer RPC responses; ignored by progression. */
+  warmup_sets?: WorkingSetRecord[] | null;
 }
 
 export type ProgressionType =

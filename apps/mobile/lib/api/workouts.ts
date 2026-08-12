@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import {
   formatPreviousDurationSet,
   formatPreviousWeightSet,
+  type ExercisePreviousSets,
   type PreviousSetValue,
 } from "@/lib/workout-previous-sets";
 import type { WeightUnit } from "@/lib/unit-conversion";
@@ -161,6 +162,11 @@ const progressionHistoryRowSchema = z.object({
     .nullable()
     .optional(),
   working_sets: z.array(progressionHistoryWorkingSetSchema).nullable(),
+  // Optional for rollout compatibility with older RPC responses.
+  warmup_sets: z
+    .array(progressionHistoryWorkingSetSchema)
+    .nullable()
+    .optional(),
 });
 
 const deleteWorkoutSessionResultSchema = z.object({
@@ -313,7 +319,7 @@ export async function fetchWorkoutDetail(
 export async function fetchPreviousSetDisplays(
   exerciseIds: string[],
   weightUnit: WeightUnit
-): Promise<Record<string, PreviousSetValue[]>> {
+): Promise<Record<string, ExercisePreviousSets>> {
   const uniqueExerciseIds = Array.from(new Set(exerciseIds));
   if (uniqueExerciseIds.length === 0) return {};
 
@@ -335,7 +341,10 @@ export async function fetchPreviousSetDisplays(
   return Object.fromEntries(
     rows.map((row) => [
       row.exercise_id,
-      mapProgressionHistorySets(row, weightUnit),
+      {
+        warmup: mapWarmupPreviousDisplay(row, weightUnit),
+        working: mapWorkingPreviousSets(row, weightUnit),
+      } satisfies ExercisePreviousSets,
     ])
   );
 }
@@ -368,7 +377,27 @@ export async function fetchCalendarEntries(
   return (data ?? []) as CalendarSessionRow[];
 }
 
-function mapProgressionHistorySets(
+function mapSetHistoryDisplay(
+  exerciseType: "weight" | "time",
+  set: z.infer<typeof progressionHistoryWorkingSetSchema>,
+  weightUnit: WeightUnit
+): string | null {
+  return exerciseType === "time"
+    ? formatPreviousDurationSet(set.duration_seconds)
+    : formatPreviousWeightSet(set.load_kg, set.reps, weightUnit);
+}
+
+function mapWarmupPreviousDisplay(
+  row: z.infer<typeof progressionHistoryRowSchema>,
+  weightUnit: WeightUnit
+): string | null {
+  const exerciseType = row.exercise_type ?? "weight";
+  const firstCompleted = (row.warmup_sets ?? []).find((set) => set.completed);
+  if (!firstCompleted) return null;
+  return mapSetHistoryDisplay(exerciseType, firstCompleted, weightUnit);
+}
+
+function mapWorkingPreviousSets(
   row: z.infer<typeof progressionHistoryRowSchema>,
   weightUnit: WeightUnit
 ): PreviousSetValue[] {
@@ -377,10 +406,7 @@ function mapProgressionHistorySets(
   return (row.working_sets ?? [])
     .filter((set) => set.completed)
     .map((set, index) => {
-      const display =
-        exerciseType === "time"
-          ? formatPreviousDurationSet(set.duration_seconds)
-          : formatPreviousWeightSet(set.load_kg, set.reps, weightUnit);
+      const display = mapSetHistoryDisplay(exerciseType, set, weightUnit);
 
       return display
         ? {
