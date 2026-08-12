@@ -78,9 +78,14 @@ beforeEach(() => {
 });
 
 describe("DeleteAccountScreen", () => {
-  it("renders without crashing", () => {
+  it("explains deleted data, retained records, reversibility, and store billing", () => {
     renderScreen();
-    expect(screen.getByText("cta.delete")).toBeTruthy();
+
+    expect(screen.getByText("warning.body")).toBeTruthy();
+    expect(screen.getByText("consequences.items.account")).toBeTruthy();
+    expect(screen.getByText("consequences.items.history")).toBeTruthy();
+    expect(screen.getByText("retention.body")).toBeTruthy();
+    expect(screen.getByText("subscription.body")).toBeTruthy();
   });
 
   it("passes the localized back accessibility label to the header", () => {
@@ -178,6 +183,15 @@ describe("DeleteAccountScreen", () => {
     await waitFor(() => {
       expect(mockSetOptions).toHaveBeenCalledWith({ gestureEnabled: false });
     });
+
+    expect(
+      screen.getByRole("button", { name: "accessibility.back" }).props
+        .accessibilityState?.disabled
+    ).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" }).props
+        .accessibilityState
+    ).toEqual(expect.objectContaining({ busy: true, disabled: true }));
 
     // Resolve the mutation so React Query can settle before the test exits.
     await act(async () => {

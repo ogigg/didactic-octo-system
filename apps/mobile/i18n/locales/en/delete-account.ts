@@ -29,7 +29,7 @@ export const deleteAccount = {
   confirm: {
     heading: "Confirm deletion",
     instruction: "Type {{phrase}} below to enable the delete button.",
-    ariaLabel: "Deletion confirmation",
+    ariaLabel: "Deletion confirmation, destructive action",
   },
   finalConfirm: {
     title: "Schedule account deletion?",

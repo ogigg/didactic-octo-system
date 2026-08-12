@@ -1,5 +1,7 @@
 const mockNavigate = jest.fn();
-const mockOpenSubscriptionManagement = jest.fn(() => Promise.resolve());
+const mockOpenSubscriptionManagement = jest.fn(() =>
+  Promise.resolve("https://apps.apple.com/account/subscriptions")
+);
 let mockIsProActive = false;
 
 jest.mock("expo-router", () => ({
@@ -59,7 +61,9 @@ describe("AccountSettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsProActive = false;
-    mockOpenSubscriptionManagement.mockResolvedValue(undefined);
+    mockOpenSubscriptionManagement.mockResolvedValue(
+      "https://apps.apple.com/account/subscriptions"
+    );
   });
 
   it("keeps subscription management separate from account deletion", () => {
@@ -105,6 +109,9 @@ describe("AccountSettingsScreen", () => {
       style?: string;
       onPress?: () => void;
     }[];
+
+    buttons.find((button) => button.style === "cancel")?.onPress?.();
+    expect(mockNavigate).not.toHaveBeenCalledWith("/delete-account");
 
     await act(async () => {
       buttons

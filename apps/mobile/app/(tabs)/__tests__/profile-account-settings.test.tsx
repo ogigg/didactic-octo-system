@@ -82,9 +82,11 @@ describe("Profile account management", () => {
     expect(
       screen.queryByRole("button", { name: "nav.deleteAccount" })
     ).toBeNull();
+    expect(screen.getByRole("button", { name: "logout.button" })).toBeTruthy();
 
     fireEvent.press(screen.getByRole("button", { name: "nav.accountData" }));
 
     expect(mockNavigate).toHaveBeenCalledWith("/account-settings");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/delete-account");
   });
 });

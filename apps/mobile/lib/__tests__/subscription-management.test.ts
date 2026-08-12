@@ -56,4 +56,10 @@ describe("subscription management", () => {
       "Unable to open subscription management"
     );
   });
+
+  it("rejects on platforms without a store destination", async () => {
+    await expect(openSubscriptionManagement("web")).rejects.toThrow(
+      "Subscription management is unavailable on this platform"
+    );
+  });
 });

@@ -29,7 +29,7 @@ export const deleteAccount = {
   confirm: {
     heading: "Potwierdź usunięcie",
     instruction: "Wpisz poniżej {{phrase}}, aby włączyć przycisk usuwania.",
-    ariaLabel: "Potwierdzenie usunięcia",
+    ariaLabel: "Potwierdzenie usunięcia, działanie destrukcyjne",
   },
   finalConfirm: {
     title: "Zaplanować usunięcie konta?",

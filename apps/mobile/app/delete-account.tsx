@@ -159,7 +159,7 @@ export default function DeleteAccountScreen() {
         <ScreenHeader
           title={t("header.title")}
           titleStyle={Typography.titleMd}
-          onBack={isPending ? () => {} : undefined}
+          backDisabled={isPending}
           backAccessibilityLabel={t("accessibility.back")}
         />
 
@@ -355,7 +355,8 @@ export default function DeleteAccountScreen() {
               label={isPending ? t("cta.deleting") : t("cta.delete")}
               variant="destructive"
               onPress={handleDelete}
-              disabled={!canDelete || isPending}
+              disabled={!canDelete}
+              loading={isPending}
               accessibilityLabel={t("cta.accessibilityLabel")}
             />
             <Button
