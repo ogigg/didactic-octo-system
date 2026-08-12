@@ -144,7 +144,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 command.dictionary,
                 replyHandler: nil,
                 errorHandler: { error in
-                    print("[SweatyWatch] immediate command failed:", error)
+                    let code = (error as NSError).code
+                    print("[SweatyWatch] immediate command failed reason=\(code)")
                 }
             )
         }
