@@ -90,9 +90,20 @@ the iOS project by `@bacons/apple-targets`. It is not a separate Expo or React
 Native application.
 
 - The phone Zustand workout store is authoritative.
+- Apple Watch preferences are owned by the iPhone and persisted locally for
+  that phone/watch pairing. They are not account data and are not sent to
+  Supabase.
 - The phone publishes versioned full workout snapshots with
-  `WCSession.updateApplicationContext`; reachable watches also receive the same
-  snapshot immediately with `sendMessage`.
+  `WCSession.updateApplicationContext`; this remains the single latest
+  application context. The legacy protocol-v1 workout JSON stays in `payload`,
+  while current settings and their independent revision are optional additive
+  envelope fields that older watch builds ignore. Reachable watches also
+  receive the same workout snapshot immediately with `sendMessage`.
+- Settings-only changes never replace application context or republish a
+  workout. They use durable `transferUserInfo`, plus `sendMessage` as a latency
+  optimization when the watch is reachable. The phone retains the latest
+  pre-delivery settings message until WatchConnectivity accepts it; ordinary
+  unreachable, unpaired, or not-installed states do not prevent editing.
 - Phone discard publishes a `cancelled` terminal snapshot before clearing
   local state so the watch can end its HealthKit workout.
 - The watch uses stable workout, exercise-occurrence, and set IDs. Catalog IDs
@@ -111,6 +122,19 @@ Native application.
   TestFlight validation requires a watch `AppIcon` asset catalog and
   `CFBundleIconName`; `@bacons/apple-targets` generates both from that config
   during prebuild.
+
+Apple Watch settings default to a 10-second rest warning, rest-end and
+set-completion haptics on, 15-second quick rest adjustments, automatic rest
+timer presentation on, staying on the timer when rest ends, skip-rest and
+end-workout confirmations on, and live heart rate and previous-performance
+context visible. The Watch validates and persists these values independently
+from workout state, so completing, cancelling, or clearing a workout does not
+erase them.
+
+These preferences control only the companion's app-generated rest/set feedback
+and workout presentation. They do not affect phone notifications or sounds,
+Digital Crown haptics, watchOS language, weight units, or Watch HealthKit
+recording and ownership.
 
 After changing the target config or adding native files, regenerate and build:
 
