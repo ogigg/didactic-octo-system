@@ -92,6 +92,7 @@ function stateToDict(state: LiveActivityState): Record<string, unknown> {
     totalSets: state.totalSets,
     workoutName: state.workoutName,
     workoutStartedAtMs: state.workoutStartedAtMs,
+    isWorkoutComplete: state.isWorkoutComplete,
   };
   if (state.restStartedAtMs !== null && state.restEndsAtMs !== null) {
     dict.restStartedAtMs = state.restStartedAtMs;

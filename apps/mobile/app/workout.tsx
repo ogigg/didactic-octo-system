@@ -13,7 +13,6 @@ import { WorkoutTopBar } from "@/components/workout/workout-top-bar";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import {
   countLoggedWorkoutSets,
   hasLoggedWorkoutData,
@@ -51,8 +50,6 @@ export default function WorkoutScreen() {
   const { t } = useTranslation("workout");
   const router = useRouter();
 
-  // iOS Live Activity / Dynamic Island
-  useWorkoutLiveActivity();
   // Keep the phone display awake while the active workout screen is open.
   useKeepAwake();
 

@@ -11,6 +11,8 @@ export interface LiveActivityState {
   totalSets: number;
   workoutName: string;
   workoutStartedAtMs: number;
+  /** True while publishing the final state before the activity is dismissed. */
+  isWorkoutComplete: boolean;
   restStartedAtMs: number | null;
   restEndsAtMs: number | null;
 }

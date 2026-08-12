@@ -22,6 +22,7 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useDeepLinks } from "@/hooks/use-deep-links";
 import { useLiveActivityActions } from "@/hooks/use-live-activity-actions";
+import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
@@ -37,6 +38,16 @@ configureRestTimerNotificationHandler();
 export const unstable_settings = {
   anchor: "(tabs)",
 };
+
+/**
+ * The Live Activity host must be inside QueryClientProvider because it resolves
+ * localized exercise names through TanStack Query. It is intentionally mounted
+ * at the root so route changes cannot tear down an active workout activity.
+ */
+function WorkoutLiveActivityHost() {
+  useWorkoutLiveActivity();
+  return null;
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -118,6 +129,7 @@ export default function RootLayout() {
         <View style={[styles.root, { backgroundColor: colors.background }]}>
           <AmbientGlow variant="hero" />
           <QueryClientProvider client={queryClient}>
+            <WorkoutLiveActivityHost />
             <WatchBridgeHost />
             <ThemeProvider value={theme}>
               <Stack
