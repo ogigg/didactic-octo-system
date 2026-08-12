@@ -554,3 +554,28 @@ Invariants:
 - authenticated callers can request only their own history; `service_role` retains server-side access for generation
 - `rpe` may be null on older logs; missing RPE must not break consumers
 - progression decisions that hold load/reps/duration when any completed working-set RPE is `>= 9` rely on this RPC surface
+
+### `get_stats_personal_records`
+
+Purpose:
+
+- returns all-time personal-record statistics for each exercise in the authenticated user's completed workout history
+
+Return shape (per exercise):
+
+- `exercise_id`
+- `exercise_name`
+- `max_weight_kg`: greatest completed working-set load
+- `max_weight_reps`: reps from the exact working set selected for `max_weight_kg`
+- `max_reps`: greatest completed working-set reps
+- `max_reps_weight_kg`: load from the exact working set selected for `max_reps`
+- `max_volume_set_kg`: greatest completed working-set load × reps
+- `est_1rm_kg`: greatest Epley estimate among completed working sets with 1–10 reps (nullable)
+
+Invariants:
+
+- only `workout_sessions.status = 'completed'`, `set_logs.completed = true`, non-null actual load/reps, and `session_sets.set_type = 'working'` contribute; warm-up sets, active/incomplete sessions, incomplete logs, and other users' data are excluded
+- the paired values come from the same exact selected set as their corresponding maximum; they are not independent maxima
+- max-weight selection orders load descending, reps descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
+- max-reps selection orders reps descending, load descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
+- callers must be authenticated and receive only their own records; an authenticated user with no eligible sets receives `[]`
