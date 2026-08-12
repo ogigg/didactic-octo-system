@@ -35,10 +35,12 @@ struct ExerciseDetailView: View {
                             String(localized: "TARGET"),
                             setDisplay(set)
                         )
-                        prescription(
-                            String(localized: "LAST TIME"),
-                            set.previousDisplay ?? "—"
-                        )
+                        if coordinator.watchSettings.showPreviousPerformance {
+                            prescription(
+                                String(localized: "LAST TIME"),
+                                set.previousDisplay ?? "—"
+                            )
+                        }
                     }
 
                     SetLoggerView()
@@ -52,8 +54,44 @@ struct ExerciseDetailView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(WatchTheme.primary)
                     .accessibilityHint(
-                        String(localized: "Logs this set and starts the rest timer")
+                        coordinator.watchSettings.autoShowRestTimer
+                            ? String(localized: "Logs this set and starts the rest timer")
+                            : String(localized: "Logs this set and keeps the rest timer available below")
                     )
+
+                    // When automatic rest presentation is disabled, keep a
+                    // compact running-timer affordance in the set logger so
+                    // the active rest remains one tap away.
+                    if !coordinator.watchSettings.autoShowRestTimer,
+                        coordinator.snapshot?.rest != nil
+                    {
+                        Button {
+                            coordinator.screen = .rest
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "timer")
+                                Text(
+                                    watchLocalizedFormat(
+                                        "Rest timer · %lld seconds",
+                                        coordinator.currentRestRemaining
+                                    )
+                                )
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                            }
+                            .font(.caption2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(WatchTheme.primary)
+                        .accessibilityLabel(
+                            watchLocalizedFormat(
+                                "Open rest timer, %lld seconds remaining",
+                                coordinator.currentRestRemaining
+                            )
+                        )
+                    }
 
                     ForEach(Array(exercise.sets.enumerated()), id: \.element.id) {
                         index, loggedSet in

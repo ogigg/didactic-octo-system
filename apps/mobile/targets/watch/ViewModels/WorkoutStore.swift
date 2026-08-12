@@ -12,8 +12,15 @@ final class WorkoutCoordinator {
         case exerciseComplete
     }
 
+    struct RestTimerTransition {
+        let shouldPlayWarning: Bool
+        let shouldPlayCompletion: Bool
+    }
+
     var snapshot: WatchWorkoutSnapshot?
     private(set) var revision: Int64
+    private(set) var watchSettings: WatchSettingsSnapshot
+    private(set) var settingsRevision: Int64
     var screen: Screen = .exerciseList
     var loadKg = 0.0
     var reps = 0
@@ -24,6 +31,15 @@ final class WorkoutCoordinator {
 
     private var healthOwnershipSentForWorkoutID: String?
     private let revisionDefaultsKey = "SweatyWatch.lastAppliedRevision"
+    private var restAlertStates: [String: RestAlertState] = [:]
+    private var automaticallyOpenedRestIDs = Set<String>()
+    private var observedRestID: String?
+    private var observedRestRemaining: Int?
+
+    private struct RestAlertState {
+        var warningDelivered = false
+        var completionDelivered = false
+    }
 
     var selectedExercise: WatchExercise? {
         guard let snapshot else { return nil }
@@ -48,11 +64,19 @@ final class WorkoutCoordinator {
         snapshot?.exercises.flatMap(\.sets).count ?? 0
     }
 
+    private(set) var currentRestRemaining = 0
+
     init() {
-        revision =
+        let storedRevision =
             (UserDefaults.standard.object(forKey: revisionDefaultsKey) as? NSNumber)?
             .int64Value ?? 0
+        revision = max(0, storedRevision)
+        watchSettings = WatchSettingsSnapshot.load()
+        settingsRevision = WatchSettingsSnapshot.loadRevision()
         connectivity.onEnvelope = { [weak self] envelope in
+            self?.apply(envelope)
+        }
+        connectivity.onSettings = { [weak self] envelope in
             self?.apply(envelope)
         }
     }
@@ -66,6 +90,12 @@ final class WorkoutCoordinator {
     }
 
     func apply(_ envelope: WatchSyncEnvelope) {
+        if let settings = envelope.settings,
+            let incomingSettingsRevision = envelope.settingsRevision
+        {
+            applySettings(settings, revision: incomingSettingsRevision)
+        }
+
         connectivity.acknowledge(envelope.acknowledgedCommandIDs)
         guard envelope.revision > revision else { return }
 
@@ -73,16 +103,57 @@ final class WorkoutCoordinator {
         revision = envelope.revision
         UserDefaults.standard.set(revision, forKey: revisionDefaultsKey)
         snapshot = envelope.snapshot
+        currentRestRemaining = envelope.snapshot.rest?.remainingSeconds() ?? 0
 
         if previousWorkoutID != envelope.snapshot.workoutId {
             screen = envelope.snapshot.status == .active ? .exerciseList : .exerciseList
             heartRateAtLastSet = nil
-        } else if envelope.snapshot.rest != nil, screen == .activeSet {
+        } else if envelope.snapshot.rest != nil,
+            screen == .activeSet,
+            watchSettings.autoShowRestTimer
+        {
             screen = .rest
         }
 
         seedEditor()
         manageHealthWorkout()
+    }
+
+    /// Apply a settings-only message without touching workout state, screen,
+    /// HealthKit ownership, or the command outbox.
+    func apply(_ envelope: WatchSettingsEnvelope) {
+        applySettings(envelope.settings, revision: envelope.settingsRevision)
+    }
+
+    private func applySettings(
+        _ settings: WatchSettingsSnapshot,
+        revision incomingRevision: Int64
+    ) {
+        guard incomingRevision > settingsRevision else { return }
+        let previousWarningSeconds = watchSettings.restWarningSeconds
+        watchSettings = settings
+        settingsRevision = incomingRevision
+        settings.persist()
+        UserDefaults.standard.set(
+            incomingRevision,
+            forKey: WatchSettingsSnapshot.revisionKey
+        )
+
+        // A newly raised threshold must not produce a catch-up tap for a
+        // timer that was already below it when the preference changed. The
+        // next rest cycle starts with a fresh alert state.
+        if previousWarningSeconds != settings.restWarningSeconds,
+            settings.restWarningSeconds > 0,
+            let rest = snapshot?.rest
+        {
+            let remaining = rest.remainingSeconds()
+            currentRestRemaining = remaining
+            if remaining <= settings.restWarningSeconds {
+                var state = restAlertStates[rest.id] ?? RestAlertState()
+                state.warningDelivered = true
+                restAlertStates[rest.id] = state
+            }
+        }
     }
 
     func selectExercise(_ exerciseID: String) {
@@ -123,12 +194,18 @@ final class WorkoutCoordinator {
                 "completedAt": ISO8601DateFormatter().string(from: .now),
             ]
         )
-        HapticsClient.setCompleted()
+        HapticsClient.setCompleted(
+            enabled: watchSettings.setCompletionHapticsEnabled
+        )
 
         if selectedExercise?.sets.allSatisfy(\.isCompleted) == true {
             screen = .exerciseComplete
-        } else {
+        } else if watchSettings.autoShowRestTimer {
             screen = .rest
+        } else {
+            // Keep the set logger visible when the user prefers a compact
+            // running-rest affordance instead of automatic navigation.
+            screen = .activeSet
         }
     }
 
@@ -157,7 +234,110 @@ final class WorkoutCoordinator {
             snapshot.rest = nil
             self.snapshot = snapshot
         }
+        currentRestRemaining = 0
+        observedRestID = nil
+        observedRestRemaining = nil
         screen = .activeSet
+    }
+
+    /// Clear a rest automatically at zero at most once for its stable ID.
+    /// Manual skip remains available through `skipRest()` and uses the same
+    /// stable ID payload path.
+    func openNextSetIfNeeded(restID: String) {
+        guard snapshot?.rest?.id == restID,
+            !automaticallyOpenedRestIDs.contains(restID)
+        else { return }
+        automaticallyOpenedRestIDs.insert(restID)
+        skipRest()
+    }
+
+    /// Track haptic delivery against a stable rest ID rather than a SwiftUI
+    /// view mount. A paused timer never advances alert state, and changing a
+    /// warning threshold below the current remaining value cannot cause a
+    /// catch-up warning because the crossing condition still requires the
+    /// previous value to be above the new threshold.
+    func restTimerTransition(
+        restID: String,
+        previousRemaining: Int,
+        remaining: Int,
+        isPaused: Bool
+    ) -> RestTimerTransition {
+        guard !isPaused else {
+            return RestTimerTransition(
+                shouldPlayWarning: false,
+                shouldPlayCompletion: false
+            )
+        }
+
+        var state = restAlertStates[restID] ?? RestAlertState()
+        var shouldPlayWarning = false
+        var shouldPlayCompletion = false
+        let warningSeconds = watchSettings.restWarningSeconds
+        if !state.warningDelivered,
+            warningSeconds > 0,
+            previousRemaining > warningSeconds,
+            remaining > 0,
+            remaining <= warningSeconds
+        {
+            state.warningDelivered = true
+            shouldPlayWarning = true
+        }
+        if !state.completionDelivered,
+            previousRemaining > 0,
+            remaining <= 0
+        {
+            state.completionDelivered = true
+            shouldPlayCompletion = true
+        }
+        restAlertStates[restID] = state
+        return RestTimerTransition(
+            shouldPlayWarning: shouldPlayWarning,
+            shouldPlayCompletion: shouldPlayCompletion
+        )
+    }
+
+    /// Observe the absolute-date rest timer independently from whichever
+    /// workout screen is currently mounted. This is called by an always-live
+    /// root monitor, so app haptics and automatic next-set behavior continue
+    /// when the compact rest affordance is shown instead of RestTimerView.
+    func observeRest(at date: Date = .now) {
+        guard let rest = snapshot?.rest else {
+            currentRestRemaining = 0
+            observedRestID = nil
+            observedRestRemaining = nil
+            return
+        }
+
+        let remaining = rest.remainingSeconds(at: date)
+        currentRestRemaining = remaining
+
+        guard observedRestID == rest.id else {
+            observedRestID = rest.id
+            observedRestRemaining = remaining
+            return
+        }
+
+        let previousRemaining = observedRestRemaining ?? remaining
+        observedRestRemaining = remaining
+        let transition = restTimerTransition(
+            restID: rest.id,
+            previousRemaining: previousRemaining,
+            remaining: remaining,
+            isPaused: rest.isPaused
+        )
+        if transition.shouldPlayWarning {
+            HapticsClient.restTimerWarning(
+                enabled: watchSettings.restWarningSeconds > 0
+            )
+        }
+        if transition.shouldPlayCompletion {
+            HapticsClient.restTimerComplete(
+                enabled: watchSettings.restEndHapticsEnabled
+            )
+            if watchSettings.restCompletionBehavior == .openNextSet {
+                openNextSetIfNeeded(restID: rest.id)
+            }
+        }
     }
 
     func finishWorkout() {

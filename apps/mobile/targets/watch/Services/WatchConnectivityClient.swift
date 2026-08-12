@@ -7,6 +7,7 @@ import WatchConnectivity
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     var isReachable = false
     var onEnvelope: ((WatchSyncEnvelope) -> Void)?
+    var onSettings: ((WatchSettingsEnvelope) -> Void)?
 
     private let outboxKey = "SweatyWatch.commandOutbox"
     private var outbox: [WatchCommand] = []
@@ -81,6 +82,13 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
 
     nonisolated func session(
         _ session: WCSession,
+        didReceiveUserInfo userInfo: [String: Any]
+    ) {
+        Task { @MainActor in self.consume(userInfo) }
+    }
+
+    nonisolated func session(
+        _ session: WCSession,
         didReceiveApplicationContext applicationContext: [String: Any]
     ) {
         Task { @MainActor in self.consume(applicationContext) }
@@ -96,6 +104,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     private func consume(_ dictionary: [String: Any]) {
+        // Settings are an independent durable stream. They intentionally do
+        // not acknowledge commands or touch the workout snapshot/outbox.
+        if let settingsEnvelope = WatchSettingsEnvelope(dictionary: dictionary) {
+            onSettings?(settingsEnvelope)
+            return
+        }
         guard let envelope = WatchSyncEnvelope(dictionary: dictionary) else {
             return
         }

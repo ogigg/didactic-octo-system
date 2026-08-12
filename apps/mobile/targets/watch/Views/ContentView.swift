@@ -22,8 +22,31 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Keep rest alerts and automatic zero behavior alive even when
+            // the user stays on the exercise screen (auto-show disabled) or
+            // backs out of the dedicated timer view.
+            RestTimerMonitor()
+                .frame(width: 1, height: 1)
+                .opacity(0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
         .task { coordinator.start() }
+    }
+}
+
+private struct RestTimerMonitor: View {
+    @Environment(WorkoutCoordinator.self) private var coordinator
+
+    var body: some View {
+        Color.clear
+            .task {
+                while !Task.isCancelled {
+                    coordinator.observeRest()
+                    try? await Task.sleep(for: .seconds(1))
+                }
+            }
     }
 }
 
