@@ -29,7 +29,7 @@ export async function publishWatchSettings(
   await hydrateWatchRevisions();
   const revision = await allocateWatchSettingsRevision();
   const envelope = makeWatchSettingsEnvelope(
-    buildWatchSettingsSnapshot(snapshot),
+    buildWatchSettingsSnapshot({ ...getWatchSettingsSnapshot(), ...snapshot }),
     revision
   );
   await sendWatchSettings(envelope);
@@ -41,16 +41,17 @@ export async function publishWatchSettings(
  * The last snapshot wins, while callers all receive the result of that flush.
  */
 let queuedSnapshot: Partial<WatchSettingsSnapshot> | null = null;
-let queuedWaiters: Array<{
+let queuedWaiters: {
   resolve: (value: boolean) => void;
   reject: (reason: unknown) => void;
-}> = [];
+}[] = [];
 let flushScheduled = false;
 
 export function queueWatchSettingsPublication(
   snapshot: Partial<WatchSettingsSnapshot> = getWatchSettingsSnapshot()
 ): Promise<boolean> {
   queuedSnapshot = buildWatchSettingsSnapshot({
+    ...getWatchSettingsSnapshot(),
     ...(queuedSnapshot ?? {}),
     ...snapshot,
   });

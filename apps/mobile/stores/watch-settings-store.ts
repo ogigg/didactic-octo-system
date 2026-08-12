@@ -194,10 +194,12 @@ export const useWatchSettingsStore = create<WatchSettingsState>()(
         version: WATCH_SETTINGS_STORE_VERSION,
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => persistedSettingsFromState(state),
-        migrate: (persistedState) =>
-          sanitizeWatchSettings(
-            persistedState as PersistedWatchSettings
-          ) as unknown as WatchSettingsState,
+        migrate: (persistedState, version) =>
+          (version > WATCH_SETTINGS_STORE_VERSION
+            ? WATCH_SETTINGS_DEFAULTS
+            : sanitizeWatchSettings(
+                persistedState as PersistedWatchSettings
+              )) as unknown as WatchSettingsState,
         onRehydrateStorage: () => (state, error) => {
           if (error) {
             console.warn(

@@ -20,7 +20,7 @@ export interface WatchSettingsSnapshot {
 }
 
 export interface WatchSettingsEnvelope {
-  protocolVersion: number;
+  protocolVersion: 1;
   kind: "watchSettings";
   settingsRevision: number;
   sentAt: string;

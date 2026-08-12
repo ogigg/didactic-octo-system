@@ -11,10 +11,12 @@ import {
   publishWatchSettings,
   queueWatchSettingsPublication,
 } from "@/lib/watch-settings-publisher";
+import { useWatchSettingsStore } from "@/stores/watch-settings-store";
 
 describe("watch settings publishing", () => {
   beforeEach(() => {
     mockSendWatchSettings.mockClear();
+    useWatchSettingsStore.getState().reset();
   });
 
   it("sends a settings-only durable envelope", async () => {
@@ -54,6 +56,27 @@ describe("watch settings publishing", () => {
       )
     ).toMatchObject({
       restWarningSeconds: 5,
+      showHeartRate: false,
+    });
+  });
+
+  it("merges partial calls with the current store instead of resetting siblings", async () => {
+    useWatchSettingsStore.getState().setRestEndHapticsEnabled(false);
+
+    await expect(publishWatchSettings({ showHeartRate: false })).resolves.toBe(
+      true
+    );
+
+    expect(
+      JSON.parse(
+        (
+          mockSendWatchSettings.mock.calls[0]?.[0] as {
+            payload: string;
+          }
+        ).payload
+      )
+    ).toMatchObject({
+      restEndHapticsEnabled: false,
       showHeartRate: false,
     });
   });

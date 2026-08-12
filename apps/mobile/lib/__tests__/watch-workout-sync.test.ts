@@ -85,6 +85,12 @@ describe("watch workout synchronization", () => {
     });
   });
 
+  it("rejects nonpositive settings revisions instead of creating a reset", () => {
+    expect(() =>
+      makeWatchSettingsEnvelope(buildWatchSettingsSnapshot({}), 0)
+    ).toThrow("watch settings revision must be a positive integer");
+  });
+
   it("builds a full stable-ID snapshot with an anchored rest end date", () => {
     const snapshot = buildActiveWatchSnapshot({
       workoutName: "Push day",

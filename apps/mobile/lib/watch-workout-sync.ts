@@ -111,14 +111,13 @@ export function makeWatchSettingsEnvelope(
   const safeSnapshot = watchSettingsSnapshotSchema.parse(
     buildWatchSettingsSnapshot(snapshot)
   );
-  const safeRevision =
-    Number.isSafeInteger(settingsRevision) && settingsRevision > 0
-      ? settingsRevision
-      : 1;
+  if (!Number.isSafeInteger(settingsRevision) || settingsRevision <= 0) {
+    throw new Error("watch settings revision must be a positive integer");
+  }
   const envelope: WatchSettingsEnvelope = {
     protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
     kind: "watchSettings",
-    settingsRevision: safeRevision,
+    settingsRevision,
     sentAt: new Date().toISOString(),
     payload: JSON.stringify(safeSnapshot),
   };
