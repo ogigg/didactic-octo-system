@@ -51,6 +51,7 @@ export const exerciseDetailKeys = {
 
 export const exercisePreferenceKeys = {
   all: ["exercise-preferences"] as const,
+  list: () => [...exercisePreferenceKeys.all, "list"] as const,
   detail: (exerciseId: string) =>
     [...exercisePreferenceKeys.all, exerciseId] as const,
   batch: (exerciseIds: string[]) =>
