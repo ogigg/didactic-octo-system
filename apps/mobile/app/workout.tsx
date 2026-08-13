@@ -31,12 +31,12 @@ import {
   Alert,
   Animated,
   Easing,
-  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -284,49 +284,55 @@ export default function WorkoutScreen() {
       <View style={[styles.root, { backgroundColor: background }]}>
         <CelebrationProvider>
           <SafeAreaProvider>
-            <SafeAreaView style={styles.safe}>
-              <WorkoutTopBar
-                workoutName={workoutName}
-                completedSteps={completedSteps}
-                totalSteps={totalSteps}
-                hasWarmup={warmup !== null}
-                onDismiss={handleDismiss}
-                onFinish={handleFinish}
-                onWorkoutNameChange={updateWorkoutName}
-              />
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressTrack,
-                    { backgroundColor: progressTrack },
-                  ]}
-                  accessibilityRole="progressbar"
-                  accessibilityValue={{
-                    min: 0,
-                    max: totalSteps,
-                    now: completedSteps,
-                  }}
-                >
-                  <Animated.View
+            <KeyboardAvoidingView
+              style={styles.safe}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+              <SafeAreaView style={styles.safe}>
+                <WorkoutTopBar
+                  workoutName={workoutName}
+                  completedSteps={completedSteps}
+                  totalSteps={totalSteps}
+                  hasWarmup={warmup !== null}
+                  onDismiss={handleDismiss}
+                  onFinish={handleFinish}
+                  onWorkoutNameChange={updateWorkoutName}
+                />
+                <View style={styles.progressBarContainer}>
+                  <View
                     style={[
-                      styles.progressFill,
-                      {
-                        backgroundColor: primary,
-                        width: animatedProgress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ["0%", "100%"],
-                        }),
-                      },
+                      styles.progressTrack,
+                      { backgroundColor: progressTrack },
                     ]}
-                  />
+                    accessibilityRole="progressbar"
+                    accessibilityValue={{
+                      min: 0,
+                      max: totalSteps,
+                      now: completedSteps,
+                    }}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.progressFill,
+                        {
+                          backgroundColor: primary,
+                          width: animatedProgress.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["0%", "100%"],
+                          }),
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
-              </View>
-              <WorkoutTimer />
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <WorkoutTimer />
                 <ScrollView
                   ref={scrollRef}
                   contentContainerStyle={styles.scroll}
-                  keyboardShouldPersistTaps="handled"
+                  keyboardShouldPersistTaps="always"
+                  keyboardDismissMode={
+                    Platform.OS === "ios" ? "interactive" : "on-drag"
+                  }
                   showsVerticalScrollIndicator={false}
                 >
                   {exercises.length === 0 && !warmup ? (
@@ -422,10 +428,10 @@ export default function WorkoutScreen() {
                     </>
                   )}
                 </ScrollView>
-              </TouchableWithoutFeedback>
-              <RestTimerBar />
-            </SafeAreaView>
-            <KeyboardDismissButton />
+                <KeyboardDismissButton />
+                <RestTimerBar />
+              </SafeAreaView>
+            </KeyboardAvoidingView>
             <ExerciseReorderSheet
               visible={reorderExerciseId !== null}
               exercises={exerciseOrderItems}
