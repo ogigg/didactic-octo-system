@@ -43,7 +43,7 @@ document when that document is already the best source of truth.
 | 7   | Deployment view          | Current  | [Running and releasing the mobile app](../project-wiki/guides/running-and-releasing-mobile-app.md)                                |
 | 8   | Cross-cutting concepts   | Current  | [Database schema](../.ai/db-schema.md), [internationalization](../.ai/i18n.md), and [UI style guide](style-guide.md)              |
 | 9   | Architecture decisions   | Partial  | No dedicated ADR index yet; relevant design context exists in [`superpowers/specs`](superpowers/specs/)                           |
-| 10  | Quality requirements     | Partial  | Product priorities in [`PROJECT.md`](../PROJECT.md) and testing rules in [`AGENTS.md`](../AGENTS.md#testing)                      |
+| 10  | Quality requirements     | Partial  | Product priorities in [`PROJECT.md`](../PROJECT.md); test conventions in [`apps/mobile/README.md`](../apps/mobile/README.md)      |
 | 11  | Risks and technical debt | Partial  | Current concerns in [`PROJECT.md`](../PROJECT.md); add durable risks to the relevant focused document                             |
 | 12  | Glossary                 | Deferred | Domain terms should be defined close to their canonical model until a shared glossary is needed                                   |
 
