@@ -85,3 +85,13 @@ npm run format:check
 ## License
 
 TBD. No license has been specified yet.
+
+## Supabase:
+
+`cd supabase`
+`supabase projects list`
+
+### To run the supabase migration to remote env (prod)
+
+`supabase migration list` - to see difference between local and remote
+`supabase db push` - to push migrations
