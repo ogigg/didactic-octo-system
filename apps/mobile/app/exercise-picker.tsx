@@ -7,7 +7,12 @@ import {
   useExerciseFilterOptions,
   useExercises,
 } from "@/hooks/use-exercises-query";
+import { useExercisePreferences } from "@/hooks/use-exercise-preference-query";
 import { useProfile } from "@/hooks/use-profile-query";
+import {
+  EXERCISE_PREFERENCE,
+  type ExercisePreferenceValue,
+} from "@/lib/api/exercise-preferences";
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
@@ -103,18 +108,27 @@ export default function ExercisePickerScreen() {
   }, []);
 
   // Filter state
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [muscleSheetVisible, setMuscleSheetVisible] = useState(false);
   const [equipmentSheetVisible, setEquipmentSheetVisible] = useState(false);
 
+  const { data: preferencesMap, isLoading: isPreferencesLoading } =
+    useExercisePreferences();
+  const preferredIds = useMemo(
+    () => getPreferredExerciseIds(preferencesMap),
+    [preferencesMap]
+  );
+
   const hasActiveFilters =
     debouncedSearch.length > 0 ||
     selectedMuscles.length > 0 ||
-    selectedEquipment.length > 0;
+    selectedEquipment.length > 0 ||
+    favoritesOnly;
 
   // Query
-  const { data: exercises, isLoading } = useExercises(
+  const { data: exercises, isLoading: isExercisesLoading } = useExercises(
     {
       search: debouncedSearch || undefined,
       muscles: selectedMuscles.length ? selectedMuscles : undefined,
@@ -122,19 +136,31 @@ export default function ExercisePickerScreen() {
     },
     { staleTime: 60_000, placeholderData: keepPreviousData }
   );
+  const isLoading =
+    isExercisesLoading || (favoritesOnly && isPreferencesLoading);
 
   // Split into suggested + all sections
   const sections = useMemo(() => {
     if (!exercises) return [];
 
     // Exclude the current exercise from results
-    const filtered = exerciseId
+    let filtered = exerciseId
       ? exercises.filter((ex) => ex.id !== exerciseId)
       : exercises;
 
+    if (favoritesOnly) {
+      filtered = filtered.filter((ex) => preferredIds.has(ex.id));
+    }
+
+    if (filtered.length === 0) return [];
+
+    const listTitle = favoritesOnly
+      ? t("sections.favorites")
+      : t("sections.allExercises");
+
     // Skip suggestions in add mode, or when filters are active
     if (mode === "add" || hasActiveFilters || !currentExercise) {
-      return [{ title: t("sections.allExercises"), data: filtered }];
+      return [{ title: listTitle, data: filtered }];
     }
 
     // Build suggested: exercises sharing a primary muscle, ranked by equipment overlap
@@ -165,7 +191,16 @@ export default function ExercisePickerScreen() {
     }
     result.push({ title: t("sections.allExercises"), data: rest });
     return result;
-  }, [exercises, exerciseId, mode, hasActiveFilters, currentExercise, t]);
+  }, [
+    exercises,
+    exerciseId,
+    mode,
+    hasActiveFilters,
+    currentExercise,
+    favoritesOnly,
+    preferredIds,
+    t,
+  ]);
 
   // Handlers
   const hasLoggedValues = useCallback(() => {
@@ -349,9 +384,14 @@ export default function ExercisePickerScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Exercise }) => (
-      <ExerciseRow exercise={item} onSelect={handleSelect} mode={mode} />
+      <ExerciseRow
+        exercise={item}
+        onSelect={handleSelect}
+        mode={mode}
+        isFavorite={preferredIds.has(item.id)}
+      />
     ),
-    [handleSelect, mode]
+    [handleSelect, mode, preferredIds]
   );
 
   const renderSectionHeader = useCallback(
@@ -375,6 +415,20 @@ export default function ExercisePickerScreen() {
         </View>
       );
     }
+    if (favoritesOnly && preferredIds.size === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[Typography.titleSm, { color: textColor }]}>
+            {t("list.emptyFavorites")}
+          </Text>
+          <Text
+            style={[Typography.body, styles.emptyHint, { color: textMuted }]}
+          >
+            {t("list.emptyFavoritesHint")}
+          </Text>
+        </View>
+      );
+    }
     return (
       <View style={styles.emptyContainer}>
         <Text style={[Typography.body, { color: textMuted }]}>
@@ -382,7 +436,15 @@ export default function ExercisePickerScreen() {
         </Text>
       </View>
     );
-  }, [isLoading, primary, textMuted, t]);
+  }, [
+    favoritesOnly,
+    isLoading,
+    preferredIds.size,
+    primary,
+    textColor,
+    textMuted,
+    t,
+  ]);
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
@@ -424,8 +486,10 @@ export default function ExercisePickerScreen() {
 
           {/* Filter Pills */}
           <FilterPills
+            favoritesOnly={favoritesOnly}
             selectedMuscles={selectedMuscles}
             selectedEquipment={selectedEquipment}
+            onPressFavorites={() => setFavoritesOnly((prev) => !prev)}
             onPressMuscles={() => setMuscleSheetVisible(true)}
             onPressEquipment={() => setEquipmentSheetVisible(true)}
           />
@@ -498,5 +562,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingTop: Spacing["5xl"],
+    paddingHorizontal: Spacing["3xl"],
+    gap: Spacing.sm,
+  },
+  emptyHint: {
+    textAlign: "center",
   },
 });
+
+function getPreferredExerciseIds(
+  preferencesMap: Map<string, ExercisePreferenceValue> | undefined
+): Set<string> {
+  const ids = new Set<string>();
+  if (!preferencesMap) return ids;
+  for (const [id, preference] of preferencesMap) {
+    if (preference === EXERCISE_PREFERENCE.PREFERRED) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}

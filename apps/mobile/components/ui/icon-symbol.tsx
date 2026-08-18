@@ -50,6 +50,7 @@ const MAPPING = {
   clock: "schedule",
   "dumbbell.fill": "fitness-center",
   heart: "favorite-border",
+  "heart.fill": "favorite",
   "hand.thumbsdown": "thumb-down",
   "heart.text.square": "monitor-heart",
   "gearshape.fill": "settings",

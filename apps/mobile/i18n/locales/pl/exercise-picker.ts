@@ -9,6 +9,7 @@ export const exercisePicker = {
     clear: "Wyczyść wyszukiwanie ćwiczeń",
   },
   filters: {
+    favorites: "Ulubione",
     allEquipment: "Cały sprzęt",
     allMuscles: "Wszystkie mięśnie",
     equipmentSelected_one: "{{count}} sprzęt",
@@ -24,10 +25,17 @@ export const exercisePicker = {
   },
   sections: {
     suggested: "Sugerowane",
+    favorites: "Ulubione",
     allExercises: "Wszystkie ćwiczenia",
+  },
+  row: {
+    favorite: "Ulubione",
   },
   list: {
     empty: "Brak ćwiczeń pasujących do filtrów.",
+    emptyFavorites: "Brak ulubionych ćwiczeń",
+    emptyFavoritesHint:
+      "Oznacz ćwiczenie jako preferowane, aby szybko je tu znaleźć.",
   },
   replaceConfirm: {
     title: "Zamienić ćwiczenie?",

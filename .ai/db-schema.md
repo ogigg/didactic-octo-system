@@ -112,6 +112,7 @@ Relationships:
 Notes:
 
 - important for biasing future generation without fully manual planning
+- `preferred` rows are the existing favorite-exercise signal and are surfaced in exercise picker search as favorites
 
 ## Workout Planning And Execution
 

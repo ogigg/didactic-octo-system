@@ -15,11 +15,14 @@ export function useExercisePreference(exerciseId: string) {
   });
 }
 
-export function useExercisePreferences(exerciseIds: string[]) {
+export function useExercisePreferences(exerciseIds?: string[]) {
   return useQuery({
-    queryKey: exercisePreferenceKeys.batch(exerciseIds),
+    queryKey:
+      exerciseIds === undefined
+        ? exercisePreferenceKeys.list()
+        : exercisePreferenceKeys.batch(exerciseIds),
     queryFn: () => fetchExercisePreferences(exerciseIds),
-    enabled: exerciseIds.length > 0,
+    enabled: exerciseIds === undefined || exerciseIds.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 }
