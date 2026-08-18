@@ -1,76 +1,21 @@
 # AGENTS.md
 
-This is the canonical agent-facing guide for this repository.
-
 ## Source Of Truth
 
 - Use `PROJECT.md` for current product and execution context.
-- Use `.ai/prd.md` only as historical MVP background.
+- Start documentation discovery at `docs/README.md`.
+- Follow `docs/documentation-guide.md` when creating or updating documentation.
+- Use `.ai/prd.md` only as historical MVP background; do not infer current product intent from it.
 - Use `.ai/architecture.md` and `.ai/tech-stack.md` for deeper technical context.
 
-## Repository Overview
+## Architecture
 
-This is a Turborepo monorepo for a mobile-first AI workout app.
-
-- `apps/mobile` - Expo / React Native app
-- `packages/ui` - shared UI package
-- `packages/eslint-config` - shared ESLint config
-- `packages/typescript-config` - shared TypeScript config
-- `.ai` - planning and architecture documents
-
-## Product Context
-
-Do not infer product intent from older MVP documents alone.
-
-- The app is in `early product expansion`.
-- The target audience spans both newer and experienced gym users.
-- The core promise is low-friction workout generation based on user preferences, history, and constraints.
-- Favor work that improves generation quality, in-session execution, workout logging, and progression continuity.
-
-## Commands
-
-### Root
-
-```bash
-npm run dev
-npm run build
-npm run lint
-npm run test
-npm run check-types
-npm run format
-npm run format:check
-```
-
-### Mobile App
-
-```bash
-cd apps/mobile
-npm run dev
-npm run ios
-npm run android
-npm test
-npm run test:watch
-npm run test:coverage
-npm run lint
-```
-
-### Single Test
-
-```bash
-cd apps/mobile
-npx jest path/to/test.test.tsx
-npx jest --testNamePattern="test name"
-```
-
-## Architecture Notes
-
-- The mobile app uses Expo Router.
-- TanStack Query handles server state.
-- Zustand handles local UI state.
-- AsyncStorage is used for persistence and offline-oriented flows.
-- Supabase handles auth, database, and edge functions.
-- OpenRouter is used for LLM-backed workout generation.
-- Validate external and AI-generated data before it reaches user-facing flows.
+- The Expo app lives in `apps/mobile`.
+- Expo Router for navigation.
+- TanStack Query for server state; Zustand for local UI state.
+- AsyncStorage for persistence and offline-oriented flows.
+- Supabase for auth, database, and edge functions.
+- OpenRouter for LLM-backed workout generation.
 
 ## Code Conventions
 
@@ -78,15 +23,13 @@ npx jest --testNamePattern="test name"
 
 - Use `interface` over `type` aliases.
 - Do not use `enum`; prefer const maps.
-- Keep strict typing; avoid `any`.
-- Use functional components only.
 
 ### React Native
 
 - Use `StyleSheet.create()` for styles.
-- Prefer accessibility-first component design.
 - Use Zod to validate external data, especially AI responses.
 - Use React Native Reanimated and Gesture Handler for motion and gestures.
+- Follow `docs/style-guide.md` for shared UI patterns and `docs/styles/bottom-sheets.md` for modal and bottom-sheet behavior.
 
 ### Internationalization
 
@@ -95,30 +38,17 @@ npx jest --testNamePattern="test name"
 - Use `useTranslation()` for simple strings and `Trans` for rich inline content.
 - Follow `.ai/i18n.md` for key naming and workflow.
 
-### Testing
-
-- Prefer accessibility queries over implementation details.
-- Test user behavior rather than internal implementation.
-- The mobile app uses Jest with React Native Testing Library.
-
 ## Working Style
 
-- Follow existing patterns before inventing new abstractions.
-- Keep changes focused and maintainable.
-- Prefer improvements that strengthen the main training loop instead of widening scope by default.
-- When product intent is unclear, ask instead of guessing.
 - After every code or behavior change, check whether docs need updates. Update the relevant README, `project-wiki`, `.ai`, or `PROJECT.md` documentation in the same change when the behavior, commands, setup, architecture, database shape, or user-facing workflow changes.
 - If you add or materially change important database tables, columns, relationships, or invariants, update `.ai/db-schema.md` in the same change.
-- After you are done with your changes and conversation lean to the end of the task, please try to recommend expanding task any further. If that's possible and applicable of course. Give a few ideas to make it better, better UX, UI, code quality etc
+- At the end of a task, suggest a few concrete follow-ups if they would improve UX, UI, or code quality.
 
-## Pre-commit And Tooling Notes
+## Tooling
 
-- Husky and lint-staged format staged files on commit.
 - If adding Supabase migrations locally, use `supabase db push --local`.
-
-### General info
 
 ## Git
 
-- When working on linear issue name branch ticket-number-short-description that originates from remote/master branch
-- By default create new branch per task unless it's not a programming task just conversation
+- When working on a Linear issue, name the branch `ticket-number-short-description` from `remote/master`.
+- Create a new branch per programming task. Skip this for conversation-only work.

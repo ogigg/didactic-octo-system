@@ -48,6 +48,9 @@ See `project-wiki/guides/running-and-releasing-mobile-app.md` for the full runni
 
 - `PROJECT.md` - living product and execution context
 - `AGENTS.md` - canonical agent-facing working guide
+- `docs/README.md` - project documentation hub and arc42 table of contents
+- `docs/style-guide.md` - UI standards index
+- `docs/documentation-guide.md` - writing and maintenance standards for people and models
 - `.ai/README.md` - index of planning and reference docs
 - `.ai/prd.md` - historical MVP PRD
 - `.ai/architecture.md` - system architecture
