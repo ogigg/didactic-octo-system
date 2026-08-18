@@ -5,6 +5,8 @@ This is the canonical agent-facing guide for this repository.
 ## Source Of Truth
 
 - Use `PROJECT.md` for current product and execution context.
+- Start documentation discovery at `docs/README.md`.
+- Follow `docs/documentation-guide.md` when creating or updating documentation.
 - Use `.ai/prd.md` only as historical MVP background.
 - Use `.ai/architecture.md` and `.ai/tech-stack.md` for deeper technical context.
 
@@ -87,6 +89,7 @@ npx jest --testNamePattern="test name"
 - Prefer accessibility-first component design.
 - Use Zod to validate external data, especially AI responses.
 - Use React Native Reanimated and Gesture Handler for motion and gestures.
+- Follow `docs/style-guide.md` for shared UI patterns and `docs/styles/bottom-sheets.md` for modal and bottom-sheet behavior.
 
 ### Internationalization
 
