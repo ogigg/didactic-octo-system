@@ -8,7 +8,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppState, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -16,6 +16,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
+import { AnimatedSplash } from "@/components/animated-splash";
 import { ToastHost } from "@/components/ui/toast-host";
 import { WatchBridgeHost } from "@/components/watch-bridge-host";
 import { Colors } from "@/constants/theme";
@@ -55,6 +56,8 @@ export default function RootLayout() {
   const colors = Colors[colorScheme ?? "light"];
   const initialize = useAuthStore((s) => s.initialize);
   const isInitialized = useAuthStore((s) => s.isInitialized);
+  const [splashDone, setSplashDone] = useState(false);
+  const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   // Global handler for sweaty:// deep links (e.g. Live Activity "Mark set done").
   // Registered at the root so it fires regardless of the active route.
@@ -68,12 +71,6 @@ export default function RootLayout() {
     const unsubscribe = initialize();
     return unsubscribe;
   }, [initialize]);
-
-  useEffect(() => {
-    if (isInitialized) {
-      SplashScreen.hideAsync();
-    }
-  }, [isInitialized]);
 
   useEffect(() => {
     registerSyncHandlers();
@@ -245,6 +242,12 @@ export default function RootLayout() {
               <StatusBar style="auto" />
             </ThemeProvider>
           </QueryClientProvider>
+          {!splashDone && (
+            <AnimatedSplash
+              appReady={isInitialized}
+              onFinish={handleSplashFinish}
+            />
+          )}
         </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>
