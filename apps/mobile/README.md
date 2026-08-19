@@ -70,6 +70,15 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Account deletion is available through Profile → Account & Data. Active subscribers are warned before continuing and can open the official Apple or Google Play subscription-management destination; if that destination is unavailable, the app tries the platform's official support page and then shows a localized error.
 - Deletion does not cancel store billing. After the 14-day grace period, the implemented purge deletes `auth.users` and cascades through user-owned app data in the database. The repository implements no separate legal/security retention archive; Apple or Google purchase and billing records remain governed by those providers.
 
+### Startup splash
+
+The native Expo splash keeps a static kettlebell visible while JavaScript loads.
+After the React overlay is laid out, `AnimatedSplash` hides the native surface and
+plays the branded exit once authentication initialization finishes. Reduced
+motion skips the decorative animation. Validate native splash changes with a
+fresh iOS or Android development build because Expo Go and hot reload do not
+rebuild launch-screen assets.
+
 ## Testing
 
 - Run all tests with `npm test`.

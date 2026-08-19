@@ -26,8 +26,9 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 
 /**
  * Recreates the app icon's kettlebell — a handle above a body of concentric
- * ripple circles — as a choreographed boot animation. The native splash is a
- * plain background color, so this overlay reads as one continuous sequence:
+ * ripple circles — as a choreographed boot animation. The native splash keeps
+ * a static kettlebell visible while JavaScript loads, then this overlay takes
+ * over the branded sequence:
  * rings spring in from the outside in (with a light haptic tick per landing),
  * the handle rises from behind the body, and the wordmark fades in. While the
  * app initializes the logo breathes; slow boots surface a hint after a few
@@ -65,7 +66,6 @@ const HANDLE_DELAY_MS = 260;
 const WORDMARK_DELAY_MS = 400;
 const MIN_DISPLAY_MS = 1000;
 const EXIT_DURATION_MS = 550;
-const REDUCED_MOTION_EXIT_MS = 320;
 /** How much of the exit window each ring's zoom occupies. */
 const RING_EXIT_WINDOW = 0.6;
 /** Stagger between consecutive rings' exit windows: outer ring leaves first. */
@@ -164,6 +164,7 @@ export function AnimatedSplash({ appReady, onFinish }: AnimatedSplashProps) {
   const palette = RING_PALETTES[colorScheme];
 
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [overlayReady, setOverlayReady] = useState(false);
   const exitStarted = useRef(false);
 
   const handleProgress = useSharedValue(reducedMotion ? 1 : 0);
@@ -175,14 +176,18 @@ export function AnimatedSplash({ appReady, onFinish }: AnimatedSplashProps) {
   // Hand off from the native splash only after our first frame is laid out,
   // so there is never a flash of the app underneath.
   const handleLayout = useCallback(() => {
-    SplashScreen.hideAsync();
+    void SplashScreen.hideAsync()
+      .catch(() => {})
+      .finally(() => setOverlayReady(true));
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(
-      () => setMinTimeElapsed(true),
-      reducedMotion ? 350 : MIN_DISPLAY_MS
-    );
+    if (reducedMotion) {
+      setMinTimeElapsed(true);
+      return;
+    }
+
+    const timer = setTimeout(() => setMinTimeElapsed(true), MIN_DISPLAY_MS);
     return () => clearTimeout(timer);
   }, [reducedMotion]);
 
@@ -228,18 +233,26 @@ export function AnimatedSplash({ appReady, onFinish }: AnimatedSplashProps) {
   useEffect(() => {
     hintProgress.value = withDelay(
       SLOW_HINT_DELAY_MS,
-      withTiming(1, { duration: 400 })
+      withTiming(1, { duration: reducedMotion ? 0 : 400 })
     );
-  }, [hintProgress]);
+  }, [hintProgress, reducedMotion]);
 
   useEffect(() => {
-    if (!appReady || !minTimeElapsed || exitStarted.current) return;
+    if (!appReady || !minTimeElapsed || !overlayReady || exitStarted.current) {
+      return;
+    }
     exitStarted.current = true;
+
+    if (reducedMotion) {
+      onFinish();
+      return;
+    }
+
     cancelAnimation(breatheScale);
     exitProgress.value = withTiming(
       1,
       {
-        duration: reducedMotion ? REDUCED_MOTION_EXIT_MS : EXIT_DURATION_MS,
+        duration: EXIT_DURATION_MS,
         easing: Easing.in(Easing.quad),
       },
       (finished) => {
@@ -252,6 +265,7 @@ export function AnimatedSplash({ appReady, onFinish }: AnimatedSplashProps) {
     exitProgress,
     minTimeElapsed,
     onFinish,
+    overlayReady,
     reducedMotion,
   ]);
 
@@ -316,6 +330,7 @@ export function AnimatedSplash({ appReady, onFinish }: AnimatedSplashProps) {
 
   return (
     <Animated.View
+      testID="animated-splash"
       onLayout={handleLayout}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
