@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Describe the current system structure, main data flows, and boundary-level technical decisions.
-> **Last reviewed:** 2026-04-11
+> **Last reviewed:** 2026-08-13
 
 ## Scope Of This Document
 
@@ -133,6 +133,19 @@ User confirms permanent deletion from workout detail
 -> workout row deletion cascades to exercises, sets, logs, and session comments
 -> statistics, progression, streak, and generation caches are invalidated
 -> queued or linked platform-health records are cleaned up when supported
+```
+
+### Account Deletion
+
+```text
+User opens Profile → Account & Data (deletion is not a primary profile control)
+-> Account & Data distinguishes sign-out, store subscription cancellation, and account deletion
+-> active subscribers are warned that deletion does not cancel App Store / Google Play billing
+-> Delete Account explains deleted app data, retained store records, and the 14-day grace period
+-> user types DELETE, then confirms a second destructive alert
+-> client invokes the delete-account edge function (`request_account_deletion`)
+-> the session is signed out; signing back in within 14 days cancels the scheduled purge
+-> after the grace period, `purge_expired_deletions()` deletes `auth.users` and cascades user-owned app data
 ```
 
 ## Validation And Safety

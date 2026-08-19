@@ -23,6 +23,7 @@ export const subscription = {
   },
   screen: {
     title: "Subskrypcja",
+    backAccessibilityLabel: "Wróć",
     currentPlan: {
       freeTitle: "Plan darmowy",
       freeDescription: "5 generacji AI tygodniowo",
@@ -51,5 +52,14 @@ export const subscription = {
     },
     upgradeCta: "Przejdź na Pro",
     comingSoon: "Subskrypcje Pro wkrótce - stay tuned!",
+    management: {
+      description:
+        "Opłaty za subskrypcję w sklepie trwają do czasu anulowania jej w Apple lub Google Play.",
+      button: "Zarządzaj subskrypcją w sklepie",
+      accessibilityLabel: "Zarządzaj subskrypcją w sklepie",
+      errorTitle: "Nie udało się otworzyć zarządzania subskrypcją",
+      errorMessage:
+        "Otwórz ustawienia subskrypcji w App Store lub Google Play, aby zarządzać płatnościami.",
+    },
   },
 } as const;

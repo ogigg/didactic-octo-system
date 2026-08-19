@@ -71,6 +71,8 @@ Notes:
 - profile rows are auto-created when a new auth user is created
 - this table is one of the most important sources of generation context
 - account deletion is soft with a 14-day grace period — see `request_account_deletion`, `cancel_account_deletion`, `purge_expired_deletions`
+- after the grace period, `purge_expired_deletions()` deletes the matching `auth.users` row; foreign-key cascades remove the profile and user-owned app data
+- no separate legal, security, or fraud-retention archive is implemented in this repository; external store purchase and billing records are outside this database purge
 
 ### `strength_baselines`
 

@@ -11,6 +11,7 @@ interface ScreenHeaderProps {
   numberOfLines?: number;
   onBack?: () => void;
   backAccessibilityLabel?: string;
+  backDisabled?: boolean;
 }
 
 export function ScreenHeader({
@@ -20,6 +21,7 @@ export function ScreenHeader({
   numberOfLines,
   onBack,
   backAccessibilityLabel,
+  backDisabled = false,
 }: ScreenHeaderProps) {
   const textColor = useThemeColor({}, "text");
   const border = useThemeColor({}, "border");
@@ -29,6 +31,7 @@ export function ScreenHeader({
       <BackButton
         onPress={onBack}
         accessibilityLabel={backAccessibilityLabel}
+        disabled={backDisabled}
       />
       {title ? (
         <Text
