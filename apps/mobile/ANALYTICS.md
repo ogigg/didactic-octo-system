@@ -225,9 +225,24 @@ resetUser();
 ## Privacy & Data Handling
 
 - **No PII**: Events should never contain personally identifiable information
+- **Operational errors**: `operational_event` uses a strict metadata allowlist;
+  exception messages are redacted while types and stack frames are retained for grouping
 - **Opt-in**: Analytics are enabled by default, but users can opt-out via `disablePostHog()`
 - **Local First**: Events are batched and sent periodically (20 events or 30 seconds)
 - **Error Handling**: Failed events don't crash the app; errors are logged for debugging
+
+## Operational Observability
+
+Production uncaught JavaScript exceptions, unhandled rejections, handled
+critical failures, generation health, sync delivery, and feedback delivery all
+reach the same PostHog operational dashboard. Native crash capture is disabled
+until native exception reasons can be redacted and verified in a built app.
+Operational events include app version, platform, and journey stage, but never
+Supabase user IDs, workout notes, prompts, feedback text, or raw error messages.
+
+The dashboard contract, alert thresholds, owner, configuration, and controlled
+incident procedure live in
+[`project-wiki/guides/operational-observability.md`](../../project-wiki/guides/operational-observability.md).
 
 ## Troubleshooting
 

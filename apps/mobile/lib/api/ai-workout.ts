@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
 
 import { supabase } from "@/lib/supabase";
+import { getObservabilityHeaders } from "@/lib/operational-observability";
 import { exerciseImageSchema } from "@/lib/exercise-media";
 
 // -----------------------------------------------------------------------------
@@ -113,6 +114,7 @@ export async function generateWorkout(
 ): Promise<GenerateWorkoutResponse> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: request,
+    headers: getObservabilityHeaders(),
   });
 
   if (error) {

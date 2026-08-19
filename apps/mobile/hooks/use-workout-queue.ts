@@ -39,6 +39,10 @@ import { pendingWorkoutKeys } from "@/lib/query-keys";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/track-event";
 import {
+  reportHandledOperationalError,
+  reportOperationalMetric,
+} from "@/lib/operational-observability";
+import {
   usePendingWorkoutStore,
   selectNextWorkout,
   selectReadyCount,
@@ -344,7 +348,31 @@ export function useWorkoutQueue() {
                 workout.id,
                 fallbackWorkout
               );
+              reportOperationalMetric({
+                area: "generation",
+                operation: "stale_queue_recovery",
+                journeyStage: "generation",
+                outcome: "fallback",
+                generationSource: "fallback_template",
+                queueAgeMs: Math.max(
+                  0,
+                  Date.now() - new Date(workout.updated_at).getTime()
+                ),
+                retryCount: attemptCount,
+              });
               clearRecoveryAttempt(workout.id);
+            } else {
+              reportHandledOperationalError({
+                area: "generation",
+                operation: "stale_queue_recovery",
+                journeyStage: "generation",
+                failureCode: "fallback_unavailable",
+                queueAgeMs: Math.max(
+                  0,
+                  Date.now() - new Date(workout.updated_at).getTime()
+                ),
+                retryCount: attemptCount,
+              });
             }
 
             continue;
@@ -358,8 +386,30 @@ export function useWorkoutQueue() {
               preferences,
               getCurrentTimezoneOffsetMinutes()
             );
+            reportOperationalMetric({
+              area: "generation",
+              operation: "stale_queue_recovery",
+              journeyStage: "generation",
+              outcome: "recovered",
+              queueAgeMs: Math.max(
+                0,
+                Date.now() - new Date(workout.updated_at).getTime()
+              ),
+              retryCount: attemptCount,
+            });
             clearRecoveryAttempt(workout.id);
           } catch {
+            reportHandledOperationalError({
+              area: "generation",
+              operation: "stale_queue_recovery",
+              journeyStage: "generation",
+              failureCode: "regeneration_failed",
+              queueAgeMs: Math.max(
+                0,
+                Date.now() - new Date(workout.updated_at).getTime()
+              ),
+              retryCount: attemptCount + 1,
+            });
             recordRecoveryAttempt(workout.id);
           }
         }

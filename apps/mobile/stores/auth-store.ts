@@ -6,6 +6,10 @@ import { syncQueue } from "@/lib/sync-queue";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { fetchProfile } from "@/lib/api/profiles";
 import { cancelAccountDeletion } from "@/lib/api/delete-account";
+import {
+  identifyObservabilityUser,
+  resetObservabilityIdentity,
+} from "@/lib/operational-observability";
 
 interface AuthState {
   session: Session | null;
@@ -19,6 +23,21 @@ interface AuthActions {
 }
 
 export const useAuthStore = create<AuthState & AuthActions>()((set) => {
+  let observedUserId: string | null = null;
+
+  function syncObservabilityForSession(session: Session | null) {
+    const nextUserId = session?.user.id ?? null;
+    if (nextUserId !== observedUserId) {
+      resetObservabilityIdentity();
+      observedUserId = nextUserId;
+    }
+    if (session) {
+      void identifyObservabilityUser().catch(() => {
+        // Identity telemetry must never interrupt authentication.
+      });
+    }
+  }
+
   async function syncOnboardingState() {
     try {
       const profile = await fetchProfile();
@@ -49,6 +68,7 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
       // Get existing session
       supabase.auth.getSession().then(({ data: { session } }) => {
         set({ session, isInitialized: true });
+        syncObservabilityForSession(session);
         if (session) {
           syncOnboardingState();
         }
@@ -59,6 +79,7 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
         data: { subscription },
       } = supabase.auth.onAuthStateChange((event, session) => {
         set({ session, isInitialized: true });
+        syncObservabilityForSession(session);
         if (session) {
           syncOnboardingState();
           if (event === "SIGNED_IN") {
@@ -72,6 +93,8 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
 
     signOut: async () => {
       set({ isLoading: true });
+      resetObservabilityIdentity();
+      observedUserId = null;
       await supabase.auth.signOut();
       await syncQueue.flush();
       useOnboardingStore.getState().reset();

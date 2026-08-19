@@ -1,10 +1,12 @@
 import PostHog from "posthog-react-native";
 
+import { sanitizePostHogEvent } from "./posthog-privacy";
+
 // PostHog Analytics Configuration
 // Uses environment variables following Expo's convention
 const posthogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
 const posthogHost =
-  process.env.EXPO_PUBLIC_POSTHOG_HOST || "https://app.posthog.com";
+  process.env.EXPO_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
 // Validate that required environment variables are set
 if (!posthogKey) {
@@ -21,6 +23,19 @@ export const posthog = posthogKey
   ? new PostHog(posthogKey, {
       host: posthogHost,
       captureAppLifecycleEvents: true,
+      before_send: sanitizePostHogEvent,
+      errorTracking: {
+        autocapture: {
+          uncaughtExceptions: true,
+          unhandledRejections: true,
+          // Console messages can contain user-entered notes or prompts.
+          console: [],
+          // Native exception reasons bypass `before_send`. Keep native
+          // autocapture disabled until a built-app redaction test can enforce
+          // the same privacy contract as JavaScript exceptions.
+          nativeCrashes: false,
+        },
+      },
       // Additional PostHog configuration options
       flushAt: 20, // Number of events to batch before sending
       flushInterval: 30000, // Flush every 30 seconds

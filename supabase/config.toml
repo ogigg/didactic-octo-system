@@ -359,6 +359,12 @@ verify_jwt = false
 [functions.generate-next-workout]
 verify_jwt = false
 
+[functions.observability-identity]
+verify_jwt = false
+
+[functions.observability-test]
+verify_jwt = false
+
 [functions.purge-expired-deletions]
 # Authenticated via CRON_SECRET shared-secret, not a Supabase JWT.
 verify_jwt = false

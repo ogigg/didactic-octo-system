@@ -5,7 +5,7 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
@@ -25,6 +25,10 @@ import { useLiveActivityActions } from "@/hooks/use-live-activity-actions";
 import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
+import {
+  getJourneyStageForPath,
+  setOperationalJourneyStage,
+} from "@/lib/operational-observability";
 import { queryClient } from "@/lib/query-client";
 import { configureRestTimerNotificationHandler } from "@/lib/rest-timer-notifications";
 import { registerSyncHandlers } from "@/lib/sync-handlers";
@@ -55,6 +59,11 @@ export default function RootLayout() {
   const colors = Colors[colorScheme ?? "light"];
   const initialize = useAuthStore((s) => s.initialize);
   const isInitialized = useAuthStore((s) => s.isInitialized);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setOperationalJourneyStage(getJourneyStageForPath(pathname));
+  }, [pathname]);
 
   // Global handler for sweaty:// deep links (e.g. Live Activity "Mark set done").
   // Registered at the root so it fires regardless of the active route.

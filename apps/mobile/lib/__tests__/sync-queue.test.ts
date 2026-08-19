@@ -2,6 +2,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { SyncQueue } from "../sync-queue";
 
+jest.mock("expo-crypto", () => ({
+  randomUUID: jest.fn(() => "00000000-0000-4000-8000-000000000002"),
+}));
+
+const mockReportHandledOperationalError = jest.fn();
+const mockReportOperationalMetric = jest.fn();
+
+jest.mock("@/lib/operational-observability", () => ({
+  reportHandledOperationalError: (...args: unknown[]) =>
+    mockReportHandledOperationalError(...args),
+  reportOperationalMetric: (...args: unknown[]) =>
+    mockReportOperationalMetric(...args),
+}));
+
 // Mock AsyncStorage
 jest.mock("@react-native-async-storage/async-storage", () => ({
   getItem: jest.fn(),
@@ -116,6 +130,13 @@ describe("SyncQueue", () => {
       expect(stored).toHaveLength(1);
       expect(stored[0].retryCount).toBe(1);
       expect(stored[0].status).toBe("pending");
+      expect(mockReportHandledOperationalError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          failureCode: "sync_delivery_failed",
+          operation: "upsert_profile",
+          retryCount: 1,
+        })
+      );
     });
 
     it("moves item to dead status after 15 retries", async () => {
@@ -144,6 +165,40 @@ describe("SyncQueue", () => {
       const stored = JSON.parse(lastCall[1] as string);
       expect(stored[0].status).toBe("dead");
       expect(stored[0].retryCount).toBe(15);
+      expect(mockReportHandledOperationalError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          failureCode: "sync_dead_letter",
+          operation: "op",
+          retryCount: 15,
+        })
+      );
+    });
+
+    it("reports recovery after a retried item succeeds", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      const item = {
+        id: "id-1",
+        operation: "save_workout",
+        payload: {},
+        updatedAt: Date.now(),
+        retryCount: 2,
+        nextRetryAt: 0,
+        createdAt: Date.now() - 5_000,
+        status: "pending",
+      };
+      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify([item]));
+      queue = new SyncQueue();
+      queue.registerHandler("save_workout", handler);
+
+      await queue.processQueue();
+
+      expect(mockReportOperationalMetric).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: "save_workout",
+          outcome: "recovered",
+          retryCount: 2,
+        })
+      );
     });
 
     it("skips items whose nextRetryAt is in the future", async () => {

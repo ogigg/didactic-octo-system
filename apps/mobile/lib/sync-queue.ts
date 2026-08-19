@@ -1,4 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Crypto from "expo-crypto";
+
+import {
+  reportHandledOperationalError,
+  reportOperationalMetric,
+} from "@/lib/operational-observability";
 
 const STORAGE_KEY = "sync-queue";
 const MAX_RETRIES = 15;
@@ -13,6 +19,8 @@ export interface SyncQueueItem {
   nextRetryAt: number;
   createdAt: number;
   status: "pending" | "dead";
+  recoveryAttempted?: boolean;
+  observabilityId?: string;
 }
 
 type SyncHandler = (payload: unknown) => Promise<void>;
@@ -63,6 +71,7 @@ export class SyncQueue {
         nextRetryAt: 0,
         createdAt: now,
         status: "pending",
+        observabilityId: Crypto.randomUUID(),
       });
     }
 
@@ -83,20 +92,59 @@ export class SyncQueue {
 
       for (let i = 0; i < this.items.length; i++) {
         const item = this.items[i];
+        item.observabilityId ??= Crypto.randomUUID();
         if (item.status !== "pending") continue;
         if (item.nextRetryAt > now) continue;
 
         const handler = this.handlers.get(item.operation);
         if (!handler) continue;
 
+        const deliveryStartedAt = Date.now();
         try {
           await handler(item.payload);
+          reportOperationalMetric({
+            area: "sync",
+            operation: item.operation,
+            journeyStage: "post_workout",
+            outcome:
+              item.retryCount > 0 || item.recoveryAttempted
+                ? "recovered"
+                : "success",
+            latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
+            queueAgeMs: Math.max(0, Date.now() - item.createdAt),
+            retryCount: item.retryCount,
+            correlationId: item.observabilityId,
+            dedupeKey: `${item.observabilityId}:delivered`,
+          });
           toRemove.push(i);
           changed = true;
         } catch {
           item.retryCount += 1;
           if (item.retryCount >= MAX_RETRIES) {
             item.status = "dead";
+            reportHandledOperationalError({
+              area: "sync",
+              operation: item.operation,
+              journeyStage: "post_workout",
+              failureCode: "sync_dead_letter",
+              latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
+              queueAgeMs: Math.max(0, Date.now() - item.createdAt),
+              retryCount: item.retryCount,
+              correlationId: item.observabilityId,
+              dedupeKey: `${item.observabilityId}:dead-letter`,
+            });
+          } else if (item.retryCount === 1) {
+            reportHandledOperationalError({
+              area: "sync",
+              operation: item.operation,
+              journeyStage: "post_workout",
+              failureCode: "sync_delivery_failed",
+              latencyMs: Math.max(0, Date.now() - deliveryStartedAt),
+              queueAgeMs: Math.max(0, Date.now() - item.createdAt),
+              retryCount: item.retryCount,
+              correlationId: item.observabilityId,
+              dedupeKey: `${item.observabilityId}:first-failure`,
+            });
           } else {
             const backoff = Math.min(
               1000 * Math.pow(2, item.retryCount),
@@ -140,6 +188,7 @@ export class SyncQueue {
         item.status = "pending";
         item.retryCount = 0;
         item.nextRetryAt = 0;
+        item.recoveryAttempted = true;
         changed = true;
       }
     }

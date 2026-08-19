@@ -1,4 +1,8 @@
 import { exerciseImageSchema } from "@/lib/exercise-media";
+import {
+  getObservabilityHeaders,
+  reportHandledOperationalError,
+} from "@/lib/operational-observability";
 import { supabase } from "@/lib/supabase";
 import { z } from "zod";
 
@@ -96,8 +100,23 @@ export async function generateWorkout(
 ): Promise<GenerateWorkoutResponse> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: request,
+    headers: getObservabilityHeaders(),
   });
 
-  if (error) throw new Error(error.message);
-  return generateWorkoutResponseSchema.parse(data);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const parsed = generateWorkoutResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    reportHandledOperationalError({
+      area: "generation",
+      operation: "direct_generation",
+      journeyStage: "generation",
+      failureCode: "response_validation_failed",
+    });
+    throw new Error("Invalid workout generation response");
+  }
+
+  return parsed.data;
 }
