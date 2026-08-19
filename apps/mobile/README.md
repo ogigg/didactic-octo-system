@@ -131,3 +131,36 @@ find Sweaty under **Available Apps**, and tap **Install**. If it is not listed,
 open `ios/Sweaty.xcworkspace`, select the `SweatyWatch` scheme and the paired
 Watch destination, then run it once from Xcode. The phone bridge keeps the
 latest workout snapshot queued while the companion is installing.
+
+## iOS Live Activity
+
+Active workouts publish an ActivityKit Live Activity on iOS 16.2 and later.
+It appears as a live notification on the Lock Screen and, on supported iPhones,
+in the Dynamic Island. The root application layout owns synchronization so the
+activity remains visible when the phone locks, the app backgrounds, or the user
+navigates away from the workout route. It ends only when the workout store ends
+or clears the active session.
+
+- `modules/workout-live-activity` is the Expo bridge that starts, reconciles,
+  updates, and ends ActivityKit activities.
+- `targets/widget` is the WidgetKit extension for Lock Screen and Dynamic Island
+  presentation.
+- Interactive set and rest controls require iOS 18; the informational Live
+  Activity surfaces remain available from iOS 16.2.
+- The app and extension share `group.com.ogig.sweaty` for background-safe widget
+  actions.
+
+After changing the native module, ActivityAttributes, widget sources, or target
+configuration, regenerate the disposable iOS project and install pods before
+building:
+
+```bash
+npx expo prebuild -p ios --clean
+cd ios && pod install
+xcodebuild -project Sweaty.xcodeproj -target SweatyWidget \
+  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+```
+
+Because `SweatyWorkoutAttributes.swift` is compiled independently into the app
+and widget targets, its two checked-in copies must remain field-for-field
+identical.

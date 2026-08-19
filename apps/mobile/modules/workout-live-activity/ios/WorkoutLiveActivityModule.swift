@@ -12,15 +12,30 @@ public class WorkoutLiveActivityModule: Module {
       return false
     }
 
-    AsyncFunction("startActivity") { (workoutId: String, stateDict: [String: Any]) -> String? in
+    AsyncFunction("startActivity") { (workoutId: String, stateDict: [String: Any]) async throws -> String? in
       guard #available(iOS 16.2, *) else { return nil }
-      guard let state = Self.contentState(from: stateDict) else { return nil }
+      guard let state = Self.contentState(from: stateDict) else {
+        throw Exception(
+          name: "LiveActivityInvalidState",
+          description: "The Live Activity state payload is missing required fields.",
+          code: "ERR_LIVE_ACTIVITY_INVALID_STATE"
+        )
+      }
+
       do {
-        try await LiveActivityManager.shared.start(workoutId: workoutId, state: state)
-        return workoutId
+        // Return ActivityKit's identifier so JS can distinguish a real start
+        // from a failed request. The workout id is only the logical key used
+        // to reconcile an existing activity.
+        return try await LiveActivityManager.shared.start(workoutId: workoutId, state: state)
       } catch {
+        let exception = Exception(
+          name: "LiveActivityStartFailed",
+          description: "ActivityKit could not start the workout Live Activity.",
+          code: "ERR_LIVE_ACTIVITY_START"
+        )
+        exception.cause = error
         print("[WorkoutLiveActivity] startActivity failed:", error)
-        return nil
+        throw exception
       }
     }
 
@@ -68,6 +83,7 @@ public class WorkoutLiveActivityModule: Module {
     let workoutName = dict["workoutName"] as? String ?? ""
     let currentSetNumber = Self.intFromDict(dict, key: "currentSetNumber") ?? 1
     let totalSets = max(1, Self.intFromDict(dict, key: "totalSets") ?? 1)
+    let isWorkoutComplete = dict["isWorkoutComplete"] as? Bool ?? false
 
     var restStartedAt: Date?
     var restEndsAt: Date?
@@ -88,6 +104,7 @@ public class WorkoutLiveActivityModule: Module {
       totalSets: totalSets,
       workoutName: workoutName,
       workoutStartedAt: workoutStartedAt,
+      isWorkoutComplete: isWorkoutComplete,
       restStartedAt: restStartedAt,
       restEndsAt: restEndsAt
     )
