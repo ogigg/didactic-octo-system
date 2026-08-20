@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { AppState, Platform } from "react-native";
 
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
+import { computeSessionStats } from "@/lib/workout-summary-utils";
 import {
   areActivitiesEnabled,
   endActivity,
@@ -25,6 +26,8 @@ interface DerivedLiveState {
   setId: string;
   currentSetNumber: number;
   totalSets: number;
+  completedSets: number;
+  totalWorkoutSets: number;
   workoutName: string;
   workoutStartedAtMs: number;
   isWorkoutComplete: boolean;
@@ -113,6 +116,8 @@ function deriveState(
   if (!meaningfulSet) return null;
 
   const { exercise, set, setIndex } = meaningfulSet;
+  const { completedSets, totalSets: totalWorkoutSets } =
+    computeSessionStats(exercises);
 
   let restStartedAtMs: number | null = null;
   let restEndsAtMs: number | null = null;
@@ -132,6 +137,8 @@ function deriveState(
     setId: set.id,
     currentSetNumber: setIndex + 1,
     totalSets: Math.max(1, exercise.sets.length),
+    completedSets,
+    totalWorkoutSets: Math.max(1, totalWorkoutSets),
     workoutName,
     workoutStartedAtMs: startedAtMs,
     isWorkoutComplete,
@@ -154,6 +161,8 @@ function shallowEqual(
     a.setId === b.setId &&
     a.currentSetNumber === b.currentSetNumber &&
     a.totalSets === b.totalSets &&
+    a.completedSets === b.completedSets &&
+    a.totalWorkoutSets === b.totalWorkoutSets &&
     a.workoutName === b.workoutName &&
     a.workoutStartedAtMs === b.workoutStartedAtMs &&
     a.isWorkoutComplete === b.isWorkoutComplete &&
@@ -399,6 +408,8 @@ function derivedToState(d: DerivedLiveState): LiveActivityState {
     setId: d.setId,
     currentSetNumber: d.currentSetNumber,
     totalSets: d.totalSets,
+    completedSets: d.completedSets,
+    totalWorkoutSets: d.totalWorkoutSets,
     workoutName: d.workoutName,
     workoutStartedAtMs: d.workoutStartedAtMs,
     isWorkoutComplete: d.isWorkoutComplete,

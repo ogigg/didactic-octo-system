@@ -196,6 +196,8 @@ describe("useWorkoutLiveActivity", () => {
     expect(mockStartActivity.mock.calls[0]?.[1]).toMatchObject({
       exerciseId: "bench-occurrence-1",
       setId: "set-1",
+      completedSets: 0,
+      totalWorkoutSets: 1,
       isWorkoutComplete: false,
     });
     unmount();
@@ -278,6 +280,8 @@ describe("useWorkoutLiveActivity", () => {
     await waitFor(() => expect(mockUpdateActivity).toHaveBeenCalledTimes(1));
     expect(mockUpdateActivity.mock.calls[0]?.[0]).toMatchObject({
       exerciseId: "incline-occurrence-1",
+      completedSets: 1,
+      totalWorkoutSets: 2,
       restStartedAtMs: 1_700_000_010_000,
       restEndsAtMs: 1_700_000_100_000,
     });
@@ -296,6 +300,8 @@ describe("useWorkoutLiveActivity", () => {
     await waitFor(() => expect(mockUpdateActivity).toHaveBeenCalledTimes(1));
     expect(mockUpdateActivity.mock.calls[0]?.[0]).toMatchObject({
       setId: "set-1",
+      completedSets: 1,
+      totalWorkoutSets: 1,
       isWorkoutComplete: true,
       restStartedAtMs: null,
       restEndsAtMs: null,

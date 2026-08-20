@@ -154,6 +154,9 @@ or clears the active session.
   updates, and ends ActivityKit activities.
 - `targets/widget` is the WidgetKit extension for Lock Screen and Dynamic Island
   presentation.
+- The Dynamic Island uses the app's light/dark blue accent and shows the current
+  or next exercise, set target, per-exercise set position, whole-workout set
+  progress, session elapsed time, and rest countdown when applicable.
 - Interactive set and rest controls require iOS 18; the informational Live
   Activity surfaces remain available from iOS 16.2.
 - The app and extension share `group.com.ogig.sweaty` for background-safe widget
