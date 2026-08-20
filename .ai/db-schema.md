@@ -239,6 +239,9 @@ Important columns:
 - `regeneration_count`
 - `regeneration_feedback`: JSON array of manual regeneration attempts and optional user feedback
 - `user_edits`
+- `generation_version`: monotonically increasing slot version used for optimistic concurrency
+- `generation_claim_token`, `generation_claimed_at`: identify the one worker currently allowed to complete the version
+- `generation_previous_status`: status restored when the matching worker fails
 
 Relationships:
 
@@ -248,6 +251,10 @@ Notes:
 
 - unique per user + queue position
 - supports a pre-generated workout flow instead of generating only at the moment of use
+- generation workers must claim a slot through `claim_pending_workout_generation`
+- completion and failure restoration are conditional on both `generation_version` and `generation_claim_token`; stale workers are no-ops
+- terminal rows cannot retain live claim metadata, so unconditional late writes from workers deployed before the claim protocol are rejected
+- fallback replacement advances the version, cancels any active claim, and clears `user_edits` so edits from the replaced plan cannot be applied
 
 ### `workout_sessions`
 

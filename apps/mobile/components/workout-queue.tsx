@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { WorkoutQueueCard } from "@/components/workout-queue-card";
@@ -10,13 +10,23 @@ import { useProfile } from "@/hooks/use-profile-query";
 import type { PendingWorkout } from "@/lib/api/pending-workouts";
 import { getTargetQueueCount } from "@/lib/pending-workout-queue";
 import {
+  useFallbackPendingWorkout,
   useRebuildQueue,
-  useRegenerateWorkout,
+  useRetryPendingWorkout,
   useStartPendingWorkout,
 } from "@/hooks/use-workout-queue";
-import { selectNextWorkout } from "@/stores/pending-workout-store";
+import {
+  selectNextWorkout,
+  selectReadyCount,
+  usePendingWorkoutStore,
+} from "@/stores/pending-workout-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useRouter } from "expo-router";
+import {
+  buildPendingWorkoutSupportReference,
+  getPendingWorkoutRecoveryAction,
+} from "@/lib/pending-workout-recovery";
+import { trackEvent } from "@/lib/track-event";
 
 // -----------------------------------------------------------------------------
 // WorkoutQueue
@@ -42,11 +52,22 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
   const startedAtMs = useWorkoutStore((s) => s.startedAtMs);
 
   const nextWorkout = selectNextWorkout(queue);
-  const readyCount = queue.filter((w) => w.status === "ready").length;
+  const readyCount = selectReadyCount(queue);
 
   const startMutation = useStartPendingWorkout();
-  const regenerateMutation = useRegenerateWorkout();
+  const retryMutation = useRetryPendingWorkout();
+  const fallbackMutation = useFallbackPendingWorkout();
   const rebuildQueue = useRebuildQueue();
+  const recoveryAttempts = usePendingWorkoutStore((s) => s.recoveryAttempts);
+
+  useEffect(() => {
+    if (fallbackMutation.isError) {
+      Alert.alert(
+        t("queueCard.recovery.fallbackErrorTitle"),
+        t("queueCard.recovery.fallbackErrorDescription")
+      );
+    }
+  }, [fallbackMutation.isError, t]);
 
   const handleStart = useCallback(
     (workout: PendingWorkout) => {
@@ -57,9 +78,36 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
 
   const handleRetry = useCallback(
     (workout: PendingWorkout) => {
-      regenerateMutation.mutate({ pendingWorkout: workout });
+      retryMutation.mutate(workout);
     },
-    [regenerateMutation]
+    [retryMutation]
+  );
+
+  const handleFallback = useCallback(
+    (workout: PendingWorkout) => {
+      fallbackMutation.mutate(workout);
+    },
+    [fallbackMutation]
+  );
+
+  const handleSupport = useCallback(
+    (workout: PendingWorkout) => {
+      const reference = buildPendingWorkoutSupportReference(
+        workout.user_id,
+        workout.id
+      );
+      trackEvent("activation_recovery_attempted", {
+        stage: "workout_generation",
+        action: "support",
+        attempt_count: recoveryAttempts[workout.id] ?? 0,
+        queue_position: workout.queue_position,
+      });
+      router.push({
+        pathname: "/feedback",
+        params: { recoveryReference: reference },
+      } as never);
+    },
+    [recoveryAttempts, router]
   );
 
   const handlePress = useCallback(
@@ -171,6 +219,14 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
       <View style={styles.cardList}>
         {queue.map((workout) => {
           const isNextUp = !isWorkoutActive && nextWorkout?.id === workout.id;
+          const recoveryAttemptCount = recoveryAttempts[workout.id] ?? 0;
+          const recoveryAction = getPendingWorkoutRecoveryAction(
+            workout,
+            recoveryAttemptCount
+          );
+          const recoveryReference = `GEN-${workout.id
+            .slice(0, 8)
+            .toUpperCase()}`;
 
           return (
             <WorkoutQueueCard
@@ -185,9 +241,20 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
               onStart={() => handleStart(workout)}
               onResume={handleResume}
               onRetry={
-                workout.status === "failed"
+                recoveryAction === "retry"
                   ? () => handleRetry(workout)
                   : undefined
+              }
+              onFallback={() => handleFallback(workout)}
+              onSupport={() => handleSupport(workout)}
+              recoveryAction={recoveryAction}
+              recoveryAttemptCount={recoveryAttemptCount}
+              recoveryReference={recoveryReference}
+              isRecoveryPending={
+                (retryMutation.isPending &&
+                  retryMutation.variables?.id === workout.id) ||
+                (fallbackMutation.isPending &&
+                  fallbackMutation.variables?.id === workout.id)
               }
             />
           );

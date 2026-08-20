@@ -31,6 +31,11 @@ export const feedback = {
     title: "Błąd",
     message: "Nie udało się wysłać opinii. Spróbuj ponownie.",
   },
+  recovery: {
+    title: "Problem z przygotowaniem treningu",
+    description:
+      "Nie udało się przygotować treningu po kilku próbach.\n\nKod dla wsparcia: {{reference}}\n\nOpis sytuacji:",
+  },
   validation: {
     titleRequired: "Tytuł jest wymagany",
     titleTooLong: "Tytuł musi mieć mniej niż 100 znaków",

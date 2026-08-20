@@ -252,8 +252,9 @@ async function upsertStrengthBaselines(
 export async function fetchProfile(): Promise<{
   onboarding_completed: boolean;
   gender: DbGender;
-  goal: DbGoal;
-  weekly_frequency: DbFrequency;
+  goal: DbGoal | null;
+  custom_goal: string | null;
+  weekly_frequency: DbFrequency | null;
   equipment_level: string | null;
   difficulty_level: string | null;
   weight_unit: "kg" | "lbs";
@@ -270,7 +271,7 @@ export async function fetchProfile(): Promise<{
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "onboarding_completed, gender, goal, weekly_frequency, equipment_level, difficulty_level, weight_unit"
+      "onboarding_completed, gender, goal, custom_goal, weekly_frequency, equipment_level, difficulty_level, weight_unit"
     )
     .eq("id", user.id)
     .single();

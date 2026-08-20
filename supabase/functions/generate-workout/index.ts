@@ -27,24 +27,36 @@ type AppSupabaseClient = SupabaseClient<any, "public", any>;
 // Request Schema
 // -----------------------------------------------------------------------------
 
-const requestSchema = z.object({
-  training_split: z.enum(["full_body", "upper_lower", "push_pull_legs"]),
-  duration_minutes: z.union([
-    z.literal(15),
-    z.literal(30),
-    z.literal(45),
-    z.literal(60),
-    z.literal(90),
-  ]),
-  equipment: z.enum(["bodyweight", "dumbbells", "barbell", "full_gym"]),
-  training_style: z.enum(["strength", "hypertrophy", "endurance", "circuit"]),
-  difficulty: z.enum(["beginner", "intermediate", "advanced"]),
-  custom_prompt: z.string().max(500).optional(),
-  regeneration_feedback: z.string().trim().min(1).max(300).optional(),
-  // Regeneration: identifies a pending workout slot to replace
-  pending_workout_id: z.string().uuid().optional(),
-  timezone_offset_minutes: z.number().int().min(-840).max(840).optional(),
-});
+const requestSchema = z
+  .object({
+    training_split: z.enum(["full_body", "upper_lower", "push_pull_legs"]),
+    duration_minutes: z.union([
+      z.literal(15),
+      z.literal(30),
+      z.literal(45),
+      z.literal(60),
+      z.literal(90),
+    ]),
+    equipment: z.enum(["bodyweight", "dumbbells", "barbell", "full_gym"]),
+    training_style: z.enum(["strength", "hypertrophy", "endurance", "circuit"]),
+    difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+    custom_prompt: z.string().max(500).optional(),
+    regeneration_feedback: z.string().trim().min(1).max(300).optional(),
+    // Regeneration: identifies a pending workout slot to replace
+    pending_workout_id: z.string().uuid().optional(),
+    pending_workout_claim_token: z.string().uuid().optional(),
+    pending_workout_generation_version: z.number().int().positive().optional(),
+    timezone_offset_minutes: z.number().int().min(-840).max(840).optional(),
+  })
+  .refine(
+    (value) =>
+      (value.pending_workout_claim_token === undefined) ===
+      (value.pending_workout_generation_version === undefined),
+    {
+      message:
+        "pending workout claim token and version must be provided together",
+    }
+  );
 
 interface PendingWorkoutSnapshot {
   id: string;
@@ -53,6 +65,8 @@ interface PendingWorkoutSnapshot {
   last_regenerated_at: string | null;
   workout_data: Record<string, unknown> | null;
   status: string;
+  generation_version: number;
+  generation_claim_token: string | null;
 }
 
 function toDateKeyForOffset(date: Date, timezoneOffsetMinutes: number): string {
@@ -68,15 +82,14 @@ async function restorePendingWorkoutAfterFailure(params: {
   userClient: AppSupabaseClient;
   pendingWorkoutId: string;
   userId: string;
-  hadWorkoutData: boolean;
+  generationVersion: number;
+  claimToken: string;
 }) {
-  const status = params.hadWorkoutData ? "ready" : "failed";
-
-  await params.userClient
-    .from("pending_workouts")
-    .update({ status })
-    .eq("id", params.pendingWorkoutId)
-    .eq("user_id", params.userId);
+  await params.userClient.rpc("fail_pending_workout_generation", {
+    p_pending_workout_id: params.pendingWorkoutId,
+    p_generation_version: params.generationVersion,
+    p_claim_token: params.claimToken,
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -95,6 +108,7 @@ Deno.serve(async (req: Request) => {
 
   let pendingWorkoutSnapshot: PendingWorkoutSnapshot | null = null;
   let pendingWorkoutIdForRecovery: string | null = null;
+  let pendingWorkoutPersisted = false;
   let userIdForRecovery: string | null = null;
   let userClientForRecovery: AppSupabaseClient | null = null;
 
@@ -144,12 +158,17 @@ Deno.serve(async (req: Request) => {
       custom_prompt,
       regeneration_feedback,
       pending_workout_id,
+      pending_workout_claim_token,
+      pending_workout_generation_version,
       timezone_offset_minutes,
     } = parsed.data;
     pendingWorkoutIdForRecovery = pending_workout_id ?? null;
+    const isPreclaimedRecovery =
+      pending_workout_claim_token !== undefined &&
+      pending_workout_generation_version !== undefined;
 
     // 3. Generation allowance check (pending workout regeneration only — not used for direct generation)
-    if (pending_workout_id) {
+    if (pending_workout_id && !isPreclaimedRecovery) {
       const allowance = await checkGenerationAllowance(
         supabaseClient,
         user.id,
@@ -203,7 +222,7 @@ Deno.serve(async (req: Request) => {
       const { data: pendingWorkout } = await userClient
         .from("pending_workouts")
         .select(
-          "id, regeneration_count, regeneration_feedback, last_regenerated_at, workout_data, status"
+          "id, regeneration_count, regeneration_feedback, last_regenerated_at, workout_data, status, generation_version, generation_claim_token"
         )
         .eq("id", pending_workout_id)
         .eq("user_id", user.id)
@@ -213,7 +232,7 @@ Deno.serve(async (req: Request) => {
         return errorResponse("Pending workout not found", 404);
       }
 
-      if (pendingWorkout.last_regenerated_at) {
+      if (!isPreclaimedRecovery && pendingWorkout.last_regenerated_at) {
         const currentTimezoneOffsetMinutes = timezone_offset_minutes ?? 0;
         const sameDay =
           toDateKeyForOffset(
@@ -231,14 +250,44 @@ Deno.serve(async (req: Request) => {
 
       pendingWorkoutSnapshot = pendingWorkout;
 
-      const { error: markRegeneratingError } = await userClient
-        .from("pending_workouts")
-        .update({ status: "regenerating" })
-        .eq("id", pending_workout_id)
-        .eq("user_id", user.id);
+      if (pending_workout_claim_token && pending_workout_generation_version) {
+        if (
+          pendingWorkout.status !== "regenerating" ||
+          pendingWorkout.generation_claim_token !==
+            pending_workout_claim_token ||
+          pendingWorkout.generation_version !==
+            pending_workout_generation_version
+        ) {
+          return errorResponse("Pending workout recovery claim is stale.", 409);
+        }
+      } else {
+        const { data: claims, error: claimError } = await userClient.rpc(
+          "claim_pending_workout_generation",
+          {
+            p_pending_workout_id: pending_workout_id,
+            p_expected_version: pendingWorkout.generation_version,
+            p_claim_reason: "regeneration",
+            p_allow_corrupt_ready: false,
+          }
+        );
+        const claim = Array.isArray(claims) ? claims[0] : null;
 
-      if (markRegeneratingError) {
-        return errorResponse("Failed to start workout regeneration.", 500);
+        if (claimError) {
+          return errorResponse("Failed to claim workout regeneration.", 500);
+        }
+        if (!claim) {
+          return errorResponse(
+            "Workout regeneration is already in progress.",
+            409
+          );
+        }
+
+        pendingWorkoutSnapshot = {
+          ...pendingWorkout,
+          status: "regenerating",
+          generation_version: claim.generation_version,
+          generation_claim_token: claim.claim_token,
+        };
       }
     }
 
@@ -250,6 +299,17 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (profileError || !profile) {
+      if (pending_workout_id && pendingWorkoutSnapshot) {
+        await restorePendingWorkoutAfterFailure({
+          userClient,
+          pendingWorkoutId: pending_workout_id,
+          userId: user.id,
+          generationVersion: pendingWorkoutSnapshot.generation_version,
+          claimToken: pendingWorkoutSnapshot.generation_claim_token!,
+        });
+        pendingWorkoutSnapshot = null;
+      }
+
       return errorResponse(
         "Profile not found. Complete onboarding first.",
         400
@@ -354,7 +414,8 @@ Deno.serve(async (req: Request) => {
           userClient,
           pendingWorkoutId: pending_workout_id,
           userId: user.id,
-          hadWorkoutData: pendingWorkoutSnapshot.workout_data !== null,
+          generationVersion: pendingWorkoutSnapshot.generation_version,
+          claimToken: pendingWorkoutSnapshot.generation_claim_token!,
         });
       }
 
@@ -363,42 +424,38 @@ Deno.serve(async (req: Request) => {
 
     // 12. If regenerating a pending workout, update it
     if (pending_workout_id) {
-      const submittedAt = new Date().toISOString();
-      const previousFeedback =
-        pendingWorkoutSnapshot?.regeneration_feedback ?? [];
-      const regenerationFeedbackEntry = {
-        feedback: regeneration_feedback ?? null,
-        has_feedback: !!regeneration_feedback,
-        submitted_at: submittedAt,
-      };
-      const { error: updateError } = await userClient
-        .from("pending_workouts")
-        .update({
-          workout_data: result.data as unknown as Record<string, unknown>,
-          generation_source: result.generationSource,
-          status: "ready",
-          last_regenerated_at: submittedAt,
-          regeneration_count:
-            (pendingWorkoutSnapshot?.regeneration_count ?? 0) + 1,
-          regeneration_feedback: [
-            ...previousFeedback,
-            regenerationFeedbackEntry,
-          ],
-          generated_at: submittedAt,
-        })
-        .eq("id", pending_workout_id)
-        .eq("user_id", user.id);
+      const { data: completed, error: updateError } = await userClient.rpc(
+        "complete_pending_workout_generation",
+        {
+          p_pending_workout_id: pending_workout_id,
+          p_generation_version: pendingWorkoutSnapshot!.generation_version,
+          p_claim_token: pendingWorkoutSnapshot!.generation_claim_token!,
+          p_workout_data: result.data as unknown as Record<string, unknown>,
+          p_generation_source: result.generationSource,
+          p_is_regeneration: !isPreclaimedRecovery,
+          p_regeneration_feedback: regeneration_feedback ?? null,
+        }
+      );
 
       if (updateError) {
         await restorePendingWorkoutAfterFailure({
           userClient,
           pendingWorkoutId: pending_workout_id,
           userId: user.id,
-          hadWorkoutData: pendingWorkoutSnapshot?.workout_data !== null,
+          generationVersion: pendingWorkoutSnapshot!.generation_version,
+          claimToken: pendingWorkoutSnapshot!.generation_claim_token!,
         });
 
         return errorResponse("Failed to save regenerated workout.", 500);
       }
+
+      if (completed !== true) {
+        console.log(
+          "[generate-workout] Stale worker completion ignored",
+          pending_workout_id
+        );
+      }
+      pendingWorkoutPersisted = completed === true;
 
       pendingWorkoutSnapshot = null;
     }
@@ -410,7 +467,11 @@ Deno.serve(async (req: Request) => {
     });
 
     // Record usage for pending workout regeneration
-    if (pending_workout_id) {
+    if (
+      pending_workout_id &&
+      pendingWorkoutPersisted &&
+      !isPreclaimedRecovery
+    ) {
       await recordGenerationUsage(supabaseClient, user.id, "regeneration", 1);
     }
 
@@ -426,7 +487,8 @@ Deno.serve(async (req: Request) => {
         userClient: userClientForRecovery,
         pendingWorkoutId: pendingWorkoutIdForRecovery,
         userId: userIdForRecovery,
-        hadWorkoutData: pendingWorkoutSnapshot.workout_data !== null,
+        generationVersion: pendingWorkoutSnapshot.generation_version,
+        claimToken: pendingWorkoutSnapshot.generation_claim_token!,
       });
     }
 

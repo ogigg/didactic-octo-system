@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/hooks/use-auth";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
@@ -17,8 +18,8 @@ import {
   deletePendingWorkout,
   deleteAllPendingWorkouts,
   fetchPendingWorkouts,
+  claimPendingWorkoutRecovery,
   replacePendingWorkoutWithFallback,
-  setPendingWorkoutStatus,
   triggerQueueGeneration,
   triggerRegeneration,
   updatePendingWorkoutEdits,
@@ -28,14 +29,15 @@ import {
   type WorkoutGenerationPreferences,
 } from "@/lib/api/pending-workouts";
 import { usePaywallStore } from "@/stores/paywall-store";
-import { subscriptionKeys } from "@/lib/query-keys";
+import { pendingWorkoutKeys, subscriptionKeys } from "@/lib/query-keys";
 import {
   buildFallbackPendingWorkoutData,
-  isPendingWorkoutStale,
+  getPendingWorkoutRecoveryAction,
+  getRecoveryTiming,
   MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
+  shouldTrackRecoveryExposure,
 } from "@/lib/pending-workout-recovery";
 import { getCurrentTimezoneOffsetMinutes } from "@/lib/pending-workout-regeneration";
-import { pendingWorkoutKeys } from "@/lib/query-keys";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/track-event";
 import {
@@ -43,6 +45,8 @@ import {
   selectNextWorkout,
   selectReadyCount,
   selectIsFullyReady,
+  isPendingWorkoutReady,
+  canUsePendingWorkoutState,
 } from "@/stores/pending-workout-store";
 import {
   useWorkoutStore,
@@ -122,14 +126,16 @@ function applyPreviousSetDisplays(
 
 export function useWorkoutQueueData() {
   const { user } = useAuth();
+  const hasHydrated = usePendingWorkoutStore((s) => s.hasHydrated);
+  const ownerUserId = usePendingWorkoutStore((s) => s.ownerUserId);
   const regeneratingWorkoutIds = usePendingWorkoutStore(
     (s) => s.regeneratingWorkoutIds
   );
 
   const query = useQuery({
-    queryKey: pendingWorkoutKeys.list(),
+    queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
     queryFn: fetchPendingWorkouts,
-    enabled: !!user,
+    enabled: canUsePendingWorkoutState(user?.id, ownerUserId, hasHydrated),
   });
 
   const queue = applyOptimisticRegenerationState(
@@ -146,12 +152,14 @@ export function useWorkoutQueueData() {
 
 export function useWorkoutQueue() {
   const { user } = useAuth();
-  const { data: profile } = useProfile();
   const queryClient = useQueryClient();
 
   const recoveryAttempts = usePendingWorkoutStore((s) => s.recoveryAttempts);
-  const recordRecoveryAttempt = usePendingWorkoutStore(
-    (s) => s.recordRecoveryAttempt
+  const recoveryExposedAt = usePendingWorkoutStore((s) => s.recoveryExposedAt);
+  const hasHydrated = usePendingWorkoutStore((s) => s.hasHydrated);
+  const ownerUserId = usePendingWorkoutStore((s) => s.ownerUserId);
+  const markRecoveryExposed = usePendingWorkoutStore(
+    (s) => s.markRecoveryExposed
   );
   const clearRecoveryAttempt = usePendingWorkoutStore(
     (s) => s.clearRecoveryAttempt
@@ -162,6 +170,9 @@ export function useWorkoutQueue() {
   const queueGenerationTrigger = usePendingWorkoutStore(
     (s) => s.queueGenerationTrigger
   );
+  const queueGenerationSource = usePendingWorkoutStore(
+    (s) => s.queueGenerationSource
+  );
   const clearQueueGenerationContext = usePendingWorkoutStore(
     (s) => s.clearQueueGenerationContext
   );
@@ -170,17 +181,30 @@ export function useWorkoutQueue() {
   );
 
   const previousQueueRef = useRef<PendingWorkout[]>([]);
-  const recoveryInFlightRef = useRef(false);
+  const previousRecoveryActionRef = useRef<Map<string, "retry" | "fallback">>(
+    new Map()
+  );
+  const resolvedRecoveryIdsRef = useRef<Set<string>>(new Set());
   const invalidationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const analyticsUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (analyticsUserIdRef.current === (user?.id ?? null)) return;
+
+    analyticsUserIdRef.current = user?.id ?? null;
+    previousQueueRef.current = [];
+    previousRecoveryActionRef.current.clear();
+    resolvedRecoveryIdsRef.current.clear();
+  }, [user?.id]);
 
   // ---- Query (single source of truth) ----
 
   const query = useQuery({
-    queryKey: pendingWorkoutKeys.list(),
+    queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
     queryFn: fetchPendingWorkouts,
-    enabled: !!user,
+    enabled: canUsePendingWorkoutState(user?.id, ownerUserId, hasHydrated),
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data || data.length === 0) return false;
@@ -206,15 +230,17 @@ export function useWorkoutQueue() {
       clearTimeout(invalidationTimerRef.current);
     }
     invalidationTimerRef.current = setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
       invalidationTimerRef.current = null;
     }, REALTIME_DEBOUNCE_MS);
-  }, [queryClient]);
+  }, [queryClient, user?.id]);
 
   // ---- Realtime subscription ----
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
 
     const channel = supabase
       .channel("pending-workouts-changes")
@@ -248,9 +274,9 @@ export function useWorkoutQueue() {
     for (const workout of queue) {
       const previous = previousQueue.find((item) => item.id === workout.id);
       const becameReady =
-        workout.status === "ready" &&
+        isPendingWorkoutReady(workout) &&
         ((previous !== undefined &&
-          previous.status !== "ready" &&
+          !isPendingWorkoutReady(previous) &&
           previous.status !== "regenerating") ||
           queueGenerationTrigger !== null);
 
@@ -274,10 +300,10 @@ export function useWorkoutQueue() {
 
     const queueJustCompleted =
       queue.length > 0 &&
-      queue.every((workout) => workout.status === "ready") &&
+      queue.every(isPendingWorkoutReady) &&
       queueGenerationTrigger !== null &&
       (previousQueue.length === 0 ||
-        !previousQueue.every((workout) => workout.status === "ready"));
+        !previousQueue.every(isPendingWorkoutReady));
 
     if (queueJustCompleted) {
       const fallbackCount = queue.filter(
@@ -303,82 +329,74 @@ export function useWorkoutQueue() {
     regeneratingWorkoutIds,
   ]);
 
-  // ---- Recovery: fix stale workouts ----
+  // ---- Activation recovery exposure + successful resolution ----
 
   useEffect(() => {
-    const preferences = getGenerationPreferencesFromProfile(profile);
+    for (const workout of queue) {
+      const attemptCount = recoveryAttempts[workout.id] ?? 0;
+      const action = getPendingWorkoutRecoveryAction(workout, attemptCount);
 
-    if (
-      !user ||
-      !profile?.training_setup_completed ||
-      !preferences ||
-      queue.length === 0 ||
-      recoveryInFlightRef.current
-    ) {
-      return;
-    }
+      if (action === "retry" || action === "fallback") {
+        const previousAction = previousRecoveryActionRef.current.get(
+          workout.id
+        );
+        const exposedAt = markRecoveryExposed(workout.id);
 
-    const staleWorkouts = queue.filter(isPendingWorkoutStale);
-
-    if (staleWorkouts.length === 0) {
-      return;
-    }
-
-    recoveryInFlightRef.current = true;
-
-    void (async () => {
-      try {
-        for (const workout of staleWorkouts) {
-          const attemptCount = recoveryAttempts[workout.id] ?? 0;
-
-          if (attemptCount >= MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS) {
-            const fallbackWorkout = await buildFallbackPendingWorkoutData({
-              focusArea: workout.focus_area,
-              equipment: preferences.equipment,
-              goalSnapshot: profile.goal ?? "improve_fitness",
-              customGoalSnapshot: profile.custom_goal,
-            });
-
-            if (fallbackWorkout) {
-              await replacePendingWorkoutWithFallback(
-                workout.id,
-                fallbackWorkout
-              );
-              clearRecoveryAttempt(workout.id);
-            }
-
-            continue;
-          }
-
-          await setPendingWorkoutStatus(workout.id, "generating");
-
-          try {
-            await triggerRegeneration(
-              workout.id,
-              preferences,
-              getCurrentTimezoneOffsetMinutes()
-            );
-            clearRecoveryAttempt(workout.id);
-          } catch {
-            recordRecoveryAttempt(workout.id);
-          }
+        if (shouldTrackRecoveryExposure(previousAction, action)) {
+          previousRecoveryActionRef.current.set(workout.id, action);
+          trackEvent("activation_recovery_exposed", {
+            stage: "workout_generation",
+            next_action: action,
+            previous_action: previousAction ?? null,
+            attempt_count: attemptCount,
+            queue_position: workout.queue_position,
+            source: queueGenerationSource ?? "app_return",
+            trigger: queueGenerationTrigger ?? "unknown",
+            recovery_exposed_at: new Date(exposedAt).toISOString(),
+          });
         }
-
-        await queryClient.invalidateQueries({
-          queryKey: pendingWorkoutKeys.list(),
-        });
-      } finally {
-        recoveryInFlightRef.current = false;
       }
-    })();
+
+      if (
+        isPendingWorkoutReady(workout) &&
+        attemptCount > 0 &&
+        !resolvedRecoveryIdsRef.current.has(workout.id)
+      ) {
+        resolvedRecoveryIdsRef.current.add(workout.id);
+        const returnedToReadyAt = Date.now();
+        const exposedAt = recoveryExposedAt[workout.id] ?? returnedToReadyAt;
+        const recoveryTiming = getRecoveryTiming(exposedAt, returnedToReadyAt);
+        trackEvent("activation_recovery_succeeded", {
+          stage: "workout_generation",
+          resolution:
+            workout.generation_source === "fallback_template"
+              ? "fallback"
+              : "retry",
+          attempt_count: attemptCount,
+          time_since_queue_started_ms: queueGenerationStartedAt
+            ? Math.max(0, Date.now() - queueGenerationStartedAt)
+            : null,
+          source: queueGenerationSource ?? "app_return",
+          trigger: queueGenerationTrigger ?? "unknown",
+          recovery_exposed_at: new Date(exposedAt).toISOString(),
+          returned_to_ready_at: new Date(
+            recoveryTiming.returnedToReadyAt
+          ).toISOString(),
+          return_to_ready_ms: recoveryTiming.returnToReadyMs,
+          queue_position: workout.queue_position,
+        });
+        clearRecoveryAttempt(workout.id);
+      }
+    }
   }, [
     clearRecoveryAttempt,
-    profile,
-    queryClient,
+    markRecoveryExposed,
     queue,
-    recordRecoveryAttempt,
+    queueGenerationSource,
+    queueGenerationStartedAt,
+    queueGenerationTrigger,
     recoveryAttempts,
-    user,
+    recoveryExposedAt,
   ]);
 
   return { ...query, queue };
@@ -408,6 +426,7 @@ export function useIsFullyReady() {
 // -----------------------------------------------------------------------------
 
 export function useRegenerateWorkout() {
+  const { user } = useAuth();
   const { data: profile } = useProfile();
   const queryClient = useQueryClient();
   const markWorkoutRegenerating = usePendingWorkoutStore(
@@ -429,8 +448,6 @@ export function useRegenerateWorkout() {
         throw new Error("Training preferences are incomplete");
       }
 
-      await setPendingWorkoutStatus(input.pendingWorkout.id, "regenerating");
-
       return triggerRegeneration(
         input.pendingWorkout.id,
         preferences,
@@ -442,14 +459,16 @@ export function useRegenerateWorkout() {
       const feedback = input.feedback?.trim();
       const pendingWorkout = input.pendingWorkout;
 
-      await queryClient.cancelQueries({ queryKey: pendingWorkoutKeys.list() });
+      await queryClient.cancelQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
 
       const previousQueue = queryClient.getQueryData<PendingWorkout[]>(
-        pendingWorkoutKeys.list()
+        pendingWorkoutKeys.list(user?.id ?? "")
       );
 
       queryClient.setQueryData<PendingWorkout[]>(
-        pendingWorkoutKeys.list(),
+        pendingWorkoutKeys.list(user?.id ?? ""),
         (current = []) =>
           current.map((workout) =>
             workout.id === pendingWorkout.id
@@ -484,7 +503,9 @@ export function useRegenerateWorkout() {
         feedback_length: feedback?.length ?? 0,
       });
 
-      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
     onError: (error, input, context) => {
@@ -494,12 +515,10 @@ export function useRegenerateWorkout() {
 
       if (context?.previousQueue) {
         queryClient.setQueryData(
-          pendingWorkoutKeys.list(),
+          pendingWorkoutKeys.list(user?.id ?? ""),
           context.previousQueue
         );
       }
-
-      void setPendingWorkoutStatus(pendingWorkout.id, pendingWorkout.status);
 
       if (error instanceof GenerationLimitReachedError) {
         queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
@@ -507,7 +526,9 @@ export function useRegenerateWorkout() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
     },
     onSettled: (_data, _error, input) => {
       clearWorkoutRegenerating(input.pendingWorkout.id);
@@ -515,7 +536,128 @@ export function useRegenerateWorkout() {
   });
 }
 
+export function useRetryPendingWorkout() {
+  const { user } = useAuth();
+  const { data: profile } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (pendingWorkout: PendingWorkout) => {
+      const preferences = getGenerationPreferencesFromProfile(profile);
+      if (!preferences) {
+        throw new Error("Training preferences are incomplete");
+      }
+
+      const store = usePendingWorkoutStore.getState();
+      const attemptCount = store.recoveryAttempts[pendingWorkout.id] ?? 0;
+      if (attemptCount >= MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS) {
+        throw new Error("Recovery retry limit reached");
+      }
+
+      const { claim, attemptCount: nextAttempt } =
+        await store.recordRecoveryAttemptAfterClaim(pendingWorkout.id, () =>
+          claimPendingWorkoutRecovery(pendingWorkout)
+        );
+      trackEvent("activation_recovery_attempted", {
+        stage: "workout_generation",
+        action: "retry",
+        attempt_count: nextAttempt,
+        queue_position: pendingWorkout.queue_position,
+      });
+
+      await triggerRegeneration(
+        pendingWorkout.id,
+        preferences,
+        getCurrentTimezoneOffsetMinutes(),
+        undefined,
+        claim
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
+    },
+  });
+}
+
+export function useFallbackPendingWorkout() {
+  const { user } = useAuth();
+  const { t } = useTranslation("home");
+  const { data: profile } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (pendingWorkout: PendingWorkout) => {
+      if (!profile?.equipment_level) {
+        throw new Error("Training preferences are incomplete");
+      }
+
+      trackEvent("activation_recovery_attempted", {
+        stage: "workout_generation",
+        action: "fallback",
+        attempt_count:
+          usePendingWorkoutStore.getState().recoveryAttempts[
+            pendingWorkout.id
+          ] ?? 0,
+        queue_position: pendingWorkout.queue_position,
+      });
+
+      const fallbackFocus = pendingWorkout.focus_area ?? "full_body";
+      const localizedFocus = t(
+        `queueCard.recovery.fallbackWorkout.focusAreas.${fallbackFocus}` as never
+      );
+      const fallbackWorkout = await buildFallbackPendingWorkoutData({
+        focusArea: pendingWorkout.focus_area,
+        equipment: profile.equipment_level,
+        goalSnapshot: profile.goal ?? "improve_fitness",
+        customGoalSnapshot: profile.custom_goal,
+        copy: {
+          workoutName: () =>
+            t("queueCard.recovery.fallbackWorkout.name", {
+              focusArea: localizedFocus,
+            }),
+          muscleGroups: () =>
+            t("queueCard.recovery.fallbackWorkout.muscleGroups", {
+              focusArea: localizedFocus,
+            }),
+          trainingStrategy: t(
+            "queueCard.recovery.fallbackWorkout.trainingStrategy"
+          ),
+          notes: t("queueCard.recovery.fallbackWorkout.notes"),
+          exerciseMuscles: (exerciseName, muscles) =>
+            t("queueCard.recovery.fallbackWorkout.exerciseMuscles", {
+              exerciseName,
+              muscles,
+              focusArea: localizedFocus,
+            }),
+          exerciseSelection: t(
+            "queueCard.recovery.fallbackWorkout.exerciseSelection"
+          ),
+        },
+      });
+
+      if (!fallbackWorkout) {
+        throw new Error("Fallback workout is unavailable");
+      }
+
+      await replacePendingWorkoutWithFallback(
+        pendingWorkout.id,
+        pendingWorkout.generation_version,
+        fallbackWorkout
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
+    },
+  });
+}
+
 export function useEditPendingWorkout() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -530,12 +672,15 @@ export function useEditPendingWorkout() {
       trackEvent("pending_workout_edited", {
         edit_type: input.editType,
       });
-      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
     },
   });
 }
 
 export function useStartPendingWorkout() {
+  const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
@@ -672,12 +817,15 @@ export function useStartPendingWorkout() {
       });
 
       router.navigate("/workout");
-      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
     },
   });
 }
 
 export function useRebuildQueue() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const markQueueGenerationStarted = usePendingWorkoutStore(
     (s) => s.markQueueGenerationStarted
@@ -698,7 +846,9 @@ export function useRebuildQueue() {
       await triggerQueueGeneration(request);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
+      queryClient.invalidateQueries({
+        queryKey: pendingWorkoutKeys.list(user?.id ?? ""),
+      });
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
     onError: (error) => {

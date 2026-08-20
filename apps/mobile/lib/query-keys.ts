@@ -40,8 +40,11 @@ export const exerciseMuscleKeys = {
 
 export const pendingWorkoutKeys = {
   all: ["pending-workouts"] as const,
-  list: () => [...pendingWorkoutKeys.all, "list"] as const,
-  detail: (id: string) => [...pendingWorkoutKeys.all, id] as const,
+  forUser: (userId: string) => [...pendingWorkoutKeys.all, userId] as const,
+  list: (userId: string) =>
+    [...pendingWorkoutKeys.forUser(userId), "list"] as const,
+  detail: (userId: string, id: string) =>
+    [...pendingWorkoutKeys.forUser(userId), id] as const,
 };
 
 export const exerciseDetailKeys = {

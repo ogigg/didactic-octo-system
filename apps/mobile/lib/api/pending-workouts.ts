@@ -61,6 +61,8 @@ export interface PendingWorkout {
   regeneration_count: number;
   regeneration_feedback: Record<string, unknown>[] | null;
   user_edits: Record<string, unknown> | null;
+  generation_version: number;
+  workout_data_corrupt?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -69,12 +71,12 @@ export interface PendingWorkout {
 // Schemas
 // -----------------------------------------------------------------------------
 
-const pendingWorkoutSchema = z.object({
+const pendingWorkoutRowSchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),
   queue_position: z.number(),
   status: z.enum(["queued", "generating", "regenerating", "ready", "failed"]),
-  workout_data: generateWorkoutResponseSchema.nullable(),
+  workout_data: z.unknown().nullable(),
   generation_source: z
     .enum(["llm", "fallback_template", "fallback_substitution"])
     .nullable(),
@@ -86,6 +88,7 @@ const pendingWorkoutSchema = z.object({
   regeneration_count: z.number(),
   regeneration_feedback: z.array(z.record(z.unknown())).nullable().default([]),
   user_edits: z.record(z.unknown()).nullable(),
+  generation_version: z.number().int().nonnegative().default(0),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -123,7 +126,30 @@ export async function fetchPendingWorkouts(): Promise<PendingWorkout[]> {
     throw new Error(error.message);
   }
 
-  return z.array(pendingWorkoutSchema).parse(data) as PendingWorkout[];
+  return parsePendingWorkoutRows(data);
+}
+
+export function parsePendingWorkoutRows(data: unknown): PendingWorkout[] {
+  return z
+    .array(pendingWorkoutRowSchema)
+    .parse(data)
+    .map((row) => {
+      const parsedWorkout = generateWorkoutResponseSchema.safeParse(
+        row.workout_data
+      );
+      const workoutData =
+        row.workout_data !== null && parsedWorkout.success
+          ? parsedWorkout.data
+          : null;
+
+      return {
+        ...row,
+        workout_data: workoutData,
+        workout_data_corrupt:
+          row.status === "ready" &&
+          (row.workout_data === null || !parsedWorkout.success),
+      };
+    });
 }
 
 // -----------------------------------------------------------------------------
@@ -219,7 +245,8 @@ export async function triggerRegeneration(
   pendingWorkoutId: string,
   preferences: WorkoutGenerationPreferences,
   timezoneOffsetMinutes: number,
-  feedback?: string
+  feedback?: string,
+  claim?: PendingWorkoutGenerationClaim
 ): Promise<z.infer<typeof generateWorkoutResponseSchema>> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: {
@@ -232,6 +259,8 @@ export async function triggerRegeneration(
       custom_prompt: preferences.custom_prompt ?? undefined,
       timezone_offset_minutes: timezoneOffsetMinutes,
       regeneration_feedback: feedback,
+      pending_workout_claim_token: claim?.claimToken,
+      pending_workout_generation_version: claim?.generationVersion,
     },
   });
 
@@ -256,39 +285,63 @@ export async function triggerRegeneration(
   return generateWorkoutResponseSchema.parse(data);
 }
 
-export async function setPendingWorkoutStatus(
-  id: string,
-  status: PendingWorkoutStatus
-): Promise<void> {
-  await getAuthenticatedUserId();
+export interface PendingWorkoutGenerationClaim {
+  claimToken: string;
+  generationVersion: number;
+}
 
-  const { error } = await supabase
-    .from("pending_workouts")
-    .update({ status })
-    .eq("id", id);
+const pendingWorkoutGenerationClaimSchema = z.object({
+  claim_token: z.string().uuid(),
+  generation_version: z.number().int().positive(),
+});
+
+export async function claimPendingWorkoutRecovery(
+  workout: PendingWorkout
+): Promise<PendingWorkoutGenerationClaim> {
+  const { data, error } = await supabase.rpc(
+    "claim_pending_workout_generation",
+    {
+      p_pending_workout_id: workout.id,
+      p_expected_version: workout.generation_version,
+      p_claim_reason: "recovery",
+      p_allow_corrupt_ready: workout.workout_data_corrupt === true,
+    }
+  );
 
   if (error) {
     throw new Error(error.message);
   }
+
+  const parsed = z.array(pendingWorkoutGenerationClaimSchema).safeParse(data);
+  if (!parsed.success || parsed.data.length !== 1) {
+    throw new Error("Pending workout recovery claim was not accepted");
+  }
+
+  return {
+    claimToken: parsed.data[0].claim_token,
+    generationVersion: parsed.data[0].generation_version,
+  };
 }
 
 export async function replacePendingWorkoutWithFallback(
   id: string,
+  expectedVersion: number,
   fallbackWorkout: z.infer<typeof generateWorkoutResponseSchema>
 ): Promise<void> {
-  await getAuthenticatedUserId();
-
-  const { error } = await supabase
-    .from("pending_workouts")
-    .update({
-      status: "ready",
-      generation_source: "fallback_template",
-      workout_data: fallbackWorkout,
-      generated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
+  const { data, error } = await supabase.rpc(
+    "replace_pending_workout_with_fallback",
+    {
+      p_pending_workout_id: id,
+      p_expected_version: expectedVersion,
+      p_workout_data: fallbackWorkout,
+    }
+  );
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (data !== true) {
+    throw new Error("Pending workout changed before fallback was applied");
   }
 }

@@ -84,6 +84,38 @@ resetUser();
   - `has_load`: boolean
   - `source`: onboarding | settings
 
+- **activation_recovery_exposed**: A returning user sees the next recovery action
+  - `stage`: workout_generation
+  - `next_action`: retry | fallback
+  - `previous_action`: retry | fallback | null
+  - `attempt_count`: persisted retry count
+  - `queue_position`: queue slot
+  - `source`: onboarding | settings | replenishment | app_return
+  - `trigger`: onboarding | preference_change | replenishment | unknown
+  - `recovery_exposed_at`: ISO timestamp persisted across restart
+
+- **activation_recovery_attempted**: The user starts a recovery action
+  - `stage`: workout_generation
+  - `action`: retry | fallback | support
+  - `attempt_count`: persisted retry count
+  - `queue_position`: queue slot
+
+- **activation_recovery_succeeded**: A recovered queue slot becomes ready
+  - `stage`: workout_generation
+  - `resolution`: retry | fallback
+  - `attempt_count`: persisted retry count
+  - `time_since_queue_started_ms`: elapsed time across app restarts when available
+  - `source`, `trigger`: privacy-safe persisted activation attribution
+  - `recovery_exposed_at`, `returned_to_ready_at`: ISO timestamps
+  - `return_to_ready_ms`: elapsed time from first recovery exposure to a valid ready workout
+  - `queue_position`: queue slot
+
+SWE-81 and SWE-87 remain the canonical dependencies for acquisition/auth
+handoff and workout-readiness definitions. These events intentionally use only
+the safe source, trigger, exposure, and ready timestamps available today; the
+canonical cross-journey attribution fields should be aligned when those
+dependencies land.
+
 ### Workout Events
 
 - **workout_queue_initialized**: Queue generation started

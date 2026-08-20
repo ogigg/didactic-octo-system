@@ -52,6 +52,42 @@ export const home = {
     queued: "Następny",
     failed: "Nie udało się wygenerować",
     tryAgain: "Spróbuj ponownie",
+    recovery: {
+      accessibilityLabel: "Trening na dzień {{position}} wymaga naprawy",
+      retryTitle: "Spróbuj ponownie przygotować trening",
+      retryDescription:
+        "Twoje ustawienia są zapisane. Ponów próbę bez rozpoczynania onboardingu od nowa. Próba {{next}} z {{max}}.",
+      fallbackTitle: "Nie udało się naprawić tego treningu",
+      fallbackDescription:
+        "Użyj teraz sprawdzonego planu awaryjnego albo skontaktuj się ze wsparciem, podając poniższy kod.",
+      useFallback: "Użyj treningu awaryjnego",
+      contactSupport: "Skontaktuj się ze wsparciem",
+      reference: "Kod dla wsparcia: {{reference}}",
+      fallbackErrorTitle: "Plan awaryjny jest niedostępny",
+      fallbackErrorDescription:
+        "Nie udało się zastosować treningu awaryjnego. Spróbuj ponownie albo skontaktuj się ze wsparciem, podając widoczny kod.",
+      fallbackWorkout: {
+        focusAreas: {
+          push: "wypychanie",
+          pull: "przyciąganie",
+          legs: "nogi",
+          upper: "górna część ciała",
+          lower: "dolna część ciała",
+          full_body: "całe ciało",
+        },
+        name: "Plan awaryjny: {{focusArea}}",
+        muscleGroups:
+          "Ten plan awaryjny koncentruje się na {{focusArea}}, aby zachować ciągłość tygodnia.",
+        trainingStrategy:
+          "Wykorzystuje znane ćwiczenia i zachowawcze cele po kilku nieudanych próbach generowania.",
+        notes:
+          "Szablon awaryjny użyty po kilku nieudanych próbach generowania.",
+        exerciseMuscles:
+          "{{exerciseName}} angażuje {{muscles}} w treningu {{focusArea}}.",
+        exerciseSelection:
+          "Ćwiczenie wybrano z dostępnego katalogu jako niezawodną opcję awaryjną.",
+      },
+    },
     completed: "Gotowe",
     exerciseCount: "+{{count}} więcej",
     duration: "{{minutes}} min",

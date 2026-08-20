@@ -21,6 +21,10 @@ import {
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import type { FocusArea, PendingWorkout } from "@/lib/api/pending-workouts";
+import {
+  MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
+  type PendingWorkoutRecoveryAction,
+} from "@/lib/pending-workout-recovery";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { useTranslation } from "react-i18next";
 
@@ -133,6 +137,12 @@ interface WorkoutQueueCardProps {
   onStart?: () => void;
   onResume?: () => void;
   onRetry?: () => void;
+  onFallback?: () => void;
+  onSupport?: () => void;
+  recoveryAction?: PendingWorkoutRecoveryAction;
+  recoveryAttemptCount?: number;
+  recoveryReference?: string;
+  isRecoveryPending?: boolean;
 }
 
 export function WorkoutQueueCard({
@@ -144,6 +154,12 @@ export function WorkoutQueueCard({
   onStart,
   onResume,
   onRetry,
+  onFallback,
+  onSupport,
+  recoveryAction = "wait",
+  recoveryAttemptCount = 0,
+  recoveryReference,
+  isRecoveryPending = false,
 }: WorkoutQueueCardProps) {
   const { t } = useTranslation("home");
 
@@ -232,6 +248,108 @@ export function WorkoutQueueCard({
           </Text>
         </View>
       </Pressable>
+    );
+  }
+
+  if (recoveryAction === "retry" || recoveryAction === "fallback") {
+    const fallbackRequired = recoveryAction === "fallback";
+
+    return (
+      <View
+        style={[
+          cardStyles.container,
+          {
+            backgroundColor: destructiveSurface,
+            borderColor: error,
+            borderWidth: 1,
+          },
+        ]}
+        accessibilityLabel={t("queueCard.recovery.accessibilityLabel", {
+          position: workout.queue_position,
+        })}
+      >
+        <View style={cardStyles.headerRow}>
+          <Text style={[Typography.label, { color: error }]}>
+            {t("queueCard.dayLabel", { position: workout.queue_position })}
+          </Text>
+        </View>
+        <Text style={[Typography.bodyMedium, { color: error }]}>
+          {t(
+            fallbackRequired
+              ? "queueCard.recovery.fallbackTitle"
+              : "queueCard.recovery.retryTitle"
+          )}
+        </Text>
+        <Text
+          style={[
+            Typography.caption,
+            { color: textSecondary },
+            cardStyles.recoveryDescription,
+          ]}
+        >
+          {t(
+            fallbackRequired
+              ? "queueCard.recovery.fallbackDescription"
+              : "queueCard.recovery.retryDescription",
+            {
+              next: Math.min(
+                recoveryAttemptCount + 1,
+                MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS
+              ),
+              max: MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
+            }
+          )}
+        </Text>
+        {fallbackRequired && recoveryReference ? (
+          <Text style={[Typography.micro, { color: textMuted }]}>
+            {t("queueCard.recovery.reference", {
+              reference: recoveryReference,
+            })}
+          </Text>
+        ) : null}
+        <View style={cardStyles.recoveryActions}>
+          <Pressable
+            onPress={fallbackRequired ? onFallback : onRetry}
+            disabled={isRecoveryPending}
+            style={({ pressed }) => [
+              cardStyles.retryButton,
+              {
+                borderColor: error,
+                opacity: pressed || isRecoveryPending ? Opacity.disabled : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={t(
+              fallbackRequired
+                ? "queueCard.recovery.useFallback"
+                : "queueCard.tryAgain"
+            )}
+          >
+            <Text style={[Typography.titleSm, { color: error }]}>
+              {t(
+                fallbackRequired
+                  ? "queueCard.recovery.useFallback"
+                  : "queueCard.tryAgain"
+              )}
+            </Text>
+          </Pressable>
+          {fallbackRequired ? (
+            <Pressable
+              onPress={onSupport}
+              style={({ pressed }) => [
+                cardStyles.supportButton,
+                { opacity: pressed ? Opacity.pressed : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={t("queueCard.recovery.contactSupport")}
+            >
+              <Text style={[Typography.titleSm, { color: primary }]}>
+                {t("queueCard.recovery.contactSupport")}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
     );
   }
 
@@ -802,6 +920,16 @@ const cardStyles = StyleSheet.create({
     paddingVertical: Spacing.md,
     alignItems: "center",
     marginTop: Spacing.md,
+  },
+  recoveryDescription: {
+    marginTop: Spacing.sm,
+  },
+  recoveryActions: {
+    gap: Spacing.md,
+  },
+  supportButton: {
+    paddingVertical: Spacing.sm,
+    alignItems: "center",
   },
   collapsedRow: {
     flexDirection: "row",

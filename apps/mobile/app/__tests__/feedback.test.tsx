@@ -23,6 +23,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { sendFeedback } from "@/lib/api/feedback";
 import { Alert } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import FeedbackScreen from "../feedback";
 
 const mockAlert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
@@ -43,6 +44,7 @@ function renderWithProviders(ui: React.ReactNode) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  (useLocalSearchParams as jest.Mock).mockReturnValue({});
 });
 
 describe("FeedbackScreen", () => {
@@ -75,5 +77,16 @@ describe("FeedbackScreen", () => {
     renderWithProviders(<FeedbackScreen />);
     const inputs = screen.getAllByRole("text");
     expect(inputs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("prefills the recovery support reference from the queue", () => {
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      recoveryReference: "GEN-ABC12345",
+    });
+
+    renderWithProviders(<FeedbackScreen />);
+
+    expect(screen.getByDisplayValue("recovery.title")).toBeTruthy();
+    expect(screen.getByDisplayValue("recovery.description")).toBeTruthy();
   });
 });

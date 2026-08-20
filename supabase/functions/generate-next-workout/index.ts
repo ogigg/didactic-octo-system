@@ -200,16 +200,23 @@ Deno.serve(async (req: Request) => {
     const recentComments: RecentSessionComment[] =
       (commentRows as RecentSessionComment[] | null) ?? [];
 
-    // 9. Insert placeholder row so the client can show a "generating" card
+    // 9. Insert and claim the placeholder in one write. Recovery advances the
+    // version if this worker goes stale, making its later writes no-ops.
     const profileGoal = profile.goal ?? "improve_fitness";
+    const generationClaimToken = crypto.randomUUID();
+    const generationVersion = 1;
 
     const { data: placeholder, error: placeholderError } = await supabaseClient
       .from("pending_workouts")
       .insert({
         user_id,
         queue_position: targetPosition,
-        status: "generating",
+        status: "regenerating",
         focus_area: focusArea,
+        generation_version: generationVersion,
+        generation_claim_token: generationClaimToken,
+        generation_claimed_at: new Date().toISOString(),
+        generation_previous_status: "queued",
       })
       .select("id")
       .single();
@@ -249,22 +256,37 @@ Deno.serve(async (req: Request) => {
 
       await supabaseClient
         .from("pending_workouts")
-        .update({ status: "failed" })
-        .eq("id", placeholder.id);
+        .update({
+          status: "failed",
+          generation_claim_token: null,
+          generation_claimed_at: null,
+          generation_previous_status: null,
+        })
+        .eq("id", placeholder.id)
+        .eq("generation_version", generationVersion)
+        .eq("generation_claim_token", generationClaimToken);
 
       return jsonResponse({ success: false, error: genResult.error }, 500);
     }
 
     // 11. Update placeholder with generated data
-    const { error: insertError } = await supabaseClient
-      .from("pending_workouts")
-      .update({
-        status: "ready",
-        workout_data: genResult.data as unknown as Record<string, unknown>,
-        generation_source: genResult.generationSource,
-        generated_at: new Date().toISOString(),
-      })
-      .eq("id", placeholder.id);
+    const { data: completedPlaceholder, error: insertError } =
+      await supabaseClient
+        .from("pending_workouts")
+        .update({
+          status: "ready",
+          workout_data: genResult.data as unknown as Record<string, unknown>,
+          generation_source: genResult.generationSource,
+          generated_at: new Date().toISOString(),
+          generation_claim_token: null,
+          generation_claimed_at: null,
+          generation_previous_status: null,
+        })
+        .eq("id", placeholder.id)
+        .eq("generation_version", generationVersion)
+        .eq("generation_claim_token", generationClaimToken)
+        .select("id")
+        .maybeSingle();
 
     if (insertError) {
       console.error(
@@ -272,6 +294,18 @@ Deno.serve(async (req: Request) => {
         insertError
       );
       return errorResponse("Failed to save replacement workout", 500);
+    }
+
+    if (!completedPlaceholder) {
+      console.log(
+        "[generate-next-workout] Stale worker completion ignored",
+        placeholder.id
+      );
+      return jsonResponse({
+        success: true,
+        skipped: true,
+        reason: "generation_claim_superseded",
+      });
     }
 
     console.log(
