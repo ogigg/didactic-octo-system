@@ -41,9 +41,10 @@ import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
 import { useExercise } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
-import type {
-  ExerciseDetailStats,
-  ExerciseSessionHistory,
+import {
+  getExerciseWeekMetrics,
+  type ExerciseDetailStats,
+  type ExerciseSessionHistory,
 } from "@/lib/api/exercise-detail";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 
@@ -903,6 +904,65 @@ export default function ExerciseDetailScreen() {
                     ? t("overview.durationWeeklyAvg")
                     : t("overview.volumeWeeklyAvg"),
                   perWeek: t("overview.perWeek"),
+                }}
+                getTooltip={(week) => {
+                  const title = tString("overview.weekOf", {
+                    date: formatLongDate(week.week_start) ?? week.week_start,
+                  });
+                  const weekMetrics = getExerciseWeekMetrics(
+                    week.week_start,
+                    sessions
+                  );
+                  const metrics = isTimeExercise
+                    ? [
+                        {
+                          label: tString("overview.chartDuration"),
+                          value: formatExerciseDuration(
+                            week.total_duration_seconds ?? 0
+                          ),
+                        },
+                        {
+                          label: tString("overview.bestDuration"),
+                          value: weekMetrics.maxDurationSeconds
+                            ? formatExerciseDuration(
+                                weekMetrics.maxDurationSeconds
+                              )
+                            : "-",
+                        },
+                      ]
+                    : [
+                        {
+                          label: tString("overview.chartVolume"),
+                          value: wu.formatVolume(week.volume_kg),
+                        },
+                        {
+                          label: tString("overview.maxWeight"),
+                          value: weekMetrics.maxWeightKg
+                            ? wu.format(weekMetrics.maxWeightKg)
+                            : "-",
+                        },
+                        {
+                          label: tString("overview.maxReps"),
+                          value: formatValue(weekMetrics.maxReps),
+                        },
+                        {
+                          label: tString("overview.est1rm"),
+                          value: weekMetrics.estimatedOneRepMaxKg
+                            ? wu.format(weekMetrics.estimatedOneRepMaxKg)
+                            : "-",
+                        },
+                      ];
+
+                  return {
+                    title,
+                    metrics,
+                    accessibilityLabel: [
+                      title,
+                      ...metrics.map(
+                        (metric) => `${metric.label}: ${metric.value}`
+                      ),
+                    ].join(", "),
+                  };
                 }}
               />
             </View>
