@@ -31,6 +31,7 @@ export const home = {
   },
   workoutQueue: {
     title: "Your Plan",
+    loading: "Loading your plan...",
     readyCount: "{{ready}}/{{total}}",
     empty: "No workouts queued yet",
     emptySubtitle: "Complete onboarding to get your personalized plan",

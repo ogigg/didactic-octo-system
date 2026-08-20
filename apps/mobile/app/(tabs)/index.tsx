@@ -93,7 +93,7 @@ export default function HomeScreen() {
 
   // Data
   const { data: profile } = useProfile();
-  const { refetch, queue } = useWorkoutQueue();
+  const { isLoading: isQueueLoading, refetch, queue } = useWorkoutQueue();
   const streakStatusQuery = useStreakStatus();
   const applyStreakProtection = useApplyStreakProtection();
   const dismissStreakPrompt = useDismissStreakPrompt();
@@ -472,7 +472,7 @@ export default function HomeScreen() {
           )}
 
           {/* Workout Queue */}
-          <WorkoutQueue queue={queue} />
+          <WorkoutQueue queue={queue} isLoading={isQueueLoading} />
 
           {/* My Workouts */}
           {(templates.length > 0 || !isWorkoutActive) && (
