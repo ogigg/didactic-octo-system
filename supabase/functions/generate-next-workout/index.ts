@@ -240,6 +240,9 @@ Deno.serve(async (req: Request) => {
       exercisePreferences:
         exercisePreferences.length > 0 ? exercisePreferences : undefined,
       recentComments: recentComments.length > 0 ? recentComments : undefined,
+      loggingClient: supabaseClient,
+      pendingWorkoutId: placeholder.id,
+      functionName: "generate-next-workout",
     });
 
     if (!genResult.success || !genResult.data) {

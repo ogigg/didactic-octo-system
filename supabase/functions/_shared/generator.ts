@@ -270,6 +270,58 @@ export interface GenerateWorkoutParams {
   history?: HistorySession[];
   recentComments?: RecentSessionComment[];
   regenerationFeedback?: string;
+  /** Service-role client used to persist raw LLM traces into llm_generation_logs. */
+  loggingClient?: SupabaseClient;
+  pendingWorkoutId?: string | null;
+  functionName?: string;
+}
+
+interface LlmTrace {
+  status: "success" | "parse_error" | "api_error" | "timeout";
+  requestMessages: { role: string; content: string }[];
+  rawResponse?: unknown;
+  parsedContent?: unknown;
+  reasoningContent?: string | null;
+  errorMessage?: string;
+  durationMs?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+}
+
+async function logLlmGeneration(
+  loggingClient: SupabaseClient | undefined,
+  params: {
+    userId: string;
+    functionName: string;
+    pendingWorkoutId?: string | null;
+    trace: LlmTrace;
+  }
+): Promise<void> {
+  if (!loggingClient) return;
+
+  const { trace } = params;
+  try {
+    await loggingClient.from("llm_generation_logs").insert({
+      user_id: params.userId,
+      pending_workout_id: params.pendingWorkoutId ?? null,
+      function_name: params.functionName,
+      model: OPENROUTER_MODEL,
+      status: trace.status,
+      request_messages: trace.requestMessages,
+      raw_response: trace.rawResponse ?? null,
+      parsed_content: trace.parsedContent ?? null,
+      reasoning_content: trace.reasoningContent ?? null,
+      error_message: trace.errorMessage ?? null,
+      duration_ms: trace.durationMs ?? null,
+      prompt_tokens: trace.promptTokens ?? null,
+      completion_tokens: trace.completionTokens ?? null,
+    });
+  } catch (err) {
+    console.error(
+      "[generator] Failed to persist llm_generation_logs entry:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -853,6 +905,9 @@ export async function generateSingleWorkout(
     history = [],
     recentComments,
     regenerationFeedback,
+    loggingClient,
+    pendingWorkoutId,
+    functionName = "generate-workout",
   } = params;
 
   // Fetch exercise catalog
@@ -872,6 +927,8 @@ export async function generateSingleWorkout(
   let workoutData: z.infer<typeof llmResponseSchema>;
 
   if (openrouterKey) {
+    let trace: LlmTrace | null = null;
+    let controller: AbortController | null = null;
     try {
       const prompt = buildPrompt(
         profile,
@@ -890,9 +947,14 @@ export async function generateSingleWorkout(
         regenerationFeedback
       );
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+      const requestMessages = [
+        { role: "system", content: prompt.system },
+        { role: "user", content: prompt.user },
+      ];
 
+      controller = new AbortController();
+      const timeout = setTimeout(() => controller!.abort(), LLM_TIMEOUT_MS);
+      const startedAt = Date.now();
       const llmResponse = await fetch(OPENROUTER_URL, {
         method: "POST",
         headers: {
@@ -901,10 +963,7 @@ export async function generateSingleWorkout(
         },
         body: JSON.stringify({
           model: OPENROUTER_MODEL,
-          messages: [
-            { role: "system", content: prompt.system },
-            { role: "user", content: prompt.user },
-          ],
+          messages: requestMessages,
           response_format: { type: "json_object" },
           temperature: 0.7,
           max_tokens: 2800,
@@ -913,12 +972,23 @@ export async function generateSingleWorkout(
       });
 
       clearTimeout(timeout);
+      const durationMs = Date.now() - startedAt;
 
       if (!llmResponse.ok) {
         const errorBody = await llmResponse.text();
-        throw new Error(
-          `OpenRouter returned ${llmResponse.status}: ${errorBody.slice(0, 200)}`
-        );
+        trace = {
+          status: "api_error",
+          requestMessages,
+          errorMessage: `OpenRouter returned ${llmResponse.status}: ${errorBody.slice(0, 200)}`,
+          durationMs,
+        };
+        await logLlmGeneration(loggingClient, {
+          userId,
+          functionName: functionName,
+          pendingWorkoutId,
+          trace,
+        });
+        throw new Error(trace.errorMessage!);
       }
 
       const llmJson = await llmResponse.json();
@@ -926,10 +996,46 @@ export async function generateSingleWorkout(
       console.log("llmJson.choices", llmJson.choices);
       const msg = llmJson.choices?.[0]?.message;
       const content = msg?.content || msg?.reasoning;
-      if (!content) throw new Error("Empty LLM response");
+
+      if (!content) {
+        trace = {
+          status: "parse_error",
+          requestMessages,
+          rawResponse: llmJson,
+          reasoningContent: msg?.reasoning ?? null,
+          errorMessage: "Empty LLM response",
+          durationMs,
+          promptTokens: llmJson.usage?.prompt_tokens,
+          completionTokens: llmJson.usage?.completion_tokens,
+        };
+        await logLlmGeneration(loggingClient, {
+          userId,
+          functionName: functionName,
+          pendingWorkoutId,
+          trace,
+        });
+        throw new Error("Empty LLM response");
+      }
 
       const parsedContent = JSON.parse(content);
       workoutData = llmResponseSchema.parse(parsedContent);
+
+      trace = {
+        status: "success",
+        requestMessages,
+        rawResponse: llmJson,
+        parsedContent,
+        reasoningContent: msg?.reasoning ?? null,
+        durationMs,
+        promptTokens: llmJson.usage?.prompt_tokens,
+        completionTokens: llmJson.usage?.completion_tokens,
+      };
+      await logLlmGeneration(loggingClient, {
+        userId,
+        functionName: functionName,
+        pendingWorkoutId,
+        trace,
+      });
 
       // Validate exercise IDs and substitute invalid ones
       let hasSubstitutions = false;
@@ -947,10 +1053,22 @@ export async function generateSingleWorkout(
       }
       if (hasSubstitutions) generationSource = "fallback_substitution";
     } catch (err) {
-      console.error(
-        "[generator] LLM generation failed:",
-        err instanceof Error ? err.message : String(err)
-      );
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error("[generator] LLM generation failed:", errorMessage);
+
+      if (!trace) {
+        await logLlmGeneration(loggingClient, {
+          userId,
+          functionName: functionName,
+          pendingWorkoutId,
+          trace: {
+            status: controller?.signal.aborted ? "timeout" : "parse_error",
+            requestMessages: [],
+            errorMessage,
+          },
+        });
+      }
+
       workoutData = buildFallbackWorkout(
         catalog,
         trainingSplit,
