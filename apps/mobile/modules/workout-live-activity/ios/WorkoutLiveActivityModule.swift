@@ -83,6 +83,11 @@ public class WorkoutLiveActivityModule: Module {
     let workoutName = dict["workoutName"] as? String ?? ""
     let currentSetNumber = Self.intFromDict(dict, key: "currentSetNumber") ?? 1
     let totalSets = max(1, Self.intFromDict(dict, key: "totalSets") ?? 1)
+    let completedSets = max(0, Self.intFromDict(dict, key: "completedSets") ?? 0)
+    let totalWorkoutSets = max(
+      1,
+      Self.intFromDict(dict, key: "totalWorkoutSets") ?? totalSets
+    )
     let isWorkoutComplete = dict["isWorkoutComplete"] as? Bool ?? false
 
     var restStartedAt: Date?
@@ -102,6 +107,8 @@ public class WorkoutLiveActivityModule: Module {
       setId: setId,
       currentSetNumber: currentSetNumber,
       totalSets: totalSets,
+      completedSets: completedSets,
+      totalWorkoutSets: totalWorkoutSets,
       workoutName: workoutName,
       workoutStartedAt: workoutStartedAt,
       isWorkoutComplete: isWorkoutComplete,

@@ -30,6 +30,7 @@ struct SweatyLiveActivityWidget: Widget {
         MinimalView(state: context.state)
       }
       .widgetURL(workoutURL(for: context.attributes))
+      .keylineTint(Color("widgetAccent"))
     }
   }
 }
@@ -79,7 +80,7 @@ private struct LockScreenView: View {
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 14)
-    .activityBackgroundTint(Color(.systemBackground).opacity(0.85))
+    .activityBackgroundTint(Color("widgetAccent").opacity(0.10))
   }
 }
 
@@ -158,7 +159,7 @@ private struct RestModeLockScreen: View {
         Text("RESTING")
           .font(.system(size: 11, weight: .semibold))
           .kerning(0.8)
-          .foregroundColor(.orange)
+          .foregroundColor(Color("widgetAccent"))
 
         Text(timerInterval: rest, countsDown: true)
           .font(.system(size: 36, weight: .bold))
@@ -205,7 +206,7 @@ private struct CompactLeading: View {
         .font(.caption)
     } else if state.activeRest != nil {
       Image(systemName: "timer")
-        .foregroundColor(.orange)
+        .foregroundColor(Color("widgetAccent"))
         .font(.caption)
     } else {
       Image(systemName: "dumbbell.fill")
@@ -226,12 +227,12 @@ private struct CompactTrailing: View {
     } else if let rest = state.activeRest {
       Text(timerInterval: rest, countsDown: true, showsHours: false)
         .font(.caption2.monospacedDigit().weight(.semibold))
-        .foregroundColor(.orange)
+        .foregroundColor(Color("widgetAccent"))
         .frame(minWidth: 36)
     } else {
       Text("\(state.currentSetNumber)/\(state.totalSets)")
         .font(.caption2.monospacedDigit().weight(.semibold))
-        .foregroundColor(.primary)
+        .foregroundColor(Color("widgetAccent"))
     }
   }
 }
@@ -246,11 +247,11 @@ private struct MinimalView: View {
     } else if let rest = state.activeRest {
       Text(timerInterval: rest, countsDown: true, showsHours: false)
         .font(.caption2.monospacedDigit().weight(.bold))
-        .foregroundColor(.orange)
+        .foregroundColor(Color("widgetAccent"))
     } else {
       Text("\(state.currentSetNumber)/\(state.totalSets)")
         .font(.caption2.monospacedDigit().weight(.semibold))
-        .foregroundColor(.primary)
+        .foregroundColor(Color("widgetAccent"))
     }
   }
 }
@@ -273,20 +274,20 @@ private struct ExpandedLeading: View {
       } else if state.activeRest != nil {
         Image(systemName: "timer")
           .font(.caption2)
-          .foregroundColor(.orange)
+          .foregroundColor(Color("widgetAccent"))
         Text("RESTING")
           .font(.caption.weight(.semibold))
           .kerning(0.6)
-          .foregroundColor(.orange)
+          .foregroundColor(Color("widgetAccent"))
       } else {
         Image(systemName: "dumbbell.fill")
           .font(.caption2)
           .foregroundColor(Color("widgetAccent"))
-        Text(state.exerciseName)
+        Text(state.workoutName.isEmpty ? "WORKOUT" : state.workoutName)
           .font(.caption.weight(.semibold))
           .lineLimit(1)
           .minimumScaleFactor(0.8)
-          .foregroundColor(.primary)
+          .foregroundColor(Color("widgetAccent"))
       }
     }
     .padding(.leading, 4)
@@ -297,12 +298,16 @@ private struct ExpandedTrailing: View {
   let state: SweatyWorkoutAttributes.ContentState
 
   var body: some View {
-    Text(timerInterval: state.workoutStartedAt ... .distantFuture, countsDown: false)
-      .font(.caption.monospacedDigit())
-      .foregroundColor(.secondary)
-      .multilineTextAlignment(.trailing)
-      .frame(maxWidth: 80, alignment: .trailing)
-      .padding(.trailing, 4)
+    HStack(spacing: 4) {
+      Image(systemName: "stopwatch.fill")
+        .font(.caption2)
+      Text(timerInterval: state.workoutStartedAt ... .distantFuture, countsDown: false)
+        .font(.caption.monospacedDigit().weight(.medium))
+        .multilineTextAlignment(.trailing)
+    }
+    .foregroundColor(.secondary)
+    .frame(maxWidth: 88, alignment: .trailing)
+    .padding(.trailing, 4)
   }
 }
 
@@ -356,30 +361,40 @@ private struct ActiveSetExpanded: View {
   let state: SweatyWorkoutAttributes.ContentState
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(alignment: .center, spacing: 12) {
-        VStack(alignment: .leading, spacing: 2) {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .center, spacing: 10) {
+        VStack(alignment: .leading, spacing: 3) {
+          Text(state.exerciseName)
+            .font(.system(size: 15, weight: .bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .foregroundColor(.primary)
+
           Text(state.proposalDisplay)
-            .font(.system(size: 22, weight: .bold))
+            .font(.system(size: 21, weight: .bold))
             .monospacedDigit()
             .kerning(-0.3)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .foregroundColor(.primary)
-
-          MetaLine(state: state)
+            .foregroundColor(Color("widgetAccent"))
         }
 
         Spacer(minLength: 8)
 
-        if #available(iOS 18.0, *) {
-          SetDoneButton(
-            exerciseId: state.exerciseId,
-            setId: state.setId,
-            size: 32
-          )
+        VStack(alignment: .trailing, spacing: 5) {
+          SetPill(state: state)
+
+          if #available(iOS 18.0, *) {
+            SetDoneButton(
+              exerciseId: state.exerciseId,
+              setId: state.setId,
+              size: 32
+            )
+          }
         }
       }
+
+      WorkoutProgress(state: state)
     }
   }
 }
@@ -389,13 +404,13 @@ private struct RestModeExpanded: View {
   let rest: ClosedRange<Date>
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 9) {
       HStack(alignment: .center, spacing: 12) {
         Text(timerInterval: rest, countsDown: true)
           .font(.system(size: 30, weight: .bold))
           .monospacedDigit()
           .kerning(-0.8)
-          .foregroundColor(.primary)
+          .foregroundColor(Color("widgetAccent"))
           .lineLimit(1)
           .minimumScaleFactor(0.7)
 
@@ -408,18 +423,32 @@ private struct RestModeExpanded: View {
 
       RestProgressBar(rest: rest)
 
-      HStack(spacing: 4) {
-        Text("UP NEXT")
-          .font(.system(size: 10, weight: .semibold))
-          .kerning(0.6)
-          .foregroundColor(Color.secondary.opacity(0.6))
-        Text(state.proposalDisplay)
-          .font(.caption.weight(.semibold).monospacedDigit())
-          .foregroundColor(.secondary)
-          .lineLimit(1)
-          .minimumScaleFactor(0.85)
-        Spacer(minLength: 0)
+      HStack(alignment: .center, spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
+          Text("UP NEXT")
+            .font(.system(size: 9, weight: .semibold))
+            .kerning(0.7)
+            .foregroundColor(Color("widgetAccent"))
+          Text(state.exerciseName)
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.primary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+        }
+
+        Spacer(minLength: 6)
+
+        VStack(alignment: .trailing, spacing: 2) {
+          SetPill(state: state)
+          Text(state.proposalDisplay)
+            .font(.caption2.weight(.semibold).monospacedDigit())
+            .foregroundColor(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+        }
       }
+
+      WorkoutProgress(state: state)
     }
   }
 }
@@ -477,23 +506,52 @@ private struct ContextStrip: View {
   }
 }
 
-/// Caption line under the hero proposal in the DI expanded view.
-private struct MetaLine: View {
+private struct SetPill: View {
   let state: SweatyWorkoutAttributes.ContentState
 
   var body: some View {
-    let workout = state.workoutName.trimmingCharacters(in: .whitespacesAndNewlines)
-    let label = workout.isEmpty ? "Set \(state.currentSetNumber) of \(state.totalSets)" : workout
-    Text(label)
-      .font(.caption2)
-      .foregroundColor(.secondary)
-      .lineLimit(1)
-      .minimumScaleFactor(0.85)
+    Text("SET \(state.currentSetNumber)/\(state.totalSets)")
+      .font(.system(size: 10, weight: .bold).monospacedDigit())
+      .kerning(0.4)
+      .foregroundColor(Color("widgetAccent"))
+      .padding(.horizontal, 7)
+      .padding(.vertical, 4)
+      .background(
+        Capsule(style: .continuous)
+          .fill(Color("widgetAccent").opacity(0.16))
+      )
+  }
+}
+
+private struct WorkoutProgress: View {
+  let state: SweatyWorkoutAttributes.ContentState
+
+  private var completed: Int {
+    min(max(0, state.completedSets), max(1, state.totalWorkoutSets))
+  }
+
+  private var total: Int {
+    max(1, state.totalWorkoutSets)
+  }
+
+  var body: some View {
+    HStack(spacing: 8) {
+      ProgressView(value: Double(completed), total: Double(total))
+        .progressViewStyle(.linear)
+        .tint(Color("widgetAccent"))
+
+      Text("\(completed)/\(total) SETS")
+        .font(.system(size: 9, weight: .semibold).monospacedDigit())
+        .kerning(0.4)
+        .foregroundColor(.secondary)
+        .fixedSize()
+    }
+    .frame(height: 4)
   }
 }
 
 /// Live progress bar driven by ActivityKit's date-aware ProgressView.
-/// Renders without the default percentage label and tints the fill orange.
+/// Renders without the default percentage label and uses the app accent.
 private struct RestProgressBar: View {
   let rest: ClosedRange<Date>
 
@@ -504,7 +562,7 @@ private struct RestProgressBar: View {
       EmptyView()
     }
     .progressViewStyle(.linear)
-    .tint(.orange)
+    .tint(Color("widgetAccent"))
     .scaleEffect(x: 1, y: 0.6, anchor: .center)
     .frame(height: 4)
   }
@@ -539,7 +597,7 @@ private struct SetDoneButton: View {
 
 @available(iOS 18.0, *)
 private struct SkipRestButton: View {
-  /// `prominent` = filled orange (Lock Screen), `false` = ghost outline (DI).
+  /// `prominent` = filled accent (Lock Screen), `false` = tinted ghost (DI).
   let prominent: Bool
 
   var body: some View {
@@ -553,10 +611,14 @@ private struct SkipRestButton: View {
       .frame(maxWidth: prominent ? .infinity : nil)
       .padding(.vertical, prominent ? 9 : 7)
       .padding(.horizontal, prominent ? 14 : 12)
-      .foregroundColor(prominent ? Color.white : Color.orange)
+      .foregroundColor(prominent ? Color.white : Color("widgetAccent"))
       .background(
         RoundedRectangle(cornerRadius: 999, style: .continuous)
-          .fill(prominent ? Color.orange : Color.orange.opacity(0.16))
+          .fill(
+            prominent
+              ? Color("widgetAccent")
+              : Color("widgetAccent").opacity(0.16)
+          )
       )
       .contentShape(RoundedRectangle(cornerRadius: 999, style: .continuous))
     }
