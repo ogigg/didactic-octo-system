@@ -35,6 +35,7 @@ export function SearchBar({
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
+        autoFocus
         accessibilityLabel={placeholder}
       />
       {showClearButton ? (
@@ -42,7 +43,7 @@ export function SearchBar({
           onPress={onClear}
           accessibilityRole="button"
           accessibilityLabel={clearAccessibilityLabel}
-          hitSlop={8}
+          hitSlop={10}
           style={styles.clearButton}
         >
           <IconSymbol name="xmark" size={16} color={textMuted} />
@@ -69,7 +70,7 @@ const styles = StyleSheet.create({
   clearButton: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 28,
-    minWidth: 28,
+    height: 24,
+    width: 24,
   },
 });
