@@ -68,6 +68,16 @@ const UNIT_OPTIONS: { value: WeightUnit; label: string }[] = [
   { value: "lbs", label: "Pounds (lbs)" },
 ];
 
+/** 0 = Auto (equipment-based defaults). */
+const BASE_STEP_OPTIONS = [0, 1, 1.25, 2, 2.5, 4, 5];
+
+/** 0 = None. Applied on top of the load step (e.g. magnetic micro-plates). */
+const MICRO_STEP_OPTIONS = [0, 0.5, 1, 1.1, 1.25, 2];
+
+function formatKgLabel(value: number, kgTemplate: string): string {
+  return kgTemplate.replace("{{value}}", String(value));
+}
+
 export default function TrainingPreferencesScreen() {
   const { t } = useTranslation("trainingPreferences");
   const router = useRouter();
@@ -76,6 +86,7 @@ export default function TrainingPreferencesScreen() {
   const rebuildQueue = useRebuildQueue();
 
   const textColor = useThemeColor({}, "text");
+  const textSecondaryColor = useThemeColor({}, "textSecondary");
   const background = useThemeColor({}, "background");
   const border = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
@@ -102,6 +113,12 @@ export default function TrainingPreferencesScreen() {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(
     (profile?.weight_unit as WeightUnit) ?? "kg"
   );
+  const [baseStep, setBaseStep] = useState<number>(
+    profile?.weight_increment_kg ?? 0
+  );
+  const [microStep, setMicroStep] = useState<number>(
+    profile?.weight_micro_increment_kg ?? 0
+  );
 
   const splitOptions: { value: TrainingSplit; label: string }[] = [
     { value: "full_body", label: t("trainingSplit.fullBody") },
@@ -116,6 +133,22 @@ export default function TrainingPreferencesScreen() {
     t("promptSuggestions.buildBiggerArms"),
   ];
 
+  const kgTemplate = t("weightIncrements.kg");
+  const baseStepOptions = BASE_STEP_OPTIONS.map((value) => ({
+    value,
+    label:
+      value === 0
+        ? t("weightIncrements.baseStep.auto")
+        : formatKgLabel(value, kgTemplate),
+  }));
+  const microStepOptions = MICRO_STEP_OPTIONS.map((value) => ({
+    value,
+    label:
+      value === 0
+        ? t("weightIncrements.microStep.none")
+        : formatKgLabel(value, kgTemplate),
+  }));
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const prefs = {
@@ -126,6 +159,9 @@ export default function TrainingPreferencesScreen() {
         difficulty_level: difficulty,
         training_custom_prompt: customPrompt.trim() || null,
         weight_unit: weightUnit,
+        weight_increment_kg: baseStep > 0 ? baseStep : null,
+        weight_micro_increment_kg:
+          baseStep > 0 && microStep > 0 ? microStep : null,
       };
       await updateTrainingPreferences(prefs);
       return prefs;
@@ -153,6 +189,12 @@ export default function TrainingPreferencesScreen() {
           ? "training_custom_prompt"
           : null,
         profile?.weight_unit !== prefs.weight_unit ? "weight_unit" : null,
+        profile?.weight_increment_kg !== prefs.weight_increment_kg
+          ? "weight_increment_kg"
+          : null,
+        profile?.weight_micro_increment_kg !== prefs.weight_micro_increment_kg
+          ? "weight_micro_increment_kg"
+          : null,
       ].filter((value): value is string => value !== null);
 
       const onlyUnitChanged =
@@ -203,7 +245,10 @@ export default function TrainingPreferencesScreen() {
       profile?.equipment_level !== equipment ||
       profile?.training_style !== trainingStyle ||
       profile?.difficulty_level !== difficulty ||
-      profile?.training_custom_prompt !== (customPrompt.trim() || null);
+      profile?.training_custom_prompt !== (customPrompt.trim() || null) ||
+      profile?.weight_increment_kg !== (baseStep > 0 ? baseStep : null) ||
+      profile?.weight_micro_increment_kg !==
+        (baseStep > 0 && microStep > 0 ? microStep : null);
 
     if (!trainingFieldsChanged) {
       saveMutation.mutate();
@@ -299,6 +344,42 @@ export default function TrainingPreferencesScreen() {
             layout="scroll"
           />
 
+          {/* Weight Increments */}
+          <SectionTitle
+            title={t("weightIncrements.title")}
+            textColor={textColor}
+          />
+          <Text style={[styles.sectionSubtitle, { color: textSecondaryColor }]}>
+            {t("weightIncrements.subtitle")}
+          </Text>
+          <Text
+            style={[styles.stepLabel, { color: textColor }]}
+            accessibilityRole="header"
+          >
+            {t("weightIncrements.baseStep.title")}
+          </Text>
+          <OptionChips
+            options={baseStepOptions}
+            selected={baseStep}
+            onSelect={(value) => {
+              setBaseStep(value);
+              if (value === 0) setMicroStep(0);
+            }}
+            layout="wrap"
+          />
+          <Text
+            style={[styles.stepLabel, { color: textColor }]}
+            accessibilityRole="header"
+          >
+            {t("weightIncrements.microStep.title")}
+          </Text>
+          <OptionChips
+            options={microStepOptions}
+            selected={microStep}
+            onSelect={setMicroStep}
+            layout="wrap"
+          />
+
           {/* Training Focus */}
           <CustomPromptInput
             value={customPrompt}
@@ -364,6 +445,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing["2xl"],
     paddingBottom: Spacing.md,
+  },
+  sectionSubtitle: {
+    ...Typography.bodyMedium,
+    paddingHorizontal: Spacing.xl,
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  stepLabel: {
+    ...Typography.bodyMedium,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   ctaContainer: {
     paddingHorizontal: Spacing.xl,

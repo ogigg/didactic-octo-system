@@ -88,9 +88,25 @@ const HIGH_RPE_THRESHOLD = 9;
 const TIME_INCREMENT_TOO_EASY = 15;
 const TIME_INCREMENT_OK = 10;
 
+/** Guard against runaway combo lists in getAchievableIncrements. */
+const MAX_BASE_STEPS = 20;
+
+/**
+ * User-configurable load increments, e.g. a pin-loaded machine with 4 kg
+ * steps plus 1.1 kg magnetic micro-plates. Null fields mean "auto".
+ */
+export interface WeightIncrements {
+  base_kg: number | null;
+  micro_kg: number | null;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 function getWeightIncrement(equipment: string[]): number {
   const lowered = equipment.map((e) => e.toLowerCase());
@@ -99,6 +115,54 @@ function getWeightIncrement(equipment: string[]): number {
   if (lowered.some((e) => e === "bodyweight")) return 0;
   // cable, machine, other
   return 1.25;
+}
+
+/**
+ * All positive load deltas reachable with the user's increments:
+ * n × base + m × micro for n >= 1 and every useful m.
+ * E.g. base 4kg + micro 1.1kg → [1.1, 2.2, 3.3, 4, 5.1, 6.2, 7.3, 8, ...]
+ */
+export function getAchievableIncrements(
+  increments: WeightIncrements
+): number[] {
+  const base = increments.base_kg ?? 0;
+  const micro =
+    increments.micro_kg != null && increments.micro_kg > 0
+      ? increments.micro_kg
+      : null;
+  if (base <= 0) return [];
+
+  const maxMicroSteps = micro
+    ? Math.max(0, Math.floor(base / micro - 1e-9))
+    : 0;
+
+  const deltas = new Set<number>();
+  for (let n = 0; n <= MAX_BASE_STEPS; n++) {
+    for (let m = 0; m <= maxMicroSteps; m++) {
+      if (n === 0 && m === 0) continue;
+      deltas.add(round2(n * base + m * (micro ?? 0)));
+    }
+  }
+  return [...deltas].sort((a, b) => a - b);
+}
+
+/**
+ * Smallest reachable delta that is at least minJumpKg; falls back to the
+ * equipment-based default when the user has no custom increments or no
+ * reachable delta satisfies the minimum.
+ */
+export function pickWeightIncrement(
+  equipment: string[],
+  increments: WeightIncrements | null | undefined,
+  minJumpKg: number
+): number {
+  if (increments?.base_kg != null && increments.base_kg > 0) {
+    const match = getAchievableIncrements(increments).find(
+      (delta) => delta >= minJumpKg - 1e-9
+    );
+    if (match != null) return match;
+  }
+  return getWeightIncrement(equipment);
 }
 
 function isBodyweight(equipment: string[]): boolean {
@@ -246,7 +310,8 @@ export function calculateProgression(
   history: ExerciseHistory | null,
   equipment: string[],
   trainingStyle: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  increments?: WeightIncrements | null
 ): ProgressionResult | null {
   if (!history || !history.working_sets?.length) {
     return null; // new exercise — keep LLM suggestion
@@ -310,7 +375,13 @@ export function calculateProgression(
   }
 
   if (history.difficulty_feedback === "too_easy") {
-    const increment = getWeightIncrement(equipment);
+    const defaultIncrement = getWeightIncrement(equipment);
+    // Too easy: jump at least a full base step (or the equipment default).
+    const increment = pickWeightIncrement(
+      equipment,
+      increments,
+      increments?.base_kg ?? defaultIncrement
+    );
     if (isBodyweight(equipment) || increment === 0) {
       return {
         exercise_id: exerciseId,
@@ -336,7 +407,13 @@ export function calculateProgression(
   // Normal progression (feedback = "ok" or null)
   if (worstReps >= range.max) {
     // Top of rep range — bump weight, reset reps
-    const increment = getWeightIncrement(equipment);
+    const defaultIncrement = getWeightIncrement(equipment);
+    // Reps topped out: a smaller step (e.g. a micro-plate) is acceptable.
+    const increment = pickWeightIncrement(
+      equipment,
+      increments,
+      (increments?.base_kg ?? defaultIncrement) / 2
+    );
     if (isBodyweight(equipment) || increment === 0) {
       // Bodyweight: just keep adding reps
       return {

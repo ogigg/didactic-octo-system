@@ -176,6 +176,10 @@ export interface TrainingPreferences {
   difficulty_level: Difficulty;
   training_custom_prompt: string | null;
   weight_unit: "kg" | "lbs";
+  /** Load step in kg (e.g. 4kg machine plates). Null = auto (equipment defaults). */
+  weight_increment_kg?: number | null;
+  /** Optional micro-plate step in kg (e.g. 1.1kg). Null = none. */
+  weight_micro_increment_kg?: number | null;
 }
 
 export async function updateTrainingPreferences(

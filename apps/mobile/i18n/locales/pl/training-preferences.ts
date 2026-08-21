@@ -40,6 +40,20 @@ export const trainingPreferences = {
     intermediate: "Średniozaawansowany",
     advanced: "Zaawansowany",
   },
+  weightIncrements: {
+    title: "Skoki obciążenia",
+    subtitle:
+      "Dopasuj do talerzy lub kręgu na maszynach na Twojej siłowni, żeby progresja używała obciążeń, które faktycznie ustawisz.",
+    baseStep: {
+      title: "Krok obciążenia",
+      auto: "Auto",
+    },
+    microStep: {
+      title: "Dodatkowy mały krok",
+      none: "Brak",
+    },
+    kg: "{{value}} kg",
+  },
   prompt: {
     title: "Cel treningowy",
     subtitle: "Opcjonalnie - pokieruje przyszłymi treningami",

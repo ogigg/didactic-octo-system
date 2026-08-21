@@ -40,6 +40,20 @@ export const trainingPreferences = {
     intermediate: "Intermediate",
     advanced: "Advanced",
   },
+  weightIncrements: {
+    title: "Weight Increments",
+    subtitle:
+      "Match the plates or pin steps on your gym machines so progressions use loads you can actually set.",
+    baseStep: {
+      title: "Load step",
+      auto: "Auto",
+    },
+    microStep: {
+      title: "Extra small step",
+      none: "None",
+    },
+    kg: "{{value}} kg",
+  },
   prompt: {
     title: "Training Focus",
     subtitle: "Optional — guides all your future workouts",

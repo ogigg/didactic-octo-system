@@ -59,6 +59,7 @@ Important columns:
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
 - `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
+- `weight_increment_kg`, `weight_micro_increment_kg`: optional user-configured load steps (e.g. `4` for a pin-loaded machine, `1.1` for magnetic micro-plates). NULL means auto — the progression engine falls back to equipment-based defaults. Reachable increases are combinations of `n × weight_increment_kg + m × weight_micro_increment_kg`; both the progression engine and the LLM prompt use them so suggested loads are always physically settable.
 - `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state
 - `deletion_scheduled_at`: when non-null, the account is scheduled for hard deletion at this timestamp. Signing back in before then clears the flag. A scheduled job (`purge_expired_deletions()`) purges expired rows, which cascades to every user-owned table.
 

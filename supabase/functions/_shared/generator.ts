@@ -196,6 +196,10 @@ export interface ProfileData {
   custom_goal: string | null;
   weekly_frequency: string;
   gender: string | null;
+  /** User-configured load step in kg (e.g. 4kg machine plates). Null = auto. */
+  weight_increment_kg?: number | null;
+  /** Optional micro-plate step in kg (e.g. 1.1kg). Null = none/auto. */
+  weight_micro_increment_kg?: number | null;
 }
 
 export interface HistorySession {
@@ -475,6 +479,44 @@ function formatRegenerationFeedback(feedback: string | undefined): string {
   ].join("\n");
 }
 
+/**
+ * Explains which load jumps are physically reachable for this user so the LLM
+ * never suggests an increase the gym cannot produce (e.g. +0.5kg on a machine
+ * with 4kg steps and 1.1kg micro-plates).
+ */
+export function formatWeightIncrementRule(
+  profile: Pick<
+    ProfileData,
+    "weight_increment_kg" | "weight_micro_increment_kg"
+  >
+): string {
+  const base = profile.weight_increment_kg;
+  if (base == null || base <= 0) {
+    return `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)`;
+  }
+
+  const micro = profile.weight_micro_increment_kg;
+  if (micro != null && micro > 0) {
+    const maxMicroSteps = Math.max(0, Math.floor(base / micro - 1e-9));
+    const examples: string[] = [];
+    for (let n = 1; n <= 2 && examples.length < 6; n++) {
+      for (let m = 0; m <= maxMicroSteps; m++) {
+        examples.push(`+${Math.round((n * base + m * micro) * 100) / 100}kg`);
+      }
+    }
+    return [
+      `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase the load (or +10-15s for time exercises)`,
+      `- The user's gym only allows specific weight jumps: multiples of ${base}kg combined with up to ${maxMicroSteps} × ${micro}kg micro-plates. Reachable increases include ${examples.join(", ")}, and further combinations of these steps.`,
+      `- NEVER suggest a load that is not reachable with these steps (for example +0.5kg or +7kg when they are not listed above).`,
+    ].join("\n");
+  }
+
+  return [
+    `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase the load in steps of exactly ${base}kg (or +10-15s for time exercises)`,
+    `- NEVER suggest a load increase that is not a multiple of ${base}kg.`,
+  ].join("\n");
+}
+
 export function buildPrompt(
   profile: ProfileData,
   trainingSplit: string,
@@ -582,7 +624,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 - Adjust complexity and load for "${difficulty}" level
 - For "${splitLabel}" split, choose an appropriate muscle group focus for today's session
 - Include 1 warmup set per weight exercise (lower weight, higher reps). Time exercises should only include working sets.
-- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)
+${formatWeightIncrementRule(profile)}
 - If feedback was "too_hard", maintain or slightly reduce load/duration
 - For new exercises (no history), use moderate starting weights or durations (20-45s for time exercises)
 - Generate a creative, motivating workout name
@@ -1009,6 +1051,11 @@ export async function generateSingleWorkout(
         historyMap.set(row.exercise_id, row);
       }
 
+      const increments = {
+        base_kg: profile.weight_increment_kg ?? null,
+        micro_kg: profile.weight_micro_increment_kg ?? null,
+      };
+
       for (const ex of enrichedExercises) {
         const hist = historyMap.get(ex.exercise_id);
         const catalogEntry = catalogMap.get(ex.exercise_id);
@@ -1017,7 +1064,9 @@ export async function generateSingleWorkout(
         const result = calculateProgression(
           hist ?? null,
           exEquipment,
-          trainingStyle
+          trainingStyle,
+          new Date(),
+          increments
         );
         if (result) {
           ex.progression_type = result.progression_type;
