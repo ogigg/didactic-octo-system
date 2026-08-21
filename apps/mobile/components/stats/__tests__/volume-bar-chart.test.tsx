@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import { VolumeBarChart } from "../volume-bar-chart";
 
@@ -60,5 +60,36 @@ describe("VolumeBarChart", () => {
 
     expect(screen.getByText(/Total/)).toBeTruthy();
     expect(screen.getAllByText("120kg")).toHaveLength(2);
+  });
+
+  it("shows details on hover and toggles them on press", () => {
+    render(
+      <VolumeBarChart
+        data={[{ week_start: "2026-06-01", volume_kg: 120 }]}
+        getTooltip={() => ({
+          title: "Week of Jun 1, 2026",
+          accessibilityLabel: "Week of Jun 1, Volume: 120kg",
+          metrics: [
+            { label: "Volume", value: "120kg" },
+            { label: "Max reps", value: "8" },
+          ],
+        })}
+      />
+    );
+
+    const bar = screen.getByLabelText("Week of Jun 1, Volume: 120kg");
+
+    fireEvent(bar, "hoverIn");
+    expect(screen.getByText("Week of Jun 1, 2026")).toBeTruthy();
+
+    fireEvent(bar, "hoverOut");
+    expect(screen.queryByText("Week of Jun 1, 2026")).toBeNull();
+
+    fireEvent.press(bar);
+    expect(screen.getByText("Week of Jun 1, 2026")).toBeTruthy();
+    expect(screen.getByText("Max reps")).toBeTruthy();
+
+    fireEvent.press(bar);
+    expect(screen.queryByText("Week of Jun 1, 2026")).toBeNull();
   });
 });
