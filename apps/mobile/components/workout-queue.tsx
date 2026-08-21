@@ -1,5 +1,11 @@
 import { useCallback } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { WorkoutQueueCard } from "@/components/workout-queue-card";
@@ -24,9 +30,10 @@ import { useRouter } from "expo-router";
 
 interface WorkoutQueueProps {
   queue: PendingWorkout[];
+  isLoading: boolean;
 }
 
-export function WorkoutQueue({ queue }: WorkoutQueueProps) {
+export function WorkoutQueue({ queue, isLoading }: WorkoutQueueProps) {
   const { t } = useTranslation("home");
   const router = useRouter();
 
@@ -106,6 +113,28 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
       trigger: "preference_change",
     });
   }, [profile, rebuildQueue, router]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={[Typography.titleMd, { color: text }]}>
+          {t("workoutQueue.title")}
+        </Text>
+        <View
+          style={styles.loadingContainer}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={t("workoutQueue.loading")}
+          accessibilityState={{ busy: true }}
+        >
+          <ActivityIndicator color={primary} />
+          <Text style={[Typography.body, { color: textMuted }]}>
+            {t("workoutQueue.loading")}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   if (queue.length === 0) {
     if (onboardingDone) {
@@ -212,6 +241,11 @@ const styles = StyleSheet.create({
   },
   cardList: {
     gap: Spacing.md,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing["3xl"],
+    gap: Spacing.sm,
   },
   emptyContainer: {
     alignItems: "center",
