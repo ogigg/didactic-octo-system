@@ -92,13 +92,29 @@ const TIME_INCREMENT_OK = 10;
 const MAX_BASE_STEPS = 20;
 
 /**
- * User-configurable load increments, e.g. a pin-loaded machine with 4 kg
- * steps plus 1.1 kg magnetic micro-plates. Null fields mean "auto".
+ * User-configurable load increments for one equipment category, e.g. a
+ * pin-loaded machine with 4 kg steps plus 1.1 kg magnetic micro-plates.
+ * Null fields mean "auto".
  */
 export interface WeightIncrements {
   base_kg: number | null;
   micro_kg: number | null;
 }
+
+/** Equipment categories users can configure increments for. */
+export const INCREMENT_EQUIPMENT_KEYS = [
+  "barbell",
+  "dumbbell",
+  "machine",
+  "cable",
+] as const;
+
+export type IncrementEquipmentKey = (typeof INCREMENT_EQUIPMENT_KEYS)[number];
+
+/** Per-equipment increment settings, keyed by equipment category. */
+export type WeightIncrementsByEquipment = Partial<
+  Record<IncrementEquipmentKey, WeightIncrements>
+>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,6 +131,21 @@ function getWeightIncrement(equipment: string[]): number {
   if (lowered.some((e) => e === "bodyweight")) return 0;
   // cable, machine, other
   return 1.25;
+}
+
+/**
+ * Maps an exercise's catalog equipment tags to the configurable category.
+ * Returns null for bodyweight/unknown equipment (always auto).
+ */
+export function getIncrementEquipmentKey(
+  equipment: string[]
+): IncrementEquipmentKey | null {
+  const lowered = equipment.map((e) => e.toLowerCase());
+  if (lowered.some((e) => e.includes("barbell"))) return "barbell";
+  if (lowered.some((e) => e.includes("dumbbell"))) return "dumbbell";
+  if (lowered.some((e) => e.includes("machine"))) return "machine";
+  if (lowered.some((e) => e.includes("cable"))) return "cable";
+  return null;
 }
 
 /**
@@ -148,14 +179,16 @@ export function getAchievableIncrements(
 
 /**
  * Smallest reachable delta that is at least minJumpKg; falls back to the
- * equipment-based default when the user has no custom increments or no
- * reachable delta satisfies the minimum.
+ * equipment-based default when the user has no custom increments for this
+ * category or no reachable delta satisfies the minimum.
  */
 export function pickWeightIncrement(
   equipment: string[],
-  increments: WeightIncrements | null | undefined,
+  incrementsByEquipment: WeightIncrementsByEquipment | null | undefined,
   minJumpKg: number
 ): number {
+  const key = getIncrementEquipmentKey(equipment);
+  const increments = key ? incrementsByEquipment?.[key] : undefined;
   if (increments?.base_kg != null && increments.base_kg > 0) {
     const match = getAchievableIncrements(increments).find(
       (delta) => delta >= minJumpKg - 1e-9
@@ -311,7 +344,7 @@ export function calculateProgression(
   equipment: string[],
   trainingStyle: string,
   now: Date = new Date(),
-  increments?: WeightIncrements | null
+  incrementsByEquipment?: WeightIncrementsByEquipment | null
 ): ProgressionResult | null {
   if (!history || !history.working_sets?.length) {
     return null; // new exercise — keep LLM suggestion
@@ -324,6 +357,10 @@ export function calculateProgression(
 
   const exerciseId = history.exercise_id;
   const range = REP_RANGES[trainingStyle] ?? DEFAULT_REP_RANGE;
+  const equipmentKey = getIncrementEquipmentKey(equipment);
+  const configuredBase = equipmentKey
+    ? (incrementsByEquipment?.[equipmentKey]?.base_kg ?? null)
+    : null;
 
   // Filter to completed working sets with valid data
   const completedSets = history.working_sets.filter(
@@ -379,8 +416,8 @@ export function calculateProgression(
     // Too easy: jump at least a full base step (or the equipment default).
     const increment = pickWeightIncrement(
       equipment,
-      increments,
-      increments?.base_kg ?? defaultIncrement
+      incrementsByEquipment,
+      configuredBase ?? defaultIncrement
     );
     if (isBodyweight(equipment) || increment === 0) {
       return {
@@ -411,8 +448,8 @@ export function calculateProgression(
     // Reps topped out: a smaller step (e.g. a micro-plate) is acceptable.
     const increment = pickWeightIncrement(
       equipment,
-      increments,
-      (increments?.base_kg ?? defaultIncrement) / 2
+      incrementsByEquipment,
+      (configuredBase ?? defaultIncrement) / 2
     );
     if (isBodyweight(equipment) || increment === 0) {
       // Bodyweight: just keep adding reps

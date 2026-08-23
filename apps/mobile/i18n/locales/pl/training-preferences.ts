@@ -43,7 +43,13 @@ export const trainingPreferences = {
   weightIncrements: {
     title: "Skoki obciążenia",
     subtitle:
-      "Dopasuj do talerzy lub kręgu na maszynach na Twojej siłowni, żeby progresja używała obciążeń, które faktycznie ustawisz.",
+      "Dopasuj do talerzy lub kręgu na sprzęcie na Twojej siłowni, żeby progresja używała obciążeń, które faktycznie ustawisz.",
+    equipment: {
+      barbell: "Sztanga",
+      dumbbell: "Hantle",
+      machine: "Maszyna",
+      cable: "Wyciąg",
+    },
     baseStep: {
       title: "Krok obciążenia",
       auto: "Auto",

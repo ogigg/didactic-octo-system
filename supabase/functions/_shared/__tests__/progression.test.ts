@@ -2,6 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   calculateProgression,
   getAchievableIncrements,
+  getIncrementEquipmentKey,
   pickWeightIncrement,
   PROGRESSION_REASON_CODES,
   type ExerciseHistory,
@@ -560,10 +561,25 @@ Deno.test("time exercise: holds when stale", () => {
 });
 
 // ---------------------------------------------------------------------------
-// User-configured weight increments
+// User-configured weight increments (per equipment category)
 // ---------------------------------------------------------------------------
 
 const MACHINE_INCREMENTS: WeightIncrements = { base_kg: 4, micro_kg: 1.1 };
+const BARBELL_MICRO_PLATES: WeightIncrements = { base_kg: 2.5, micro_kg: 0.25 };
+
+Deno.test(
+  "getIncrementEquipmentKey maps catalog equipment to categories",
+  () => {
+    assertEquals(getIncrementEquipmentKey(["Machine"]), "machine");
+    assertEquals(getIncrementEquipmentKey(["Barbell"]), "barbell");
+    assertEquals(getIncrementEquipmentKey(["Dumbbells"]), "dumbbell");
+    assertEquals(getIncrementEquipmentKey(["Cable"]), "cable");
+    // barbell wins when both are listed
+    assertEquals(getIncrementEquipmentKey(["Dumbbell", "Barbell"]), "barbell");
+    assertEquals(getIncrementEquipmentKey(["Body weight"]), null);
+    assertEquals(getIncrementEquipmentKey(["band"]), null);
+  }
+);
 
 Deno.test("getAchievableIncrements combines base and micro steps", () => {
   const deltas = getAchievableIncrements(MACHINE_INCREMENTS);
@@ -584,14 +600,34 @@ Deno.test("getAchievableIncrements ignores invalid config", () => {
 });
 
 Deno.test("pickWeightIncrement finds smallest reachable delta", () => {
+  const config = { machine: MACHINE_INCREMENTS };
   // >= 2 → first reachable is 2.2 (two micro-plates)
-  assertEquals(pickWeightIncrement(["machine"], MACHINE_INCREMENTS, 2), 2.2);
+  assertEquals(pickWeightIncrement(["machine"], config, 2), 2.2);
   // >= 4 → a full machine step
-  assertEquals(pickWeightIncrement(["machine"], MACHINE_INCREMENTS, 4), 4);
+  assertEquals(pickWeightIncrement(["machine"], config, 4), 4);
   // >= 5 → step + one micro-plate
-  assertEquals(pickWeightIncrement(["machine"], MACHINE_INCREMENTS, 5), 5.1);
+  assertEquals(pickWeightIncrement(["machine"], config, 5), 5.1);
   // >= 7 → step + three micro-plates
-  assertEquals(pickWeightIncrement(["machine"], MACHINE_INCREMENTS, 7), 7.3);
+  assertEquals(pickWeightIncrement(["machine"], config, 7), 7.3);
+});
+
+Deno.test(
+  "pickWeightIncrement only applies config for matching category",
+  () => {
+    const config = { machine: MACHINE_INCREMENTS };
+    // barbell exercise ignores the machine config → default 2.5
+    assertEquals(pickWeightIncrement(["barbell"], config, 1), 2.5);
+  }
+);
+
+Deno.test("pickWeightIncrement supports small barbell plates (0.25kg)", () => {
+  const config = { barbell: BARBELL_MICRO_PLATES };
+  // >= 1 → four 0.25kg plates give exactly 1kg
+  assertEquals(pickWeightIncrement(["barbell"], config, 1), 1);
+  // a tiny min jump still resolves to a real reachable delta
+  assertEquals(pickWeightIncrement(["barbell"], config, 0.25), 0.25);
+  // >= 3 → step (2.5) + two micro-plates (0.5)
+  assertEquals(pickWeightIncrement(["barbell"], config, 3), 3);
 });
 
 Deno.test(
@@ -599,7 +635,11 @@ Deno.test(
   () => {
     assertEquals(pickWeightIncrement(["machine"], null, 1), 1.25);
     assertEquals(
-      pickWeightIncrement(["barbell"], { base_kg: null, micro_kg: null }, 1),
+      pickWeightIncrement(
+        ["barbell"],
+        { dumbbell: { base_kg: null, micro_kg: null } },
+        1
+      ),
       2.5
     );
   }
@@ -614,10 +654,24 @@ Deno.test("too_easy uses a full configured step (37kg → 41kg)", () => {
     ["machine"],
     "hypertrophy",
     NOW,
-    MACHINE_INCREMENTS
+    { machine: MACHINE_INCREMENTS }
   );
   assertEquals(result?.progression_type, "weight_up");
   assertEquals(result?.target_load_kg, 41); // +4kg machine step
+});
+
+Deno.test("too_easy on barbell uses configured barbell step", () => {
+  const result = calculateProgression(
+    makeHistory({
+      difficulty_feedback: "too_easy",
+      working_sets: [{ load_kg: 60, reps: 10, completed: true }],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW,
+    { barbell: { base_kg: 1.25, micro_kg: 0.25 } }
+  );
+  assertEquals(result?.target_load_kg, 61.25); // +1.25kg small plates
 });
 
 Deno.test(
@@ -630,7 +684,7 @@ Deno.test(
       ["machine"],
       "hypertrophy",
       NOW,
-      MACHINE_INCREMENTS
+      { machine: MACHINE_INCREMENTS }
     );
     assertEquals(result?.progression_type, "weight_up");
     assertEquals(result?.target_load_kg, 42.2); // +2.2kg (two micro-plates)
@@ -645,7 +699,7 @@ Deno.test("configured increments without micro fall back to full steps", () => {
     ["machine"],
     "hypertrophy",
     NOW,
-    { base_kg: 4, micro_kg: null }
+    { machine: { base_kg: 4, micro_kg: null } }
   );
   assertEquals(result?.progression_type, "weight_up");
   assertEquals(result?.target_load_kg, 44); // +4kg
@@ -659,7 +713,7 @@ Deno.test("null increments keep equipment-based defaults", () => {
     ["cable"],
     "hypertrophy",
     NOW,
-    { base_kg: null, micro_kg: null }
+    { cable: { base_kg: null, micro_kg: null } }
   );
   assertEquals(result?.progression_type, "weight_up");
   assertEquals(result?.target_load_kg, 31.25); // +1.25kg default

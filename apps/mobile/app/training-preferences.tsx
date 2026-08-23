@@ -23,6 +23,10 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useProfile } from "@/hooks/use-profile-query";
 import { useRebuildQueue } from "@/hooks/use-workout-queue";
 import { updateTrainingPreferences } from "@/lib/api/profiles";
+import type {
+  IncrementEquipmentKey,
+  WeightIncrementsByEquipment,
+} from "@/lib/api/profiles";
 import { trackEvent } from "@/lib/track-event";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type {
@@ -69,13 +73,54 @@ const UNIT_OPTIONS: { value: WeightUnit; label: string }[] = [
 ];
 
 /** 0 = Auto (equipment-based defaults). */
-const BASE_STEP_OPTIONS = [0, 1, 1.25, 2, 2.5, 4, 5];
+interface EquipmentIncrementConfig {
+  key: IncrementEquipmentKey;
+  baseOptions: number[];
+  microOptions: number[];
+}
 
-/** 0 = None. Applied on top of the load step (e.g. magnetic micro-plates). */
-const MICRO_STEP_OPTIONS = [0, 0.5, 1, 1.1, 1.25, 2];
+const EQUIPMENT_INCREMENT_CONFIGS: EquipmentIncrementConfig[] = [
+  {
+    key: "barbell",
+    baseOptions: [0, 1, 1.25, 2, 2.5, 5],
+    microOptions: [0, 0.25, 0.5, 1, 1.25],
+  },
+  {
+    key: "dumbbell",
+    baseOptions: [0, 1, 2, 2.5, 4, 5],
+    microOptions: [0, 0.5, 1, 1.25],
+  },
+  {
+    key: "machine",
+    baseOptions: [0, 1, 1.25, 2, 2.5, 4, 5],
+    microOptions: [0, 0.5, 1, 1.1, 1.25],
+  },
+  {
+    key: "cable",
+    baseOptions: [0, 1, 1.25, 2, 2.5, 4, 5],
+    microOptions: [0, 0.5, 1, 1.1, 1.25],
+  },
+];
 
 function formatKgLabel(value: number, kgTemplate: string): string {
   return kgTemplate.replace("{{value}}", String(value));
+}
+
+/** Drops empty/auto entries; returns null when nothing is configured. */
+function normalizeIncrements(
+  increments: WeightIncrementsByEquipment
+): WeightIncrementsByEquipment | null {
+  const result: WeightIncrementsByEquipment = {};
+  for (const config of EQUIPMENT_INCREMENT_CONFIGS) {
+    const entry = increments[config.key];
+    if (!entry || entry.base_kg == null || entry.base_kg <= 0) continue;
+    result[config.key] = {
+      base_kg: entry.base_kg,
+      micro_kg:
+        entry.micro_kg != null && entry.micro_kg > 0 ? entry.micro_kg : null,
+    };
+  }
+  return Object.keys(result).length > 0 ? result : null;
 }
 
 export default function TrainingPreferencesScreen() {
@@ -113,11 +158,8 @@ export default function TrainingPreferencesScreen() {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(
     (profile?.weight_unit as WeightUnit) ?? "kg"
   );
-  const [baseStep, setBaseStep] = useState<number>(
-    profile?.weight_increment_kg ?? 0
-  );
-  const [microStep, setMicroStep] = useState<number>(
-    profile?.weight_micro_increment_kg ?? 0
+  const [increments, setIncrements] = useState<WeightIncrementsByEquipment>(
+    profile?.weight_increments ?? {}
   );
 
   const splitOptions: { value: TrainingSplit; label: string }[] = [
@@ -134,20 +176,36 @@ export default function TrainingPreferencesScreen() {
   ];
 
   const kgTemplate = t("weightIncrements.kg");
-  const baseStepOptions = BASE_STEP_OPTIONS.map((value) => ({
-    value,
-    label:
-      value === 0
-        ? t("weightIncrements.baseStep.auto")
-        : formatKgLabel(value, kgTemplate),
-  }));
-  const microStepOptions = MICRO_STEP_OPTIONS.map((value) => ({
-    value,
-    label:
-      value === 0
-        ? t("weightIncrements.microStep.none")
-        : formatKgLabel(value, kgTemplate),
-  }));
+  const equipmentLabels: Record<IncrementEquipmentKey, string> = {
+    barbell: t("weightIncrements.equipment.barbell"),
+    dumbbell: t("weightIncrements.equipment.dumbbell"),
+    machine: t("weightIncrements.equipment.machine"),
+    cable: t("weightIncrements.equipment.cable"),
+  };
+
+  function updateIncrement(
+    key: IncrementEquipmentKey,
+    baseKg: number,
+    microKg: number
+  ) {
+    setIncrements((prev) => {
+      const next = { ...prev };
+      if (baseKg === 0) {
+        delete next[key];
+      } else {
+        next[key] = {
+          base_kg: baseKg,
+          micro_kg: microKg > 0 ? microKg : null,
+        };
+      }
+      return next;
+    });
+  }
+
+  const savedIncrements = normalizeIncrements(profile?.weight_increments ?? {});
+  const pendingIncrements = normalizeIncrements(increments);
+  const incrementsChanged =
+    JSON.stringify(savedIncrements) !== JSON.stringify(pendingIncrements);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -159,9 +217,7 @@ export default function TrainingPreferencesScreen() {
         difficulty_level: difficulty,
         training_custom_prompt: customPrompt.trim() || null,
         weight_unit: weightUnit,
-        weight_increment_kg: baseStep > 0 ? baseStep : null,
-        weight_micro_increment_kg:
-          baseStep > 0 && microStep > 0 ? microStep : null,
+        weight_increments: pendingIncrements,
       };
       await updateTrainingPreferences(prefs);
       return prefs;
@@ -189,12 +245,7 @@ export default function TrainingPreferencesScreen() {
           ? "training_custom_prompt"
           : null,
         profile?.weight_unit !== prefs.weight_unit ? "weight_unit" : null,
-        profile?.weight_increment_kg !== prefs.weight_increment_kg
-          ? "weight_increment_kg"
-          : null,
-        profile?.weight_micro_increment_kg !== prefs.weight_micro_increment_kg
-          ? "weight_micro_increment_kg"
-          : null,
+        incrementsChanged ? "weight_increments" : null,
       ].filter((value): value is string => value !== null);
 
       const onlyUnitChanged =
@@ -246,9 +297,7 @@ export default function TrainingPreferencesScreen() {
       profile?.training_style !== trainingStyle ||
       profile?.difficulty_level !== difficulty ||
       profile?.training_custom_prompt !== (customPrompt.trim() || null) ||
-      profile?.weight_increment_kg !== (baseStep > 0 ? baseStep : null) ||
-      profile?.weight_micro_increment_kg !==
-        (baseStep > 0 && microStep > 0 ? microStep : null);
+      incrementsChanged;
 
     if (!trainingFieldsChanged) {
       saveMutation.mutate();
@@ -352,33 +401,62 @@ export default function TrainingPreferencesScreen() {
           <Text style={[styles.sectionSubtitle, { color: textSecondaryColor }]}>
             {t("weightIncrements.subtitle")}
           </Text>
-          <Text
-            style={[styles.stepLabel, { color: textColor }]}
-            accessibilityRole="header"
-          >
-            {t("weightIncrements.baseStep.title")}
-          </Text>
-          <OptionChips
-            options={baseStepOptions}
-            selected={baseStep}
-            onSelect={(value) => {
-              setBaseStep(value);
-              if (value === 0) setMicroStep(0);
-            }}
-            layout="wrap"
-          />
-          <Text
-            style={[styles.stepLabel, { color: textColor }]}
-            accessibilityRole="header"
-          >
-            {t("weightIncrements.microStep.title")}
-          </Text>
-          <OptionChips
-            options={microStepOptions}
-            selected={microStep}
-            onSelect={setMicroStep}
-            layout="wrap"
-          />
+          {EQUIPMENT_INCREMENT_CONFIGS.map(
+            ({ key, baseOptions, microOptions }) => {
+              const entry = increments[key];
+              const selectedBase = entry?.base_kg ?? 0;
+              const selectedMicro = entry?.micro_kg ?? 0;
+              return (
+                <View key={key}>
+                  <Text
+                    style={[styles.stepLabel, { color: textColor }]}
+                    accessibilityRole="header"
+                  >
+                    {equipmentLabels[key]}
+                  </Text>
+                  <OptionChips
+                    options={baseOptions.map((value) => ({
+                      value,
+                      label:
+                        value === 0
+                          ? t("weightIncrements.baseStep.auto")
+                          : formatKgLabel(value, kgTemplate),
+                    }))}
+                    selected={selectedBase}
+                    onSelect={(value) => updateIncrement(key, value, 0)}
+                    layout="wrap"
+                  />
+                  {selectedBase > 0 ? (
+                    <>
+                      <Text
+                        style={[
+                          styles.microStepLabel,
+                          { color: textSecondaryColor },
+                        ]}
+                        accessibilityRole="header"
+                      >
+                        {t("weightIncrements.microStep.title")}
+                      </Text>
+                      <OptionChips
+                        options={microOptions.map((value) => ({
+                          value,
+                          label:
+                            value === 0
+                              ? t("weightIncrements.microStep.none")
+                              : formatKgLabel(value, kgTemplate),
+                        }))}
+                        selected={selectedMicro}
+                        onSelect={(value) =>
+                          updateIncrement(key, selectedBase, value)
+                        }
+                        layout="wrap"
+                      />
+                    </>
+                  ) : null}
+                </View>
+              );
+            }
+          )}
 
           {/* Training Focus */}
           <CustomPromptInput
@@ -457,6 +535,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  microStepLabel: {
+    ...Typography.caption,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   ctaContainer: {
     paddingHorizontal: Spacing.xl,

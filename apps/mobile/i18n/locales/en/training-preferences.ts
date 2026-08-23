@@ -43,7 +43,13 @@ export const trainingPreferences = {
   weightIncrements: {
     title: "Weight Increments",
     subtitle:
-      "Match the plates or pin steps on your gym machines so progressions use loads you can actually set.",
+      "Match the plates or pin steps on your gym equipment so progressions use loads you can actually set.",
+    equipment: {
+      barbell: "Barbell",
+      dumbbell: "Dumbbell",
+      machine: "Machine",
+      cable: "Cable",
+    },
     baseStep: {
       title: "Load step",
       auto: "Auto",

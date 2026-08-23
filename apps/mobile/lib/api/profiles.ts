@@ -168,6 +168,25 @@ export function mapOnboardingToProfile(
   return profileSchema.parse(mapped) as Omit<ProfilePayload, "id">;
 }
 
+export interface WeightIncrements {
+  base_kg: number | null;
+  micro_kg: number | null;
+}
+
+export const INCREMENT_EQUIPMENT_KEYS = [
+  "barbell",
+  "dumbbell",
+  "machine",
+  "cable",
+] as const;
+
+export type IncrementEquipmentKey = (typeof INCREMENT_EQUIPMENT_KEYS)[number];
+
+/** Per-equipment load steps, keyed by equipment category. */
+export type WeightIncrementsByEquipment = Partial<
+  Record<IncrementEquipmentKey, WeightIncrements>
+>;
+
 export interface TrainingPreferences {
   training_split: TrainingSplit;
   session_duration_minutes: DurationMinutes;
@@ -176,10 +195,8 @@ export interface TrainingPreferences {
   difficulty_level: Difficulty;
   training_custom_prompt: string | null;
   weight_unit: "kg" | "lbs";
-  /** Load step in kg (e.g. 4kg machine plates). Null = auto (equipment defaults). */
-  weight_increment_kg?: number | null;
-  /** Optional micro-plate step in kg (e.g. 1.1kg). Null = none. */
-  weight_micro_increment_kg?: number | null;
+  /** Load steps per equipment category (e.g. 4kg machine plates + 1.1kg micro). Null = auto defaults. */
+  weight_increments?: WeightIncrementsByEquipment | null;
 }
 
 export async function updateTrainingPreferences(

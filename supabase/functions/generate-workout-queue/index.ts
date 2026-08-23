@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
     const { data: profile, error: profileError } = await userClient
       .from("profiles")
       .select(
-        "goal, custom_goal, weekly_frequency, gender, training_split, session_duration_minutes, equipment_level, training_style, difficulty_level, training_custom_prompt, weight_increment_kg, weight_micro_increment_kg"
+        "goal, custom_goal, weekly_frequency, gender, training_split, session_duration_minutes, equipment_level, training_style, difficulty_level, training_custom_prompt, weight_increments"
       )
       .eq("id", user.id)
       .single();

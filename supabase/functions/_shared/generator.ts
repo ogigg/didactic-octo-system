@@ -4,6 +4,9 @@ import {
   calculateProgression,
   type ExerciseHistory,
   formatExerciseDuration,
+  INCREMENT_EQUIPMENT_KEYS,
+  type IncrementEquipmentKey,
+  type WeightIncrementsByEquipment,
 } from "./progression.ts";
 
 // ---------------------------------------------------------------------------
@@ -196,10 +199,11 @@ export interface ProfileData {
   custom_goal: string | null;
   weekly_frequency: string;
   gender: string | null;
-  /** User-configured load step in kg (e.g. 4kg machine plates). Null = auto. */
-  weight_increment_kg?: number | null;
-  /** Optional micro-plate step in kg (e.g. 1.1kg). Null = none/auto. */
-  weight_micro_increment_kg?: number | null;
+  /**
+   * User-configured load steps per equipment category, e.g.
+   * { "machine": { "base_kg": 4, "micro_kg": 1.1 } }. Null = auto.
+   */
+  weight_increments?: WeightIncrementsByEquipment | null;
 }
 
 export interface HistorySession {
@@ -485,35 +489,44 @@ function formatRegenerationFeedback(feedback: string | undefined): string {
  * with 4kg steps and 1.1kg micro-plates).
  */
 export function formatWeightIncrementRule(
-  profile: Pick<
-    ProfileData,
-    "weight_increment_kg" | "weight_micro_increment_kg"
-  >
+  profile: Pick<ProfileData, "weight_increments">
 ): string {
-  const base = profile.weight_increment_kg;
-  if (base == null || base <= 0) {
+  const configured = INCREMENT_EQUIPMENT_KEYS.map((key) => ({
+    key,
+    value: profile.weight_increments?.[key],
+  })).filter(
+    (
+      entry
+    ): entry is {
+      key: IncrementEquipmentKey;
+      value: NonNullable<typeof entry.value>;
+    } => entry.value?.base_kg != null && entry.value.base_kg > 0
+  );
+
+  if (configured.length === 0) {
     return `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)`;
   }
 
-  const micro = profile.weight_micro_increment_kg;
-  if (micro != null && micro > 0) {
-    const maxMicroSteps = Math.max(0, Math.floor(base / micro - 1e-9));
-    const examples: string[] = [];
-    for (let n = 1; n <= 2 && examples.length < 6; n++) {
-      for (let m = 0; m <= maxMicroSteps; m++) {
-        examples.push(`+${Math.round((n * base + m * micro) * 100) / 100}kg`);
+  const categoryRules = configured.map(({ key, value }) => {
+    const base = value.base_kg;
+    const micro = value.micro_kg;
+    if (micro != null && micro > 0) {
+      const maxMicroSteps = Math.max(0, Math.floor(base / micro - 1e-9));
+      const examples: string[] = [];
+      for (let n = 0; n <= 2 && examples.length < 6; n++) {
+        for (let m = n === 0 ? 1 : 0; m <= maxMicroSteps; m++) {
+          examples.push(`+${Math.round((n * base + m * micro) * 100) / 100}kg`);
+        }
       }
+      return `- ${key} exercises: only jumps of multiples of ${base}kg combined with up to ${maxMicroSteps} × ${micro}kg micro-plates are reachable. Reachable increases include ${examples.join(", ")}, and further combinations of these steps.`;
     }
-    return [
-      `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase the load (or +10-15s for time exercises)`,
-      `- The user's gym only allows specific weight jumps: multiples of ${base}kg combined with up to ${maxMicroSteps} × ${micro}kg micro-plates. Reachable increases include ${examples.join(", ")}, and further combinations of these steps.`,
-      `- NEVER suggest a load that is not reachable with these steps (for example +0.5kg or +7kg when they are not listed above).`,
-    ].join("\n");
-  }
+    return `- ${key} exercises: only jumps that are exact multiples of ${base}kg are reachable.`;
+  });
 
   return [
-    `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase the load in steps of exactly ${base}kg (or +10-15s for time exercises)`,
-    `- NEVER suggest a load increase that is not a multiple of ${base}kg.`,
+    `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase the load (or +10-15s for time exercises)`,
+    ...categoryRules,
+    `- NEVER suggest a load increase that is not reachable with the steps listed above.`,
   ].join("\n");
 }
 
@@ -1051,10 +1064,7 @@ export async function generateSingleWorkout(
         historyMap.set(row.exercise_id, row);
       }
 
-      const increments = {
-        base_kg: profile.weight_increment_kg ?? null,
-        micro_kg: profile.weight_micro_increment_kg ?? null,
-      };
+      const increments = profile.weight_increments ?? {};
 
       for (const ex of enrichedExercises) {
         const hist = historyMap.get(ex.exercise_id);

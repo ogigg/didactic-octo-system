@@ -31,8 +31,15 @@ const profileSchema = z.object({
   difficulty_level: z.enum(["beginner", "intermediate", "advanced"]).nullable(),
   training_custom_prompt: z.string().nullable(),
   training_setup_completed: z.boolean(),
-  weight_increment_kg: z.number().nullable(),
-  weight_micro_increment_kg: z.number().nullable(),
+  weight_increments: z
+    .record(
+      z.enum(["barbell", "dumbbell", "machine", "cable"]),
+      z.object({
+        base_kg: z.number().nullable(),
+        micro_kg: z.number().nullable(),
+      })
+    )
+    .nullable(),
   weight_unit: z.enum(["kg", "lbs"]).default("kg"),
   subscription_tier: z.enum(["free", "pro"]).default("free"),
   subscription_expires_at: z.string().nullable(),
