@@ -1,20 +1,27 @@
-import { useThemeColor } from "@/hooks/use-theme-color";
-import { Radii, Spacing, Typography } from "@/constants/theme";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
+  AppBottomSheet,
+  type AppBottomSheetHandle,
+} from "@/components/ui/app-bottom-sheet";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import { Spacing, Typography } from "@/constants/theme";
+import { useCallback, useRef } from "react";
+import {
+  ActivityIndicator,
   FlatList,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useCallback } from "react";
 
 interface FilterSheetProps {
   visible: boolean;
   onClose: () => void;
   title: string;
+  closeAccessibilityLabel: string;
+  loadingLabel: string;
+  isLoading?: boolean;
   options: readonly string[];
   selected: string[];
   displayLabels?: ReadonlyMap<string, string>;
@@ -25,16 +32,19 @@ export function FilterSheet({
   visible,
   onClose,
   title,
+  closeAccessibilityLabel,
+  loadingLabel,
+  isLoading = false,
   options,
   selected,
   displayLabels,
   onToggle,
 }: FilterSheetProps) {
-  const background = useThemeColor({}, "backgroundElevated");
+  const sheetRef = useRef<AppBottomSheetHandle>(null);
   const textColor = useThemeColor({}, "text");
+  const textMuted = useThemeColor({}, "textMuted");
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
-  const textMuted = useThemeColor({}, "textMuted");
 
   const renderItem = useCallback(
     ({ item }: { item: string }) => {
@@ -50,7 +60,7 @@ export function FilterSheet({
         >
           <Text
             style={[
-              Typography.titleSm,
+              Typography.body,
               { color: isSelected ? primary : textColor },
             ]}
           >
@@ -68,63 +78,56 @@ export function FilterSheet({
   const keyExtractor = useCallback((item: string) => item, []);
 
   return (
-    <Modal
+    <AppBottomSheet
+      ref={sheetRef}
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      closeAccessibilityLabel={closeAccessibilityLabel}
+      testID="filter-sheet"
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <View
-          style={[styles.sheet, { backgroundColor: background }]}
-          onStartShouldSetResponder={() => true}
-        >
-          <View style={[styles.handle, { backgroundColor: textMuted }]} />
-          <Text
-            style={[Typography.titleMd, { color: textColor }, styles.title]}
-          >
-            {title}
-          </Text>
+      <View style={styles.container}>
+        <Text style={[Typography.titleMd, { color: textColor }, styles.title]}>
+          {title}
+        </Text>
+        {isLoading ? (
+          <View style={styles.stateContainer}>
+            <ActivityIndicator color={primary} />
+            <Text
+              style={[Typography.body, styles.stateText, { color: textMuted }]}
+            >
+              {loadingLabel}
+            </Text>
+          </View>
+        ) : (
           <FlatList
             data={options as unknown as string[]}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            style={styles.list}
             bounces={false}
           />
-        </View>
-      </Pressable>
-    </Modal>
+        )}
+      </View>
+    </AppBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    borderTopLeftRadius: Radii.lg,
-    borderTopRightRadius: Radii.lg,
+  container: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing["4xl"],
-    paddingTop: Spacing.md,
-    maxHeight: "70%",
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: Radii.full,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   title: {
     textAlign: "center",
     marginBottom: Spacing.lg,
   },
-  list: {
-    flexGrow: 0,
+  stateContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing["3xl"],
+  },
+  stateText: {
+    textAlign: "center",
   },
   option: {
     flexDirection: "row",

@@ -18,6 +18,8 @@ export const exercisePicker = {
     musclesSelected_one: "{{count}} Muscle",
     musclesSelected_other: "{{count}} Muscles",
     muscleSheetTitle: "Muscle Group",
+    closeSheet: "Close",
+    loadingOptions: "Loading filters...",
   },
   sections: {
     suggested: "Suggested",

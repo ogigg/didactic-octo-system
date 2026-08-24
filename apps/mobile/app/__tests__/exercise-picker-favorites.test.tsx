@@ -2,6 +2,34 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
+jest.mock("@/hooks/use-theme-color", () => ({
+  useThemeColor: jest.fn(() => "#000000"),
+}));
+
+jest.mock("react-native-reanimated", () => {
+  const Reanimated = require("react-native-reanimated/mock");
+  Reanimated.useReducedMotion = jest.fn(() => true);
+  return Reanimated;
+});
+
+jest.mock("react-native-gesture-handler", () => {
+  const { View } = require("react-native");
+  const mockGesture = {
+    onChange: jest.fn(),
+    onEnd: jest.fn(),
+  };
+  mockGesture.onChange.mockReturnValue(mockGesture);
+  mockGesture.onEnd.mockReturnValue(mockGesture);
+
+  return {
+    GestureHandlerRootView: View,
+    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+    Gesture: {
+      Pan: jest.fn(() => mockGesture),
+    },
+  };
+});
+
 jest.mock("expo-router", () => ({
   useRouter: jest.fn(() => ({ back: jest.fn() })),
   useLocalSearchParams: jest.fn(() => ({ mode: "add" })),

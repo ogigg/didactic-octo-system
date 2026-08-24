@@ -22,6 +22,8 @@ export const exercisePicker = {
     musclesSelected_many: "{{count}} mięśni",
     musclesSelected_other: "{{count}} mięśnia",
     muscleSheetTitle: "Grupa mięśniowa",
+    closeSheet: "Zamknij",
+    loadingOptions: "Wczytywanie filtrów...",
   },
   sections: {
     suggested: "Sugerowane",
