@@ -2,8 +2,10 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import {
   calculateProgression,
+  getPrimaryHistoryLoadKg,
   type ExerciseHistory,
   formatExerciseDuration,
+  suggestInitialLoadKg,
 } from "./progression.ts";
 
 // ---------------------------------------------------------------------------
@@ -342,6 +344,183 @@ function formatBaselines(baselines: StrengthBaseline[]): string {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: Initial Load Validation (new exercises)
+// ---------------------------------------------------------------------------
+
+/** Maps strength-baseline keys to the primary muscles they anchor. */
+const BASELINE_MUSCLES: Record<string, string[]> = {
+  pushups: ["Pectoralis major", "Triceps brachii"],
+  pullups: ["Latissimus dorsi", "Biceps brachii"],
+  db_bench: ["Pectoralis major", "Anterior deltoid"],
+  db_row: ["Latissimus dorsi", "Trapezius"],
+  bb_bench: ["Pectoralis major", "Anterior deltoid"],
+  bb_squat: ["Quadriceps", "Gluteus maximus"],
+  deadlift: ["Erector spinae", "Hamstrings", "Gluteus maximus"],
+};
+
+function findBaselineAnchorLoadKg(
+  catalogEntry: ExerciseCatalogEntry,
+  baselines: StrengthBaseline[]
+): number | null {
+  let bestLoadKg: number | null = null;
+  let bestOverlap = 0;
+  for (const baseline of baselines) {
+    if (!baseline.load_kg || baseline.load_kg <= 0) continue;
+    const overlap = (BASELINE_MUSCLES[baseline.exercise_key] ?? []).filter(
+      (muscle) => catalogEntry.primary_muscles.includes(muscle)
+    ).length;
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestLoadKg = baseline.load_kg;
+    }
+  }
+  return bestOverlap > 0 ? bestLoadKg : null;
+}
+
+function findSimilarExerciseHistory(
+  catalogEntry: ExerciseCatalogEntry,
+  catalogById: Map<string, ExerciseCatalogEntry>,
+  historyByExerciseId: Map<string, ExerciseHistory>,
+  excludeExerciseId: string
+): ExerciseHistory | null {
+  let bestHistory: ExerciseHistory | null = null;
+  let bestOverlap = 0;
+
+  for (const [exerciseId, history] of historyByExerciseId) {
+    if (exerciseId === excludeExerciseId) continue;
+    if (getPrimaryHistoryLoadKg(history) == null) continue;
+
+    const entry = catalogById.get(exerciseId);
+    if (!entry) continue;
+
+    const overlap = entry.primary_muscles.filter((muscle) =>
+      catalogEntry.primary_muscles.includes(muscle)
+    ).length;
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestHistory = history;
+    }
+  }
+  return bestHistory;
+}
+
+function roundToIncrement(kg: number, equipment: string[]): number {
+  const increments: Record<string, number> = {
+    barbell: 2.5,
+    dumbbell: 2,
+    default: 1.25,
+  };
+  const lowered = equipment.map((e) => e.toLowerCase());
+  const increment = lowered.some((e) => e.includes("barbell"))
+    ? increments.barbell
+    : lowered.some((e) => e.includes("dumbbell"))
+      ? increments.dumbbell
+      : increments.default;
+  return Math.floor(kg / increment) * increment;
+}
+
+export interface LoadValidationTarget {
+  exercise_id: string;
+  exercise_type: "weight" | "time";
+  sets: {
+    set_type: "warmup" | "working";
+    target_load_kg?: number;
+    target_reps?: number;
+    target_duration_seconds?: number;
+  }[];
+}
+
+/**
+ * Backend safety net for exercises the user has never trained.
+ *
+ * The LLM proposes initial loads; this pass rejects invalid ones
+ * (missing, zero, negative) on working sets and replaces them with a
+ * deterministic suggestion from suggestInitialLoadKg. Warmup sets get
+ * roughly half the working load. Exercises with progression history are
+ * left untouched — calculateProgression already owns those numbers.
+ *
+ * Returns the number of sets corrected.
+ */
+export function validateAndCorrectLoads(params: {
+  exercises: LoadValidationTarget[];
+  catalogById: Map<string, ExerciseCatalogEntry>;
+  historyByExerciseId: Map<string, ExerciseHistory>;
+  strengthBaselines: StrengthBaseline[];
+  trainingStyle: string;
+}): number {
+  let correctedSets = 0;
+
+  for (const exercise of params.exercises) {
+    if (exercise.exercise_type !== "weight") continue;
+
+    const catalogEntry = params.catalogById.get(exercise.exercise_id);
+    if (!catalogEntry) continue;
+
+    const equipment = catalogEntry.equipment;
+    const isBodyweightOnly =
+      equipment.length > 0 &&
+      equipment.every((e) => {
+        const lowered = e.toLowerCase();
+        return lowered === "bodyweight" || lowered === "body weight";
+      });
+    // Bodyweight exercises legitimately carry no external load.
+    if (isBodyweightOnly) continue;
+
+    const history =
+      params.historyByExerciseId.get(exercise.exercise_id) ?? null;
+    // Exercises with resolvable progression already have deterministic loads.
+    if (
+      calculateProgression(history, equipment, params.trainingStyle) !== null
+    ) {
+      continue;
+    }
+
+    const needsCorrection = exercise.sets.filter(
+      (set) =>
+        set.set_type === "working" &&
+        (set.target_load_kg == null || set.target_load_kg <= 0)
+    );
+    if (needsCorrection.length === 0) continue;
+
+    const similarHistory = findSimilarExerciseHistory(
+      catalogEntry,
+      params.catalogById,
+      params.historyByExerciseId,
+      exercise.exercise_id
+    );
+    const baselineLoadKg = findBaselineAnchorLoadKg(
+      catalogEntry,
+      params.strengthBaselines
+    );
+
+    const suggestedLoadKg = suggestInitialLoadKg({
+      equipment,
+      similarExerciseHistory: similarHistory,
+      baselineLoadKg,
+    });
+
+    for (const set of needsCorrection) {
+      set.target_load_kg = suggestedLoadKg;
+      correctedSets++;
+    }
+
+    const workingLoadKg = suggestedLoadKg;
+    const warmupLoadKg = Math.max(
+      0,
+      roundToIncrement(workingLoadKg * 0.5, equipment)
+    );
+    for (const set of exercise.sets) {
+      if (set.set_type === "warmup" && (set.target_load_kg ?? 0) <= 0) {
+        set.target_load_kg = warmupLoadKg;
+        correctedSets++;
+      }
+    }
+  }
+
+  return correctedSets;
+}
+
+// ---------------------------------------------------------------------------
 // Helper: Format Queue Context for Prompt
 // ---------------------------------------------------------------------------
 
@@ -521,7 +700,7 @@ Response JSON schema:
         {
           "set_type": "warmup | working",
           // For weight exercises (Type: weight):
-          "target_load_kg": "number — weight in kg",
+          "target_load_kg": "number — weight in kg, must be greater than 0",
           "target_reps": "number — target repetitions",
           // For time exercises (Type: time), use instead:
           "target_duration_seconds": "number — hold duration in seconds"
@@ -584,7 +763,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 - Include 1 warmup set per weight exercise (lower weight, higher reps). Time exercises should only include working sets.
 - Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)
 - If feedback was "too_hard", maintain or slightly reduce load/duration
-- For new exercises (no history), use moderate starting weights or durations (20-45s for time exercises)
+- For new exercises (no history), every weight-exercise set MUST have a target_load_kg greater than 0 — pick a moderate starting weight (use the user's strength levels as reference). Time exercises use moderate durations (20-45s). Never output 0 kg.
 - Generate a creative, motivating workout name
 - Explain why the chosen muscle groups and each exercise fit today's plan using concise user-facing reasoning
 - For time exercises (Type: time), use target_duration_seconds instead of target_load_kg/target_reps
@@ -997,6 +1176,7 @@ export async function generateSingleWorkout(
 
   // Apply progressive overload
   const exerciseIds = enrichedExercises.map((ex) => ex.exercise_id);
+  const historyMap = new Map<string, ExerciseHistory>();
   try {
     const { data: progressionHistory } = await supabaseClient.rpc(
       "get_exercise_progression_history",
@@ -1004,47 +1184,69 @@ export async function generateSingleWorkout(
     );
 
     if (progressionHistory?.length) {
-      const historyMap = new Map<string, ExerciseHistory>();
       for (const row of progressionHistory as ExerciseHistory[]) {
         historyMap.set(row.exercise_id, row);
       }
+    }
+  } catch (err) {
+    console.error(
+      "[generator] Progression history fetch failed (non-fatal):",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 
-      for (const ex of enrichedExercises) {
-        const hist = historyMap.get(ex.exercise_id);
-        const catalogEntry = catalogMap.get(ex.exercise_id);
-        const exEquipment = catalogEntry?.equipment ?? [];
+  for (const ex of enrichedExercises) {
+    const hist = historyMap.get(ex.exercise_id);
+    const catalogEntry = catalogMap.get(ex.exercise_id);
+    const exEquipment = catalogEntry?.equipment ?? [];
 
-        const result = calculateProgression(
-          hist ?? null,
-          exEquipment,
-          trainingStyle
-        );
-        if (result) {
-          ex.progression_type = result.progression_type;
-          ex.previous_display = result.previous_display;
+    const result = calculateProgression(
+      hist ?? null,
+      exEquipment,
+      trainingStyle
+    );
+    if (result) {
+      ex.progression_type = result.progression_type;
+      ex.previous_display = result.previous_display;
 
-          // Override working set targets
-          if (result.progression_type !== "new_exercise") {
-            for (const set of ex.sets) {
-              if (set.set_type === "working") {
-                if (result.target_duration_seconds != null) {
-                  set.target_duration_seconds = result.target_duration_seconds;
-                  set.target_load_kg = undefined;
-                  set.target_reps = undefined;
-                } else {
-                  set.target_load_kg = result.target_load_kg ?? 0;
-                  set.target_reps = result.target_reps ?? 1;
-                  set.target_duration_seconds = undefined;
-                }
-              }
+      // Override working set targets
+      if (result.progression_type !== "new_exercise") {
+        for (const set of ex.sets) {
+          if (set.set_type === "working") {
+            if (result.target_duration_seconds != null) {
+              set.target_duration_seconds = result.target_duration_seconds;
+              set.target_load_kg = undefined;
+              set.target_reps = undefined;
+            } else {
+              set.target_load_kg = result.target_load_kg ?? 0;
+              set.target_reps = result.target_reps ?? 1;
+              set.target_duration_seconds = undefined;
             }
           }
         }
       }
     }
+  }
+
+  // Safety net: replace invalid (0/missing) initial loads on new exercises
+  // with deterministic suggestions. Covers both LLM and fallback-template
+  // generation paths.
+  try {
+    const correctedSets = validateAndCorrectLoads({
+      exercises: enrichedExercises,
+      catalogById: catalogMap,
+      historyByExerciseId: historyMap,
+      strengthBaselines: strengthBaselines ?? [],
+      trainingStyle,
+    });
+    if (correctedSets > 0) {
+      console.log(
+        `[generator] Corrected initial loads on ${correctedSets} set(s) for new exercises`
+      );
+    }
   } catch (err) {
     console.error(
-      "[generator] Progression override failed (non-fatal):",
+      "[generator] Initial load validation failed (non-fatal):",
       err instanceof Error ? err.message : String(err)
     );
   }

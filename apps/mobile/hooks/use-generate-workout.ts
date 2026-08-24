@@ -53,14 +53,12 @@ function mapResponseToWorkoutExercises(
         (set, i): WorkoutSet => ({
           id: `set-${ex.exercise_id}-${i}-${Date.now()}`,
           type: set.set_type,
-          kg:
-            set.target_load_kg != null
-              ? String(
-                  Math.round(
-                    convertWeight(set.target_load_kg, weightUnit) * 10
-                  ) / 10
-                )
-              : "",
+          kg: set.target_load_kg
+            ? String(
+                Math.round(convertWeight(set.target_load_kg, weightUnit) * 10) /
+                  10
+              )
+            : "",
           reps: set.target_reps != null ? String(set.target_reps) : "",
           durationSeconds: set.target_duration_seconds ?? null,
           rpe: null,
