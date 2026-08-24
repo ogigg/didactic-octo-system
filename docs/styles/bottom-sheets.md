@@ -2,7 +2,7 @@
 
 > **Document status:** Current standard
 > **Purpose:** Define how modal presentations and bottom sheets are selected, implemented, styled, and tested.
-> **Last reviewed:** 2026-08-18
+> **Last reviewed:** 2026-08-24
 
 This is an arc42 section 8 cross-cutting concept. It applies to every mobile
 feature that presents content above the current screen.
@@ -46,6 +46,8 @@ It owns the behavior that should remain consistent across features:
 - backdrop taps that dismiss a visible keyboard before closing the sheet
 - an imperative `dismiss(afterClose)` API for sequencing actions after the
   closing animation
+- an optional `height` override for compact content that should preserve
+  more tappable backdrop than the default sheet maximum
 
 Feature sheets own only their content, feature state, and callbacks.
 
@@ -138,6 +140,8 @@ to fit on supported screen sizes and does not contain text input.
   borders, spacing, radii, or text colors.
 - Use the shared handle, backdrop, top-corner radius, elevation, maximum height,
   and safe-area behavior from `AppBottomSheet`.
+- Use a smaller `height` for compact selection sheets when the default would
+  leave too little tappable backdrop. Keep long content scrollable inside it.
 - Feature content uses `Spacing.xl` horizontal padding unless an established
   component pattern requires otherwise.
 - Use the typography hierarchy from `.ai/ui-guidelines.md`. A typical sheet has

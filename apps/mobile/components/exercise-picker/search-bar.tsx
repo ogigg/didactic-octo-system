@@ -9,6 +9,7 @@ interface SearchBarProps {
   onClear: () => void;
   placeholder: string;
   clearAccessibilityLabel: string;
+  autoFocus?: boolean;
 }
 
 export function SearchBar({
@@ -17,6 +18,7 @@ export function SearchBar({
   onClear,
   placeholder,
   clearAccessibilityLabel,
+  autoFocus = true,
 }: SearchBarProps) {
   const inputFill = useThemeColor({}, "inputFill");
   const textColor = useThemeColor({}, "text");
@@ -35,7 +37,7 @@ export function SearchBar({
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
-        autoFocus
+        autoFocus={autoFocus}
         accessibilityLabel={placeholder}
       />
       {showClearButton ? (
