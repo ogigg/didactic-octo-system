@@ -93,6 +93,26 @@ describe("AppBottomSheet", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("supports a compact fixed height", () => {
+    render(
+      <SafeAreaProvider initialMetrics={initialMetrics}>
+        <AppBottomSheet
+          visible
+          onClose={jest.fn()}
+          closeAccessibilityLabel="Close sheet"
+          height="72%"
+          testID="compact-sheet"
+        >
+          <Text>Sheet content</Text>
+        </AppBottomSheet>
+      </SafeAreaProvider>
+    );
+
+    expect(screen.getByTestId("compact-sheet")).toHaveStyle({
+      height: "72%",
+    });
+  });
+
   it("dismisses the keyboard before closing from the backdrop", () => {
     const onClose = jest.fn();
     jest.spyOn(Keyboard, "isVisible").mockReturnValue(true);

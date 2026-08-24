@@ -43,6 +43,11 @@ const MAX_SUGGESTIONS = 5;
 // "pending_swap" = swapping exercise in pending workout preview (stores result, no store mutation)
 type PickerMode = "replace" | "add" | "pending_swap";
 
+interface FilterPreview {
+  kind: "muscle" | "equipment";
+  selected: string[];
+}
+
 export default function ExercisePickerScreen() {
   const { t } = useTranslation("exercisePicker");
   const router = useRouter();
@@ -72,6 +77,8 @@ export default function ExercisePickerScreen() {
     filterOptions,
     labelMaps,
     isLoading: isFilterOptionsLoading,
+    isError: isFilterOptionsError,
+    refetch: refetchFilterOptions,
   } = useExerciseFilterOptions();
   const activeExercise = useMemo(
     () =>
@@ -117,6 +124,9 @@ export default function ExercisePickerScreen() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [muscleSheetVisible, setMuscleSheetVisible] = useState(false);
   const [equipmentSheetVisible, setEquipmentSheetVisible] = useState(false);
+  const [filterPreview, setFilterPreview] = useState<FilterPreview | null>(
+    null
+  );
 
   const { data: preferencesMap, isLoading: isPreferencesLoading } =
     useExercisePreferences();
@@ -142,6 +152,53 @@ export default function ExercisePickerScreen() {
   );
   const isLoading =
     isExercisesLoading || (favoritesOnly && isPreferencesLoading);
+
+  const previewFilters = useMemo(
+    () =>
+      filterPreview
+        ? {
+            search: debouncedSearch || undefined,
+            muscles:
+              filterPreview.kind === "muscle"
+                ? filterPreview.selected
+                : selectedMuscles,
+            equipment:
+              filterPreview.kind === "equipment"
+                ? filterPreview.selected
+                : selectedEquipment,
+          }
+        : undefined,
+    [debouncedSearch, filterPreview, selectedEquipment, selectedMuscles]
+  );
+  const { data: previewExercises, isFetching: isPreviewFetching } =
+    useExercises(previewFilters, {
+      enabled: filterPreview != null,
+      staleTime: 60_000,
+    });
+  const previewResultCount = useMemo(() => {
+    if (
+      filterPreview == null ||
+      isPreviewFetching ||
+      (favoritesOnly && isPreferencesLoading) ||
+      !previewExercises
+    ) {
+      return undefined;
+    }
+
+    return previewExercises.filter(
+      (exercise) =>
+        exercise.id !== exerciseId &&
+        (!favoritesOnly || preferredIds.has(exercise.id))
+    ).length;
+  }, [
+    exerciseId,
+    favoritesOnly,
+    filterPreview,
+    isPreferencesLoading,
+    isPreviewFetching,
+    preferredIds,
+    previewExercises,
+  ]);
 
   // Split into suggested + all sections
   const sections = useMemo(() => {
@@ -374,16 +431,29 @@ export default function ExercisePickerScreen() {
     router.back();
   }, [router]);
 
-  const toggleMuscle = useCallback((value: string) => {
-    setSelectedMuscles((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    );
+  const handleClearAllFilters = useCallback(() => {
+    handleClearSearch();
+    setFavoritesOnly(false);
+    setSelectedMuscles([]);
+    setSelectedEquipment([]);
+  }, [handleClearSearch]);
+
+  const handleMuscleDraftChange = useCallback((selected: string[]) => {
+    setFilterPreview({ kind: "muscle", selected });
   }, []);
 
-  const toggleEquipment = useCallback((value: string) => {
-    setSelectedEquipment((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    );
+  const handleEquipmentDraftChange = useCallback((selected: string[]) => {
+    setFilterPreview({ kind: "equipment", selected });
+  }, []);
+
+  const closeMuscleSheet = useCallback(() => {
+    setMuscleSheetVisible(false);
+    setFilterPreview(null);
+  }, []);
+
+  const closeEquipmentSheet = useCallback(() => {
+    setEquipmentSheetVisible(false);
+    setFilterPreview(null);
   }, []);
 
   const renderItem = useCallback(
@@ -491,11 +561,27 @@ export default function ExercisePickerScreen() {
           {/* Filter Pills */}
           <FilterPills
             favoritesOnly={favoritesOnly}
+            searchText={searchText}
             selectedMuscles={selectedMuscles}
             selectedEquipment={selectedEquipment}
+            muscleLabels={labelMaps.muscle}
+            equipmentLabels={labelMaps.equipment}
             onPressFavorites={() => setFavoritesOnly((prev) => !prev)}
             onPressMuscles={() => setMuscleSheetVisible(true)}
             onPressEquipment={() => setEquipmentSheetVisible(true)}
+            onRemoveSearch={handleClearSearch}
+            onRemoveFavorite={() => setFavoritesOnly(false)}
+            onRemoveMuscle={(muscle) =>
+              setSelectedMuscles((current) =>
+                current.filter((item) => item !== muscle)
+              )
+            }
+            onRemoveEquipment={(equipment) =>
+              setSelectedEquipment((current) =>
+                current.filter((item) => item !== equipment)
+              )
+            }
+            onClearAll={handleClearAllFilters}
           />
 
           {/* Exercise List */}
@@ -514,27 +600,32 @@ export default function ExercisePickerScreen() {
           {/* Filter Sheets */}
           <FilterSheet
             visible={muscleSheetVisible}
-            onClose={() => setMuscleSheetVisible(false)}
+            onClose={closeMuscleSheet}
             title={t("filters.muscleSheetTitle")}
-            closeAccessibilityLabel={t("filters.closeSheet")}
-            loadingLabel={t("filters.loadingOptions")}
             isLoading={isFilterOptionsLoading}
+            isError={isFilterOptionsError}
             options={filterOptions.muscles}
             selected={selectedMuscles}
             displayLabels={labelMaps.muscle}
-            onToggle={toggleMuscle}
+            onApply={setSelectedMuscles}
+            onDraftChange={handleMuscleDraftChange}
+            onRetry={() => void refetchFilterOptions()}
+            resultCount={previewResultCount}
           />
           <FilterSheet
             visible={equipmentSheetVisible}
-            onClose={() => setEquipmentSheetVisible(false)}
+            onClose={closeEquipmentSheet}
             title={t("filters.equipmentSheetTitle")}
-            closeAccessibilityLabel={t("filters.closeSheet")}
-            loadingLabel={t("filters.loadingOptions")}
             isLoading={isFilterOptionsLoading}
+            isError={isFilterOptionsError}
             options={filterOptions.equipment}
             selected={selectedEquipment}
             displayLabels={labelMaps.equipment}
-            onToggle={toggleEquipment}
+            onApply={setSelectedEquipment}
+            onDraftChange={handleEquipmentDraftChange}
+            onRetry={() => void refetchFilterOptions()}
+            resultCount={previewResultCount}
+            searchThreshold={15}
           />
         </SafeAreaView>
       </SafeAreaProvider>

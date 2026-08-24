@@ -2,6 +2,34 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, values?: { count?: number }) => {
+      if (key === "filters.selectedCount") {
+        return `${values?.count ?? 0} selected`;
+      }
+      if (key === "filters.showResults") {
+        return `Show ${values?.count ?? 0} exercises`;
+      }
+      return (
+        {
+          "filters.closeSheet": "Close",
+          "filters.applyHint": "Closing discards changes.",
+          "filters.loadingOptions": "Loading filters...",
+          "filters.loadError": "Could not load filters.",
+          "filters.retry": "Try again",
+          "filters.emptyOptions": "No filters are available.",
+          "filters.noMatchingOptions": "No matching equipment.",
+          "filters.reset": "Reset all",
+          "filters.showResultsLoading": "Show exercises",
+          "filters.optionSearchPlaceholder": "Search equipment...",
+          "filters.clearOptionSearch": "Clear equipment search",
+        }[key] ?? key
+      );
+    },
+  }),
+}));
+
 jest.mock("react-native-reanimated", () => {
   const Reanimated = require("react-native-reanimated/mock");
   Reanimated.useReducedMotion = jest.fn(() => true);
@@ -52,64 +80,84 @@ const displayLabels = new Map([
 ]);
 
 function renderSheet(overrides?: Partial<Parameters<typeof FilterSheet>[0]>) {
-  const onToggle = jest.fn();
+  const onApply = jest.fn();
   const onClose = jest.fn();
+  const onDraftChange = jest.fn();
+  const onRetry = jest.fn();
 
-  render(
+  const props = {
+    visible: true,
+    onClose,
+    title: "Muscle Group",
+    options: ["chest", "back"],
+    selected: [],
+    displayLabels,
+    onApply,
+    onDraftChange,
+    onRetry,
+    resultCount: 2,
+    ...overrides,
+  };
+
+  const result = render(
     <SafeAreaProvider initialMetrics={initialMetrics}>
-      <FilterSheet
-        visible
-        onClose={onClose}
-        title="Muscle Group"
-        closeAccessibilityLabel="Close"
-        loadingLabel="Loading filters..."
-        options={["chest", "back"]}
-        selected={[]}
-        displayLabels={displayLabels}
-        onToggle={onToggle}
-        {...overrides}
-      />
+      <FilterSheet {...props} />
     </SafeAreaProvider>
   );
 
-  return { onToggle, onClose };
+  return { ...result, onApply, onClose, onDraftChange, onRetry, props };
 }
 
 describe("FilterSheet", () => {
-  it("renders localized option labels", () => {
+  it("renders localized options and explains the draft state", () => {
     renderSheet();
 
     expect(screen.getByText("Muscle Group")).toBeOnTheScreen();
     expect(screen.getByText("Chest")).toBeOnTheScreen();
     expect(screen.getByText("back")).toBeOnTheScreen();
+    expect(screen.getByText("0 selected")).toBeOnTheScreen();
+    expect(screen.getByText("Closing discards changes.")).toBeOnTheScreen();
   });
 
-  it("toggles an option without closing the sheet", () => {
-    const { onToggle, onClose } = renderSheet();
+  it("keeps changes in a draft until Apply is pressed", () => {
+    const { onApply, onClose } = renderSheet();
 
     fireEvent.press(screen.getByLabelText("Chest"));
-
-    expect(onToggle).toHaveBeenCalledWith("chest");
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it("marks selected options as checked", () => {
-    renderSheet({ selected: ["chest"] });
 
     expect(screen.getByLabelText("Chest")).toHaveAccessibilityState({
       checked: true,
     });
-    expect(screen.getByLabelText("back")).toHaveAccessibilityState({
-      checked: false,
-    });
+    expect(screen.getByText("1 selected")).toBeOnTheScreen();
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole("button", { name: "Show 2 exercises" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onApply).toHaveBeenCalledWith(["chest"]);
   });
 
-  it("exposes the close control through its accessibility label", () => {
-    renderSheet();
+  it("discards draft changes when the backdrop closes the sheet", () => {
+    const { onApply, onClose } = renderSheet();
 
-    expect(
+    fireEvent.press(screen.getByLabelText("Chest"));
+    fireEvent.press(
       screen.getByLabelText("Close", { includeHiddenElements: true })
-    ).toBeOnTheScreen();
+    );
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it("resets the draft before applying", () => {
+    const { onApply } = renderSheet({ selected: ["chest"] });
+
+    expect(screen.getByText("1 selected")).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole("button", { name: "Reset all" }));
+    expect(screen.getByText("0 selected")).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole("button", { name: "Show 2 exercises" }));
+
+    expect(onApply).toHaveBeenCalledWith([]);
   });
 
   it("shows a loading state while options are unavailable", () => {
@@ -117,5 +165,45 @@ describe("FilterSheet", () => {
 
     expect(screen.getByText("Loading filters...")).toBeOnTheScreen();
     expect(screen.queryByLabelText("Chest")).not.toBeOnTheScreen();
+    expect(
+      screen.getByRole("button", { name: "Show 2 exercises" })
+    ).toBeDisabled();
+  });
+
+  it("offers a retry when loading fails", () => {
+    const { onRetry } = renderSheet({ isError: true, options: [] });
+
+    expect(screen.getByText("Could not load filters.")).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a clear empty state", () => {
+    renderSheet({ options: [] });
+
+    expect(screen.getByText("No filters are available.")).toBeOnTheScreen();
+  });
+
+  it("searches long equipment lists without changing the selection", () => {
+    renderSheet({
+      options: [
+        "barbell",
+        ...Array.from({ length: 15 }, (_, index) => `machine-${index}`),
+      ],
+      searchThreshold: 15,
+    });
+
+    fireEvent.changeText(screen.getByLabelText("Search equipment..."), "bar");
+
+    expect(screen.getByText("Barbell")).toBeOnTheScreen();
+    expect(screen.queryByText("machine-1")).not.toBeOnTheScreen();
+  });
+
+  it("previews a filter combination with no matching exercises", () => {
+    renderSheet({ resultCount: 0 });
+
+    expect(
+      screen.getByRole("button", { name: "Show 0 exercises" })
+    ).toBeEnabled();
   });
 });

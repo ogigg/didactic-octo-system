@@ -19,6 +19,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import type { ViewStyle } from "react-native";
 import {
   Gesture,
   GestureDetector,
@@ -43,6 +44,7 @@ interface AppBottomSheetProps extends PropsWithChildren {
   visible: boolean;
   onClose: () => void;
   closeAccessibilityLabel: string;
+  height?: ViewStyle["height"];
   testID?: string;
 }
 
@@ -58,6 +60,7 @@ export const AppBottomSheet = forwardRef<
     visible,
     onClose,
     closeAccessibilityLabel,
+    height,
     testID,
     children,
   }: AppBottomSheetProps,
@@ -198,12 +201,16 @@ export const AppBottomSheet = forwardRef<
               onAccessibilityEscape={() => requestClose()}
               style={[
                 styles.sheet,
+                height != null && { height },
                 { backgroundColor: background },
                 Elevation.md,
                 sheetStyle,
               ]}
             >
-              <SafeAreaView edges={["bottom"]}>
+              <SafeAreaView
+                edges={["bottom"]}
+                style={height != null ? styles.flex : undefined}
+              >
                 <GestureDetector gesture={panGesture}>
                   <Animated.View style={styles.handleArea}>
                     <View

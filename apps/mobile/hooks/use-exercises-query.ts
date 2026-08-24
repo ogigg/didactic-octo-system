@@ -115,10 +115,11 @@ export function useExerciseFilterOptions() {
           error
         );
       }
-      // Fallback for databases where the filter-options RPC is missing or
-      // empty: derive muscle/equipment options from the catalog labels.
-      const labels = await fetchCatalogLabels(language);
-      return labels.filter((label) => label.label_type !== "difficulty");
+      // Keep fallback options aligned with the exercises users can actually
+      // select. Catalog labels also contain retired and secondary-only values.
+      return deriveFilterOptionsFromExercises(
+        await fetchExercises(undefined, language)
+      );
     },
     staleTime: 60_000,
   });
@@ -153,4 +154,31 @@ export function useExerciseFilterOptions() {
     filterOptions: filterOptions.options,
     labelMaps: filterOptions.labelMaps,
   };
+}
+
+function deriveFilterOptionsFromExercises(exercises: Exercise[]) {
+  const muscles = new Map<string, string>();
+  const equipment = new Map<string, string>();
+
+  for (const exercise of exercises) {
+    exercise.primary_muscles.forEach((key, index) => {
+      muscles.set(key, exercise.primary_muscle_labels[index] ?? key);
+    });
+    exercise.equipment.forEach((key, index) => {
+      equipment.set(key, exercise.equipment_labels[index] ?? key);
+    });
+  }
+
+  return [
+    ...[...muscles].map(([label_key, display_name]) => ({
+      label_type: "muscle" as const,
+      label_key,
+      display_name,
+    })),
+    ...[...equipment].map(([label_key, display_name]) => ({
+      label_type: "equipment" as const,
+      label_key,
+      display_name,
+    })),
+  ].sort((a, b) => a.display_name.localeCompare(b.display_name));
 }
