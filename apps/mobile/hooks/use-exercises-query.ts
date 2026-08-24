@@ -102,7 +102,24 @@ export function useExerciseFilterOptions() {
 
   const result = useQuery({
     queryKey: exerciseKeys.filterOptions(language),
-    queryFn: () => fetchExerciseFilterOptions(language),
+    queryFn: async () => {
+      try {
+        const options = await fetchExerciseFilterOptions(language);
+        if (options.length > 0) return options;
+        console.warn(
+          "[exercises] filter options RPC returned no rows, falling back to catalog labels"
+        );
+      } catch (error) {
+        console.warn(
+          "[exercises] filter options RPC failed, falling back to catalog labels:",
+          error
+        );
+      }
+      // Fallback for databases where the filter-options RPC is missing or
+      // empty: derive muscle/equipment options from the catalog labels.
+      const labels = await fetchCatalogLabels(language);
+      return labels.filter((label) => label.label_type !== "difficulty");
+    },
     staleTime: 60_000,
   });
 

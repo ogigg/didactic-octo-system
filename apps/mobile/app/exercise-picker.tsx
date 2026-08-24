@@ -68,7 +68,11 @@ export default function ExercisePickerScreen() {
   const setSwapResult = usePendingSwapStore((s) => s.setResult);
   const { data: profile } = useProfile();
   const weightUnit: WeightUnit = (profile?.weight_unit as WeightUnit) ?? "kg";
-  const { filterOptions, labelMaps } = useExerciseFilterOptions();
+  const {
+    filterOptions,
+    labelMaps,
+    isLoading: isFilterOptionsLoading,
+  } = useExerciseFilterOptions();
   const activeExercise = useMemo(
     () =>
       workoutExercises.find(
@@ -512,6 +516,9 @@ export default function ExercisePickerScreen() {
             visible={muscleSheetVisible}
             onClose={() => setMuscleSheetVisible(false)}
             title={t("filters.muscleSheetTitle")}
+            closeAccessibilityLabel={t("filters.closeSheet")}
+            loadingLabel={t("filters.loadingOptions")}
+            isLoading={isFilterOptionsLoading}
             options={filterOptions.muscles}
             selected={selectedMuscles}
             displayLabels={labelMaps.muscle}
@@ -521,6 +528,9 @@ export default function ExercisePickerScreen() {
             visible={equipmentSheetVisible}
             onClose={() => setEquipmentSheetVisible(false)}
             title={t("filters.equipmentSheetTitle")}
+            closeAccessibilityLabel={t("filters.closeSheet")}
+            loadingLabel={t("filters.loadingOptions")}
+            isLoading={isFilterOptionsLoading}
             options={filterOptions.equipment}
             selected={selectedEquipment}
             displayLabels={labelMaps.equipment}
