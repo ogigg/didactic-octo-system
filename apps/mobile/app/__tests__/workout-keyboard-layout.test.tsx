@@ -140,7 +140,7 @@ describe("WorkoutScreen keyboard layout", () => {
 
   it.each([
     ["ios", "padding", "interactive"],
-    ["android", "height", "on-drag"],
+    ["android", undefined, "on-drag"],
   ] as const)(
     "keeps workout inputs reachable on %s",
     (platform, avoidingBehavior, dismissMode) => {
@@ -165,4 +165,12 @@ describe("WorkoutScreen keyboard layout", () => {
       );
     }
   );
+
+  it("constrains the scroll area to the remaining keyboard space", () => {
+    const { UNSAFE_getByType } = render(<WorkoutScreen />);
+
+    expect(UNSAFE_getByType(ScrollView)).toHaveProp("style", {
+      flex: 1,
+    });
+  });
 });

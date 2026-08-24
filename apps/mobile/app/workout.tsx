@@ -283,7 +283,7 @@ export default function WorkoutScreen() {
           <SafeAreaProvider>
             <KeyboardAvoidingView
               style={styles.safe}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
               <SafeAreaView style={styles.safe}>
                 <WorkoutTopBar
@@ -325,6 +325,7 @@ export default function WorkoutScreen() {
                 <WorkoutTimer />
                 <ScrollView
                   ref={scrollRef}
+                  style={styles.scrollArea}
                   contentContainerStyle={styles.scroll}
                   keyboardShouldPersistTaps="always"
                   keyboardDismissMode={
@@ -446,6 +447,7 @@ export default function WorkoutScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
+  scrollArea: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing["5xl"],
