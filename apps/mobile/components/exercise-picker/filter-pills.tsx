@@ -42,6 +42,7 @@ export function FilterPills({
   const primarySurface = useThemeColor({}, "primarySurface");
   const textColor = useThemeColor({}, "text");
   const primary = useThemeColor({}, "primary");
+  const border = useThemeColor({}, "border");
 
   const musclesActive = selectedMuscles.length > 0;
   const equipmentActive = selectedEquipment.length > 0;
@@ -57,6 +58,14 @@ export function FilterPills({
     ? t("filters.equipmentSelected", { count: selectedEquipment.length })
     : t("filters.allEquipment");
 
+  const pillStyle = (active: boolean) => [
+    styles.pill,
+    {
+      backgroundColor: active ? primarySurface : backgroundSubtle,
+      borderColor: active ? primary : border,
+    },
+  ];
+
   const renderActiveChip = (
     key: string,
     label: string,
@@ -67,7 +76,10 @@ export function FilterPills({
       onPress={onRemove}
       accessibilityRole="button"
       accessibilityLabel={t("filters.removeFilter", { filter: label })}
-      style={[styles.activeChip, { backgroundColor: primarySurface }]}
+      style={[
+        styles.activeChip,
+        { backgroundColor: primarySurface, borderColor: primary },
+      ]}
     >
       <Text
         style={[Typography.caption, styles.activeChipText, { color: primary }]}
@@ -75,31 +87,28 @@ export function FilterPills({
       >
         {label}
       </Text>
-      <IconSymbol name="xmark" size={12} color={primary} />
+      <IconSymbol name="xmark" size={11} color={primary} />
     </Pressable>
   );
 
   return (
     <View>
-      <View style={styles.row}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+        keyboardShouldPersistTaps="handled"
+      >
         <Pressable
           onPress={onPressFavorites}
           accessibilityRole="button"
           accessibilityLabel={favoritesLabel}
           accessibilityState={{ selected: favoritesOnly }}
-          style={[
-            styles.pill,
-            styles.favoritesPill,
-            {
-              backgroundColor: favoritesOnly
-                ? primarySurface
-                : backgroundSubtle,
-            },
-          ]}
+          style={pillStyle(favoritesOnly)}
         >
           <IconSymbol
             name={favoritesOnly ? "heart.fill" : "heart"}
-            size={16}
+            size={15}
             color={favoritesOnly ? primary : textColor}
           />
           <Text
@@ -117,15 +126,7 @@ export function FilterPills({
           accessibilityRole="button"
           accessibilityLabel={equipmentLabel}
           accessibilityState={{ selected: equipmentActive }}
-          style={[
-            styles.pill,
-            styles.flexPill,
-            {
-              backgroundColor: equipmentActive
-                ? primarySurface
-                : backgroundSubtle,
-            },
-          ]}
+          style={pillStyle(equipmentActive)}
         >
           <Text
             style={[
@@ -136,21 +137,18 @@ export function FilterPills({
           >
             {equipmentLabel}
           </Text>
+          <IconSymbol
+            name="chevron.down"
+            size={11}
+            color={equipmentActive ? primary : textColor}
+          />
         </Pressable>
         <Pressable
           onPress={onPressMuscles}
           accessibilityRole="button"
           accessibilityLabel={musclesLabel}
           accessibilityState={{ selected: musclesActive }}
-          style={[
-            styles.pill,
-            styles.flexPill,
-            {
-              backgroundColor: musclesActive
-                ? primarySurface
-                : backgroundSubtle,
-            },
-          ]}
+          style={pillStyle(musclesActive)}
         >
           <Text
             style={[
@@ -161,52 +159,61 @@ export function FilterPills({
           >
             {musclesLabel}
           </Text>
+          <IconSymbol
+            name="chevron.down"
+            size={11}
+            color={musclesActive ? primary : textColor}
+          />
         </Pressable>
-      </View>
+      </ScrollView>
       {hasActiveFilters ? (
-        <View style={styles.activeRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.activeScroll}
-            contentContainerStyle={styles.activeList}
-          >
-            {searchText
-              ? renderActiveChip(
-                  "search",
-                  t("filters.searchChip", { query: searchText }),
-                  onRemoveSearch
-                )
-              : null}
-            {favoritesOnly
-              ? renderActiveChip("favorites", favoritesLabel, onRemoveFavorite)
-              : null}
-            {selectedMuscles.map((muscle) =>
-              renderActiveChip(
-                `muscle:${muscle}`,
-                muscleLabels.get(muscle) ?? muscle,
-                () => onRemoveMuscle(muscle)
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.activeList}
+          keyboardShouldPersistTaps="handled"
+        >
+          {searchText
+            ? renderActiveChip(
+                "search",
+                t("filters.searchChip", { query: searchText }),
+                onRemoveSearch
               )
-            )}
-            {selectedEquipment.map((equipment) =>
-              renderActiveChip(
-                `equipment:${equipment}`,
-                equipmentLabels.get(equipment) ?? equipment,
-                () => onRemoveEquipment(equipment)
-              )
-            )}
-          </ScrollView>
+            : null}
+          {favoritesOnly
+            ? renderActiveChip("favorites", favoritesLabel, onRemoveFavorite)
+            : null}
+          {selectedMuscles.map((muscle) =>
+            renderActiveChip(
+              `muscle:${muscle}`,
+              muscleLabels.get(muscle) ?? muscle,
+              () => onRemoveMuscle(muscle)
+            )
+          )}
+          {selectedEquipment.map((equipment) =>
+            renderActiveChip(
+              `equipment:${equipment}`,
+              equipmentLabels.get(equipment) ?? equipment,
+              () => onRemoveEquipment(equipment)
+            )
+          )}
           <Pressable
             onPress={onClearAll}
             accessibilityRole="button"
             accessibilityLabel={t("filters.clearAll")}
             style={styles.clearAll}
           >
-            <Text style={[Typography.caption, { color: primary }]}>
+            <Text
+              style={[
+                Typography.caption,
+                styles.clearAllText,
+                { color: primary },
+              ]}
+            >
               {t("filters.clearAll")}
             </Text>
           </Pressable>
-        </View>
+        </ScrollView>
       ) : null}
     </View>
   );
@@ -220,44 +227,32 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   pill: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.md,
-    borderRadius: Radii.sm,
-  },
-  favoritesPill: {
     flexDirection: "row",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-  },
-  flexPill: {
-    flex: 1,
-    paddingHorizontal: Spacing.sm,
+    alignItems: "center",
+    gap: Spacing.xs + 2,
+    minHeight: 38,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radii.full,
+    borderWidth: StyleSheet.hairlineWidth * 2,
   },
   pillText: {
-    ...Typography.body,
-    fontWeight: "500",
-  },
-  activeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingBottom: Spacing.sm,
+    ...Typography.bodyMedium,
   },
   activeList: {
-    gap: Spacing.sm,
-    paddingLeft: Spacing.xl,
-  },
-  activeScroll: {
-    flex: 1,
-  },
-  activeChip: {
-    maxWidth: 180,
-    minHeight: 32,
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.sm,
+  },
+  activeChip: {
+    maxWidth: 220,
+    minHeight: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs + 2,
     borderRadius: Radii.full,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.md,
   },
   activeChipText: {
@@ -265,8 +260,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   clearAll: {
-    minHeight: 32,
+    minHeight: 30,
     justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.sm,
+  },
+  clearAllText: {
+    fontWeight: "600",
   },
 });

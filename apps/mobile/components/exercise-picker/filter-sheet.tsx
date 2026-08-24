@@ -58,7 +58,6 @@ export function FilterSheet({
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
   const border = useThemeColor({}, "border");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   useEffect(() => {
     if (!visible) return;
@@ -118,21 +117,31 @@ export function FilterSheet({
             styles.option,
             {
               backgroundColor: isSelected ? primarySurface : "transparent",
-              borderBottomColor: border,
             },
           ]}
         >
           <Text
             style={[
-              Typography.body,
+              isSelected ? Typography.bodyMedium : Typography.body,
+              styles.optionLabel,
               { color: isSelected ? primary : textColor },
             ]}
+            numberOfLines={1}
           >
             {label}
           </Text>
-          {isSelected && (
-            <IconSymbol name="checkmark" size={18} color={primary} />
-          )}
+          <View
+            style={[
+              styles.checkbox,
+              isSelected
+                ? { backgroundColor: primary, borderColor: primary }
+                : { borderColor: border },
+            ]}
+          >
+            {isSelected && (
+              <IconSymbol name="checkmark" size={12} color="#FFFFFF" />
+            )}
+          </View>
         </Pressable>
       );
     },
@@ -160,18 +169,39 @@ export function FilterSheet({
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[Typography.titleMd, { color: textColor }]}>
-            {title}
-          </Text>
-          <View style={[styles.counter, { backgroundColor: backgroundSubtle }]}>
+          <View style={styles.headerText}>
+            <Text style={[Typography.titleMd, { color: textColor }]}>
+              {title}
+            </Text>
             <Text style={[Typography.caption, { color: textMuted }]}>
               {t("filters.selectedCount", { count: draftSelected.length })}
             </Text>
           </View>
+          <Pressable
+            onPress={() => updateDraft([])}
+            disabled={isLoading || isError || draftSelected.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel={t("filters.reset")}
+            accessibilityState={{
+              disabled: isLoading || isError || draftSelected.length === 0,
+            }}
+            style={styles.resetButton}
+          >
+            <Text
+              style={[
+                Typography.bodyMedium,
+                {
+                  color:
+                    draftSelected.length > 0 && !isLoading && !isError
+                      ? primary
+                      : textMuted,
+                },
+              ]}
+            >
+              {t("filters.reset")}
+            </Text>
+          </Pressable>
         </View>
-        <Text style={[Typography.caption, styles.helper, { color: textMuted }]}>
-          {t("filters.applyHint")}
-        </Text>
 
         {showSearch && !isLoading && !isError ? (
           <View style={styles.searchContainer}>
@@ -234,13 +264,6 @@ export function FilterSheet({
 
         <View style={[styles.actions, { borderTopColor: border }]}>
           <Button
-            label={t("filters.reset")}
-            variant="ghost"
-            disabled={isLoading || isError || draftSelected.length === 0}
-            onPress={() => updateDraft([])}
-            style={styles.resetButton}
-          />
-          <Button
             label={
               resultCount == null
                 ? t("filters.showResultsLoading")
@@ -248,7 +271,6 @@ export function FilterSheet({
             }
             disabled={isLoading || isError}
             onPress={handleApply}
-            style={styles.applyButton}
           />
         </View>
       </View>
@@ -266,16 +288,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: Spacing.md,
     paddingHorizontal: Spacing.xl,
-  },
-  counter: {
-    borderRadius: Radii.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
-  helper: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xs,
     paddingBottom: Spacing.lg,
+  },
+  headerText: {
+    flex: 1,
+    gap: Spacing.xs / 2,
+  },
+  resetButton: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingLeft: Spacing.md,
   },
   searchContainer: {
     paddingBottom: Spacing.md,
@@ -305,24 +327,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: Spacing.md,
     minHeight: 48,
-    marginHorizontal: Spacing.xl,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.xs / 2,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.md,
+  },
+  optionLabel: {
+    flexShrink: 1,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: Radii.full,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
     borderTopWidth: 1,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xl,
-  },
-  resetButton: {
-    flex: 1,
-  },
-  applyButton: {
-    flex: 2,
   },
 });

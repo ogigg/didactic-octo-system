@@ -14,7 +14,6 @@ jest.mock("react-i18next", () => ({
       return (
         {
           "filters.closeSheet": "Close",
-          "filters.applyHint": "Closing discards changes.",
           "filters.loadingOptions": "Loading filters...",
           "filters.loadError": "Could not load filters.",
           "filters.retry": "Try again",
@@ -109,14 +108,13 @@ function renderSheet(overrides?: Partial<Parameters<typeof FilterSheet>[0]>) {
 }
 
 describe("FilterSheet", () => {
-  it("renders localized options and explains the draft state", () => {
+  it("renders localized options and the current selection count", () => {
     renderSheet();
 
     expect(screen.getByText("Muscle Group")).toBeOnTheScreen();
     expect(screen.getByText("Chest")).toBeOnTheScreen();
     expect(screen.getByText("back")).toBeOnTheScreen();
     expect(screen.getByText("0 selected")).toBeOnTheScreen();
-    expect(screen.getByText("Closing discards changes.")).toBeOnTheScreen();
   });
 
   it("keeps changes in a draft until Apply is pressed", () => {
