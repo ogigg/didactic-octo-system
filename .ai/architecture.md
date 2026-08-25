@@ -75,6 +75,7 @@ The AI layer exists to generate structured workout outputs, not free-form chat b
 Its responsibilities are:
 
 - receive user context, preferences, and relevant history
+- exclude exercises marked `hard_dislike` in `exercise_preferences` from the generation catalog (prompt, fallback template, and substitution paths)
 - generate workout structure through OpenRouter-backed model calls
 - validate generated output before it is trusted
 - fail safely when responses are invalid or incomplete
