@@ -10,7 +10,7 @@ actor LiveActivityManager {
   /// process, so its registry is the source of truth across JS remounts and
   /// process recreation.
   func start(workoutId: String, state: SweatyWorkoutAttributes.ContentState) async throws -> String {
-    let content = ActivityContent(state: state, staleDate: nil)
+    let content = makeContent(state: state)
     let activities = activeActivities()
 
     // A JS remount can call start again while the existing activity is still
@@ -41,7 +41,7 @@ actor LiveActivityManager {
   }
 
   func update(state: SweatyWorkoutAttributes.ContentState) async {
-    let content = ActivityContent(state: state, staleDate: nil)
+    let content = makeContent(state: state)
     let activities = activeActivities()
 
     // The app process can be recreated while the Live Activity remains active.
@@ -70,6 +70,19 @@ actor LiveActivityManager {
   }
 
   // MARK: - Private
+
+  /// While a rest timer is running, mark the content stale one second after
+  /// the countdown ends. The system re-renders the Live Activity at the stale
+  /// date, letting the widget's date-based guard flip the presentation from
+  /// RESTING to the log-set view even when the app is suspended in the
+  /// background.
+  private func makeContent(state: SweatyWorkoutAttributes.ContentState) -> ActivityContent<SweatyWorkoutAttributes.ContentState> {
+    var staleDate: Date?
+    if !state.isWorkoutComplete, let restEndsAt = state.restEndsAt {
+      staleDate = restEndsAt.addingTimeInterval(1)
+    }
+    return ActivityContent(state: state, staleDate: staleDate)
+  }
 
   private func activeActivities() -> [Activity<SweatyWorkoutAttributes>] {
     Activity<SweatyWorkoutAttributes>.activities
