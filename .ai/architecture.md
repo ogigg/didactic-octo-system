@@ -169,6 +169,16 @@ The important architectural invariant is not a specific sign-in method, but that
 - user data is isolated through row-level security and related backend controls
 - session persistence is secure and resilient enough for a mobile app workflow
 
+Sign-in includes a provider-hint step: when a password sign-in fails with invalid
+credentials, the client calls the `login-provider-hint` edge function, which
+resolves the email's linked OAuth providers and password status through the
+`get_login_provider_hint` `SECURITY DEFINER` RPC over `auth.identities`/`auth.users`.
+If the account is Apple/Google-only, the sign-in screen shows a provider-specific
+hint instead of the generic error. The lookup runs only after a failed password
+attempt and is rate-limited per IP inside the edge function, because the
+unauthenticated response inherently reveals which provider an email uses (the same
+trade-off as common "Continue with SSO" flows).
+
 ## Monitoring And Operational Concerns
 
 Important operational concerns include:

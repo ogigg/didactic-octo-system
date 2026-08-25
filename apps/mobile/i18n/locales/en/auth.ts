@@ -64,6 +64,8 @@ export const auth = {
     passwordTooShort: "Password must be at least 8 characters",
     passwordsMustMatch: "Passwords must match",
     invalidCredentials: "Invalid email or password",
+    ssoAccountHint:
+      "Your account was previously used to log in with {{provider}}. Please continue with {{provider}} using the button below.",
     emailAlreadyInUse: "An account with this email already exists",
     generic: "Something went wrong. Please try again.",
     networkError: "Check your internet connection and try again.",
