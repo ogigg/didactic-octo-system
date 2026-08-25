@@ -28,7 +28,7 @@ jest.mock("react-native-gesture-handler", () => {
 
 import { createRef } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, Text } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppBottomSheet, type AppBottomSheetHandle } from "../app-bottom-sheet";
 
@@ -38,6 +38,16 @@ const initialMetrics = {
 };
 
 describe("AppBottomSheet", () => {
+  const originalOS = Platform.OS;
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalOS,
+    });
+  });
+
   it("dismisses before running a selected action", () => {
     const events: string[] = [];
     const ref = createRef<AppBottomSheetHandle>();
@@ -81,5 +91,77 @@ describe("AppBottomSheet", () => {
     );
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("supports a compact fixed height", () => {
+    render(
+      <SafeAreaProvider initialMetrics={initialMetrics}>
+        <AppBottomSheet
+          visible
+          onClose={jest.fn()}
+          closeAccessibilityLabel="Close sheet"
+          height="72%"
+          testID="compact-sheet"
+        >
+          <Text>Sheet content</Text>
+        </AppBottomSheet>
+      </SafeAreaProvider>
+    );
+
+    expect(screen.getByTestId("compact-sheet")).toHaveStyle({
+      height: "72%",
+    });
+  });
+
+  it("dismisses the keyboard before closing from the backdrop", () => {
+    const onClose = jest.fn();
+    jest.spyOn(Keyboard, "isVisible").mockReturnValue(true);
+    const dismissKeyboard = jest.spyOn(Keyboard, "dismiss");
+
+    render(
+      <SafeAreaProvider initialMetrics={initialMetrics}>
+        <AppBottomSheet
+          visible
+          onClose={onClose}
+          closeAccessibilityLabel="Close sheet"
+        >
+          <Text>Sheet content</Text>
+        </AppBottomSheet>
+      </SafeAreaProvider>
+    );
+
+    fireEvent.press(
+      screen.getByLabelText("Close sheet", { includeHiddenElements: true })
+    );
+
+    expect(dismissKeyboard).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["ios", "padding"],
+    ["android", "height"],
+  ] as const)("avoids the keyboard on %s", (platform, behavior) => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: platform,
+    });
+
+    const { UNSAFE_getByType } = render(
+      <SafeAreaProvider initialMetrics={initialMetrics}>
+        <AppBottomSheet
+          visible
+          onClose={jest.fn()}
+          closeAccessibilityLabel="Close sheet"
+        >
+          <Text>Sheet content</Text>
+        </AppBottomSheet>
+      </SafeAreaProvider>
+    );
+
+    expect(UNSAFE_getByType(KeyboardAvoidingView)).toHaveProp(
+      "behavior",
+      behavior
+    );
   });
 });

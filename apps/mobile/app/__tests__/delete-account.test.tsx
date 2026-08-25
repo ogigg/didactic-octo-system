@@ -78,14 +78,28 @@ beforeEach(() => {
 });
 
 describe("DeleteAccountScreen", () => {
-  it("renders without crashing", () => {
+  it("explains deleted data, retained records, reversibility, and store billing", () => {
     renderScreen();
-    expect(screen.getByText("cta.delete")).toBeTruthy();
+
+    expect(screen.getByText("warning.body")).toBeTruthy();
+    expect(screen.getByText("consequences.items.account")).toBeTruthy();
+    expect(screen.getByText("consequences.items.history")).toBeTruthy();
+    expect(screen.getByText("retention.body")).toBeTruthy();
+    expect(screen.getByText("subscription.body")).toBeTruthy();
+  });
+
+  it("passes the localized back accessibility label to the header", () => {
+    renderScreen();
+    expect(
+      screen.getByRole("button", { name: "accessibility.back" })
+    ).toBeTruthy();
   });
 
   it("keeps the destructive CTA disabled until the user types DELETE", () => {
     renderScreen();
-    const cta = screen.getByRole("button", { name: "cta.delete" });
+    const cta = screen.getByRole("button", {
+      name: "cta.accessibilityLabel",
+    });
     expect(cta.props.accessibilityState?.disabled).toBe(true);
 
     const input = screen.getByLabelText("confirm.ariaLabel");
@@ -101,7 +115,9 @@ describe("DeleteAccountScreen", () => {
     const input = screen.getByLabelText("confirm.ariaLabel");
     fireEvent.changeText(input, "DELETE");
 
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     expect(Haptics.notificationAsync).toHaveBeenCalledWith("warning");
     expect(alertSpy).toHaveBeenCalledWith(
@@ -114,7 +130,9 @@ describe("DeleteAccountScreen", () => {
   it("does not call the API unless the final confirmation is accepted", () => {
     renderScreen();
     fireEvent.changeText(screen.getByLabelText("confirm.ariaLabel"), "DELETE");
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     expect(mockScheduleAccountDeletion).not.toHaveBeenCalled();
   });
@@ -122,7 +140,9 @@ describe("DeleteAccountScreen", () => {
   it("calls scheduleAccountDeletion when the final confirmation is accepted", async () => {
     renderScreen();
     fireEvent.changeText(screen.getByLabelText("confirm.ariaLabel"), "DELETE");
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     // The final-confirm Alert.alert call receives an array of buttons; grab the
     // destructive one and invoke its onPress as if the user tapped it.
@@ -149,7 +169,9 @@ describe("DeleteAccountScreen", () => {
 
     renderScreen();
     fireEvent.changeText(screen.getByLabelText("confirm.ariaLabel"), "DELETE");
-    fireEvent.press(screen.getByRole("button", { name: "cta.delete" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" })
+    );
 
     const lastCall = alertSpy.mock.calls.at(-1);
     const buttons = lastCall?.[2] as { style?: string; onPress?: () => void }[];
@@ -161,6 +183,15 @@ describe("DeleteAccountScreen", () => {
     await waitFor(() => {
       expect(mockSetOptions).toHaveBeenCalledWith({ gestureEnabled: false });
     });
+
+    expect(
+      screen.getByRole("button", { name: "accessibility.back" }).props
+        .accessibilityState?.disabled
+    ).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "cta.accessibilityLabel" }).props
+        .accessibilityState
+    ).toEqual(expect.objectContaining({ busy: true, disabled: true }));
 
     // Resolve the mutation so React Query can settle before the test exits.
     await act(async () => {

@@ -68,3 +68,7 @@ Then in Xcode:
 6. When the archive finishes, use the Organizer window to validate and distribute the build to App Store Connect.
 
 Prefer opening `Sweaty.xcworkspace` instead of `Sweaty.xcodeproj` so CocoaPods dependencies are loaded correctly.
+
+## Publish To TestFlight Via CLI
+
+For the fully automated, command-line-only flow (xcodebuild archive → export → fastlane pilot upload), see [Publishing to TestFlight via CLI](../../docs/skills/publish-to-testflight.md).

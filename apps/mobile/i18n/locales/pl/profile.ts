@@ -24,7 +24,7 @@ export const profile = {
     strengthBaselines: "Siła",
     health: "Zdrowie",
     feedback: "Opinie",
-    deleteAccount: "Usuń konto",
+    accountData: "Konto i dane",
   },
   language: {
     label: "Język",

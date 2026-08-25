@@ -3,21 +3,16 @@ import { Radii, Spacing } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Keyboard,
-  type KeyboardEvent,
-  Platform,
-  Pressable,
-  StyleSheet,
-} from "react-native";
+import { Keyboard, Platform, Pressable, StyleSheet, View } from "react-native";
 
 /**
- * Compact dismiss control aligned to the left edge above the keyboard.
- * Native Next/Done actions remain on the right.
+ * In-flow dismiss control aligned to the left edge above the keyboard.
+ * Its layout row contains the full touch target, so workout inputs cannot sit
+ * underneath it while native Next/Done actions remain available on the right.
  */
 export function KeyboardDismissButton() {
   const { t } = useTranslation("workout");
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const border = useThemeColor({}, "border");
@@ -29,11 +24,11 @@ export function KeyboardDismissButton() {
     const hideEvent =
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
-    const handleShow = (event: KeyboardEvent) => {
-      setKeyboardHeight(event.endCoordinates.height);
+    const handleShow = () => {
+      setKeyboardVisible(true);
     };
     const handleHide = () => {
-      setKeyboardHeight(0);
+      setKeyboardVisible(false);
     };
 
     const showSub = Keyboard.addListener(showEvent, handleShow);
@@ -49,36 +44,39 @@ export function KeyboardDismissButton() {
     Keyboard.dismiss();
   }, []);
 
-  if (keyboardHeight <= 0) {
+  if (!keyboardVisible) {
     return null;
   }
 
   return (
-    <Pressable
-      onPress={handleDismiss}
-      accessibilityRole="button"
-      accessibilityLabel={t("keyboard.dismiss")}
-      hitSlop={8}
-      style={[
-        styles.button,
-        {
-          bottom:
-            Platform.OS === "ios" ? keyboardHeight + Spacing.sm : Spacing.sm,
-          backgroundColor: backgroundElevated,
-          borderColor: border,
-        },
-      ]}
-    >
-      <IconSymbol name="chevron.down" size={24} color={textSecondary} />
-    </Pressable>
+    <View testID="keyboard-dismiss-toolbar" style={styles.toolbar}>
+      <Pressable
+        onPress={handleDismiss}
+        accessibilityRole="button"
+        accessibilityLabel={t("keyboard.dismiss")}
+        hitSlop={8}
+        style={[
+          styles.button,
+          {
+            backgroundColor: backgroundElevated,
+            borderColor: border,
+          },
+        ]}
+      >
+        <IconSymbol name="chevron.down" size={24} color={textSecondary} />
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  toolbar: {
+    height: 60,
+    paddingHorizontal: Spacing.lg,
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
   button: {
-    position: "absolute",
-    left: Spacing.lg,
-    zIndex: 20,
     width: 48,
     height: 44,
     borderRadius: Radii.full,

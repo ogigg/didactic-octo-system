@@ -14,6 +14,16 @@ function collectStrings(value: unknown): string[] {
   return Object.values(value).flatMap(collectStrings);
 }
 
+function collectKeys(value: unknown, prefix = ""): string[] {
+  if (!value || typeof value !== "object") {
+    return prefix ? [prefix] : [];
+  }
+
+  return Object.entries(value).flatMap(([key, nestedValue]) =>
+    collectKeys(nestedValue, prefix ? `${prefix}.${key}` : key)
+  );
+}
+
 describe("Polish locale resources", () => {
   it("preserves Polish diacritics in app copy", () => {
     const strings = collectStrings(resources.pl);
@@ -29,5 +39,22 @@ describe("Polish locale resources", () => {
     expect(resources.pl.profile.stats.trainingsCompleted).toBe(
       "UKOŃCZONE TRENINGI"
     );
+    expect(resources.pl.accountSettings.accessibility.back).toBe("Wróć");
+    expect(resources.pl.deleteAccount.accessibility.back).toBe("Wróć");
+    expect(resources.pl.subscription.screen.backAccessibilityLabel).toBe(
+      "Wróć"
+    );
+    expect(resources.pl.deleteAccount.retention.body).toContain(
+      "dane aplikacji należące do użytkownika"
+    );
+  });
+
+  it("contains every English translation key", () => {
+    const polishKeys = new Set(collectKeys(resources.pl));
+    const missingKeys = collectKeys(resources.en).filter(
+      (key) => !polishKeys.has(key)
+    );
+
+    expect(missingKeys).toEqual([]);
   });
 });

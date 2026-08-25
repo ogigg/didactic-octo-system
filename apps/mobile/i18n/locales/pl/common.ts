@@ -1,4 +1,10 @@
 export const common = {
+  brand: {
+    appName: "Sweaty",
+  },
+  splash: {
+    loadingHint: "Przygotowujemy wszystko…",
+  },
   nav: {
     home: "Start",
     calendar: "Kalendarz",

@@ -67,6 +67,17 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Validate external and AI-generated data with Zod before it drives UI behavior.
 - Optimize for mobile realities: interrupted sessions, offline-sensitive flows, and fast in-workout interactions.
 - The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
+- Account deletion is available through Profile → Account & Data. Active subscribers are warned before continuing and can open the official Apple or Google Play subscription-management destination; if that destination is unavailable, the app tries the platform's official support page and then shows a localized error.
+- Deletion does not cancel store billing. After the 14-day grace period, the implemented purge deletes `auth.users` and cascades through user-owned app data in the database. The repository implements no separate legal/security retention archive; Apple or Google purchase and billing records remain governed by those providers.
+
+### Startup splash
+
+The native Expo splash keeps a static kettlebell visible while JavaScript loads.
+After the React overlay is laid out, `AnimatedSplash` hides the native surface and
+plays the branded exit once authentication initialization finishes. Reduced
+motion skips the decorative animation. Validate native splash changes with a
+fresh iOS or Android development build because Expo Go and hot reload do not
+rebuild launch-screen assets.
 
 ## Testing
 
@@ -129,3 +140,39 @@ find Sweaty under **Available Apps**, and tap **Install**. If it is not listed,
 open `ios/Sweaty.xcworkspace`, select the `SweatyWatch` scheme and the paired
 Watch destination, then run it once from Xcode. The phone bridge keeps the
 latest workout snapshot queued while the companion is installing.
+
+## iOS Live Activity
+
+Active workouts publish an ActivityKit Live Activity on iOS 16.2 and later.
+It appears as a live notification on the Lock Screen and, on supported iPhones,
+in the Dynamic Island. The root application layout owns synchronization so the
+activity remains visible when the phone locks, the app backgrounds, or the user
+navigates away from the workout route. It ends only when the workout store ends
+or clears the active session.
+
+- `modules/workout-live-activity` is the Expo bridge that starts, reconciles,
+  updates, and ends ActivityKit activities.
+- `targets/widget` is the WidgetKit extension for Lock Screen and Dynamic Island
+  presentation.
+- The Dynamic Island uses the app's light/dark blue accent and shows the current
+  or next exercise, set target, per-exercise set position, whole-workout set
+  progress, session elapsed time, and rest countdown when applicable.
+- Interactive set and rest controls require iOS 18; the informational Live
+  Activity surfaces remain available from iOS 16.2.
+- The app and extension share `group.com.ogig.sweaty` for background-safe widget
+  actions.
+
+After changing the native module, ActivityAttributes, widget sources, or target
+configuration, regenerate the disposable iOS project and install pods before
+building:
+
+```bash
+npx expo prebuild -p ios --clean
+cd ios && pod install
+xcodebuild -project Sweaty.xcodeproj -target SweatyWidget \
+  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+```
+
+Because `SweatyWorkoutAttributes.swift` is compiled independently into the app
+and widget targets, its two checked-in copies must remain field-for-field
+identical.

@@ -2,15 +2,16 @@ import { useEffect, useRef } from "react";
 import { AppState, Platform } from "react-native";
 
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
+import { computeSessionStats } from "@/lib/workout-summary-utils";
 import {
   areActivitiesEnabled,
   endActivity,
   startActivity,
   updateActivity,
-} from "../modules/workout-live-activity/src";
-import type { LiveActivityState } from "../modules/workout-live-activity/src";
-import { useWorkoutStore } from "../stores/workout-store";
-import type { WorkoutExercise, WorkoutSet } from "../stores/workout-store";
+} from "@/modules/workout-live-activity/src";
+import type { LiveActivityState } from "@/modules/workout-live-activity/src";
+import { useWorkoutStore } from "@/stores/workout-store";
+import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
 
 // ---------------------------------------------------------------------------
 // Derive the minimal Live Activity state from the workout store
@@ -20,23 +21,49 @@ interface DerivedLiveState {
   exerciseName: string;
   setDisplay: string;
   proposalDisplay: string;
+  /** The occurrence ID is used by widget actions; catalog ID is only used for localization. */
   exerciseId: string;
   setId: string;
   currentSetNumber: number;
   totalSets: number;
+  completedSets: number;
+  totalWorkoutSets: number;
   workoutName: string;
   workoutStartedAtMs: number;
+  isWorkoutComplete: boolean;
   restStartedAtMs: number | null;
   restEndsAtMs: number | null;
 }
 
-function findCurrentSet(exercises: WorkoutExercise[]): {
+interface CurrentSet {
   exercise: WorkoutExercise;
   set: WorkoutSet;
-} | null {
+  setIndex: number;
+}
+
+function findCurrentSet(exercises: WorkoutExercise[]): CurrentSet | null {
   for (const exercise of exercises) {
-    const set = exercise.sets.find((s) => !s.isCompleted);
-    if (set) return { exercise, set };
+    const setIndex = exercise.sets.findIndex((set) => !set.isCompleted);
+    if (setIndex >= 0) {
+      const set = exercise.sets[setIndex];
+      if (set) return { exercise, set, setIndex };
+    }
+  }
+  return null;
+}
+
+/** Return the last meaningful set so a completed workout can publish a terminal state. */
+function findLastSet(exercises: WorkoutExercise[]): CurrentSet | null {
+  for (
+    let exerciseIndex = exercises.length - 1;
+    exerciseIndex >= 0;
+    exerciseIndex -= 1
+  ) {
+    const exercise = exercises[exerciseIndex];
+    if (!exercise || exercise.sets.length === 0) continue;
+    const setIndex = exercise.sets.length - 1;
+    const set = exercise.sets[setIndex];
+    if (set) return { exercise, set, setIndex };
   }
   return null;
 }
@@ -84,33 +111,37 @@ function deriveState(
   if (!startedAtMs) return null;
 
   const current = findCurrentSet(exercises);
-  if (!current) return null;
+  const isWorkoutComplete = current === null;
+  const meaningfulSet = current ?? findLastSet(exercises);
+  if (!meaningfulSet) return null;
 
-  const { exercise, set } = current;
+  const { exercise, set, setIndex } = meaningfulSet;
+  const { completedSets, totalSets: totalWorkoutSets } =
+    computeSessionStats(exercises);
 
   let restStartedAtMs: number | null = null;
   let restEndsAtMs: number | null = null;
-  if (restTimer) {
+  // A terminal state should never render a stale countdown after the final set.
+  if (!isWorkoutComplete && restTimer) {
     if (restTimer.pausedRemainingSeconds === undefined) {
       restStartedAtMs = restTimer.startedAtMs;
       restEndsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
     }
   }
 
-  const idx = exercise.sets.findIndex((s) => s.id === set.id);
-  const currentSetNumber = idx >= 0 ? idx + 1 : 1;
-  const totalSets = Math.max(1, exercise.sets.length);
-
   return {
     exerciseName: localizedNames?.get(exercise.id) ?? exercise.name,
     setDisplay: formatSetDisplay(exercise, set),
     proposalDisplay: formatProposalDisplay(exercise, set),
-    exerciseId: exercise.id,
+    exerciseId: exercise.occurrenceId ?? exercise.id,
     setId: set.id,
-    currentSetNumber,
-    totalSets,
+    currentSetNumber: setIndex + 1,
+    totalSets: Math.max(1, exercise.sets.length),
+    completedSets,
+    totalWorkoutSets: Math.max(1, totalWorkoutSets),
     workoutName,
     workoutStartedAtMs: startedAtMs,
+    isWorkoutComplete,
     restStartedAtMs,
     restEndsAtMs,
   };
@@ -130,8 +161,11 @@ function shallowEqual(
     a.setId === b.setId &&
     a.currentSetNumber === b.currentSetNumber &&
     a.totalSets === b.totalSets &&
+    a.completedSets === b.completedSets &&
+    a.totalWorkoutSets === b.totalWorkoutSets &&
     a.workoutName === b.workoutName &&
     a.workoutStartedAtMs === b.workoutStartedAtMs &&
+    a.isWorkoutComplete === b.isWorkoutComplete &&
     a.restStartedAtMs === b.restStartedAtMs &&
     a.restEndsAtMs === b.restEndsAtMs
   );
@@ -141,14 +175,20 @@ function shallowEqual(
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useWorkoutLiveActivity() {
-  const lastSentRef = useRef<DerivedLiveState | null>(null);
-  const activityStartedRef = useRef(false);
+/**
+ * Synchronizes the session-scoped workout store with ActivityKit.
+ *
+ * This hook intentionally lives in the root layout (inside QueryClientProvider)
+ * rather than the workout route. A route can unmount while an active workout is
+ * still running, and iOS backgrounding/locking must not dismiss a Live Activity.
+ */
+export function useWorkoutLiveActivity(): void {
   const exercisesForNames = useWorkoutStore((s) => s.exercises);
   const { exerciseMap } = useLocalizedExerciseMap(
     exercisesForNames.map((exercise) => exercise.id)
   );
   const localizedNamesRef = useRef(new Map<string, string>());
+  const reconcileRef = useRef<((forceStart?: boolean) => void) | null>(null);
 
   useEffect(() => {
     localizedNamesRef.current = new Map(
@@ -157,83 +197,85 @@ export function useWorkoutLiveActivity() {
         exercise.name,
       ])
     );
+    // Catalog data can arrive after the activity started with local names.
+    // Reconcile once so the lock screen and island use the selected language.
+    reconcileRef.current?.();
   }, [exerciseMap]);
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
 
-    function endCurrentActivity() {
-      endActivity({ dismissImmediately: true }).catch((error) => {
-        console.warn("[live-activity] end failed:", error);
-      });
+    let cancelled = false;
+    const persist = useWorkoutStore.persist;
+    const hydratedRef = { current: persist.hasHydrated() };
+    const lastSentRef = { current: null as DerivedLiveState | null };
+    const activityStartedRef = { current: false };
+    const activityWorkoutIdRef = { current: null as string | null };
+    const inactiveEndRequestedRef = { current: false };
+    const emptyEndRequestedRef = { current: false };
+
+    // ActivityKit calls must stay ordered. In particular, a finish followed by
+    // a stale update must not resurrect or update an already-ended activity.
+    let operation = Promise.resolve();
+    function enqueue(task: () => Promise<void>): void {
+      operation = operation
+        .catch(() => undefined)
+        .then(() => (cancelled ? undefined : task()))
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            console.warn("[live-activity] synchronization failed:", error);
+          }
+        });
+    }
+
+    function resetActivityRefs(): void {
       activityStartedRef.current = false;
+      activityWorkoutIdRef.current = null;
       lastSentRef.current = null;
     }
 
-    // Kick off the activity when the workout is active on mount
-    const { isActive, exercises, startedAtMs, workoutName, restTimer } =
-      useWorkoutStore.getState();
-
-    async function maybeStart() {
-      if (!isActive) return;
-      const enabled = await areActivitiesEnabled();
-      if (!enabled) return;
-
-      const derived = deriveState(
-        exercises,
-        startedAtMs,
-        workoutName,
-        restTimer,
-        localizedNamesRef.current
-      );
-      if (!derived) return;
-
-      const workoutId = `workout-${startedAtMs}`;
-      await startActivity(workoutId, derivedToState(derived));
-      activityStartedRef.current = true;
-      lastSentRef.current = derived;
+    function endCurrentActivity(force = false): Promise<void> {
+      if (!force && !activityStartedRef.current) return Promise.resolve();
+      resetActivityRefs();
+      return endActivity({ dismissImmediately: true });
     }
 
-    maybeStart();
+    function reconcile(
+      slice: {
+        isActive: boolean;
+        exercises: WorkoutExercise[];
+        startedAtMs: number | null;
+        workoutName: string;
+        restTimer: {
+          exerciseId: string;
+          startedAtMs: number;
+          durationSeconds: number;
+          pausedRemainingSeconds?: number;
+        } | null;
+      },
+      forceStart = false
+    ): void {
+      if (!hydratedRef.current) return;
 
-    // Subscribe to store changes with selector
-    const unsubscribe = useWorkoutStore.subscribe(
-      (s) => ({
-        isActive: s.isActive,
-        exercises: s.exercises,
-        startedAtMs: s.startedAtMs,
-        workoutName: s.workoutName,
-        restTimer: s.restTimer,
-      }),
-      async (slice) => {
-        if (!slice.isActive) {
-          if (activityStartedRef.current) {
-            await endActivity({ dismissImmediately: true });
-            activityStartedRef.current = false;
-            lastSentRef.current = null;
+      enqueue(async () => {
+        if (!slice.isActive || !slice.startedAtMs) {
+          // Also reconcile the native registry when this JS runtime has just
+          // launched. ActivityKit can retain an activity after a crash or OS
+          // process termination, so a false JS ref is not proof that none exists.
+          if (!inactiveEndRequestedRef.current) {
+            inactiveEndRequestedRef.current = true;
+            try {
+              await endCurrentActivity(true);
+            } catch (error) {
+              // Keep this retryable if ActivityKit rejects while the app is
+              // restoring after a crash or process termination.
+              inactiveEndRequestedRef.current = false;
+              throw error;
+            }
           }
           return;
         }
-
-        // Start activity if it isn't running yet (e.g. workout started while hook was not mounted)
-        if (!activityStartedRef.current) {
-          const enabled = await areActivitiesEnabled();
-          if (!enabled) return;
-          const derived = deriveState(
-            slice.exercises,
-            slice.startedAtMs,
-            slice.workoutName,
-            slice.restTimer
-          );
-          if (!derived) return;
-          await startActivity(
-            `workout-${slice.startedAtMs}`,
-            derivedToState(derived)
-          );
-          activityStartedRef.current = true;
-          lastSentRef.current = derived;
-          return;
-        }
+        inactiveEndRequestedRef.current = false;
 
         const derived = deriveState(
           slice.exercises,
@@ -242,26 +284,117 @@ export function useWorkoutLiveActivity() {
           slice.restTimer,
           localizedNamesRef.current
         );
-        if (!derived) return;
-        if (shallowEqual(derived, lastSentRef.current)) return;
+        if (!derived) {
+          // An active workout can briefly have no meaningful sets while it is
+          // being created or edited. Dismiss any stale activity so an older
+          // exercise card is never left on the lock screen; a later store
+          // update will start a fresh activity once a set exists.
+          if (!emptyEndRequestedRef.current) {
+            emptyEndRequestedRef.current = true;
+            try {
+              await endCurrentActivity(true);
+            } catch (error) {
+              emptyEndRequestedRef.current = false;
+              throw error;
+            }
+          }
+          return;
+        }
+        emptyEndRequestedRef.current = false;
 
+        const workoutId = `workout-${slice.startedAtMs}`;
+        if (
+          activityStartedRef.current &&
+          activityWorkoutIdRef.current !== workoutId
+        ) {
+          await endCurrentActivity();
+        }
+
+        if (!activityStartedRef.current || forceStart) {
+          let enabled = false;
+          try {
+            enabled = await areActivitiesEnabled();
+          } catch (error) {
+            console.warn("[live-activity] availability check failed:", error);
+          }
+          if (!enabled) return;
+
+          let activityId: string | null = null;
+          try {
+            activityId = await startActivity(
+              workoutId,
+              derivedToState(derived)
+            );
+          } catch (error) {
+            // A denied permission, unsupported OS, or native request failure
+            // must remain retryable. Never mark the JS ref as started here.
+            console.warn("[live-activity] start failed:", error);
+          }
+          if (!activityId) {
+            resetActivityRefs();
+            return;
+          }
+          activityStartedRef.current = true;
+          activityWorkoutIdRef.current = workoutId;
+          lastSentRef.current = derived;
+          return;
+        }
+
+        if (shallowEqual(derived, lastSentRef.current)) return;
         await updateActivity(derivedToState(derived));
         lastSentRef.current = derived;
-      }
+      });
+    }
+
+    reconcileRef.current = (forceStart = false) => {
+      const state = useWorkoutStore.getState();
+      reconcile(
+        {
+          isActive: state.isActive,
+          exercises: state.exercises,
+          startedAtMs: state.startedAtMs,
+          workoutName: state.workoutName,
+          restTimer: state.restTimer,
+        },
+        forceStart
+      );
+    };
+
+    const unsubscribe = useWorkoutStore.subscribe(
+      (state) => ({
+        isActive: state.isActive,
+        exercises: state.exercises,
+        startedAtMs: state.startedAtMs,
+        workoutName: state.workoutName,
+        restTimer: state.restTimer,
+      }),
+      (slice) => reconcile(slice)
     );
 
     const appStateSub = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active" && activityStartedRef.current) {
-        endCurrentActivity();
-      }
+      // Do not end on inactive/background. That transition is exactly how an
+      // iPhone lock screen and Dynamic Island become useful during a workout.
+      if (nextState === "active") reconcileRef.current?.(true);
     });
 
+    let unsubscribeHydration: (() => void) | undefined;
+    if (!hydratedRef.current) {
+      unsubscribeHydration = persist.onFinishHydration(() => {
+        hydratedRef.current = true;
+        reconcileRef.current?.();
+      });
+    } else {
+      reconcileRef.current();
+    }
+
     return () => {
+      cancelled = true;
+      reconcileRef.current = null;
       unsubscribe();
       appStateSub.remove();
-      if (activityStartedRef.current) {
-        endCurrentActivity();
-      }
+      unsubscribeHydration?.();
+      // Deliberately do not end here: route changes and provider remounts must
+      // not dismiss a session that remains active in the persisted store.
     };
   }, []);
 }
@@ -275,8 +408,11 @@ function derivedToState(d: DerivedLiveState): LiveActivityState {
     setId: d.setId,
     currentSetNumber: d.currentSetNumber,
     totalSets: d.totalSets,
+    completedSets: d.completedSets,
+    totalWorkoutSets: d.totalWorkoutSets,
     workoutName: d.workoutName,
     workoutStartedAtMs: d.workoutStartedAtMs,
+    isWorkoutComplete: d.isWorkoutComplete,
     restStartedAtMs: d.restStartedAtMs,
     restEndsAtMs: d.restEndsAtMs,
   };

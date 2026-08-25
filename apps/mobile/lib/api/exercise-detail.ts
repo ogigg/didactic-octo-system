@@ -41,6 +41,55 @@ export type ExerciseSessionHistory = z.infer<
   typeof exerciseSessionHistorySchema
 >;
 
+export interface ExerciseWeekMetrics {
+  maxWeightKg: number;
+  maxReps: number;
+  estimatedOneRepMaxKg: number;
+  maxDurationSeconds: number;
+}
+
+export function getExerciseWeekMetrics(
+  weekStart: string,
+  sessions: ExerciseSessionHistory[]
+): ExerciseWeekMetrics {
+  const start = Date.parse(weekStart);
+  const end = start + 7 * 24 * 60 * 60 * 1000;
+  const metrics: ExerciseWeekMetrics = {
+    maxWeightKg: 0,
+    maxReps: 0,
+    estimatedOneRepMaxKg: 0,
+    maxDurationSeconds: 0,
+  };
+
+  if (Number.isNaN(start)) return metrics;
+
+  sessions.forEach((session) => {
+    const sessionDate = Date.parse(session.date);
+    if (Number.isNaN(sessionDate) || sessionDate < start || sessionDate >= end)
+      return;
+
+    session.sets?.forEach((set) => {
+      const load = set.load_kg ?? 0;
+      const reps = set.reps ?? 0;
+      metrics.maxWeightKg = Math.max(metrics.maxWeightKg, load);
+      metrics.maxReps = Math.max(metrics.maxReps, reps);
+      metrics.maxDurationSeconds = Math.max(
+        metrics.maxDurationSeconds,
+        set.duration_seconds ?? 0
+      );
+
+      if (load > 0 && reps >= 1 && reps <= 10) {
+        metrics.estimatedOneRepMaxKg = Math.max(
+          metrics.estimatedOneRepMaxKg,
+          load * (1 + reps / 30)
+        );
+      }
+    });
+  });
+
+  return metrics;
+}
+
 const volumeWeekSchema = z.object({
   week_start: z.string(),
   volume_kg: z.number(),

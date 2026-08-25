@@ -41,9 +41,20 @@ function parseParams(url: string): Record<string, string> {
   return out;
 }
 
-function applyMarkSetDone(exerciseId: string, setId: string): void {
+export function applyMarkSetDone(exerciseId: string, setId: string): void {
   const { exercises, toggleSetComplete } = useWorkoutStore.getState();
-  const exercise = exercises.find((e) => e.id === exerciseId);
+  // Live Activity state carries the occurrence ID so repeated exercises can be
+  // addressed unambiguously. Keep the canonical catalog-ID fallback for older
+  // activities, but only when that ID identifies one occurrence.
+  const occurrenceMatch = exercises.find(
+    (exercise) => (exercise.occurrenceId ?? exercise.id) === exerciseId
+  );
+  const canonicalMatches = exercises.filter(
+    (exercise) => exercise.id === exerciseId
+  );
+  const exercise =
+    occurrenceMatch ??
+    (canonicalMatches.length === 1 ? canonicalMatches[0] : undefined);
   const set = exercise?.sets.find((s) => s.id === setId);
   // Idempotent: silently no-op for unknown or already-completed sets so a
   // duplicated URL delivery (getInitialURL + 'url' event, or rapid taps from

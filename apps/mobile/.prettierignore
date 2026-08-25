@@ -1,0 +1,8 @@
+# Build outputs
+build
+dist
+.expo
+.turbo
+
+# Xcode asset catalogs (managed by Xcode, not formatted by Prettier)
+targets/*/Assets.xcassets

@@ -10,12 +10,16 @@ import {
 } from "react";
 import type { PropsWithChildren } from "react";
 import {
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
+import type { ViewStyle } from "react-native";
 import {
   Gesture,
   GestureDetector,
@@ -40,6 +44,7 @@ interface AppBottomSheetProps extends PropsWithChildren {
   visible: boolean;
   onClose: () => void;
   closeAccessibilityLabel: string;
+  height?: ViewStyle["height"];
   testID?: string;
 }
 
@@ -55,6 +60,7 @@ export const AppBottomSheet = forwardRef<
     visible,
     onClose,
     closeAccessibilityLabel,
+    height,
     testID,
     children,
   }: AppBottomSheetProps,
@@ -118,6 +124,15 @@ export const AppBottomSheet = forwardRef<
     [backdropOpacity, finishClose, reducedMotion, screenHeight, translateY]
   );
 
+  const handleBackdropPress = useCallback(() => {
+    if (Keyboard.isVisible()) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    requestClose();
+  }, [requestClose]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -164,42 +179,51 @@ export const AppBottomSheet = forwardRef<
       presentationStyle="overFullScreen"
       onRequestClose={() => requestClose()}
     >
-      <GestureHandlerRootView style={styles.flex}>
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.backdrop, backdropStyle]}
-        />
-        <View style={styles.container}>
-          <Pressable
-            style={styles.flex}
-            onPress={() => requestClose()}
-            accessibilityRole="button"
-            accessibilityLabel={closeAccessibilityLabel}
-          />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <GestureHandlerRootView style={styles.flex}>
           <Animated.View
-            testID={testID}
-            accessibilityViewIsModal
-            onAccessibilityEscape={() => requestClose()}
-            style={[
-              styles.sheet,
-              { backgroundColor: background },
-              Elevation.md,
-              sheetStyle,
-            ]}
-          >
-            <SafeAreaView edges={["bottom"]}>
-              <GestureDetector gesture={panGesture}>
-                <Animated.View style={styles.handleArea}>
-                  <View
-                    style={[styles.handle, { backgroundColor: handleColor }]}
-                  />
-                </Animated.View>
-              </GestureDetector>
-              {children}
-            </SafeAreaView>
-          </Animated.View>
-        </View>
-      </GestureHandlerRootView>
+            pointerEvents="none"
+            style={[styles.backdrop, backdropStyle]}
+          />
+          <View style={styles.container}>
+            <Pressable
+              style={styles.flex}
+              onPress={handleBackdropPress}
+              accessibilityRole="button"
+              accessibilityLabel={closeAccessibilityLabel}
+            />
+            <Animated.View
+              testID={testID}
+              accessibilityViewIsModal
+              onAccessibilityEscape={() => requestClose()}
+              style={[
+                styles.sheet,
+                height != null && { height },
+                { backgroundColor: background },
+                Elevation.md,
+                sheetStyle,
+              ]}
+            >
+              <SafeAreaView
+                edges={["bottom"]}
+                style={height != null ? styles.flex : undefined}
+              >
+                <GestureDetector gesture={panGesture}>
+                  <Animated.View style={styles.handleArea}>
+                    <View
+                      style={[styles.handle, { backgroundColor: handleColor }]}
+                    />
+                  </Animated.View>
+                </GestureDetector>
+                {children}
+              </SafeAreaView>
+            </Animated.View>
+          </View>
+        </GestureHandlerRootView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 });

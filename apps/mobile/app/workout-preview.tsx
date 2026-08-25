@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +19,10 @@ import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { Button } from "@/components/ui/button";
+import {
+  AppBottomSheet,
+  type AppBottomSheetHandle,
+} from "@/components/ui/app-bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { ProgressionPill } from "@/components/workout/progression-pill";
@@ -612,7 +615,6 @@ export default function WorkoutPreviewScreen() {
             text={text}
             textSecondary={textSecondary}
             textMuted={textMuted}
-            background={backgroundElevated}
             border={border}
             inputFill={inputFill}
             primary={primary}
@@ -672,7 +674,6 @@ interface RegenerationFeedbackSheetProps {
   text: string;
   textSecondary: string;
   textMuted: string;
-  background: string;
   border: string;
   inputFill: string;
   primary: string;
@@ -691,140 +692,127 @@ function RegenerationFeedbackSheet({
   text,
   textSecondary,
   textMuted,
-  background,
   border,
   inputFill,
   primary,
   primarySurface,
   t,
 }: RegenerationFeedbackSheetProps) {
+  const sheetRef = useRef<AppBottomSheetHandle>(null);
   const trimmedFeedback = feedback.trim();
   const hasFeedback = trimmedFeedback.length > 0;
 
   return (
-    <Modal
+    <AppBottomSheet
+      ref={sheetRef}
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      closeAccessibilityLabel={t("regenerate.dismiss")}
+      testID="regeneration-feedback-sheet"
     >
-      <Pressable
-        style={styles.regenerationBackdrop}
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel={t("regenerate.dismiss")}
+      <ScrollView
+        style={styles.regenerationScroll}
+        contentContainerStyle={styles.regenerationSheet}
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        keyboardShouldPersistTaps="handled"
       >
-        <Pressable
-          style={[styles.regenerationSheet, { backgroundColor: background }]}
-          onPress={(event) => event.stopPropagation()}
-          accessibilityViewIsModal
+        <View
+          style={[styles.regenerationIcon, { backgroundColor: primarySurface }]}
         >
-          <View style={[styles.sheetHandle, { backgroundColor: textMuted }]} />
+          <IconSymbol name="sparkles" size={20} color={primary} />
+        </View>
 
-          <View
-            style={[
-              styles.regenerationIcon,
-              { backgroundColor: primarySurface },
-            ]}
-          >
-            <IconSymbol name="sparkles" size={20} color={primary} />
-          </View>
+        <Text style={[Typography.titleMd, { color: text }]}>
+          {t("regenerate.sheetTitle")}
+        </Text>
+        <Text
+          style={[
+            Typography.caption,
+            styles.regenerationSheetCopy,
+            { color: textSecondary },
+          ]}
+        >
+          {t("regenerate.sheetMessage")}
+        </Text>
 
-          <Text style={[Typography.titleMd, { color: text }]}>
-            {t("regenerate.sheetTitle")}
-          </Text>
-          <Text
-            style={[
-              Typography.caption,
-              styles.regenerationSheetCopy,
-              { color: textSecondary },
-            ]}
-          >
-            {t("regenerate.sheetMessage")}
-          </Text>
+        <TextInput
+          value={feedback}
+          onChangeText={onFeedbackChange}
+          placeholder={t("regenerate.feedbackPlaceholder")}
+          placeholderTextColor={textMuted}
+          multiline
+          maxLength={300}
+          textAlignVertical="top"
+          style={[
+            styles.feedbackInput,
+            {
+              backgroundColor: inputFill,
+              borderColor: hasFeedback ? primary : border,
+              color: text,
+            },
+          ]}
+          accessibilityLabel={t("regenerate.feedbackAccessibilityLabel")}
+        />
 
-          <TextInput
-            value={feedback}
-            onChangeText={onFeedbackChange}
-            placeholder={t("regenerate.feedbackPlaceholder")}
-            placeholderTextColor={textMuted}
-            multiline
-            maxLength={300}
-            textAlignVertical="top"
-            style={[
-              styles.feedbackInput,
+        <Text style={[Typography.micro, { color: textMuted }]}>
+          {t("regenerate.feedbackCount", {
+            count: trimmedFeedback.length,
+            max: 300,
+          })}
+        </Text>
+
+        <View style={styles.regenerationActions}>
+          <Pressable
+            onPress={() => sheetRef.current?.dismiss(onSubmit)}
+            accessibilityRole="button"
+            accessibilityLabel={t("regenerate.confirm")}
+            style={({ pressed }) => [
+              styles.regenerationPrimaryAction,
               {
-                backgroundColor: inputFill,
-                borderColor: hasFeedback ? primary : border,
-                color: text,
+                backgroundColor: primary,
+                opacity: pressed ? Opacity.pressed : 1,
               },
             ]}
-            accessibilityLabel={t("regenerate.feedbackAccessibilityLabel")}
-          />
-
-          <Text style={[Typography.micro, { color: textMuted }]}>
-            {t("regenerate.feedbackCount", {
-              count: trimmedFeedback.length,
-              max: 300,
-            })}
-          </Text>
-
-          <View style={styles.regenerationActions}>
-            <Pressable
-              onPress={onSubmit}
-              accessibilityRole="button"
-              accessibilityLabel={t("regenerate.confirm")}
-              style={({ pressed }) => [
-                styles.regenerationPrimaryAction,
-                {
-                  backgroundColor: primary,
-                  opacity: pressed ? Opacity.pressed : 1,
-                },
-              ]}
+          >
+            <IconSymbol name="arrow.clockwise" size={16} color="#FFFFFF" />
+            <Text
+              style={[Typography.titleSm, styles.regenerationPrimaryActionText]}
             >
-              <IconSymbol name="arrow.clockwise" size={16} color="#FFFFFF" />
-              <Text
-                style={[
-                  Typography.titleSm,
-                  styles.regenerationPrimaryActionText,
-                ]}
-              >
-                {hasFeedback
-                  ? t("regenerate.confirmWithFeedback")
-                  : t("regenerate.confirm")}
-              </Text>
-            </Pressable>
+              {hasFeedback
+                ? t("regenerate.confirmWithFeedback")
+                : t("regenerate.confirm")}
+            </Text>
+          </Pressable>
 
-            <Pressable
-              onPress={onSkip}
-              accessibilityRole="button"
-              accessibilityLabel={t("regenerate.skipFeedback")}
-              style={({ pressed }) => [
-                styles.regenerationSecondaryAction,
-                {
-                  borderColor: border,
-                  opacity: pressed ? Opacity.pressed : 1,
-                },
-              ]}
-            >
-              <Text style={[Typography.titleSm, { color: textSecondary }]}>
-                {t("regenerate.skipFeedback")}
-              </Text>
-            </Pressable>
-          </View>
-
-          <Text
-            style={[
-              Typography.micro,
-              styles.regenerationLimitNote,
-              { color: textMuted },
+          <Pressable
+            onPress={() => sheetRef.current?.dismiss(onSkip)}
+            accessibilityRole="button"
+            accessibilityLabel={t("regenerate.skipFeedback")}
+            style={({ pressed }) => [
+              styles.regenerationSecondaryAction,
+              {
+                borderColor: border,
+                opacity: pressed ? Opacity.pressed : 1,
+              },
             ]}
           >
-            {t("regenerate.limitNote")}
-          </Text>
-        </Pressable>
-      </Pressable>
-    </Modal>
+            <Text style={[Typography.titleSm, { color: textSecondary }]}>
+              {t("regenerate.skipFeedback")}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text
+          style={[
+            Typography.micro,
+            styles.regenerationLimitNote,
+            { color: textMuted },
+          ]}
+        >
+          {t("regenerate.limitNote")}
+        </Text>
+      </ScrollView>
+    </AppBottomSheet>
   );
 }
 
@@ -1491,24 +1479,12 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
     gap: Spacing.md,
   },
-  regenerationBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.42)",
-    justifyContent: "flex-end",
+  regenerationScroll: {
+    flexShrink: 1,
   },
   regenerationSheet: {
-    borderTopLeftRadius: Radii.lg,
-    borderTopRightRadius: Radii.lg,
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing["4xl"],
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: Radii.full,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   regenerationIcon: {
     width: 40,

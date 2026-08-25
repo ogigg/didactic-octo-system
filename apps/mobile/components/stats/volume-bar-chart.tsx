@@ -1,7 +1,8 @@
-import { StyleSheet, View, Text } from "react-native";
+import { useState } from "react";
+import { Pressable, StyleSheet, View, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Radii, Spacing, Typography } from "@/constants/theme";
+import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
@@ -20,6 +21,11 @@ interface VolumeBarChartProps {
     total: string;
     average: string;
     perWeek: string;
+  };
+  getTooltip?: (week: VolumeWeek) => {
+    title: string;
+    accessibilityLabel: string;
+    metrics: { label: string; value: string }[];
   };
 }
 
@@ -48,6 +54,7 @@ export function VolumeBarChart({
   chartHeight = 120,
   metric = "volume",
   labels,
+  getTooltip,
 }: VolumeBarChartProps) {
   const { t } = useTranslation("stats");
   const { formatVolume } = useWeightUnit();
@@ -56,6 +63,8 @@ export function VolumeBarChart({
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
+  const backgroundElevated = useThemeColor({}, "backgroundElevated");
+  const [activeWeek, setActiveWeek] = useState<string | null>(null);
 
   if (data.length === 0) return null;
 
@@ -74,6 +83,8 @@ export function VolumeBarChart({
     average: t("volume.weeklyAvg"),
     perWeek: t("volume.perWeek"),
   };
+  const activeWeekData = data.find((week) => week.week_start === activeWeek);
+  const activeTooltip = activeWeekData ? getTooltip?.(activeWeekData) : null;
 
   // Determine label interval (~every 4 weeks)
   const labelEvery = Math.max(1, Math.floor(data.length / 10) * 4 || 4);
@@ -99,6 +110,7 @@ export function VolumeBarChart({
       <View style={[styles.chartArea, { height: chartHeight }]}>
         {data.map((week, index) => {
           const isCurrentWeek = index === data.length - 1;
+          const isActive = activeWeek === week.week_start;
           const value = values[index] ?? 0;
           const isEmpty = value === 0;
           const barHeight = isEmpty
@@ -106,20 +118,80 @@ export function VolumeBarChart({
             : Math.max(6, (value / maxValue) * chartHeight);
 
           return (
-            <View key={week.week_start} style={styles.barWrapper}>
+            <Pressable
+              key={week.week_start}
+              accessibilityRole={getTooltip ? "button" : undefined}
+              accessibilityLabel={getTooltip?.(week).accessibilityLabel}
+              onFocus={() => setActiveWeek(week.week_start)}
+              onBlur={() => setActiveWeek(null)}
+              onHoverIn={() => setActiveWeek(week.week_start)}
+              onHoverOut={() =>
+                setActiveWeek((current) =>
+                  current === week.week_start ? null : current
+                )
+              }
+              onPress={() =>
+                setActiveWeek((current) =>
+                  current === week.week_start ? null : week.week_start
+                )
+              }
+              disabled={!getTooltip}
+              style={styles.barWrapper}
+            >
               <View
                 style={[
                   styles.bar,
                   {
                     height: barHeight,
                     backgroundColor: isEmpty ? borderColor : primaryColor,
-                    opacity: isEmpty ? 1 : isCurrentWeek ? 1 : 0.6,
+                    opacity: activeWeek
+                      ? isActive
+                        ? 1
+                        : 0.35
+                      : isEmpty || isCurrentWeek
+                        ? 1
+                        : 0.6,
                   },
                 ]}
               />
-            </View>
+            </Pressable>
           );
         })}
+
+        {activeTooltip ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.tooltip,
+              {
+                backgroundColor: backgroundElevated,
+                borderColor,
+              },
+            ]}
+          >
+            <Text style={[Typography.titleSm, { color: textColor }]}>
+              {activeTooltip.title}
+            </Text>
+            <View style={styles.tooltipMetrics}>
+              {activeTooltip.metrics.map((metric) => (
+                <View key={metric.label} style={styles.tooltipMetric}>
+                  <Text style={[Typography.micro, { color: textMuted }]}>
+                    {metric.label}
+                  </Text>
+                  <Text
+                    style={[
+                      Typography.bodyMedium,
+                      styles.tooltipValue,
+                      { color: textColor },
+                    ]}
+                  >
+                    {metric.value}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {/* Labels row */}
@@ -164,6 +236,7 @@ const styles = StyleSheet.create({
   },
   barWrapper: {
     flex: 1,
+    height: "100%",
     alignItems: "center",
     justifyContent: "flex-end",
   },
@@ -171,6 +244,29 @@ const styles = StyleSheet.create({
     width: "100%",
     borderTopLeftRadius: Radii.sm,
     borderTopRightRadius: Radii.sm,
+  },
+  tooltip: {
+    ...Elevation.md,
+    position: "absolute",
+    top: Spacing.sm,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    zIndex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  tooltipMetrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  tooltipMetric: {
+    width: "50%",
+    paddingTop: Spacing.sm,
+  },
+  tooltipValue: {
+    fontVariant: ["tabular-nums"],
   },
   labelsRow: {
     flexDirection: "row",

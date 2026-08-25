@@ -27,7 +27,9 @@ export const stats = {
   },
   records: {
     heaviest: "Heaviest",
+    heaviestReps: "{{reps}} reps",
     mostReps: "Most Reps",
+    mostRepsWeight: "@ {{weight}}",
     bestSet: "Best Set",
     est1rm: "Est. 1RM",
     searchPlaceholder: "Search exercises...",

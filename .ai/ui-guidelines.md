@@ -314,6 +314,11 @@ The left `BackButton` and right spacer share the same width so the title is opti
 
 ### Bottom Sheet (Exercise Options)
 
+The canonical implementation and interaction standard is
+[`docs/styles/bottom-sheets.md`](../docs/styles/bottom-sheets.md). Use
+`AppBottomSheet` for new bottom sheets rather than copying an existing feature
+sheet or building directly on React Native `Modal`.
+
 - Slides up from bottom with backdrop overlay.
 - Background: `backgroundElevated` (light) / `backgroundSubtle` (dark). `elevationMd` shadow.
 - Top handle: 36px × 4px, `textDisabled` / `#444`, `radiusFull`.
