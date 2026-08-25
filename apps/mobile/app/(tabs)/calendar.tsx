@@ -3,6 +3,7 @@ import { MonthBlock, getMonthHeight } from "@/components/calendar/month-block";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Spacing } from "@/constants/theme";
 import { useCalendarEntries } from "@/hooks/use-calendar-entries";
+import { useTabBarClearance } from "@/hooks/use-tab-bar-clearance";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -47,6 +48,7 @@ const ITEM_OFFSETS = MONTHS.reduce<number[]>((acc, item, i) => {
 export default function CalendarScreen() {
   const { t } = useTranslation("calendar");
   const insets = useSafeAreaInsets();
+  const tabBarClearance = useTabBarClearance();
   const router = useRouter();
   const primary = useThemeColor({}, "primary");
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
@@ -105,7 +107,7 @@ export default function CalendarScreen() {
         })}
         contentContainerStyle={{
           paddingTop: insets.top + Spacing.lg,
-          paddingBottom: insets.bottom + Spacing.lg,
+          paddingBottom: tabBarClearance,
           paddingLeft: insets.left + Spacing.xl,
           paddingRight: insets.right + Spacing.xl,
         }}

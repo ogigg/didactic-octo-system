@@ -24,6 +24,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useTabBarClearance } from "@/hooks/use-tab-bar-clearance";
 import {
   useStartPendingWorkout,
   useWorkoutQueue,
@@ -173,6 +174,7 @@ export default function HomeScreen() {
 
   // Colors
   const primary = useThemeColor({}, "primary");
+  const tabBarClearance = useTabBarClearance();
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -397,7 +399,10 @@ export default function HomeScreen() {
       <AmbientGlow variant="hero" />
       <SafeAreaView style={styles.safe}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: tabBarClearance },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={isManualRefreshing}
@@ -554,7 +559,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing["2xl"],
-    paddingBottom: Spacing["3xl"],
     gap: Spacing.xl,
   },
   greetingSection: {
