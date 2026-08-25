@@ -21,6 +21,7 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { fetchLoginProviderHint } from "@/lib/api/login-provider-hint";
 import {
   type AuthValidationKey,
   type SignInFormData,
@@ -28,9 +29,15 @@ import {
 } from "@/lib/schemas/auth";
 import { supabase } from "@/lib/supabase";
 
+const PROVIDER_LABELS: Record<string, string> = {
+  apple: "Apple",
+  google: "Google",
+};
+
 export default function SignInScreen() {
   const { t } = useTranslation("auth");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [providerHint, setProviderHint] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const textColor = useThemeColor({}, "text");
@@ -52,18 +59,32 @@ export default function SignInScreen() {
 
   async function onSubmit(data: SignInFormData) {
     setAuthError(null);
-    console.log("onSubmit", data);
+    setProviderHint(null);
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
-    console.log("error", error);
     if (error) {
-      setAuthError(
-        error.message.toLowerCase().includes("invalid")
-          ? t("errors.invalidCredentials")
-          : t("errors.generic")
-      );
+      if (error.message.toLowerCase().includes("invalid")) {
+        let hint: Awaited<ReturnType<typeof fetchLoginProviderHint>> = null;
+        try {
+          hint = await fetchLoginProviderHint(data.email);
+        } catch {
+          hint = null;
+        }
+        const providerLabel = hint?.providers
+          .map((provider) => PROVIDER_LABELS[provider])
+          .find(Boolean);
+        if (hint && !hint.hasPassword && providerLabel) {
+          setProviderHint(
+            t("errors.ssoAccountHint", { provider: providerLabel })
+          );
+        } else {
+          setAuthError(t("errors.invalidCredentials"));
+        }
+      } else {
+        setAuthError(t("errors.generic"));
+      }
     }
     // Success handled by onAuthStateChange → auth store → index.tsx routing
   }
@@ -90,6 +111,17 @@ export default function SignInScreen() {
           >
             {t("signIn.subtitle")}
           </Text>
+
+          {providerHint && (
+            <View
+              style={[styles.errorBanner, { backgroundColor: primarySurface }]}
+              accessibilityRole="alert"
+            >
+              <Text style={[Typography.body, { color: textSecondary }]}>
+                {providerHint}
+              </Text>
+            </View>
+          )}
 
           {authError && (
             <View

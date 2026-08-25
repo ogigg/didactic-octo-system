@@ -65,6 +65,8 @@ export const auth = {
     passwordTooShort: "Hasło musi mieć co najmniej 8 znaków",
     passwordsMustMatch: "Hasła muszą być takie same",
     invalidCredentials: "Nieprawidłowy email lub hasło",
+    ssoAccountHint:
+      "Twoje konto było wcześniej używane do logowania przez {{provider}}. Kontynuuj z {{provider}} za pomocą przycisku poniżej.",
     emailAlreadyInUse: "Konto z tym adresem email już istnieje",
     generic: "Coś poszło nie tak. Spróbuj ponownie.",
     networkError: "Sprawdź połączenie z internetem i spróbuj ponownie.",
