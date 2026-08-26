@@ -4,6 +4,9 @@ import {
   calculateProgression,
   type ExerciseHistory,
   formatExerciseDuration,
+  INCREMENT_EQUIPMENT_KEYS,
+  type IncrementEquipmentKey,
+  type WeightIncrementsByEquipment,
 } from "./progression.ts";
 
 // ---------------------------------------------------------------------------
@@ -196,6 +199,11 @@ export interface ProfileData {
   custom_goal: string | null;
   weekly_frequency: string;
   gender: string | null;
+  /**
+   * User-configured load steps per equipment category, e.g.
+   * { "machine": { "base_kg": 4, "micro_kg": 1.1 } }. Null = auto.
+   */
+  weight_increments?: WeightIncrementsByEquipment | null;
 }
 
 export interface HistorySession {
@@ -475,6 +483,53 @@ function formatRegenerationFeedback(feedback: string | undefined): string {
   ].join("\n");
 }
 
+/**
+ * Explains which load jumps are physically reachable for this user so the LLM
+ * never suggests an increase the gym cannot produce (e.g. +0.5kg on a machine
+ * with 4kg steps and 1.1kg micro-plates).
+ */
+export function formatWeightIncrementRule(
+  profile: Pick<ProfileData, "weight_increments">
+): string {
+  const configured = INCREMENT_EQUIPMENT_KEYS.map((key) => ({
+    key,
+    value: profile.weight_increments?.[key],
+  })).filter(
+    (
+      entry
+    ): entry is {
+      key: IncrementEquipmentKey;
+      value: NonNullable<typeof entry.value>;
+    } => entry.value?.base_kg != null && entry.value.base_kg > 0
+  );
+
+  if (configured.length === 0) {
+    return `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)`;
+  }
+
+  const categoryRules = configured.map(({ key, value }) => {
+    const base = value.base_kg;
+    const micro = value.micro_kg;
+    if (micro != null && micro > 0) {
+      const maxMicroSteps = Math.max(0, Math.floor(base / micro - 1e-9));
+      const examples: string[] = [];
+      for (let n = 0; n <= 2 && examples.length < 6; n++) {
+        for (let m = n === 0 ? 1 : 0; m <= maxMicroSteps; m++) {
+          examples.push(`+${Math.round((n * base + m * micro) * 100) / 100}kg`);
+        }
+      }
+      return `- ${key} exercises: only jumps of multiples of ${base}kg combined with up to ${maxMicroSteps} × ${micro}kg micro-plates are reachable. Reachable increases include ${examples.join(", ")}, and further combinations of these steps.`;
+    }
+    return `- ${key} exercises: only jumps that are exact multiples of ${base}kg are reachable.`;
+  });
+
+  return [
+    `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase the load (or +10-15s for time exercises)`,
+    ...categoryRules,
+    `- NEVER suggest a load increase that is not reachable with the steps listed above.`,
+  ].join("\n");
+}
+
 export function buildPrompt(
   profile: ProfileData,
   trainingSplit: string,
@@ -582,7 +637,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 - Adjust complexity and load for "${difficulty}" level
 - For "${splitLabel}" split, choose an appropriate muscle group focus for today's session
 - Include 1 warmup set per weight exercise (lower weight, higher reps). Time exercises should only include working sets.
-- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)
+${formatWeightIncrementRule(profile)}
 - If feedback was "too_hard", maintain or slightly reduce load/duration
 - For new exercises (no history), use moderate starting weights or durations (20-45s for time exercises)
 - Generate a creative, motivating workout name
@@ -1036,6 +1091,8 @@ export async function generateSingleWorkout(
         historyMap.set(row.exercise_id, row);
       }
 
+      const increments = profile.weight_increments ?? {};
+
       for (const ex of enrichedExercises) {
         const hist = historyMap.get(ex.exercise_id);
         const catalogEntry = catalogMap.get(ex.exercise_id);
@@ -1044,7 +1101,9 @@ export async function generateSingleWorkout(
         const result = calculateProgression(
           hist ?? null,
           exEquipment,
-          trainingStyle
+          trainingStyle,
+          new Date(),
+          increments
         );
         if (result) {
           ex.progression_type = result.progression_type;

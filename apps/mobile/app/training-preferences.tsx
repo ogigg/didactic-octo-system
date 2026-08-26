@@ -23,6 +23,10 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useProfile } from "@/hooks/use-profile-query";
 import { useRebuildQueue } from "@/hooks/use-workout-queue";
 import { updateTrainingPreferences } from "@/lib/api/profiles";
+import type {
+  IncrementEquipmentKey,
+  WeightIncrementsByEquipment,
+} from "@/lib/api/profiles";
 import { trackEvent } from "@/lib/track-event";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type {
@@ -68,6 +72,57 @@ const UNIT_OPTIONS: { value: WeightUnit; label: string }[] = [
   { value: "lbs", label: "Pounds (lbs)" },
 ];
 
+/** 0 = Auto (equipment-based defaults). */
+interface EquipmentIncrementConfig {
+  key: IncrementEquipmentKey;
+  baseOptions: number[];
+  microOptions: number[];
+}
+
+const EQUIPMENT_INCREMENT_CONFIGS: EquipmentIncrementConfig[] = [
+  {
+    key: "barbell",
+    baseOptions: [0, 1, 1.25, 2, 2.5, 5],
+    microOptions: [0, 0.25, 0.5, 1, 1.25],
+  },
+  {
+    key: "dumbbell",
+    baseOptions: [0, 1, 2, 2.5, 4, 5],
+    microOptions: [0, 0.5, 1, 1.25],
+  },
+  {
+    key: "machine",
+    baseOptions: [0, 1, 1.25, 2, 2.5, 4, 5],
+    microOptions: [0, 0.5, 1, 1.1, 1.25],
+  },
+  {
+    key: "cable",
+    baseOptions: [0, 1, 1.25, 2, 2.5, 4, 5],
+    microOptions: [0, 0.5, 1, 1.1, 1.25],
+  },
+];
+
+function formatKgLabel(value: number, kgTemplate: string): string {
+  return kgTemplate.replace("{{value}}", String(value));
+}
+
+/** Drops empty/auto entries; returns null when nothing is configured. */
+function normalizeIncrements(
+  increments: WeightIncrementsByEquipment
+): WeightIncrementsByEquipment | null {
+  const result: WeightIncrementsByEquipment = {};
+  for (const config of EQUIPMENT_INCREMENT_CONFIGS) {
+    const entry = increments[config.key];
+    if (!entry || entry.base_kg == null || entry.base_kg <= 0) continue;
+    result[config.key] = {
+      base_kg: entry.base_kg,
+      micro_kg:
+        entry.micro_kg != null && entry.micro_kg > 0 ? entry.micro_kg : null,
+    };
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 export default function TrainingPreferencesScreen() {
   const { t } = useTranslation("trainingPreferences");
   const router = useRouter();
@@ -76,6 +131,7 @@ export default function TrainingPreferencesScreen() {
   const rebuildQueue = useRebuildQueue();
 
   const textColor = useThemeColor({}, "text");
+  const textSecondaryColor = useThemeColor({}, "textSecondary");
   const background = useThemeColor({}, "background");
   const border = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
@@ -102,6 +158,9 @@ export default function TrainingPreferencesScreen() {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(
     (profile?.weight_unit as WeightUnit) ?? "kg"
   );
+  const [increments, setIncrements] = useState<WeightIncrementsByEquipment>(
+    profile?.weight_increments ?? {}
+  );
 
   const splitOptions: { value: TrainingSplit; label: string }[] = [
     { value: "full_body", label: t("trainingSplit.fullBody") },
@@ -116,6 +175,38 @@ export default function TrainingPreferencesScreen() {
     t("promptSuggestions.buildBiggerArms"),
   ];
 
+  const kgTemplate = t("weightIncrements.kg");
+  const equipmentLabels: Record<IncrementEquipmentKey, string> = {
+    barbell: t("weightIncrements.equipment.barbell"),
+    dumbbell: t("weightIncrements.equipment.dumbbell"),
+    machine: t("weightIncrements.equipment.machine"),
+    cable: t("weightIncrements.equipment.cable"),
+  };
+
+  function updateIncrement(
+    key: IncrementEquipmentKey,
+    baseKg: number,
+    microKg: number
+  ) {
+    setIncrements((prev) => {
+      const next = { ...prev };
+      if (baseKg === 0) {
+        delete next[key];
+      } else {
+        next[key] = {
+          base_kg: baseKg,
+          micro_kg: microKg > 0 ? microKg : null,
+        };
+      }
+      return next;
+    });
+  }
+
+  const savedIncrements = normalizeIncrements(profile?.weight_increments ?? {});
+  const pendingIncrements = normalizeIncrements(increments);
+  const incrementsChanged =
+    JSON.stringify(savedIncrements) !== JSON.stringify(pendingIncrements);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const prefs = {
@@ -126,6 +217,7 @@ export default function TrainingPreferencesScreen() {
         difficulty_level: difficulty,
         training_custom_prompt: customPrompt.trim() || null,
         weight_unit: weightUnit,
+        weight_increments: pendingIncrements,
       };
       await updateTrainingPreferences(prefs);
       return prefs;
@@ -153,6 +245,7 @@ export default function TrainingPreferencesScreen() {
           ? "training_custom_prompt"
           : null,
         profile?.weight_unit !== prefs.weight_unit ? "weight_unit" : null,
+        incrementsChanged ? "weight_increments" : null,
       ].filter((value): value is string => value !== null);
 
       const onlyUnitChanged =
@@ -203,7 +296,8 @@ export default function TrainingPreferencesScreen() {
       profile?.equipment_level !== equipment ||
       profile?.training_style !== trainingStyle ||
       profile?.difficulty_level !== difficulty ||
-      profile?.training_custom_prompt !== (customPrompt.trim() || null);
+      profile?.training_custom_prompt !== (customPrompt.trim() || null) ||
+      incrementsChanged;
 
     if (!trainingFieldsChanged) {
       saveMutation.mutate();
@@ -299,6 +393,71 @@ export default function TrainingPreferencesScreen() {
             layout="scroll"
           />
 
+          {/* Weight Increments */}
+          <SectionTitle
+            title={t("weightIncrements.title")}
+            textColor={textColor}
+          />
+          <Text style={[styles.sectionSubtitle, { color: textSecondaryColor }]}>
+            {t("weightIncrements.subtitle")}
+          </Text>
+          {EQUIPMENT_INCREMENT_CONFIGS.map(
+            ({ key, baseOptions, microOptions }) => {
+              const entry = increments[key];
+              const selectedBase = entry?.base_kg ?? 0;
+              const selectedMicro = entry?.micro_kg ?? 0;
+              return (
+                <View key={key}>
+                  <Text
+                    style={[styles.stepLabel, { color: textColor }]}
+                    accessibilityRole="header"
+                  >
+                    {equipmentLabels[key]}
+                  </Text>
+                  <OptionChips
+                    options={baseOptions.map((value) => ({
+                      value,
+                      label:
+                        value === 0
+                          ? t("weightIncrements.baseStep.auto")
+                          : formatKgLabel(value, kgTemplate),
+                    }))}
+                    selected={selectedBase}
+                    onSelect={(value) => updateIncrement(key, value, 0)}
+                    layout="wrap"
+                  />
+                  {selectedBase > 0 ? (
+                    <>
+                      <Text
+                        style={[
+                          styles.microStepLabel,
+                          { color: textSecondaryColor },
+                        ]}
+                        accessibilityRole="header"
+                      >
+                        {t("weightIncrements.microStep.title")}
+                      </Text>
+                      <OptionChips
+                        options={microOptions.map((value) => ({
+                          value,
+                          label:
+                            value === 0
+                              ? t("weightIncrements.microStep.none")
+                              : formatKgLabel(value, kgTemplate),
+                        }))}
+                        selected={selectedMicro}
+                        onSelect={(value) =>
+                          updateIncrement(key, selectedBase, value)
+                        }
+                        layout="wrap"
+                      />
+                    </>
+                  ) : null}
+                </View>
+              );
+            }
+          )}
+
           {/* Training Focus */}
           <CustomPromptInput
             value={customPrompt}
@@ -364,6 +523,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing["2xl"],
     paddingBottom: Spacing.md,
+  },
+  sectionSubtitle: {
+    ...Typography.bodyMedium,
+    paddingHorizontal: Spacing.xl,
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  stepLabel: {
+    ...Typography.bodyMedium,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  microStepLabel: {
+    ...Typography.caption,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   ctaContainer: {
     paddingHorizontal: Spacing.xl,

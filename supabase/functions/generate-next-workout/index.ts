@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
     const { data: profile, error: profileError } = await supabaseClient
       .from("profiles")
       .select(
-        "goal, custom_goal, weekly_frequency, gender, training_split, session_duration_minutes, equipment_level, training_style, difficulty_level, training_custom_prompt, training_setup_completed"
+        "goal, custom_goal, weekly_frequency, gender, training_split, session_duration_minutes, equipment_level, training_style, difficulty_level, training_custom_prompt, weight_increments, training_setup_completed"
       )
       .eq("id", user_id)
       .single();

@@ -1,8 +1,12 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   calculateProgression,
+  getAchievableIncrements,
+  getIncrementEquipmentKey,
+  pickWeightIncrement,
   PROGRESSION_REASON_CODES,
   type ExerciseHistory,
+  type WeightIncrements,
 } from "../progression.ts";
 
 const NOW = new Date("2026-04-05T12:00:00Z");
@@ -554,4 +558,163 @@ Deno.test("time exercise: holds when stale", () => {
   assertEquals(result?.progression_type, "maintained");
   assertEquals(result?.target_duration_seconds, 90);
   assertEquals(result?.reason_code, PROGRESSION_REASON_CODES.STALE_HISTORY);
+});
+
+// ---------------------------------------------------------------------------
+// User-configured weight increments (per equipment category)
+// ---------------------------------------------------------------------------
+
+const MACHINE_INCREMENTS: WeightIncrements = { base_kg: 4, micro_kg: 1.1 };
+const BARBELL_MICRO_PLATES: WeightIncrements = { base_kg: 2.5, micro_kg: 0.25 };
+
+Deno.test(
+  "getIncrementEquipmentKey maps catalog equipment to categories",
+  () => {
+    assertEquals(getIncrementEquipmentKey(["Machine"]), "machine");
+    assertEquals(getIncrementEquipmentKey(["Barbell"]), "barbell");
+    assertEquals(getIncrementEquipmentKey(["Dumbbells"]), "dumbbell");
+    assertEquals(getIncrementEquipmentKey(["Cable"]), "cable");
+    // barbell wins when both are listed
+    assertEquals(getIncrementEquipmentKey(["Dumbbell", "Barbell"]), "barbell");
+    assertEquals(getIncrementEquipmentKey(["Body weight"]), null);
+    assertEquals(getIncrementEquipmentKey(["band"]), null);
+  }
+);
+
+Deno.test("getAchievableIncrements combines base and micro steps", () => {
+  const deltas = getAchievableIncrements(MACHINE_INCREMENTS);
+  assertEquals(deltas.slice(0, 8), [1.1, 2.2, 3.3, 4, 5.1, 6.2, 7.3, 8]);
+});
+
+Deno.test(
+  "getAchievableIncrements without micro returns base multiples",
+  () => {
+    const deltas = getAchievableIncrements({ base_kg: 4, micro_kg: null });
+    assertEquals(deltas.slice(0, 3), [4, 8, 12]);
+  }
+);
+
+Deno.test("getAchievableIncrements ignores invalid config", () => {
+  assertEquals(getAchievableIncrements({ base_kg: null, micro_kg: 1 }), []);
+  assertEquals(getAchievableIncrements({ base_kg: 0, micro_kg: null }), []);
+});
+
+Deno.test("pickWeightIncrement finds smallest reachable delta", () => {
+  const config = { machine: MACHINE_INCREMENTS };
+  // >= 2 → first reachable is 2.2 (two micro-plates)
+  assertEquals(pickWeightIncrement(["machine"], config, 2), 2.2);
+  // >= 4 → a full machine step
+  assertEquals(pickWeightIncrement(["machine"], config, 4), 4);
+  // >= 5 → step + one micro-plate
+  assertEquals(pickWeightIncrement(["machine"], config, 5), 5.1);
+  // >= 7 → step + three micro-plates
+  assertEquals(pickWeightIncrement(["machine"], config, 7), 7.3);
+});
+
+Deno.test(
+  "pickWeightIncrement only applies config for matching category",
+  () => {
+    const config = { machine: MACHINE_INCREMENTS };
+    // barbell exercise ignores the machine config → default 2.5
+    assertEquals(pickWeightIncrement(["barbell"], config, 1), 2.5);
+  }
+);
+
+Deno.test("pickWeightIncrement supports small barbell plates (0.25kg)", () => {
+  const config = { barbell: BARBELL_MICRO_PLATES };
+  // >= 1 → four 0.25kg plates give exactly 1kg
+  assertEquals(pickWeightIncrement(["barbell"], config, 1), 1);
+  // a tiny min jump still resolves to a real reachable delta
+  assertEquals(pickWeightIncrement(["barbell"], config, 0.25), 0.25);
+  // >= 3 → step (2.5) + two micro-plates (0.5)
+  assertEquals(pickWeightIncrement(["barbell"], config, 3), 3);
+});
+
+Deno.test(
+  "pickWeightIncrement falls back to equipment defaults without config",
+  () => {
+    assertEquals(pickWeightIncrement(["machine"], null, 1), 1.25);
+    assertEquals(
+      pickWeightIncrement(
+        ["barbell"],
+        { dumbbell: { base_kg: null, micro_kg: null } },
+        1
+      ),
+      2.5
+    );
+  }
+);
+
+Deno.test("too_easy uses a full configured step (37kg → 41kg)", () => {
+  const result = calculateProgression(
+    makeHistory({
+      difficulty_feedback: "too_easy",
+      working_sets: [{ load_kg: 37, reps: 10, completed: true }],
+    }),
+    ["machine"],
+    "hypertrophy",
+    NOW,
+    { machine: MACHINE_INCREMENTS }
+  );
+  assertEquals(result?.progression_type, "weight_up");
+  assertEquals(result?.target_load_kg, 41); // +4kg machine step
+});
+
+Deno.test("too_easy on barbell uses configured barbell step", () => {
+  const result = calculateProgression(
+    makeHistory({
+      difficulty_feedback: "too_easy",
+      working_sets: [{ load_kg: 60, reps: 10, completed: true }],
+    }),
+    ["barbell"],
+    "hypertrophy",
+    NOW,
+    { barbell: { base_kg: 1.25, micro_kg: 0.25 } }
+  );
+  assertEquals(result?.target_load_kg, 61.25); // +1.25kg small plates
+});
+
+Deno.test(
+  "top-of-range progression allows a micro-only jump (40kg → 42.2kg)",
+  () => {
+    const result = calculateProgression(
+      makeHistory({
+        working_sets: [{ load_kg: 40, reps: 12, completed: true }],
+      }),
+      ["machine"],
+      "hypertrophy",
+      NOW,
+      { machine: MACHINE_INCREMENTS }
+    );
+    assertEquals(result?.progression_type, "weight_up");
+    assertEquals(result?.target_load_kg, 42.2); // +2.2kg (two micro-plates)
+  }
+);
+
+Deno.test("configured increments without micro fall back to full steps", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [{ load_kg: 40, reps: 12, completed: true }],
+    }),
+    ["machine"],
+    "hypertrophy",
+    NOW,
+    { machine: { base_kg: 4, micro_kg: null } }
+  );
+  assertEquals(result?.progression_type, "weight_up");
+  assertEquals(result?.target_load_kg, 44); // +4kg
+});
+
+Deno.test("null increments keep equipment-based defaults", () => {
+  const result = calculateProgression(
+    makeHistory({
+      working_sets: [{ load_kg: 30, reps: 12, completed: true }],
+    }),
+    ["cable"],
+    "hypertrophy",
+    NOW,
+    { cable: { base_kg: null, micro_kg: null } }
+  );
+  assertEquals(result?.progression_type, "weight_up");
+  assertEquals(result?.target_load_kg, 31.25); // +1.25kg default
 });

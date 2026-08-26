@@ -245,7 +245,7 @@ Deno.serve(async (req: Request) => {
     // 6. Fetch profile
     const { data: profile, error: profileError } = await userClient
       .from("profiles")
-      .select("goal, custom_goal, weekly_frequency, gender")
+      .select("goal, custom_goal, weekly_frequency, gender, weight_increments")
       .eq("id", user.id)
       .single();
 
