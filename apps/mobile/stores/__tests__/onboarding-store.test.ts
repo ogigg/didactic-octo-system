@@ -22,6 +22,7 @@ describe("initial state", () => {
     expect(result.current.customGoal).toBeNull();
     expect(result.current.frequency).toBeNull();
     expect(result.current.isCompleted).toBe(false);
+    expect(result.current.onboardingStartedAt).toBeNull();
   });
 });
 
@@ -90,6 +91,28 @@ describe("complete", () => {
     act(() => result.current.complete());
     expect(result.current.isCompleted).toBe(true);
   });
+
+  it("starts onboarding only once and persists the timestamp", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    let firstStart = false;
+    let secondStart = false;
+
+    act(() => {
+      firstStart = result.current.markOnboardingStarted();
+      secondStart = result.current.markOnboardingStarted();
+    });
+
+    expect(firstStart).toBe(true);
+    expect(secondStart).toBe(false);
+    expect(result.current.onboardingStartedAt).toEqual(expect.any(String));
+  });
+
+  it("clears the onboarding timestamp after completion", () => {
+    const { result } = renderHook(() => useOnboardingStore());
+    act(() => result.current.markOnboardingStarted());
+    act(() => result.current.complete());
+    expect(result.current.onboardingStartedAt).toBeNull();
+  });
 });
 
 describe("reset", () => {
@@ -108,6 +131,7 @@ describe("reset", () => {
     expect(result.current.equipment).toBeNull();
     expect(result.current.experience).toBeNull();
     expect(result.current.isCompleted).toBe(false);
+    expect(result.current.onboardingStartedAt).toBeNull();
   });
 });
 

@@ -1,6 +1,7 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import type { Equipment } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
+import { useOnboardingStepAnalytics } from "@/lib/onboarding-analytics";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
@@ -47,6 +48,7 @@ const OPTIONS: EquipmentOption[] = [
 export default function EquipmentScreen() {
   const { equipment, setEquipment } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
+  useOnboardingStepAnalytics("equipment", editMode);
 
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
@@ -62,6 +64,8 @@ export default function EquipmentScreen() {
     if (!canContinue) return;
     trackEvent("onboarding_step_completed", {
       step: "equipment",
+      step_index: 4,
+      edit_mode: editMode === "1",
       skipped: false,
     });
     if (editMode === "1") {

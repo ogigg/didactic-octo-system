@@ -2,9 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
+  type ExercisePreference,
   generateSingleWorkout,
   getFocusAreaForPosition,
-  type ExercisePreference,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -15,15 +15,41 @@ import {
   checkGenerationAllowance,
   recordGenerationUsage,
 } from "../_shared/subscription.ts";
+import {
+  capturePostHogEvent,
+  normalizeGenerationFailure,
+} from "../_shared/posthog.ts";
 
 // ---------------------------------------------------------------------------
 // Request Schema
 // ---------------------------------------------------------------------------
 
 const requestSchema = z.object({
+  request_id: z.string().uuid().optional(),
   count: z.number().int().min(1).max(7),
   trigger: z.enum(["onboarding", "preference_change"]),
 });
+
+function captureQueueFailureEvent(params: {
+  userId: string;
+  requestId: string;
+  stage: Parameters<typeof normalizeGenerationFailure>[0];
+  error: unknown;
+  startedAt: number;
+  trigger: string;
+  queuePosition?: number;
+  workoutId?: string;
+}): void {
+  const failure = normalizeGenerationFailure(params.stage, params.error);
+  capturePostHogEvent("workout_generation_failed", params.userId, {
+    request_id: params.requestId,
+    workout_id: params.workoutId,
+    queue_position: params.queuePosition,
+    trigger: params.trigger,
+    generation_time_ms: Math.max(0, Date.now() - params.startedAt),
+    ...failure,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Main Handler
@@ -35,6 +61,10 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders() });
   }
+
+  let userIdForTelemetry: string | null = null;
+  let requestIdForTelemetry: string | null = null;
+  let queueStartedAtForTelemetry: number | null = null;
 
   try {
     // 1. Auth
@@ -54,6 +84,7 @@ Deno.serve(async (req: Request) => {
     } = await supabaseClient.auth.getUser(token);
 
     if (authError || !user) return errorResponse("Unauthorized", 401);
+    userIdForTelemetry = user.id;
 
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -66,11 +97,17 @@ Deno.serve(async (req: Request) => {
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(
-        `Invalid request: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        `Invalid request: ${parsed.error.issues
+          .map((i) => i.message)
+          .join(", ")}`,
         400
       );
     }
-    const { count, trigger } = parsed.data;
+    const { count, trigger, request_id } = parsed.data;
+    const requestId = request_id ?? crypto.randomUUID();
+    const queueStartedAt = Date.now();
+    requestIdForTelemetry = requestId;
+    queueStartedAtForTelemetry = queueStartedAt;
 
     console.log(
       `[generate-workout-queue] User ${user.id}: generating ${count} workouts (${trigger})`
@@ -86,6 +123,22 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (profileError || !profile) {
+      captureQueueFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "profile",
+        error: profileError,
+        startedAt: queueStartedAt,
+        trigger,
+      });
+      capturePostHogEvent("workout_queue_failed", user.id, {
+        request_id: requestId,
+        trigger,
+        count,
+        ready_count: 0,
+        failed_count: count,
+        error_code: "profile_missing",
+      });
       return errorResponse(
         "Profile not found. Complete onboarding first.",
         400
@@ -98,6 +151,14 @@ Deno.serve(async (req: Request) => {
       !profile.training_style ||
       !profile.difficulty_level
     ) {
+      captureQueueFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "validation",
+        error: "training preferences not set",
+        startedAt: queueStartedAt,
+        trigger,
+      });
       return errorResponse(
         "Training preferences not set. Complete training setup first.",
         400
@@ -167,6 +228,22 @@ Deno.serve(async (req: Request) => {
         console.log(
           `[generate-workout-queue] Limit reached for user ${user.id}: ${allowance.used}/5 used`
         );
+        captureQueueFailureEvent({
+          userId: user.id,
+          requestId,
+          stage: "allowance",
+          error: "generation_limit_reached",
+          startedAt: queueStartedAt,
+          trigger,
+        });
+        capturePostHogEvent("workout_queue_failed", user.id, {
+          request_id: requestId,
+          trigger,
+          count,
+          ready_count: 0,
+          failed_count: count,
+          error_code: "rate_limited",
+        });
         return jsonResponse(
           {
             error: "generation_limit_reached",
@@ -193,6 +270,14 @@ Deno.serve(async (req: Request) => {
       console.log(
         "[generate-workout-queue] Generation already in progress, skipping"
       );
+      captureQueueFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "validation",
+        error: "generation already in progress",
+        startedAt: queueStartedAt,
+        trigger,
+      });
       return jsonResponse({
         skipped: true,
         reason: "generation_already_in_progress",
@@ -210,6 +295,14 @@ Deno.serve(async (req: Request) => {
         "[generate-workout-queue] Error clearing queue:",
         deleteError
       );
+      captureQueueFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "persistence",
+        error: deleteError,
+        startedAt: queueStartedAt,
+        trigger,
+      });
       return errorResponse("Failed to clear existing queue", 500);
     }
 
@@ -231,6 +324,14 @@ Deno.serve(async (req: Request) => {
         "[generate-workout-queue] Error creating queue:",
         insertError
       );
+      captureQueueFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "persistence",
+        error: insertError,
+        startedAt: queueStartedAt,
+        trigger,
+      });
       return errorResponse("Failed to create workout queue", 500);
     }
 
@@ -244,15 +345,45 @@ Deno.serve(async (req: Request) => {
     const queueContext: QueueContextItem[] = [];
 
     for (const pw of insertedWorkouts) {
+      const generationStartedAt = Date.now();
       console.log(
         `[generate-workout-queue] Generating ${pw.queue_position}/${count} (focus: ${pw.focus_area})`
       );
 
+      capturePostHogEvent("workout_generation_started", user.id, {
+        request_id: requestId,
+        workout_id: pw.id,
+        queue_position: pw.queue_position,
+        trigger,
+      });
+
       // Set status to 'generating'
-      await userClient
+      const { error: markGeneratingError } = await userClient
         .from("pending_workouts")
         .update({ status: "generating" })
         .eq("id", pw.id);
+
+      if (markGeneratingError) {
+        captureQueueFailureEvent({
+          userId: user.id,
+          requestId,
+          stage: "persistence",
+          error: markGeneratingError,
+          startedAt: generationStartedAt,
+          trigger,
+          queuePosition: pw.queue_position,
+          workoutId: pw.id,
+        });
+        await userClient
+          .from("pending_workouts")
+          .update({ status: "failed" })
+          .eq("id", pw.id);
+        results.push({
+          position: pw.queue_position,
+          status: "failed",
+        });
+        continue;
+      }
 
       // Generate
       const genResult = await generateSingleWorkout({
@@ -275,7 +406,7 @@ Deno.serve(async (req: Request) => {
       });
 
       if (genResult.success && genResult.data) {
-        await userClient
+        const { error: readyError } = await userClient
           .from("pending_workouts")
           .update({
             workout_data: genResult.data as unknown as Record<string, unknown>,
@@ -284,6 +415,37 @@ Deno.serve(async (req: Request) => {
             generated_at: new Date().toISOString(),
           })
           .eq("id", pw.id);
+
+        if (readyError) {
+          captureQueueFailureEvent({
+            userId: user.id,
+            requestId,
+            stage: "persistence",
+            error: readyError,
+            startedAt: generationStartedAt,
+            trigger,
+            queuePosition: pw.queue_position,
+            workoutId: pw.id,
+          });
+          await userClient
+            .from("pending_workouts")
+            .update({ status: "failed" })
+            .eq("id", pw.id);
+          results.push({
+            position: pw.queue_position,
+            status: "failed",
+          });
+          continue;
+        }
+
+        capturePostHogEvent("workout_generation_completed", user.id, {
+          request_id: requestId,
+          workout_id: pw.id,
+          queue_position: pw.queue_position,
+          generation_source: genResult.generationSource,
+          generation_time_ms: Math.max(0, Date.now() - generationStartedAt),
+          trigger,
+        });
 
         // Add to queue context for variety in subsequent generations
         queueContext.push({
@@ -316,6 +478,17 @@ Deno.serve(async (req: Request) => {
           .update({ status: "failed" })
           .eq("id", pw.id);
 
+        captureQueueFailureEvent({
+          userId: user.id,
+          requestId,
+          stage: "generation",
+          error: genResult.error,
+          startedAt: generationStartedAt,
+          trigger,
+          queuePosition: pw.queue_position,
+          workoutId: pw.id,
+        });
+
         results.push({
           position: pw.queue_position,
           status: "failed",
@@ -330,10 +503,31 @@ Deno.serve(async (req: Request) => {
     );
 
     // Record usage for non-onboarding triggers
+    const successfulCount = results.filter((r) => r.status === "ready").length;
+    const failedCount = results.filter((r) => r.status === "failed").length;
+    const fallbackCount = results.filter(
+      (r) => r.status === "ready" && r.source !== "llm"
+    ).length;
+    if (failedCount === 0 && successfulCount === count) {
+      capturePostHogEvent("workout_queue_ready", user.id, {
+        request_id: requestId,
+        trigger,
+        count,
+        fallback_count: fallbackCount,
+        total_generation_time_ms: Math.max(0, Date.now() - queueStartedAt),
+      });
+    } else {
+      capturePostHogEvent("workout_queue_failed", user.id, {
+        request_id: requestId,
+        trigger,
+        count,
+        ready_count: successfulCount,
+        failed_count: failedCount,
+        error_code: failedCount > 0 ? "generation_failed" : "internal",
+      });
+    }
+
     if (trigger !== "onboarding") {
-      const successfulCount = results.filter(
-        (r) => r.status === "ready"
-      ).length;
       if (successfulCount > 0) {
         await recordGenerationUsage(
           supabaseClient,
@@ -347,6 +541,24 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ success: true, count, trigger, results });
   } catch (err) {
     console.error("[generate-workout-queue] Unhandled error:", err);
+    if (
+      userIdForTelemetry &&
+      requestIdForTelemetry &&
+      queueStartedAtForTelemetry
+    ) {
+      captureQueueFailureEvent({
+        userId: userIdForTelemetry,
+        requestId: requestIdForTelemetry,
+        stage: "handler",
+        error: err,
+        startedAt: queueStartedAtForTelemetry,
+        trigger: "unknown",
+      });
+      capturePostHogEvent("workout_queue_failed", userIdForTelemetry, {
+        request_id: requestIdForTelemetry,
+        error_code: "internal",
+      });
+    }
     return errorResponse("Internal server error", 500);
   }
 });

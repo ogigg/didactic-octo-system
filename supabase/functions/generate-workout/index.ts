@@ -2,8 +2,8 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
-  generateSingleWorkout,
   type ExercisePreference,
+  generateSingleWorkout,
   type HistorySession,
   type ProfileData,
   type QueueContextItem,
@@ -14,6 +14,10 @@ import {
   checkGenerationAllowance,
   recordGenerationUsage,
 } from "../_shared/subscription.ts";
+import {
+  capturePostHogEvent,
+  normalizeGenerationFailure,
+} from "../_shared/posthog.ts";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -28,6 +32,7 @@ type AppSupabaseClient = SupabaseClient<any, "public", any>;
 // -----------------------------------------------------------------------------
 
 const requestSchema = z.object({
+  request_id: z.string().uuid().optional(),
   training_split: z.enum(["full_body", "upper_lower", "push_pull_legs"]),
   duration_minutes: z.union([
     z.literal(15),
@@ -48,11 +53,33 @@ const requestSchema = z.object({
 
 interface PendingWorkoutSnapshot {
   id: string;
+  queue_position: number | null;
   regeneration_count: number | null;
   regeneration_feedback: Record<string, unknown>[] | null;
   last_regenerated_at: string | null;
   workout_data: Record<string, unknown> | null;
   status: string;
+}
+
+function captureGenerationFailureEvent(params: {
+  userId: string;
+  requestId: string;
+  stage: Parameters<typeof normalizeGenerationFailure>[0];
+  error: unknown;
+  startedAt: number;
+  workoutId?: string;
+  queuePosition?: number | null;
+  trigger: string;
+}): void {
+  const failure = normalizeGenerationFailure(params.stage, params.error);
+  capturePostHogEvent("workout_generation_failed", params.userId, {
+    request_id: params.requestId,
+    workout_id: params.workoutId,
+    queue_position: params.queuePosition ?? undefined,
+    trigger: params.trigger,
+    generation_time_ms: Math.max(0, Date.now() - params.startedAt),
+    ...failure,
+  });
 }
 
 function toDateKeyForOffset(date: Date, timezoneOffsetMinutes: number): string {
@@ -97,6 +124,8 @@ Deno.serve(async (req: Request) => {
   let pendingWorkoutIdForRecovery: string | null = null;
   let userIdForRecovery: string | null = null;
   let userClientForRecovery: AppSupabaseClient | null = null;
+  let requestIdForTelemetry: string | null = null;
+  let generationStartedAtForTelemetry: number | null = null;
 
   try {
     // 1. Auth
@@ -130,12 +159,15 @@ Deno.serve(async (req: Request) => {
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(
-        `Invalid request: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        `Invalid request: ${parsed.error.issues
+          .map((i) => i.message)
+          .join(", ")}`,
         400
       );
     }
 
     const {
+      request_id,
       training_split,
       duration_minutes,
       equipment,
@@ -146,6 +178,17 @@ Deno.serve(async (req: Request) => {
       pending_workout_id,
       timezone_offset_minutes,
     } = parsed.data;
+    const requestId = request_id ?? crypto.randomUUID();
+    const generationStartedAt = Date.now();
+    requestIdForTelemetry = requestId;
+    generationStartedAtForTelemetry = generationStartedAt;
+    const generationTrigger = pending_workout_id ? "regeneration" : "immediate";
+    let queuePositionForTelemetry: number | null = null;
+    capturePostHogEvent("workout_generation_started", user.id, {
+      request_id: requestId,
+      workout_id: pending_workout_id,
+      trigger: generationTrigger,
+    });
     pendingWorkoutIdForRecovery = pending_workout_id ?? null;
 
     // 3. Generation allowance check (pending workout regeneration only — not used for direct generation)
@@ -160,6 +203,15 @@ Deno.serve(async (req: Request) => {
         console.log(
           `[generate-workout] Limit reached for user ${user.id}: ${allowance.used}/5 used`
         );
+        captureGenerationFailureEvent({
+          userId: user.id,
+          requestId,
+          stage: "allowance",
+          error: "generation_limit_reached",
+          startedAt: generationStartedAt,
+          workoutId: pending_workout_id,
+          trigger: generationTrigger,
+        });
         return jsonResponse(
           {
             error: "generation_limit_reached",
@@ -187,6 +239,14 @@ Deno.serve(async (req: Request) => {
         const elapsed =
           (Date.now() - new Date(recentSession.created_at).getTime()) / 1000;
         if (elapsed < RATE_LIMIT_SECONDS) {
+          captureGenerationFailureEvent({
+            userId: user.id,
+            requestId,
+            stage: "rate_limit",
+            error: "rate limited",
+            startedAt: generationStartedAt,
+            trigger: generationTrigger,
+          });
           return jsonResponse(
             {
               error: "Rate limited",
@@ -203,13 +263,22 @@ Deno.serve(async (req: Request) => {
       const { data: pendingWorkout } = await userClient
         .from("pending_workouts")
         .select(
-          "id, regeneration_count, regeneration_feedback, last_regenerated_at, workout_data, status"
+          "id, queue_position, regeneration_count, regeneration_feedback, last_regenerated_at, workout_data, status"
         )
         .eq("id", pending_workout_id)
         .eq("user_id", user.id)
         .single();
 
       if (!pendingWorkout) {
+        captureGenerationFailureEvent({
+          userId: user.id,
+          requestId,
+          stage: "validation",
+          error: "pending workout not found",
+          startedAt: generationStartedAt,
+          workoutId: pending_workout_id,
+          trigger: generationTrigger,
+        });
         return errorResponse("Pending workout not found", 404);
       }
 
@@ -222,6 +291,16 @@ Deno.serve(async (req: Request) => {
           ) === toDateKeyForOffset(new Date(), currentTimezoneOffsetMinutes);
 
         if (sameDay) {
+          captureGenerationFailureEvent({
+            userId: user.id,
+            requestId,
+            stage: "allowance",
+            error: "rate limited",
+            startedAt: generationStartedAt,
+            workoutId: pending_workout_id,
+            queuePosition: pendingWorkout.queue_position,
+            trigger: generationTrigger,
+          });
           return errorResponse(
             "Daily regeneration limit reached. Try again tomorrow or edit the workout instead.",
             429
@@ -230,6 +309,7 @@ Deno.serve(async (req: Request) => {
       }
 
       pendingWorkoutSnapshot = pendingWorkout;
+      queuePositionForTelemetry = pendingWorkout.queue_position;
 
       const { error: markRegeneratingError } = await userClient
         .from("pending_workouts")
@@ -238,6 +318,16 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user.id);
 
       if (markRegeneratingError) {
+        captureGenerationFailureEvent({
+          userId: user.id,
+          requestId,
+          stage: "persistence",
+          error: markRegeneratingError,
+          startedAt: generationStartedAt,
+          workoutId: pending_workout_id,
+          queuePosition: queuePositionForTelemetry,
+          trigger: generationTrigger,
+        });
         return errorResponse("Failed to start workout regeneration.", 500);
       }
     }
@@ -250,6 +340,16 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (profileError || !profile) {
+      captureGenerationFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "profile",
+        error: profileError,
+        startedAt: generationStartedAt,
+        workoutId: pending_workout_id,
+        queuePosition: pendingWorkoutSnapshot?.queue_position,
+        trigger: generationTrigger,
+      });
       return errorResponse(
         "Profile not found. Complete onboarding first.",
         400
@@ -358,6 +458,17 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      captureGenerationFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "generation",
+        error: result.error,
+        startedAt: generationStartedAt,
+        workoutId: pending_workout_id,
+        queuePosition: pendingWorkoutSnapshot?.queue_position,
+        trigger: generationTrigger,
+      });
+
       return errorResponse(result.error ?? "Workout generation failed", 500);
     }
 
@@ -397,6 +508,17 @@ Deno.serve(async (req: Request) => {
           hadWorkoutData: pendingWorkoutSnapshot?.workout_data !== null,
         });
 
+        captureGenerationFailureEvent({
+          userId: user.id,
+          requestId,
+          stage: "persistence",
+          error: updateError,
+          startedAt: generationStartedAt,
+          workoutId: pending_workout_id,
+          queuePosition: pendingWorkoutSnapshot?.queue_position,
+          trigger: generationTrigger,
+        });
+
         return errorResponse("Failed to save regenerated workout.", 500);
       }
 
@@ -413,6 +535,15 @@ Deno.serve(async (req: Request) => {
     if (pending_workout_id) {
       await recordGenerationUsage(supabaseClient, user.id, "regeneration", 1);
     }
+
+    capturePostHogEvent("workout_generation_completed", user.id, {
+      request_id: requestId,
+      workout_id: pending_workout_id,
+      queue_position: queuePositionForTelemetry ?? undefined,
+      generation_source: result.generationSource,
+      generation_time_ms: Math.max(0, Date.now() - generationStartedAt),
+      trigger: generationTrigger,
+    });
 
     return jsonResponse(result.data);
   } catch (err) {
@@ -431,6 +562,21 @@ Deno.serve(async (req: Request) => {
     }
 
     console.error("[generate-workout] Unhandled error:", err);
+    if (
+      userIdForRecovery &&
+      requestIdForTelemetry &&
+      generationStartedAtForTelemetry
+    ) {
+      captureGenerationFailureEvent({
+        userId: userIdForRecovery,
+        requestId: requestIdForTelemetry,
+        stage: "handler",
+        error: err,
+        startedAt: generationStartedAtForTelemetry,
+        workoutId: pendingWorkoutIdForRecovery ?? undefined,
+        trigger: pendingWorkoutIdForRecovery ? "regeneration" : "immediate",
+      });
+    }
     return errorResponse("Internal server error", 500);
   }
 });

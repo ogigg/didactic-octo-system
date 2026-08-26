@@ -182,7 +182,9 @@ export default function HomeScreen() {
   // Handlers
   const handleCreateWorkout = useCallback(() => {
     if (!isWorkoutActive) {
-      startWorkout(t("myWorkouts.newWorkoutName"), []);
+      startWorkout(t("myWorkouts.newWorkoutName"), [], undefined, null, {
+        workoutSource: "manual",
+      });
     }
     router.push("/workout");
   }, [isWorkoutActive, startWorkout, t, router]);
@@ -201,7 +203,10 @@ export default function HomeScreen() {
           resolveName: (id, fallback) => exerciseMap.get(id)?.name ?? fallback,
           previousById,
         });
-        startWorkout(template.name, exercises);
+        startWorkout(template.name, exercises, undefined, null, {
+          workoutSource: "template",
+          workoutId: template.id,
+        });
       }
       router.push("/workout");
     },
@@ -288,7 +293,10 @@ export default function HomeScreen() {
     }
 
     if (nextQueuedWorkout) {
-      startPendingWorkout.mutate({ pendingWorkout: nextQueuedWorkout });
+      startPendingWorkout.mutate({
+        pendingWorkout: nextQueuedWorkout,
+        workoutSource: "comeback",
+      });
       return;
     }
 
@@ -362,6 +370,8 @@ export default function HomeScreen() {
             workout.status === "queued" ||
             workout.status === "regenerating"
         ).length,
+        failed_count: queue.filter((workout) => workout.status === "failed")
+          .length,
         total_count: queue.length,
         has_active_workout: isWorkoutActive,
       });

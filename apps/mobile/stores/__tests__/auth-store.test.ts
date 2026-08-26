@@ -17,6 +17,17 @@ jest.mock("@/lib/sync-queue", () => ({
   },
 }));
 
+jest.mock("@/lib/posthog", () => ({
+  flushPostHog: jest.fn(),
+}));
+
+jest.mock("@/lib/track-event", () => ({
+  identifyUser: jest.fn(),
+  resetUser: jest.fn(),
+  setUserProperties: jest.fn(),
+  trackEvent: jest.fn(),
+}));
+
 jest.mock("@/stores/onboarding-store", () => ({
   useOnboardingStore: {
     getState: jest.fn().mockReturnValue({
@@ -31,6 +42,8 @@ jest.mock("@/lib/api/profiles", () => ({
 }));
 
 import { supabase } from "@/lib/supabase";
+import { flushPostHog } from "@/lib/posthog";
+import { identifyUser, resetUser, trackEvent } from "@/lib/track-event";
 import { useAuthStore } from "../auth-store";
 import { fetchProfile } from "@/lib/api/profiles";
 
@@ -38,6 +51,14 @@ const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 const mockFetchProfile = fetchProfile as jest.MockedFunction<
   typeof fetchProfile
 >;
+const mockFlushPostHog = flushPostHog as jest.MockedFunction<
+  typeof flushPostHog
+>;
+const mockIdentifyUser = identifyUser as jest.MockedFunction<
+  typeof identifyUser
+>;
+const mockResetUser = resetUser as jest.MockedFunction<typeof resetUser>;
+const mockTrackEvent = trackEvent as jest.MockedFunction<typeof trackEvent>;
 
 function resetStore() {
   useAuthStore.setState({
@@ -92,6 +113,41 @@ describe("useAuthStore", () => {
 
       expect(useAuthStore.getState().isInitialized).toBe(true);
       expect(useAuthStore.getState().session).toBeNull();
+      expect(mockResetUser).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).not.toHaveBeenCalledWith("user_signed_out");
+
+      unsubscribe();
+    });
+
+    it("handles repeated signed-out callbacks without duplicate analytics", async () => {
+      const mockSession = { user: { id: "signed-out-user" } } as never;
+      let capturedCallback: (event: string, session: unknown) => void;
+
+      (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: mockSession },
+      });
+      (mockSupabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
+        (cb) => {
+          capturedCallback = cb;
+          return { data: { subscription: { unsubscribe: jest.fn() } } };
+        }
+      );
+
+      const unsubscribe = useAuthStore.getState().initialize();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      jest.clearAllMocks();
+
+      act(() => {
+        capturedCallback!("SIGNED_OUT", null);
+        capturedCallback!("SIGNED_OUT", null);
+      });
+
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith("user_signed_out");
+      expect(mockFlushPostHog).toHaveBeenCalledTimes(1);
+      expect(mockResetUser).toHaveBeenCalledTimes(1);
 
       unsubscribe();
     });
@@ -305,6 +361,34 @@ describe("useAuthStore", () => {
 
       expect(syncQueue.flush).toHaveBeenCalledTimes(1);
       expect(useOnboardingStore.getState().reset).toHaveBeenCalledTimes(1);
+    });
+
+    it("captures and resets exactly once when Supabase emits no callback", async () => {
+      const mockSession = { user: { id: "explicit-sign-out-user" } } as never;
+      (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: mockSession },
+      });
+      (mockSupabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      });
+      (mockSupabase.auth.signOut as jest.Mock).mockResolvedValue({});
+
+      const unsubscribe = useAuthStore.getState().initialize();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      jest.clearAllMocks();
+
+      await act(async () => {
+        await useAuthStore.getState().signOut();
+      });
+
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith("user_signed_out");
+      expect(mockFlushPostHog).toHaveBeenCalledTimes(1);
+      expect(mockResetUser).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
     });
   });
 });

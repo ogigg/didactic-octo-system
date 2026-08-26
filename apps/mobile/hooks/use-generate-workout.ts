@@ -14,6 +14,7 @@ import {
   normalizeGeneratedExerciseSets,
 } from "@/lib/exercise-set-structure";
 import { trackEvent } from "@/lib/track-event";
+import { normalizeAnalyticsError } from "@/lib/analytics-errors";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 import {
   convertPreviousDisplay,
@@ -27,6 +28,7 @@ import type {
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import * as Crypto from "expo-crypto";
 
 export interface StartTrainingRequest {
   preferences: TrainingPreferences;
@@ -94,22 +96,54 @@ export function useGenerateWorkout() {
 
   return useMutation({
     mutationFn: async ({ preferences, request }: StartTrainingRequest) => {
-      await updateTrainingPreferences(preferences);
-      return generateWorkout(request);
-    },
-    onSuccess: async (data, variables) => {
-      // Track workout generation event
-      trackEvent("workout_generated", {
-        generation_source: data.generation_source,
-        training_split: variables.request.training_split,
-        duration_minutes: variables.request.duration_minutes,
-        equipment: variables.request.equipment,
-        training_style: variables.request.training_style,
-        difficulty: variables.request.difficulty,
-        exercise_count: data.exercises.length,
-        has_custom_prompt: !!variables.request.custom_prompt,
+      const requestId = Crypto.randomUUID();
+      const startedAt = Date.now();
+      trackEvent("workout_generation_requested", {
+        request_id: requestId,
+        trigger: "immediate",
       });
 
+      try {
+        await updateTrainingPreferences(preferences);
+      } catch (error) {
+        // The Edge Function is the canonical source for generation lifecycle
+        // events. Only failures before invoking it are captured on-device.
+        trackEvent("workout_generation_client_failed", {
+          request_id: requestId,
+          ...normalizeAnalyticsError(error),
+          failure_stage: "preferences_update",
+        });
+        throw error;
+      }
+
+      let response: GenerateWorkoutResponse;
+      try {
+        response = await generateWorkout({
+          ...request,
+          request_id: requestId,
+        });
+      } catch (error) {
+        // Keep transport/client failures separate from the canonical server
+        // lifecycle events. If the function did run, its server event remains
+        // authoritative; this event is only for the client-observed failure.
+        trackEvent("workout_generation_client_failed", {
+          request_id: requestId,
+          ...normalizeAnalyticsError(error),
+          failure_stage: "function_transport",
+        });
+        throw error;
+      }
+      // Keep this legacy client event for immediate-generation attribution;
+      // canonical started/completed/failed events come from the Edge Function.
+      trackEvent("workout_generated", {
+        request_id: requestId,
+        generation_source: response.generation_source,
+        generation_time_ms: Math.max(0, Date.now() - startedAt),
+        exercise_count: response.exercises.length,
+      });
+      return { response, requestId };
+    },
+    onSuccess: async ({ response: data }) => {
       const previousSetDisplays: Record<string, ExercisePreviousSets> =
         await fetchPreviousSetDisplays(
           data.exercises.map((ex) => ex.exercise_id),
@@ -134,7 +168,9 @@ export function useGenerateWorkout() {
           }
         : null;
 
-      startWorkout(data.workout_name, exercises, generationMeta, warmup);
+      startWorkout(data.workout_name, exercises, generationMeta, warmup, {
+        workoutSource: "queued_ai",
+      });
       router.push("/workout");
     },
   });

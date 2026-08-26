@@ -174,6 +174,7 @@ export async function deleteAllPendingWorkouts(): Promise<void> {
 
 export interface QueueGenerationRequest {
   count: number;
+  request_id?: string;
   preferences: WorkoutGenerationPreferences;
   baselines: { exercise_key: string; load_kg: number | null; reps: number }[];
   trigger: "onboarding" | "preference_change";
@@ -219,11 +220,13 @@ export async function triggerRegeneration(
   pendingWorkoutId: string,
   preferences: WorkoutGenerationPreferences,
   timezoneOffsetMinutes: number,
-  feedback?: string
+  feedback?: string,
+  requestId?: string
 ): Promise<z.infer<typeof generateWorkoutResponseSchema>> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: {
       pending_workout_id: pendingWorkoutId,
+      request_id: requestId,
       training_split: preferences.training_split,
       duration_minutes: preferences.session_duration_minutes,
       equipment: preferences.equipment,
