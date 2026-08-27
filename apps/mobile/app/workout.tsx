@@ -40,12 +40,7 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Reanimated, { LinearTransition } from "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-
-const EXERCISE_LAYOUT_TRANSITION = LinearTransition.springify()
-  .damping(24)
-  .stiffness(220);
 
 export default function WorkoutScreen() {
   const { t } = useTranslation("workout");
@@ -438,9 +433,8 @@ export default function WorkoutScreen() {
                       />
                       <WarmupCard />
                       {exercises.map((exercise) => (
-                        <Reanimated.View
+                        <View
                           key={getExerciseOccurrenceId(exercise)}
-                          layout={EXERCISE_LAYOUT_TRANSITION}
                           onLayout={(e) =>
                             handleExerciseLayout(
                               getExerciseOccurrenceId(exercise),
@@ -460,7 +454,7 @@ export default function WorkoutScreen() {
                             }
                             onReorder={setReorderExerciseId}
                           />
-                        </Reanimated.View>
+                        </View>
                       ))}
                       <TouchableOpacity
                         style={[
