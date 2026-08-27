@@ -11,7 +11,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-export const OPENROUTER_MODEL = "z-ai/glm-4.7-flash";
+export const OPENROUTER_MODEL = "deepseek/deepseek-v4-flash-0731";
 export const LLM_TIMEOUT_MS = 15_000;
 
 export const EXERCISE_COUNTS: Record<number, { min: number; max: number }> = {
