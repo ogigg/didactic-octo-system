@@ -54,6 +54,7 @@ const MAPPING = {
   "hand.thumbsdown": "thumb-down",
   "heart.text.square": "monitor-heart",
   "gearshape.fill": "settings",
+  "lock.fill": "lock",
   globe: "language",
   "megaphone.fill": "campaign",
   "star.fill": "star",

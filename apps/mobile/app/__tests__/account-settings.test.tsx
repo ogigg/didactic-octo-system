@@ -2,6 +2,7 @@ const mockNavigate = jest.fn();
 const mockOpenSubscriptionManagement = jest.fn(() =>
   Promise.resolve("https://apps.apple.com/account/subscriptions")
 );
+const mockGetUser = jest.fn();
 let mockIsProActive = false;
 
 jest.mock("expo-router", () => ({
@@ -44,6 +45,12 @@ jest.mock("@/lib/subscription-management", () => ({
   openSubscriptionManagement: () => mockOpenSubscriptionManagement(),
 }));
 
+jest.mock("@/lib/supabase", () => ({
+  supabase: {
+    auth: { getUser: () => mockGetUser() },
+  },
+}));
+
 import {
   act,
   fireEvent,
@@ -64,6 +71,39 @@ describe("AccountSettingsScreen", () => {
     mockOpenSubscriptionManagement.mockResolvedValue(
       "https://apps.apple.com/account/subscriptions"
     );
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: { identities: [{ provider: "email" }] },
+      },
+      error: null,
+    });
+  });
+
+  it("opens password management with the account's current action", async () => {
+    render(<AccountSettingsScreen />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "password.changeLabel" })
+      ).toBeTruthy()
+    );
+    fireEvent.press(
+      screen.getByRole("button", { name: "password.changeLabel" })
+    );
+
+    expect(mockNavigate).toHaveBeenCalledWith("/change-password");
+  });
+
+  it("offers to set a password for an OAuth-only account", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { identities: [{ provider: "apple" }] } },
+      error: null,
+    });
+    render(<AccountSettingsScreen />);
+
+    expect(
+      await screen.findByRole("button", { name: "password.setLabel" })
+    ).toBeTruthy();
   });
 
   it("keeps subscription management separate from account deletion", () => {

@@ -68,6 +68,7 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Optimize for mobile realities: interrupted sessions, offline-sensitive flows, and fast in-workout interactions.
 - The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
 - Account deletion is available through Profile → Account & Data. Active subscribers are warned before continuing and can open the official Apple or Google Play subscription-management destination; if that destination is unavailable, the app tries the platform's official support page and then shows a localized error.
+- Password management is available through Profile → Account & Data. Signed-in OAuth users can add email/password sign-in without replacing their existing identity, while password users can change their password. Secure password changes use provider reauthentication for Apple on iOS and Supabase's email nonce flow otherwise.
 - Deletion does not cancel store billing. After the 14-day grace period, the implemented purge deletes `auth.users` and cascades through user-owned app data in the database. The repository implements no separate legal/security retention archive; Apple or Google purchase and billing records remain governed by those providers.
 
 ### Startup splash
