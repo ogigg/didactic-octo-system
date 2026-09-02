@@ -64,6 +64,7 @@ document when the missing knowledge is useful and can be maintained.
 - [Publishing to TestFlight via CLI](skills/publish-to-testflight.md)
 - [Database schema](../.ai/db-schema.md)
 - [Technology stack](../.ai/tech-stack.md)
+- [Workout-generation model research](workout-generation-model-report.html)
 
 ## Plans And Historical Material
 
