@@ -26,7 +26,8 @@
   "packageManager": "npm@11.4.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "supabase"
   ],
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,md,yml,yaml}": [

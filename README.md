@@ -39,6 +39,7 @@ See `project-wiki/guides/running-and-releasing-mobile-app.md` for the full runni
 ## Repository Structure
 
 - `apps/mobile` - Expo / React Native app
+- `supabase` - Supabase project, migrations, and Edge Functions
 - `packages/ui` - shared UI package
 - `packages/eslint-config` - shared ESLint config
 - `packages/typescript-config` - shared TypeScript config
@@ -74,6 +75,7 @@ From the repository root:
 
 ```bash
 npm run dev
+npm run dev --workspace=supabase
 npm run build
 npm run lint
 npm run check-types
