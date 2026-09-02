@@ -11,7 +11,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-export const OPENROUTER_MODEL = "z-ai/glm-4.7-flash";
+export const OPENROUTER_MODEL = "deepseek/deepseek-v4-flash-0731";
 export const LLM_TIMEOUT_MS = 15_000;
 
 export const EXERCISE_COUNTS: Record<number, { min: number; max: number }> = {
@@ -877,6 +877,26 @@ export function determineReplacementFocusArea(
   return "full_body";
 }
 
+export function filterCatalogByPreferences(
+  catalog: ExerciseCatalogEntry[],
+  preferences: ExercisePreference[] | undefined
+): ExerciseCatalogEntry[] {
+  const excludedIds = new Set(
+    (preferences ?? [])
+      .filter((pref) => pref.preference === "hard_dislike")
+      .map((pref) => pref.exercise_id)
+  );
+  if (excludedIds.size === 0) return catalog;
+  const filtered = catalog.filter((e) => !excludedIds.has(e.id));
+  if (!filtered.length) {
+    console.warn(
+      "[generator] All catalog exercises excluded by preferences; ignoring exclusions"
+    );
+    return catalog;
+  }
+  return filtered;
+}
+
 // ---------------------------------------------------------------------------
 // Core: Generate Single Workout
 // ---------------------------------------------------------------------------
@@ -901,6 +921,7 @@ export async function generateSingleWorkout(
     customPrompt,
     focusArea,
     strengthBaselines,
+    exercisePreferences,
     queueContext,
     history = [],
     recentComments,
@@ -911,13 +932,19 @@ export async function generateSingleWorkout(
   } = params;
 
   // Fetch exercise catalog
-  const catalog = await fetchExerciseCatalog(supabaseClient, equipment);
-  if (!catalog.length) {
+  const fullCatalog = await fetchExerciseCatalog(supabaseClient, equipment);
+  if (!fullCatalog.length) {
     return {
       success: false,
       error: "No exercises found for this equipment level",
     };
   }
+
+  // Exclude exercises the user marked as "never show again" (hard_dislike).
+  // This filters the catalog for the prompt, the fallback template, and the
+  // invalid-ID substitution path, and makes the LLM response validation treat
+  // excluded IDs as invalid so they get replaced.
+  const catalog = filterCatalogByPreferences(fullCatalog, exercisePreferences);
   const catalogMap = new Map(catalog.map((e) => [e.id, e]));
 
   // Try LLM generation

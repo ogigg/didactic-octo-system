@@ -1,252 +1,221 @@
-# Analytics Implementation Guide
+# MVP analytics implementation guide
 
-## Overview
+Sweaty uses PostHog for the launch funnel:
 
-This app uses **PostHog** for analytics and event tracking. The implementation follows the project's existing patterns (similar to Supabase and i18n integration).
+`signup -> onboarding -> queue ready -> workout started -> workout completed`
 
-## Setup
+The implementation is deliberately small and privacy-first. Application code
+must call `trackEvent` from `@/lib/track-event`; do not call the PostHog client
+directly. The wrapper adds the schema version and shared context, validates the
+event name at compile time, and removes unapproved or sensitive properties at
+runtime.
 
-### 1. Environment Variables
+## Configuration
 
-Add the following to your `.env` file (or copy from `.env.example`):
-
-```bash
-# PostHog Analytics Configuration
-# Get your API key from https://app.posthog.com/project/settings
-EXPO_PUBLIC_POSTHOG_KEY=your_posthog_project_api_key
-EXPO_PUBLIC_POSTHOG_HOST=https://app.posthog.com
-```
-
-### 2. Package Installation
-
-The PostHog React Native SDK is already installed:
+Set these Expo variables in the EAS environment used for the build:
 
 ```bash
-npm install posthog-react-native
+EXPO_PUBLIC_APP_ENV=preview       # development | preview | production
+EXPO_PUBLIC_POSTHOG_KEY=phc_...
+EXPO_PUBLIC_POSTHOG_HOST=https://<region>.i.posthog.com
+EXPO_PUBLIC_POSTHOG_ENABLE_LOCAL=false
 ```
 
-### 3. Configuration
+Use a separate PostHog project/key for preview. Local development is disabled
+even when a key exists. To intentionally inspect local events, set
+`EXPO_PUBLIC_POSTHOG_ENABLE_LOCAL=true` and use a development PostHog project.
+Never put a production key in a local `.env` file.
 
-PostHog is configured in `apps/mobile/lib/posthog.ts` and automatically initialized in `apps/mobile/app/_layout.tsx`.
+The production and preview EAS environments must define the key and regional
+ingestion host. A missing key does not block app startup, but the client logs an
+actionable warning and does not capture events. Verify the configuration in a
+real preview build before release.
 
-## Usage
+The PostHog SDK is already installed. Session replay and touch autocapture are
+disabled. React Native replay captures screenshots and this app contains
+credentials, notes, measurements, strength data, and health-related screens;
+enabling replay requires a separate masking and privacy review.
 
-### Basic Event Tracking
+## Identity lifecycle
 
-Import the `trackEvent` function and use it throughout your app:
+- Before authentication, PostHog uses its anonymous device ID.
+- When Supabase returns a session, `useAuthStore` calls `identifyUser` with the
+  Supabase user UUID. Email, names, provider tokens, and form values are never
+  used as a distinct ID.
+- Low-cardinality person properties can be queued with `setUserProperties` and
+  are applied only after an identified UUID exists.
+- A successful sign-out captures `user_signed_out`, flushes pending events, and
+  calls `resetUser`. The next account on the same device therefore gets a new
+  anonymous timeline.
 
-```typescript
-import { trackEvent } from "@/lib/track-event";
+## Shared properties
 
-// Basic event
-trackEvent("workout_generated");
+Every mobile custom event and manually captured screen contains:
 
-// Event with payload
-trackEvent("workout_completed", {
-  workout_name: "Full Body Workout",
-  duration_seconds: 1200,
-  exercise_count: 8,
-});
+- `analytics_schema_version` (currently `1`)
+- `environment` (`development`, `preview`, `production`, or `test`)
+- `app_version`
+- `build_number`
+- `platform`
+- `locale`
+
+The SDK supplies device and OS context. Server-side generation events include
+`analytics_schema_version` and `environment`, while PostHog supplies their
+ingestion context. Add a low-cardinality property to the event map before using
+it in a dashboard.
+
+## Event contract
+
+`EventPayloadMap` in `apps/mobile/lib/track-event.ts` is the source of truth.
+Properties are optional during migration of legacy instrumentation; new P0
+events should include the required fields in the tables below.
+
+### Authentication
+
+| Event             | Core properties                                 |
+| ----------------- | ----------------------------------------------- |
+| `signup_started`  | `auth_method` (`email`, `apple`, `google`)      |
+| `signin_started`  | `auth_method` (`email`, `apple`, `google`)      |
+| `user_signed_up`  | `auth_method`, `is_email_confirmation_required` |
+| `signup_failed`   | `auth_method`, `error_code`, `failure_stage`    |
+| `user_signed_in`  | `auth_method`                                   |
+| `signin_failed`   | `auth_method`, `error_code`, `failure_stage`    |
+| `user_signed_out` | none                                            |
+
+Error codes are normalized categories such as `invalid_credentials`, `network`,
+`provider_cancelled`, `missing_token`, `rate_limited`, `timeout`, and `unknown`.
+Never send Supabase's error message, email, password, or provider token.
+
+### Onboarding
+
+| Event                       | Core properties                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `onboarding_started`        | `entry_point`                                                                                        |
+| `onboarding_step_viewed`    | `step`, `step_index`, `edit_mode`                                                                    |
+| `onboarding_step_completed` | `step`, `step_index`, `edit_mode`, `skipped`                                                         |
+| `onboarding_save_failed`    | `error_code` (and optional `step`)                                                                   |
+| `onboarding_completed`      | `duration_seconds`, `goal_category`, `weekly_frequency`, `equipment`, `experience`, `baseline_count` |
+
+Do not send gender, custom goal text, raw strength values, or other form data.
+
+### Generation and queue readiness
+
+| Event                       | Core properties                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `workout_queue_initialized` | `request_id`, `count`, `trigger`                                                                      |
+| `pending_workout_generated` | `request_id`, `workout_id`, `generation_source`, `generation_time_ms`, `queue_position`, `focus_area` |
+| `workout_generation_failed` | `request_id`, `queue_position`, `error_code`, `failure_stage`, `retryable`                            |
+| `workout_queue_ready`       | `request_id`, `count`, `fallback_count`, `total_generation_time_ms`                                   |
+| `workout_queue_failed`      | `request_id`, `ready_count`, `failed_count`, `error_code`                                             |
+| `queue_state_on_open`       | `ready_count`, `generating_count`, `failed_count`, `total_count`, `has_active_workout`                |
+
+`request_id` joins client intent with server-side generation outcomes. Use
+`error_code` and `failure_stage`, never an exception object or raw prompt.
+
+### Workout selection and execution
+
+| Event                         | Core properties                                                                                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workout_preview_viewed`      | `workout_id`, `queue_position`, `generation_source`                                                                                                        |
+| `pending_workout_edited`      | `workout_id`, `edit_type`                                                                                                                                  |
+| `pending_workout_regenerated` | `workout_id`, `phase`, `has_feedback`, `feedback_length`, `previous_generation_source`                                                                     |
+| `workout_started`             | `workout_session_id`, `workout_source`, `workout_id`, `generation_source`, `exercise_count`, `planned_set_count`, `has_warmup`, `was_edited`, `edit_count` |
+| `workout_first_set_logged`    | `workout_session_id`, `seconds_since_start`                                                                                                                |
+| `workout_progress_reached`    | `workout_session_id`, `progress_percent`, `seconds_since_start`                                                                                            |
+| `workout_finish_requested`    | `workout_session_id`, `completion_rate`, `completed_sets`, `planned_sets`, `duration_seconds`                                                              |
+| `workout_completed`           | `workout_session_id`, source fields, set counts, completion rate, duration, volume, `is_partial`                                                           |
+| `workout_save_failed`         | `workout_session_id`, `error_code`, `retryable`, `is_offline`                                                                                              |
+| `workout_discarded`           | `workout_session_id`, set counts, completion rate, duration, `discard_context`                                                                             |
+| `workout_abandoned`           | `workout_session_id`, set counts, completion rate, duration, `stale_after_hours`                                                                           |
+
+`workout_source` is one of `queued_ai`, `manual`, `template`, or `comeback`.
+`generation_source` is nullable for manual and template workouts. Do not send
+workout names, exercise names, notes, comments, or custom goal text.
+`workout_completed` is emitted only after the database save succeeds, including
+when an initially offline save later succeeds through the sync queue.
+
+Legacy events (`pending_workout_started`, `workout_generated`, and
+`session_duration`) remain accepted while dashboards migrate. New flows should
+use the unified events above.
+
+### Feedback, sharing, monetization, and streaks
+
+The typed map retains the existing `difficulty_feedback_given`,
+`workout_comment_submitted`, sharing, training preference, queue, and streak
+events. Product feedback uses `product_feedback_submitted` and
+`product_feedback_failed`; paywall context uses `paywall_viewed`,
+`paywall_dismissed`, and `upgrade_tapped`.
+
+Send only enum values, booleans, counts, and length buckets. The sanitizer
+rejects `password`, `token`, `email`, names, comments, descriptions, raw errors,
+measurements, health data, exercise/workout names, and custom goal snapshots.
+
+## Manual screen tracking
+
+`AnalyticsScreenTracker` observes Expo Router's pathname from the root layout.
+Because Expo Router uses React Navigation 7, PostHog's automatic navigation
+tracker is disabled. Paths are reduced to an allowlisted stable screen name
+(`sign_in`, `home`, `onboarding_goal`, `workout_preview`, `workout`,
+`workout_summary`, `history`, `statistics`, `profile`, `feedback`, and related
+launch screens). Query strings, reset tokens, dynamic IDs, and arbitrary route
+parameters are discarded.
+
+## Testing and verification
+
+Run from the repository root after dependencies are installed:
+
+```bash
+npm run check-types --workspace=mobile
+npm test --workspace=mobile -- --runInBand
 ```
 
-### User Properties
+Focused tests cover payload filtering, normalized auth errors, screen-path
+sanitization, identity/reset behavior, and the existing analytics call sites.
 
-Set user-specific properties (goals, preferences, etc.):
+Before launch, verify in a preview build:
 
-```typescript
-import { setUserProperties } from "@/lib/track-event";
+1. Email signup with and without confirmation, Apple/Google success, cancellation,
+   and provider failure.
+2. Onboarding step views/completion and a deliberate final-save failure.
+3. Fast/slow/fallback/failed generation and queue readiness.
+4. Queued AI, manual, template, and comeback workout starts through save,
+   discard, and abandonment outcomes.
+5. Sign out and sign into a second account; confirm separate PostHog persons.
+6. Sample Live Events for the absence of credentials, PII, free text, and raw
+   errors.
 
-setUserProperties({
-  goal: "build_strength",
-  frequency: 3,
-  equipment: "dumbbells",
-});
+Keep PostHog event definitions and dashboard filters aligned with this file and
+the TypeScript map. A schema change requires updating both in the same PR.
+
+## Server-side generation telemetry setup
+
+The Supabase `generate-workout` and `generate-workout-queue` Edge Functions emit
+canonical generation outcomes directly to PostHog. The mobile client emits
+intent and transport-failure events, but does not duplicate those canonical
+outcomes. Delivery is best-effort and never blocks workout generation.
+Configure the PostHog project token, regional ingestion host, and deployment
+environment as Supabase secrets (choose the region that matches the PostHog
+project; the examples below use US ingestion):
+
+```bash
+supabase secrets set \
+  --project-ref <SUPABASE_PROJECT_REF> \
+  POSTHOG_PROJECT_TOKEN=phc_<POSTHOG_PROJECT_TOKEN> \
+  POSTHOG_HOST=https://us.i.posthog.com \
+  APP_ENV=production
 ```
 
-### Reset User Data
+For an EU project, use `https://eu.i.posthog.com` instead. Do not commit either
+secret or put the PostHog project key in a server-side source file.
 
-Clear user analytics data (e.g., on logout):
+Deploy both functions after setting the secrets:
 
-```typescript
-import { resetUser } from "@/lib/track-event";
-
-resetUser();
+```bash
+supabase functions deploy generate-workout --project-ref <SUPABASE_PROJECT_REF>
+supabase functions deploy generate-workout-queue --project-ref <SUPABASE_PROJECT_REF>
 ```
 
-## Tracked Events
-
-### Onboarding Events
-
-- **onboarding_step_completed**: When a user completes an onboarding step
-- **onboarding_completed**: When onboarding flow is fully completed
-- **strength_baseline_entered**: When a baseline value is submitted
-  - `exercise_key`: pushups | pullups | db_bench | db_row | bb_bench | bb_squat | deadlift
-  - `has_load`: boolean
-  - `source`: onboarding | settings
-
-### Workout Events
-
-- **workout_queue_initialized**: Queue generation started
-  - `count`: target queue size
-  - `trigger`: onboarding | preference_change
-
-- **workout_queue_ready**: All queued workouts are ready
-  - `total_generation_time_ms`: total time from init to ready
-  - `count`: queue size
-  - `fallback_count`: number of fallback template workouts in queue
-
-- **pending_workout_generated**: A single queued workout became ready
-  - `generation_source`: llm | fallback_template | fallback_substitution
-  - `trigger`: onboarding | preference_change | unknown
-  - `generation_time_ms`: time from row creation to ready
-  - `queue_position`: queue slot
-  - `focus_area`: push | pull | legs | upper | lower | full_body
-
-- **pending_workout_started**: User started a queued workout
-  - `time_since_generated_ms`: age of workout when started
-  - `was_edited`: boolean
-  - `edit_count`: number of unique edit types applied
-
-- **pending_workout_regenerated**: User manually regenerated a queued workout
-  - `phase`: started | completed
-  - `queue_position`: queue slot
-  - `focus_area`: push | pull | legs | upper | lower | full_body
-  - `previous_generation_source`: llm | fallback_template | fallback_substitution
-  - `has_feedback`: boolean
-  - `feedback_length`: number of characters supplied in regeneration feedback
-  - Raw optional feedback is retained in `pending_workouts.regeneration_feedback` for product analytics; PostHog receives metadata only.
-
-- **pending_workout_edited**: A queued workout draft was changed and persisted
-  - `edit_type`: swap_exercise | change_sets | change_load | multiple
-
-- **workout_preview_viewed**: Preview modal was opened
-  - `queue_position`: queue slot
-  - `time_on_screen_ms`: dwell time before exit
-
-- **workout_generated**: When AI generates a new workout
-  - `generation_source`: llm | fallback_template | fallback_substitution
-  - `training_split`: full_body | upper_lower | push_pull_legs
-  - `duration_minutes`: 15 | 30 | 45 | 60 | 90
-  - `equipment`: bodyweight | dumbbells | barbell | full_gym
-  - `training_style`: strength | hypertrophy | endurance | circuit
-  - `difficulty`: beginner | intermediate | advanced
-  - `exercise_count`: number of exercises in workout
-  - `has_custom_prompt`: boolean
-
-- **workout_completed**: When user finishes a workout
-  - `workout_name`: name of the workout
-  - `exercise_count`: number of exercises
-  - `total_sets`: total sets in workout
-  - `completed_sets`: number of completed sets
-  - `completion_rate`: percentage of completion
-  - `total_volume_kg`: total weight lifted
-  - `duration_seconds`: workout duration in seconds
-  - `goal_snapshot`: build_strength | lose_weight | improve_fitness | custom
-  - `custom_goal_snapshot`: custom goal text if any
-
-- **session_duration**: Duration tracking for completed sessions
-  - `workout_name`: name of the workout
-  - `duration_seconds`: workout duration in seconds
-  - `exercise_count`: number of exercises
-  - `completion_rate`: percentage of completion
-
-- **feedback_given**: When user provides difficulty feedback (TODO - needs UI)
-  - `exercise_id`: ID of the exercise
-  - `difficulty`: too_easy | ok | too_hard
-  - `session_id`: ID of the workout session
-
-- **training_preferences_changed**: Training preferences were saved
-  - `changed_fields`: array of changed columns
-  - `triggered_queue_rebuild`: boolean
-
-- **queue_state_on_open**: Queue snapshot when the home tab opens
-  - `ready_count`: ready workouts
-  - `generating_count`: queued + generating workouts
-  - `total_count`: total queued workouts
-  - `has_active_workout`: boolean
-
-### Streak Protection Events
-
-- **streak_status_viewed**: Streak status was loaded on a user-facing screen
-  - `tier`: free | pro
-  - `is_pro_active`: boolean
-  - `streak_weeks`: current protected streak length
-  - `missed_weeks`: number of missed weeks currently needing protection
-  - `days_since_last_workout`: integer or null
-  - `prompt_state`: none | at_risk | free_earned_freeze | free_lifetime_rescue | free_comeback | pro_auto_applied | pro_available_freeze | pro_comeback
-  - `pro_freezes_available`: integer
-  - `earned_freezes_available`: integer
-  - `lifetime_rescue_available`: boolean
-  - `auto_apply_enabled`: boolean
-
-- **streak_prompt_shown**: Streak protection sheet became visible
-  - Same payload as `streak_status_viewed`
-
-- **streak_prompt_dismissed**: User dismissed the streak protection sheet without taking a primary action
-  - Same payload as `streak_status_viewed`
-
-- **streak_protection_applied**: User spent an eligible restore/freeze
-  - Same payload as `streak_status_viewed`
-  - `protection_type`: lifetime_rescue | earned_freeze | pro_freeze
-
-- **streak_lifetime_rescue_used**: User spent the one lifetime free restore
-  - Same payload as `streak_status_viewed`
-
-- **streak_freeze_earned**: User earned a free streak freeze
-  - Same payload as `streak_status_viewed`
-
-- **streak_restarted**: User chose to restart the streak instead of protecting it
-  - Same payload as `streak_status_viewed`
-
-- **comeback_workout_started**: User began a return-to-training flow from the streak sheet
-  - Same payload as `streak_status_viewed`
-
-- **comeback_workout_completed**: User completed a comeback workout
-  - Same payload as `streak_status_viewed`
-
-- **streak_upgrade_tapped**: User tapped upgrade from a streak protection context
-  - Same payload as `streak_status_viewed`
-
-## Adding New Events
-
-1. **Update Event Type**: Add the new event to the `EventName` type in `apps/mobile/lib/track-event.ts`
-
-2. **Track the Event**: Use `trackEvent` in your component/hook
-
-3. **Test Locally**: In development mode, events are logged to console
-
-4. **Verify in PostHog**: Check the PostHog dashboard to confirm events are received
-
-## Development vs Production
-
-- **Development**: Events are logged to console for debugging (`[analytics] event_name payload`)
-- **Production**: Events are sent to PostHog for analytics and insights
-
-## Privacy & Data Handling
-
-- **No PII**: Events should never contain personally identifiable information
-- **Opt-in**: Analytics are enabled by default, but users can opt-out via `disablePostHog()`
-- **Local First**: Events are batched and sent periodically (20 events or 30 seconds)
-- **Error Handling**: Failed events don't crash the app; errors are logged for debugging
-
-## Troubleshooting
-
-### Events Not Appearing in Dashboard
-
-1. Check environment variables are set correctly
-2. Verify PostHog API key is valid
-3. Check console for error messages
-4. Ensure app is in production mode (dev events only go to console)
-
-### Performance Impact
-
-- Events are sent asynchronously (non-blocking)
-- Batched to minimize network requests
-- Graceful degradation if PostHog is unavailable
-
-## Suggested Dashboards
-
-- `Generation pipeline`: `workout_queue_initialized` -> `pending_workout_generated` -> `pending_workout_started` -> `workout_completed`
-- `Queue readiness`: `queue_state_on_open` broken down by `ready_count` and `generating_count`
-- `Latency`: percentile chart on `pending_workout_generated.generation_time_ms`
-- `Recovery + cost`: generation source mix, fallback rate, regeneration rate, and per-user weekly generation volume
+The mobile client sends a UUID `request_id` to each function. Server events use
+the authenticated Supabase UUID as `distinct_id`, include an `event_id` and
+PostHog `$insert_id` for deduplication, and never include prompts, feedback,
+workout/exercise names, or raw provider errors.

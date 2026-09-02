@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Explain the current database model at a level that is useful for humans and AI agents, while treating `supabase/migrations` as the authoritative schema source.
-> **Last reviewed:** 2026-08-21
+> **Last reviewed:** 2026-08-24
 
 ## Source Of Truth
 

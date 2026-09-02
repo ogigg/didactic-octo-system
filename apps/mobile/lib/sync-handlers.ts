@@ -11,6 +11,7 @@ import type { OnboardingData } from "@/lib/api/profiles";
 import { upsertMeasurement } from "@/lib/api/body-measurements";
 import type { MeasurementInput } from "@/lib/api/body-measurements";
 import { syncQueue } from "@/lib/sync-queue";
+import { trackCompletedWorkout } from "@/lib/workout-completion-analytics";
 
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
@@ -48,6 +49,9 @@ async function handleSaveWorkout(payload: unknown): Promise<void> {
     status: "completed",
     completed_at: new Date(input.summary.finishedAtMs).toISOString(),
   });
+
+  // Count an initially offline workout only once its retry is persisted.
+  trackCompletedWorkout(input.summary, input.goalSnapshot);
 }
 
 export function registerSyncHandlers(): void {

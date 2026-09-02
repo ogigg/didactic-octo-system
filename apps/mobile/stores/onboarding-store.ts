@@ -34,6 +34,8 @@ interface OnboardingState {
   experience: Experience | null;
   strengthBaselines: StrengthBaseline[];
   isCompleted: boolean;
+  /** ISO timestamp for the first onboarding screen view in this flow. */
+  onboardingStartedAt: string | null;
 }
 
 interface OnboardingActions {
@@ -47,6 +49,8 @@ interface OnboardingActions {
   setExperience: (experience: Experience) => void;
   setStrengthBaselines: (baselines: StrengthBaseline[]) => void;
   complete: () => void;
+  /** Returns true only when this call starts a new onboarding flow timer. */
+  markOnboardingStarted: () => boolean;
   reset: () => void;
   /**
    * Returns the first unanswered step for resume-on-relaunch routing.
@@ -77,6 +81,7 @@ const initialState: OnboardingState = {
   experience: null,
   strengthBaselines: [],
   isCompleted: false,
+  onboardingStartedAt: null,
 };
 
 export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
@@ -101,7 +106,15 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
 
       setStrengthBaselines: (strengthBaselines) => set({ strengthBaselines }),
 
-      complete: () => set({ isCompleted: true }),
+      complete: () => set({ isCompleted: true, onboardingStartedAt: null }),
+
+      markOnboardingStarted: () => {
+        const { isCompleted, onboardingStartedAt } = get();
+        if (isCompleted || onboardingStartedAt !== null) return false;
+
+        set({ onboardingStartedAt: new Date().toISOString() });
+        return true;
+      },
 
       reset: () => set(initialState),
 
@@ -169,6 +182,9 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           experience: mappedExperience,
           strengthBaselines: [],
           isCompleted: onboarding_completed,
+          onboardingStartedAt: onboarding_completed
+            ? null
+            : get().onboardingStartedAt,
         });
       },
     }),

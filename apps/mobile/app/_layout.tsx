@@ -16,6 +16,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
+import { AnalyticsScreenTracker } from "@/components/analytics-screen-tracker";
 import { AnimatedSplash } from "@/components/animated-splash";
 import { ToastHost } from "@/components/ui/toast-host";
 import { WatchBridgeHost } from "@/components/watch-bridge-host";
@@ -129,6 +130,7 @@ export default function RootLayout() {
             <WorkoutLiveActivityHost />
             <WatchBridgeHost />
             <ThemeProvider value={theme}>
+              <AnalyticsScreenTracker />
               <Stack
                 screenOptions={{
                   contentStyle: styles.transparent,

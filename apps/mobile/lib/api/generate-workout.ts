@@ -14,6 +14,7 @@ export type TrainingStyle =
 export type Difficulty = "beginner" | "intermediate" | "advanced";
 
 export interface GenerateWorkoutRequest {
+  request_id?: string;
   training_split: TrainingSplit;
   duration_minutes: DurationMinutes;
   equipment: Equipment;

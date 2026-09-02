@@ -2,6 +2,30 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
+jest.mock("react-native-reanimated", () => {
+  const Reanimated = require("react-native-reanimated/mock");
+  Reanimated.useReducedMotion = jest.fn(() => true);
+  return Reanimated;
+});
+
+jest.mock("react-native-gesture-handler", () => {
+  const { View } = require("react-native");
+  const mockGesture = {
+    onChange: jest.fn(),
+    onEnd: jest.fn(),
+  };
+  mockGesture.onChange.mockReturnValue(mockGesture);
+  mockGesture.onEnd.mockReturnValue(mockGesture);
+
+  return {
+    GestureHandlerRootView: View,
+    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+    Gesture: {
+      Pan: jest.fn(() => mockGesture),
+    },
+  };
+});
+
 jest.mock("expo-router", () => ({
   useRouter: jest.fn(() => ({ back: jest.fn() })),
   useLocalSearchParams: jest.fn(() => ({ mode: "add" })),
@@ -191,6 +215,9 @@ describe("ExercisePickerScreen favorites", () => {
           ["dumbbell", "Dumbbell"],
         ]),
       },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
     });
     (useExercises as jest.Mock).mockImplementation((filters) => ({
       data: applyCatalogFilters(filters),
@@ -266,6 +293,9 @@ describe("ExercisePickerScreen favorites", () => {
     fireEvent.press(screen.getByRole("button", { name: "filters.favorites" }));
     fireEvent.press(screen.getByRole("button", { name: "filters.allMuscles" }));
     fireEvent.press(screen.getByRole("checkbox", { name: "Chest" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "filters.showResults" })
+    );
 
     expect(
       screen.getByRole("button", { name: "Bench Press, Chest, row.favorite" })
@@ -286,6 +316,9 @@ describe("ExercisePickerScreen favorites", () => {
       screen.getByRole("button", { name: "filters.allEquipment" })
     );
     fireEvent.press(screen.getByRole("checkbox", { name: "Dumbbell" }));
+    fireEvent.press(
+      screen.getByRole("button", { name: "filters.showResults" })
+    );
 
     expect(
       screen.queryByRole("button", { name: "Bench Press, Chest, row.favorite" })
@@ -298,6 +331,32 @@ describe("ExercisePickerScreen favorites", () => {
     ).toBeNull();
     expect(screen.getByText("list.empty")).toBeTruthy();
     expect(screen.queryByText("list.emptyFavorites")).toBeNull();
+  });
+
+  it("clears search and selected filters from the global action", () => {
+    jest.useFakeTimers();
+    renderPicker();
+
+    fireEvent.changeText(screen.getByLabelText("search.placeholder"), "bench");
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Squat, Quads, row.favorite" })
+    ).toBeNull();
+
+    fireEvent.press(screen.getByRole("button", { name: "filters.clearAll" }));
+
+    expect(
+      screen.getByRole("button", { name: "Bench Press, Chest, row.favorite" })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Squat, Quads, row.favorite" })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Dumbbell Curl, Biceps" })
+    ).toBeTruthy();
   });
 
   it("shows a useful empty state when the user has no favorite exercises", () => {

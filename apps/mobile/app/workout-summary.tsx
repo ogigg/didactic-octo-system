@@ -69,6 +69,8 @@ import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { trackEvent } from "@/lib/track-event";
+import { trackCompletedWorkout } from "@/lib/workout-completion-analytics";
+import { normalizeAnalyticsError } from "@/lib/analytics-errors";
 import { useCreateWorkoutSessionComment } from "@/hooks/use-workout-session-comments";
 import { MAX_COMMENT_LENGTH } from "@/lib/api/workout-session-comments";
 import * as Sharing from "expo-sharing";
@@ -144,6 +146,7 @@ interface ExerciseRowProps {
   primarySurface: string;
   primaryContainer: string;
   onFeedbackChange: (exerciseId: string, feedback: DifficultyValue) => void;
+  workoutSessionId: string | null | undefined;
   formatWeight: (kg: number) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: TFunction<any, any>;
@@ -171,6 +174,7 @@ function ExerciseRow({
   primarySurface,
   primaryContainer,
   onFeedbackChange,
+  workoutSessionId,
   formatWeight,
   t,
 }: ExerciseRowProps) {
@@ -192,12 +196,12 @@ function ExerciseRow({
       setFeedback(value);
       onFeedbackChange(exercise.id, value);
       trackEvent("difficulty_feedback_given", {
+        workout_session_id: workoutSessionId ?? null,
         exercise_id: exercise.id,
-        exercise_name: displayName,
         feedback: value,
       });
     },
-    [displayName, exercise.id, onFeedbackChange]
+    [exercise.id, onFeedbackChange, workoutSessionId]
   );
 
   return (
@@ -361,8 +365,13 @@ function SessionCommentCard({
     await createComment.mutateAsync({ sessionId, comment });
     setSaved(true);
     trackEvent("workout_comment_submitted", {
-      session_id: sessionId,
-      length: comment.length,
+      workout_session_id: sessionId,
+      length_bucket:
+        comment.length <= 20
+          ? "short"
+          : comment.length <= 100
+            ? "medium"
+            : "long",
       chip_count: selected.size,
       has_freeform: text.trim().length > 0,
     });
@@ -639,29 +648,7 @@ export default function WorkoutSummaryScreen() {
       },
       {
         onSuccess: () => {
-          // Track workout completion events after successful save
-          const totalVolume = computeTotalVolume(summary.exercises);
-
-          // Track workout completion
-          trackEvent("workout_completed", {
-            workout_name: summary.workoutName,
-            exercise_count: stats.exerciseCount,
-            total_sets: stats.totalSets,
-            completed_sets: stats.completedSets,
-            completion_rate: stats.completionRate,
-            total_volume_kg: totalVolume,
-            duration_seconds: Math.floor(summary.durationMs / 1000),
-            goal_snapshot: goalSnapshot,
-            custom_goal_snapshot: customGoal ?? null,
-          });
-
-          // Track session duration
-          trackEvent("session_duration", {
-            workout_name: summary.workoutName,
-            duration_seconds: Math.floor(summary.durationMs / 1000),
-            exercise_count: stats.exerciseCount,
-            completion_rate: stats.completionRate,
-          });
+          trackCompletedWorkout(summary, goalSnapshot);
         },
       }
     );
@@ -736,6 +723,7 @@ export default function WorkoutSummaryScreen() {
     if (!summary || isSharing) return;
 
     const eventPayload = {
+      workout_session_id: summary.workoutSessionId,
       exercise_count: stats.exerciseCount,
       completed_sets: stats.completedSets,
       total_sets: stats.totalSets,
@@ -782,7 +770,7 @@ export default function WorkoutSummaryScreen() {
     } catch (error) {
       trackEvent("workout_summary_share_failed", {
         ...eventPayload,
-        error: error instanceof Error ? error.message : "unknown",
+        error_code: normalizeAnalyticsError(error).error_code,
       });
       Alert.alert(
         t("summary.share.errorTitle"),
@@ -1138,6 +1126,7 @@ export default function WorkoutSummaryScreen() {
                       primarySurface={primarySurface}
                       primaryContainer={primaryContainer}
                       onFeedbackChange={handleFeedbackChange}
+                      workoutSessionId={summary.workoutSessionId}
                       formatWeight={wu.format}
                       t={t}
                     />

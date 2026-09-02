@@ -10,6 +10,7 @@ import type { PendingWorkout } from "@/lib/api/pending-workouts";
 
 interface PendingWorkoutState {
   queueGenerationStartedAt: number | null;
+  queueGenerationRequestId: string | null;
   queueGenerationTrigger:
     | "onboarding"
     | "preference_change"
@@ -21,7 +22,8 @@ interface PendingWorkoutState {
 
 interface PendingWorkoutActions {
   markQueueGenerationStarted: (
-    trigger: "onboarding" | "preference_change" | "replenishment"
+    trigger: "onboarding" | "preference_change" | "replenishment",
+    requestId?: string | null
   ) => void;
   clearQueueGenerationContext: () => void;
   recordRecoveryAttempt: (id: string) => number;
@@ -37,6 +39,7 @@ interface PendingWorkoutActions {
 
 const initialState: PendingWorkoutState = {
   queueGenerationStartedAt: null,
+  queueGenerationRequestId: null,
   queueGenerationTrigger: null,
   recoveryAttempts: {},
   regeneratingWorkoutIds: [],
@@ -53,15 +56,17 @@ export const usePendingWorkoutStore = create<
     (set, get) => ({
       ...initialState,
 
-      markQueueGenerationStarted: (trigger) =>
+      markQueueGenerationStarted: (trigger, requestId = null) =>
         set({
           queueGenerationStartedAt: Date.now(),
+          queueGenerationRequestId: requestId,
           queueGenerationTrigger: trigger,
         }),
 
       clearQueueGenerationContext: () =>
         set({
           queueGenerationStartedAt: null,
+          queueGenerationRequestId: null,
           queueGenerationTrigger: null,
         }),
 
@@ -116,11 +121,13 @@ export const usePendingWorkoutStore = create<
         return {
           ...initialState,
           ...state,
+          queueGenerationRequestId: state?.queueGenerationRequestId ?? null,
           regeneratingWorkoutIds: [],
         };
       },
       partialize: (state) => ({
         queueGenerationStartedAt: state.queueGenerationStartedAt,
+        queueGenerationRequestId: state.queueGenerationRequestId,
         queueGenerationTrigger: state.queueGenerationTrigger,
         recoveryAttempts: state.recoveryAttempts,
       }),

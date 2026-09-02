@@ -10,6 +10,7 @@ import type {
   Experience,
 } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
+import { useOnboardingStepAnalytics } from "@/lib/onboarding-analytics";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { AmbientGlow } from "@/components/ambient-glow";
@@ -79,6 +80,7 @@ export default function ReviewScreen() {
   const upsertProfile = useUpsertProfile();
   const rebuildQueue = useRebuildQueue();
   useFocusEffect(useCallback(() => undefined, []));
+  useOnboardingStepAnalytics("review");
 
   const {
     gender,
@@ -124,6 +126,12 @@ export default function ReviewScreen() {
   function handleSubmit() {
     if (frequency === null || equipment === null || experience === null) return;
 
+    const startedAt = store.onboardingStartedAt;
+    const startedAtMs = startedAt ? Date.parse(startedAt) : Number.NaN;
+    const durationSeconds = Number.isFinite(startedAtMs)
+      ? Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000))
+      : undefined;
+
     const onboardingPayload = {
       gender,
       goal,
@@ -152,8 +160,25 @@ export default function ReviewScreen() {
         });
 
         complete();
-        trackEvent("onboarding_completed", {});
+        const completionPayload = {
+          goal_category: goal ?? "custom",
+          weekly_frequency: frequency,
+          equipment,
+          experience,
+          baseline_count: strengthBaselines.length,
+        };
+        if (durationSeconds !== undefined) {
+          Object.assign(completionPayload, {
+            duration_seconds: durationSeconds,
+          });
+        }
+        trackEvent("onboarding_completed", completionPayload);
         router.replace("/(tabs)" as never);
+      },
+      onError: (error) => {
+        trackEvent("onboarding_save_failed", {
+          error_code: normalizeOnboardingError(error),
+        });
       },
     });
   }
@@ -253,6 +278,35 @@ export default function ReviewScreen() {
       </SafeAreaView>
     </View>
   );
+}
+
+function normalizeOnboardingError(
+  error: unknown
+): "network" | "validation" | "unauthorized" | "rate_limited" | "unknown" {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (
+    message.includes("network") ||
+    message.includes("fetch") ||
+    message.includes("timeout") ||
+    message.includes("offline")
+  ) {
+    return "network";
+  }
+  if (message.includes("unauthorized") || message.includes("jwt")) {
+    return "unauthorized";
+  }
+  if (message.includes("rate") || message.includes("too many")) {
+    return "rate_limited";
+  }
+  if (
+    message.includes("invalid") ||
+    message.includes("required") ||
+    message.includes("constraint")
+  ) {
+    return "validation";
+  }
+  return "unknown";
 }
 
 function ReviewCard({

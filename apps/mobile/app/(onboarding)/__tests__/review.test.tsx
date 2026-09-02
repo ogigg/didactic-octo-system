@@ -109,7 +109,16 @@ describe("ReviewScreen", () => {
     renderReviewScreen();
     fireEvent.press(screen.getByRole("button", { name: /start working out/i }));
     expect(mockComplete).toHaveBeenCalled();
-    expect(trackEvent).toHaveBeenCalledWith("onboarding_completed", {});
+    expect(trackEvent).toHaveBeenCalledWith(
+      "onboarding_completed",
+      expect.objectContaining({
+        goal_category: "build_strength",
+        weekly_frequency: 4,
+        equipment: "full_gym",
+        experience: "intermediate",
+        baseline_count: 0,
+      })
+    );
   });
 
   it("tapping submit navigates to tabs", () => {

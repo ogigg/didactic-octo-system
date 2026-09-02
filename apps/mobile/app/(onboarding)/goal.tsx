@@ -1,5 +1,6 @@
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
+import { useOnboardingStepAnalytics } from "@/lib/onboarding-analytics";
 import { containsProfanity, MAX_CUSTOM_GOAL_LENGTH } from "@/lib/profanity";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { Radii, Spacing, Typography } from "@/constants/theme";
@@ -32,6 +33,7 @@ const OPTIONS: GoalOption[] = [
 export default function GoalScreen() {
   const { goal, customGoal, setGoal, setCustomGoal } = useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
+  useOnboardingStepAnalytics("goal", editMode);
 
   const primary = useThemeColor({}, "primary");
   const border = useThemeColor({}, "border");
@@ -48,7 +50,12 @@ export default function GoalScreen() {
 
   function handleContinue() {
     if (!canContinue) return;
-    trackEvent("onboarding_step_completed", { step: "goal", skipped: false });
+    trackEvent("onboarding_step_completed", {
+      step: "goal",
+      step_index: 2,
+      edit_mode: editMode === "1",
+      skipped: false,
+    });
     if (editMode === "1") {
       router.back();
     } else {

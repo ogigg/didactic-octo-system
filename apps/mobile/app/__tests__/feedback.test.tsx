@@ -13,6 +13,7 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/api/feedback", () => ({
   sendFeedback: jest.fn(),
 }));
+jest.mock("@/lib/track-event", () => ({ trackEvent: jest.fn() }));
 
 import {
   render,
@@ -22,6 +23,7 @@ import {
 } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { sendFeedback } from "@/lib/api/feedback";
+import { trackEvent } from "@/lib/track-event";
 import { Alert } from "react-native";
 import FeedbackScreen from "../feedback";
 
@@ -75,5 +77,56 @@ describe("FeedbackScreen", () => {
     renderWithProviders(<FeedbackScreen />);
     const inputs = screen.getAllByRole("text");
     expect(inputs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("tracks only metadata after feedback succeeds", async () => {
+    (sendFeedback as jest.Mock).mockResolvedValue(undefined);
+    renderWithProviders(<FeedbackScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText("title.placeholder"),
+      "Button is hard to find"
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText("description.placeholder"),
+      "The primary action is not obvious."
+    );
+    fireEvent.press(screen.getByRole("button", { name: "submit.button" }));
+
+    await waitFor(() => {
+      expect(trackEvent).toHaveBeenCalledWith("product_feedback_submitted", {
+        feedback_type: "bug_report",
+        has_title: true,
+        description_length_bucket: "short",
+      });
+    });
+
+    const [, payload] = (trackEvent as jest.Mock).mock.calls.find(
+      ([name]) => name === "product_feedback_submitted"
+    );
+    expect(payload).not.toHaveProperty("title");
+    expect(payload).not.toHaveProperty("description");
+  });
+
+  it("tracks a normalized error code when feedback fails", async () => {
+    (sendFeedback as jest.Mock).mockRejectedValue(new Error("network timeout"));
+    renderWithProviders(<FeedbackScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText("title.placeholder"),
+      "Button is hard to find"
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText("description.placeholder"),
+      "The primary action is not obvious."
+    );
+    fireEvent.press(screen.getByRole("button", { name: "submit.button" }));
+
+    await waitFor(() => {
+      expect(trackEvent).toHaveBeenCalledWith("product_feedback_failed", {
+        feedback_type: "bug_report",
+        error_code: "network",
+      });
+    });
   });
 });
