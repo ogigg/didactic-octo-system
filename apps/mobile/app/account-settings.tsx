@@ -1,4 +1,5 @@
 import { type Href, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,17 +13,40 @@ import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSubscription } from "@/hooks/use-subscription";
 import { openSubscriptionManagement } from "@/lib/subscription-management";
+import { supabase } from "@/lib/supabase";
 
 export default function AccountSettingsScreen() {
   const { t } = useTranslation("accountSettings");
   const router = useRouter();
   const { isProActive } = useSubscription();
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
 
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
 
   const navigate = (route: Href) => router.navigate(route);
+
+  useEffect(() => {
+    let active = true;
+
+    void supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (active && data.user) {
+          setHasPassword(
+            data.user.identities?.some(
+              ({ provider }) => provider === "email"
+            ) ?? false
+          );
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleManageSubscription() {
     try {
@@ -86,11 +110,24 @@ export default function AccountSettingsScreen() {
             <SectionHeader title={t("sections.management")} />
             <ListGroup>
               <ListRow
+                icon="lock.fill"
+                label={
+                  hasPassword === null
+                    ? t("password.label")
+                    : hasPassword
+                      ? t("password.changeLabel")
+                      : t("password.setLabel")
+                }
+                description={t("password.description")}
+                onPress={() => navigate("/change-password")}
+                position="first"
+              />
+              <ListRow
                 icon="star.fill"
                 label={t("subscription.label")}
                 description={t("subscription.description")}
                 onPress={() => navigate("/subscription")}
-                position="only"
+                position="last"
               />
             </ListGroup>
           </View>
