@@ -59,6 +59,7 @@ Important columns:
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
 - `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
+- `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL
 - `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state
 - `deletion_scheduled_at`: when non-null, the account is scheduled for hard deletion at this timestamp. Signing back in before then clears the flag. A scheduled job (`purge_expired_deletions()`) purges expired rows, which cascades to every user-owned table.
 
@@ -491,6 +492,41 @@ Notes:
 - this table exists to support rate limiting / entitlement logic rather than user-facing history
 - writes are intended to happen through server-side logic / RPCs
 - `check_generation_allowance` may be called by the owning authenticated user or by `service_role`; `record_generation_usage` and `update_subscription_status` are service-role-only because they mutate entitlement/accounting state through `SECURITY DEFINER` RPCs
+
+### `llm_generation_logs`
+
+Purpose:
+
+- raw LLM request/response traces for every workout generation, used to debug bad model output (for example exercises generated with a `0` kg load)
+
+Important columns:
+
+- `user_id`, `pending_workout_id`: generation context (nullable)
+- `function_name`: which edge function triggered the call (`generate-workout`, `generate-next-workout`)
+- `model`: OpenRouter model used
+- `status`: `success`, `parse_error`, `api_error`, or `timeout`
+- `request_messages`: full system + user prompt sent to the model
+- `raw_response`: unmodified OpenRouter JSON response
+- `parsed_content`: the JSON parsed out of the model content before app-level enrichment
+- `reasoning_content`: separate reasoning/chain-of-thought field returned by the model, when present
+- `error_message`, `duration_ms`, `prompt_tokens`, `completion_tokens`
+
+Relationships:
+
+- optionally tied to a profile and a pending workout
+
+Notes:
+
+- written exclusively by edge functions via the service role key
+- RLS is enabled with an admin-only SELECT policy; regular users can never read generation logs
+- surfaced in the admin dashboard (`apps/admin`) under Generations
+
+## Admin Access
+
+- `profiles.is_admin` grants access to the admin dashboard and admin-only RLS policies
+- the `public.is_admin()` helper function is used by all admin policies (`exercises`, `exercise_translations`, `exercise_media_assets`, `llm_generation_logs`, and storage writes to the `exercise-media` bucket)
+- admins are promoted manually: `UPDATE public.profiles SET is_admin = TRUE WHERE id = '<user-uuid>';`
+- the admin dashboard lives in `apps/admin` and authenticates with the same Supabase project as the mobile app; RLS remains the security boundary even for admins
 
 ## Relationships Summary
 

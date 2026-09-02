@@ -9152,6 +9152,23 @@
       ]
     },
     "members": {
+      "apps/admin": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@supabase/ssr@0.7",
+            "npm:@supabase/supabase-js@^2.99.2",
+            "npm:@tailwindcss/postcss@^4.1.4",
+            "npm:@types/node@^22.14.1",
+            "npm:@types/react-dom@^19.1.2",
+            "npm:@types/react@^19.1.2",
+            "npm:next@15.3.1",
+            "npm:react-dom@19.1.0",
+            "npm:react@19.1.0",
+            "npm:tailwindcss@^4.1.4",
+            "npm:typescript@^5.9.2"
+          ]
+        }
+      },
       "apps/apple-watch-prototype": {
         "packageJson": {
           "dependencies": [

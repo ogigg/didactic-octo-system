@@ -61,6 +61,7 @@ document when the missing knowledge is useful and can be maintained.
 
 - [Mobile app development](../apps/mobile/README.md)
 - [Running and releasing the mobile app](../project-wiki/guides/running-and-releasing-mobile-app.md)
+- [Admin dashboard](../apps/admin/README.md)
 - [Publishing to TestFlight via CLI](skills/publish-to-testflight.md)
 - [Database schema](../.ai/db-schema.md)
 - [Technology stack](../.ai/tech-stack.md)
