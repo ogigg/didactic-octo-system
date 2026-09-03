@@ -80,6 +80,18 @@ Its responsibilities are:
 - validate generated output before it is trusted
 - fail safely when responses are invalid or incomplete
 
+Load targets follow an "LLM proposes, backend disposes" split. Exercises with
+training history get deterministic loads from the progression engine
+(`supabase/functions/_shared/progression.ts`). For exercises the user has never
+trained, the LLM proposes initial loads and `validateAndCorrectLoads` in
+`supabase/functions/_shared/generator.ts` replaces any missing, zero, or
+negative working-set load with a deterministic suggestion
+(`suggestInitialLoadKg`: similar-exercise history → muscle-matched strength
+baseline → equipment-family default, floored per equipment). Warmup sets get
+roughly half the working load. Bodyweight-only exercises are left untouched.
+The client additionally renders a zero load as an empty input rather than the
+literal string "0".
+
 This document intentionally avoids treating specific model names as long-term architecture guarantees because model selection can change faster than the surrounding system.
 
 ## Primary Data Flows

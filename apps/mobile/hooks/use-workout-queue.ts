@@ -677,14 +677,13 @@ export function useStartPendingWorkout() {
             normalizedSets.map((set, setIndex) => ({
               id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
               type: set.set_type,
-              kg:
-                set.target_load_kg != null
-                  ? String(
-                      Math.round(
-                        convertWeight(set.target_load_kg, weightUnit) * 10
-                      ) / 10
-                    )
-                  : "",
+              kg: set.target_load_kg
+                ? String(
+                    Math.round(
+                      convertWeight(set.target_load_kg, weightUnit) * 10
+                    ) / 10
+                  )
+                : "",
               reps: set.target_reps != null ? String(set.target_reps) : "",
               durationSeconds:
                 (set as { target_duration_seconds?: number | null })
