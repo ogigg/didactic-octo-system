@@ -117,7 +117,8 @@ Native application.
 - Snapshots keep planned and logged values separate, include warm-up completion,
   and use kilograms on the wire with the workout's persisted kg/lb display unit.
 - Workout completion is queued immediately, independently of Apple Health.
-  HealthKit sessions recover by workout identity; saved UUID receipts travel
+  HealthKit sessions recover by workout identity and retain that identity after
+  transient recovery errors so another session cannot overwrite it; saved UUID receipts travel
   through the durable command outbox. The phone retains a per-workout export
   ledger so late success/failure can be handled after the summary is dismissed.
 - `targets/watch/Info.plist` enables `workout-processing`. Active HealthKit

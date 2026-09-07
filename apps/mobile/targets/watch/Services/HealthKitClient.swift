@@ -103,6 +103,9 @@ final class HealthKitClient: NSObject, HKWorkoutSessionDelegate,
 
         if workoutSession == nil, recoveryWorkoutID != nil {
             _ = await recoverActiveWorkoutSession()
+            // A transient recovery failure must not overwrite the identity of
+            // a session that may still be recording in watchOS.
+            if workoutSession == nil, recoveryWorkoutID != nil { return false }
         }
 
         if let activeWorkoutID, activeWorkoutID != workoutID {

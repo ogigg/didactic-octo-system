@@ -435,6 +435,7 @@ final class WorkoutCoordinator {
                         _ = await health.endWorkout(discard: true, expectedWorkoutID: previousID)
                     }
                     guard healthTaskID == taskID else { return }
+                    handledTerminalWorkoutIDs.remove(snapshot.workoutId)
                     healthTask = nil
                     return
                 }
