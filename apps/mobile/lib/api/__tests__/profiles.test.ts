@@ -4,6 +4,7 @@ jest.mock("@/lib/supabase", () => ({
       getUser: jest.fn(),
     },
     from: jest.fn(),
+    rpc: jest.fn(),
   },
 }));
 
@@ -145,80 +146,43 @@ describe("mapOnboardingToProfile", () => {
 });
 
 describe("upsertProfile", () => {
-  it("calls supabase upsert with mapped data and user id", async () => {
-    const mockUpsert = jest.fn();
-    const mockSelect = jest.fn().mockReturnValue({
-      single: jest.fn().mockResolvedValue({ data: {}, error: null }),
-    });
+  beforeEach(() => {
+    jest.clearAllMocks();
     (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
       data: { user: { id: "user-123" } },
       error: null,
     });
-    (mockSupabase.from as jest.Mock).mockReturnValue({
-      upsert: mockUpsert.mockReturnValue({ select: mockSelect }),
-    });
-
-    await upsertProfile({
-      gender: "female",
-      goal: "build_strength",
-      customGoal: null,
-      frequency: 3,
-      ...baseOnboardingData,
-    });
-
-    expect(mockSupabase.from).toHaveBeenCalledWith("profiles");
-    expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "user-123",
-        gender: "female",
-        goal: "build_strength",
-        weekly_frequency: "3",
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({ error: null });
+  });
+  const answers = {
+    gender: null,
+    goal: "build_strength" as const,
+    customGoal: null,
+    frequency: 3 as const,
+    ...baseOnboardingData,
+  };
+  it("saves completion and baselines together through the owned atomic RPC", async () => {
+    await upsertProfile(answers, "user-123");
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("complete_onboarding", {
+      p_expected_user_id: "user-123",
+      p_profile: expect.objectContaining({
         onboarding_completed: true,
-      })
-    );
-  });
-
-  it("throws when user is not authenticated", async () => {
-    (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: null },
-      error: { message: "not authenticated" },
-    });
-
-    await expect(
-      upsertProfile({
-        gender: "male",
-        goal: "build_strength",
-        customGoal: null,
-        frequency: 2,
-        ...baseOnboardingData,
-      })
-    ).rejects.toThrow("not authenticated");
-  });
-
-  it("throws when supabase upsert returns an error", async () => {
-    const mockUpsert = jest.fn();
-    const mockSelect = jest.fn().mockReturnValue({
-      single: jest.fn().mockResolvedValue({
-        data: null,
-        error: { message: "RLS violation" },
+        weekly_frequency: "3",
       }),
+      p_baselines: [],
     });
-    (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: { id: "user-123" } },
-      error: null,
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+  });
+  it("rejects an account change before submitting", async () => {
+    await expect(upsertProfile(answers, "other-user")).rejects.toThrow(
+      "Account changed"
+    );
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+  it("surfaces transaction failures", async () => {
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      error: { message: "invalid baselines" },
     });
-    (mockSupabase.from as jest.Mock).mockReturnValue({
-      upsert: mockUpsert.mockReturnValue({ select: mockSelect }),
-    });
-
-    await expect(
-      upsertProfile({
-        gender: "male",
-        goal: "build_strength",
-        customGoal: null,
-        frequency: 2,
-        ...baseOnboardingData,
-      })
-    ).rejects.toThrow("RLS violation");
+    await expect(upsertProfile(answers)).rejects.toThrow("invalid baselines");
   });
 });

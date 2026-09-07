@@ -15,7 +15,6 @@ import {
 import { useProfile, type Profile } from "@/hooks/use-profile-query";
 import {
   deletePendingWorkout,
-  deleteAllPendingWorkouts,
   fetchPendingWorkouts,
   replacePendingWorkoutWithFallback,
   setPendingWorkoutStatus,
@@ -35,7 +34,7 @@ import {
   MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
 } from "@/lib/pending-workout-recovery";
 import { getCurrentTimezoneOffsetMinutes } from "@/lib/pending-workout-regeneration";
-import { pendingWorkoutKeys } from "@/lib/query-keys";
+import { profileKeys, pendingWorkoutKeys } from "@/lib/query-keys";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/track-event";
 import { normalizeAnalyticsError } from "@/lib/analytics-errors";
@@ -757,6 +756,7 @@ export function useRebuildQueue() {
   const openPaywall = usePaywallStore((s) => s.open);
 
   return useMutation({
+    mutationKey: ["queue-generation"],
     mutationFn: async (request: QueueGenerationRequest) => {
       const requestId = Crypto.randomUUID();
       markQueueGenerationStarted(request.trigger, requestId);
@@ -765,20 +765,6 @@ export function useRebuildQueue() {
         count: request.count,
         trigger: request.trigger,
       });
-      try {
-        await deleteAllPendingWorkouts();
-      } catch (error) {
-        // The Edge Function owns canonical queue failures. This event covers
-        // only local setup failures before that function is invoked.
-        trackEvent("workout_queue_client_failed", {
-          request_id: requestId,
-          count: request.count,
-          trigger: request.trigger,
-          ...normalizeAnalyticsError(error),
-          failure_stage: "clear_existing_queue",
-        });
-        throw error;
-      }
       try {
         await triggerQueueGeneration({ ...request, request_id: requestId });
       } catch (error) {
@@ -796,6 +782,7 @@ export function useRebuildQueue() {
       return { requestId };
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileKeys.all });
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
@@ -803,6 +790,8 @@ export function useRebuildQueue() {
       // Do not emit workout_queue_failed here: the Supabase function emits
       // that canonical event once it has accepted the request.
       clearQueueGenerationContext();
+      queryClient.invalidateQueries({ queryKey: profileKeys.all });
+      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
       if (error instanceof GenerationLimitReachedError) {
         queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
         openPaywall(error.used, 5);

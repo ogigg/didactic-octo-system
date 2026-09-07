@@ -12,6 +12,9 @@ import { upsertMeasurement } from "@/lib/api/body-measurements";
 import type { MeasurementInput } from "@/lib/api/body-measurements";
 import { syncQueue } from "@/lib/sync-queue";
 import { trackCompletedWorkout } from "@/lib/workout-completion-analytics";
+import { useOnboardingStore } from "@/stores/onboarding-store";
+import { queryClient } from "@/lib/query-client";
+import { profileKeys } from "@/lib/query-keys";
 import { supabase } from "@/lib/supabase";
 
 import type { WeightUnit } from "@/lib/unit-conversion";
@@ -76,7 +79,13 @@ async function handleSaveWorkout(
 export function registerSyncHandlers(): void {
   syncQueue.registerHandler("upsert_profile", async (payload, ownerId) => {
     await ensureActiveUser(ownerId);
-    return upsertProfile(payload as OnboardingData, ownerId);
+    await upsertProfile(payload as OnboardingData, ownerId);
+    if (useOnboardingStore.getState().ownerUserId === ownerId) {
+      useOnboardingStore.getState().complete();
+    }
+    await queryClient.invalidateQueries({
+      queryKey: profileKeys.detail(ownerId),
+    });
   });
   syncQueue.registerHandler("save_workout", handleSaveWorkout);
   syncQueue.registerHandler(

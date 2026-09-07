@@ -217,42 +217,12 @@ export async function upsertProfile(
     throw new Error("Account changed before saving");
 
   const mapped = mapOnboardingToProfile(data);
-  const payload: ProfilePayload = { id: user.id, ...mapped };
-
-  const { error } = await supabase
-    .from("profiles")
-    .upsert(payload)
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  // Save strength baselines if provided
-  if (data.strengthBaselines.length > 0) {
-    await upsertStrengthBaselines(user.id, data.strengthBaselines);
-  }
-}
-
-async function upsertStrengthBaselines(
-  userId: string,
-  baselines: StrengthBaseline[]
-): Promise<void> {
-  const rows = baselines.map((b) => ({
-    user_id: userId,
-    exercise_key: b.exercise_key,
-    load_kg: b.load_kg,
-    reps: b.reps,
-  }));
-
-  const { error } = await supabase
-    .from("strength_baselines")
-    .upsert(rows, { onConflict: "user_id,exercise_key" });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const { error } = await supabase.rpc("complete_onboarding", {
+    p_expected_user_id: expectedUserId ?? user.id,
+    p_profile: mapped,
+    p_baselines: data.strengthBaselines,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function fetchProfile(expectedUserId?: string): Promise<{

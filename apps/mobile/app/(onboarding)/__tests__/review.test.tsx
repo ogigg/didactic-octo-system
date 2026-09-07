@@ -1,3 +1,4 @@
+import "@/i18n";
 jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
@@ -20,6 +21,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { trackEvent } from "@/lib/track-event";
 import { useOnboardingStore } from "@/stores/onboarding-store";
+import { useUpsertProfile } from "@/hooks/use-profile-mutations";
 import ReviewScreen from "../review";
 
 const mockComplete = jest.fn();
@@ -105,25 +107,29 @@ describe("ReviewScreen", () => {
     });
   });
 
-  it("tapping submit calls complete and fires analytics", () => {
+  it("submits the reviewed answers", () => {
+    const mutate = jest.fn();
+    (useUpsertProfile as jest.Mock).mockReturnValue({ mutate });
     renderReviewScreen();
-    fireEvent.press(screen.getByRole("button", { name: /start working out/i }));
-    expect(mockComplete).toHaveBeenCalled();
-    expect(trackEvent).toHaveBeenCalledWith(
-      "onboarding_completed",
-      expect.objectContaining({
-        goal_category: "build_strength",
-        weekly_frequency: 4,
-        equipment: "full_gym",
-        experience: "intermediate",
-        baseline_count: 0,
-      })
+    fireEvent.press(screen.getByRole("button", { name: "Create my workouts" }));
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ frequency: 4, equipment: "full_gym" }),
+      expect.any(Object)
     );
   });
-
-  it("tapping submit navigates to tabs", () => {
+  it("disables submission while saving and displays recoverable failures", () => {
+    const mutate = jest.fn();
+    (useUpsertProfile as jest.Mock).mockReturnValue({
+      mutate,
+      isPending: true,
+      isError: true,
+    });
     renderReviewScreen();
-    fireEvent.press(screen.getByRole("button", { name: /start working out/i }));
-    expect(router.replace).toHaveBeenCalledWith("/(tabs)");
+    expect(
+      screen.getByRole("button", { name: "Saving your plan…" })
+    ).toBeDisabled();
+    expect(screen.getByRole("alert")).toBeTruthy();
+    fireEvent.press(screen.getByRole("button", { name: "Saving your plan…" }));
+    expect(mutate).not.toHaveBeenCalled();
   });
 });

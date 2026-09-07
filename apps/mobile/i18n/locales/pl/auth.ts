@@ -1,4 +1,10 @@
 export const auth = {
+  setup: {
+    saving: "Zapisywanie planu…",
+    create: "Utwórz moje treningi",
+    saveError:
+      "Nie udało się zapisać ustawień. Sprawdź połączenie i spróbuj ponownie. Odpowiedzi są zachowane i zsynchronizują się po połączeniu.",
+  },
   profile: {
     loading: "Wczytywanie profilu…",
     error:

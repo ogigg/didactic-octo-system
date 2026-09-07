@@ -1,6 +1,5 @@
-import { useRebuildQueue } from "@/hooks/use-workout-queue";
+import { useTranslation } from "react-i18next";
 import { useUpsertProfile } from "@/hooks/use-profile-mutations";
-import { mapOnboardingToProfile } from "@/lib/api/profiles";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import type {
   Frequency,
@@ -76,9 +75,10 @@ type EditStep =
   | "strength";
 
 export default function ReviewScreen() {
+  const { t } = useTranslation("auth");
+  const errorColor = useThemeColor({}, "error");
   const store = useOnboardingStore();
   const upsertProfile = useUpsertProfile();
-  const rebuildQueue = useRebuildQueue();
   useFocusEffect(useCallback(() => undefined, []));
   useOnboardingStepAnalytics("review");
 
@@ -91,7 +91,6 @@ export default function ReviewScreen() {
     equipment,
     experience,
     strengthBaselines,
-    complete,
   } = store;
 
   const primary = useThemeColor({}, "primary");
@@ -124,13 +123,8 @@ export default function ReviewScreen() {
   }
 
   function handleSubmit() {
+    if (upsertProfile.isPending) return;
     if (frequency === null || equipment === null || experience === null) return;
-
-    const startedAt = store.onboardingStartedAt;
-    const startedAtMs = startedAt ? Date.parse(startedAt) : Number.NaN;
-    const durationSeconds = Number.isFinite(startedAtMs)
-      ? Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000))
-      : undefined;
 
     const onboardingPayload = {
       gender,
@@ -143,38 +137,6 @@ export default function ReviewScreen() {
     };
 
     upsertProfile.mutate(onboardingPayload, {
-      onSuccess: () => {
-        const profilePayload = mapOnboardingToProfile(onboardingPayload);
-
-        rebuildQueue.mutate({
-          count: frequency,
-          preferences: {
-            training_split: profilePayload.training_split,
-            session_duration_minutes: profilePayload.session_duration_minutes,
-            equipment: profilePayload.equipment_level,
-            training_style: profilePayload.training_style,
-            difficulty: profilePayload.difficulty_level,
-          },
-          baselines: strengthBaselines,
-          trigger: "onboarding",
-        });
-
-        complete();
-        const completionPayload = {
-          goal_category: goal ?? "custom",
-          weekly_frequency: frequency,
-          equipment,
-          experience,
-          baseline_count: strengthBaselines.length,
-        };
-        if (durationSeconds !== undefined) {
-          Object.assign(completionPayload, {
-            duration_seconds: durationSeconds,
-          });
-        }
-        trackEvent("onboarding_completed", completionPayload);
-        router.replace("/(tabs)" as never);
-      },
       onError: (error) => {
         trackEvent("onboarding_save_failed", {
           error_code: normalizeOnboardingError(error),
@@ -273,7 +235,19 @@ export default function ReviewScreen() {
         </ScrollView>
 
         <View style={styles.actions}>
-          <Button label="Let's start working out!" onPress={handleSubmit} />
+          {upsertProfile.isError && (
+            <Text
+              accessibilityRole="alert"
+              style={[Typography.body, { color: errorColor }]}
+            >
+              {t("setup.saveError")}
+            </Text>
+          )}
+          <Button
+            label={t(upsertProfile.isPending ? "setup.saving" : "setup.create")}
+            loading={upsertProfile.isPending}
+            onPress={handleSubmit}
+          />
         </View>
       </SafeAreaView>
     </View>

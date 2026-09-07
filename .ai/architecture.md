@@ -104,6 +104,14 @@ Token refresh does not reload or replace the active onboarding draft. Profile
 responses from a previous session are discarded. Drafts and queued writes carry
 account ownership so switching accounts cannot replay another user's answers.
 
+Onboarding completion writes profile answers and optional baselines in one
+transaction. Retrying completion for an already completed profile preserves its
+saved preferences. A queued successful save reconciles local completion and
+invalidates the profile query. Home prepares the initial queue automatically;
+transport failures expose a retry without asking for setup again. Queue
+replacement preserves the old workouts until the backend commits a complete
+replacement. Initial generation entitlement is consumed only after success.
+
 ## Primary Data Flows
 
 ### Workout Generation

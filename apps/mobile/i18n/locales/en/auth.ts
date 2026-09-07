@@ -1,4 +1,10 @@
 export const auth = {
+  setup: {
+    saving: "Saving your plan…",
+    create: "Create my workouts",
+    saveError:
+      "We couldn’t save your setup. Check your connection and try again. Your answers are kept and will sync when you reconnect.",
+  },
   profile: {
     loading: "Loading your profile…",
     error:
