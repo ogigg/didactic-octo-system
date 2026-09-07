@@ -27,6 +27,7 @@ const payloadSchema = z.object({
 
 // Frequency mapping
 const FREQUENCY_MAP: Record<string, number> = {
+  "1": 1,
   "2": 2,
   "3": 3,
   "4": 4,

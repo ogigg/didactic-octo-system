@@ -1,0 +1,90 @@
+export const onboarding = {
+  actions: {
+    continue: "Dalej",
+    save: "Zapisz zmiany",
+    back: "Wstecz",
+    edit: "Edytuj: {{field}}",
+    create: "Utwórz moje treningi",
+    saving: "Zapisywanie planu…",
+  },
+  progress: {
+    step: "Krok {{current}} z {{total}}",
+    review: "Sprawdź plan i utwórz treningi",
+  },
+  goal: {
+    title: "Co chcesz osiągnąć?",
+    subtitle: "Wybierz główny cel. Możesz go później zmienić.",
+    build_strength: "Zbudować siłę",
+    build_muscle: "Zbudować mięśnie",
+    lose_weight: "Schudnąć",
+    improve_fitness: "Poprawić sprawność",
+    custom: "Lub opisz własny cel",
+    invalid: "Użyj co najmniej 5 znaków i unikaj obraźliwych słów.",
+  },
+  equipment: {
+    title: "Z jakiego sprzętu możesz korzystać?",
+    subtitle: "Wybierz najbliższą opcję. Sprzęt możesz później zmienić.",
+    bodyweight: "Masa własnego ciała",
+    bodyweightHint: "Bez dodatkowych ciężarów",
+    dumbbells: "Hantle",
+    dumbbellsHint: "Para hantli w domu lub na siłowni",
+    barbell: "Sztanga",
+    barbellHint: "Gryf, talerze oraz stojak lub ławka",
+    full_gym: "Pełna siłownia",
+    full_gymHint: "Hantle, sztangi, maszyny i wyciągi",
+  },
+  experience: {
+    title: "Jak dobrze znasz trening siłowy?",
+    subtitle:
+      "To określa początkowy poziom trudności. Treningi będą dostosowywać się do Twoich postępów.",
+    beginner: "Zaczynam lub wracam",
+    beginnerHint: "Dopiero zaczynasz lub wracasz po długiej przerwie",
+    intermediate: "Znam podstawy",
+    intermediateHint: "Znasz główne ruchy i trenujesz regularnie",
+    advanced: "Mam doświadczenie",
+    advancedHint:
+      "Korzystasz z ułożonych planów i świadomie zwiększasz obciążenia",
+  },
+  frequency: {
+    title: "Znajdź czas na trening",
+    subtitle:
+      "Wybierz plan pasujący do Twojego życia. Możesz zacząć od małych kroków.",
+    days: "Dni w tygodniu",
+    once: "1 dzień",
+    dayCount: "{{count}} dni",
+    fivePlus: "5+ dni",
+    fiveHint:
+      "Przygotujemy pięć treningów naraz. Możesz trenować częściej, jeśli chcesz.",
+    duration: "Czas jednego treningu",
+    minutes: "{{count}} min",
+  },
+  review: {
+    title: "Twój plan na start",
+    subtitle:
+      "Sprawdź plan, a my przygotujemy treningi. Ustawienia możesz później zmienić.",
+    goal: "Cel",
+    equipment: "Sprzęt",
+    experience: "Doświadczenie",
+    schedule: "Harmonogram",
+    scheduleValue: "{{days}} · {{minutes}} min na trening",
+    split: "Układ tygodnia",
+    style: "Rodzaj treningu",
+    adjustStyle: "Zmień rodzaj",
+    constraints: "Ruchy lub ograniczenia do uwzględnienia? (opcjonalnie)",
+    constraintsHint:
+      "Na przykład: bez podskoków. Uwzględnimy to w generowaniu treningów. Jeśli nie masz uwag, pomiń to pole.",
+    constraintsPlaceholder: "Co powinniśmy uwzględnić w treningach?",
+    constraintsCount: "{{count}}/200",
+    strengthLater:
+      "Nie potrzebujesz testu siły. Dopasuj ciężary podczas pierwszego treningu lub dodaj poziom siły później w profilu.",
+    full_body: "Całe ciało",
+    upper_lower: "Góra / dół ciała",
+    push_pull_legs: "Push / pull / legs",
+    strength: "Siła",
+    hypertrophy: "Budowa mięśni",
+    endurance: "Wytrzymałość mięśniowa",
+    circuit: "Trening obwodowy",
+    error:
+      "Nie udało się zapisać ustawień. Sprawdź połączenie i spróbuj ponownie. Twoje odpowiedzi są zachowane.",
+  },
+} as const;

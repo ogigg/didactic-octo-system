@@ -50,6 +50,7 @@ export const workoutSessionSchema = z.object({
   ]),
   goal_snapshot: z.enum([
     "build_strength",
+    "build_muscle",
     "lose_weight",
     "improve_fitness",
     "custom",
@@ -131,6 +132,7 @@ export const workoutDetailSchema = z.object({
   ]),
   goal_snapshot: z.enum([
     "build_strength",
+    "build_muscle",
     "lose_weight",
     "improve_fitness",
     "custom",
@@ -191,6 +193,7 @@ export interface CreateWorkoutSessionInput {
   generation_source?: "llm" | "fallback_template" | "fallback_substitution";
   goal_snapshot:
     | "build_strength"
+    | "build_muscle"
     | "lose_weight"
     | "improve_fitness"
     | "custom";

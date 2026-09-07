@@ -1,3 +1,5 @@
+import { onboarding } from "./locales/en/onboarding";
+import { onboarding as onboardingPl } from "./locales/pl/onboarding";
 import { auth } from "./locales/en/auth";
 import { common } from "./locales/en/common";
 import { home } from "./locales/en/home";
@@ -49,6 +51,7 @@ import { streakProtection as streakProtectionPl } from "./locales/pl/streak-prot
 
 export const resources = {
   en: {
+    onboarding,
     auth,
     common,
     home,
@@ -75,6 +78,7 @@ export const resources = {
     streakProtection,
   },
   pl: {
+    onboarding: onboardingPl,
     auth: authPl,
     common: commonPl,
     home: homePl,

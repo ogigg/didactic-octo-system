@@ -20,8 +20,13 @@ import type {
 } from "@/lib/api/generate-workout";
 
 type DbGender = "male" | "female" | "prefer_not_to_say" | null;
-type DbGoal = "build_strength" | "lose_weight" | "improve_fitness" | "custom";
-type DbFrequency = "2" | "3" | "4" | "5_plus";
+type DbGoal =
+  | "build_strength"
+  | "build_muscle"
+  | "lose_weight"
+  | "improve_fitness"
+  | "custom";
+type DbFrequency = "1" | "2" | "3" | "4" | "5_plus";
 
 interface ProfilePayload {
   id: string;
@@ -37,6 +42,7 @@ interface ProfilePayload {
   difficulty_level: Difficulty;
   training_setup_completed: boolean;
   weight_unit: "kg" | "lbs";
+  training_custom_prompt: string | null;
 }
 
 export interface OnboardingData {
@@ -47,6 +53,9 @@ export interface OnboardingData {
   equipment: Equipment;
   experience: Experience;
   strengthBaselines: StrengthBaseline[];
+  sessionDuration?: DurationMinutes;
+  trainingStyle?: TrainingStyle | null;
+  constraints?: string;
 }
 
 const profileSchema = z
@@ -54,12 +63,13 @@ const profileSchema = z
     gender: z.enum(["male", "female", "prefer_not_to_say"]).nullable(),
     goal: z.enum([
       "build_strength",
+      "build_muscle",
       "lose_weight",
       "improve_fitness",
       "custom",
     ]),
     custom_goal: z.string().max(500).nullable(),
-    weekly_frequency: z.enum(["2", "3", "4", "5_plus"]),
+    weekly_frequency: z.enum(["1", "2", "3", "4", "5_plus"]),
     onboarding_completed: z.literal(true),
     training_split: z.enum(["full_body", "upper_lower", "push_pull_legs"]),
     session_duration_minutes: z.number(),
@@ -68,6 +78,7 @@ const profileSchema = z
     difficulty_level: z.enum(["beginner", "intermediate", "advanced"]),
     training_setup_completed: z.literal(true),
     weight_unit: z.enum(["kg", "lbs"]),
+    training_custom_prompt: z.string().max(200).nullable(),
   })
   .refine((data) => data.goal !== "custom" || data.custom_goal !== null, {
     message: "custom_goal is required when goal is 'custom'",
@@ -109,14 +120,16 @@ function deriveStyle(
   goal: Goal | null,
   customGoal: string | null
 ): TrainingStyle {
-  if (customGoal) return "hypertrophy"; // sensible default for custom goals
+  if (customGoal) return "strength";
   switch (goal) {
+    case "build_muscle":
+      return "hypertrophy";
     case "build_strength":
       return "strength";
     case "lose_weight":
       return "circuit";
     case "improve_fitness":
-      return "hypertrophy";
+      return "endurance";
     default:
       return "hypertrophy";
   }
@@ -160,12 +173,15 @@ export function mapOnboardingToProfile(
     weekly_frequency: mapFrequency(data.frequency),
     onboarding_completed: true as const,
     training_split: deriveSplit(data.frequency),
-    session_duration_minutes: deriveDuration(data.experience),
+    session_duration_minutes:
+      data.sessionDuration ?? deriveDuration(data.experience),
     equipment_level: mapEquipment(data.equipment),
-    training_style: deriveStyle(data.goal, data.customGoal),
+    training_style:
+      data.trainingStyle ?? deriveStyle(data.goal, data.customGoal),
     difficulty_level: data.experience,
     training_setup_completed: true as const,
     weight_unit: detectDefaultWeightUnit(),
+    training_custom_prompt: data.constraints?.trim() || null,
   };
 
   return profileSchema.parse(mapped) as Omit<ProfilePayload, "id">;
@@ -282,10 +298,16 @@ export async function fetchProfile(expectedUserId?: string): Promise<{
       onboarding_completed: z.boolean(),
       gender: z.enum(["male", "female", "prefer_not_to_say"]).nullable(),
       goal: z
-        .enum(["build_strength", "lose_weight", "improve_fitness", "custom"])
+        .enum([
+          "build_strength",
+          "build_muscle",
+          "lose_weight",
+          "improve_fitness",
+          "custom",
+        ])
         .nullable(),
       custom_goal: z.string().nullable(),
-      weekly_frequency: z.enum(["2", "3", "4", "5_plus"]).nullable(),
+      weekly_frequency: z.enum(["1", "2", "3", "4", "5_plus"]).nullable(),
       equipment_level: z
         .enum(["bodyweight", "dumbbells", "barbell", "full_gym"])
         .nullable(),

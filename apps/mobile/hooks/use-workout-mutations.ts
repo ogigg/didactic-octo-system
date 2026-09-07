@@ -50,7 +50,12 @@ import {
 
 interface SaveWorkoutInput {
   summary: WorkoutSummary;
-  goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+  goalSnapshot:
+    | "build_strength"
+    | "build_muscle"
+    | "lose_weight"
+    | "improve_fitness"
+    | "custom";
   customGoalSnapshot?: string;
   weightUnit?: WeightUnit;
 }

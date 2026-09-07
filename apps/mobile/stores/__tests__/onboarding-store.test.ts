@@ -123,6 +123,7 @@ describe("reset", () => {
       result.current.setFrequency(3);
       result.current.setEquipment("full_gym");
       result.current.setExperience("intermediate");
+      result.current.setSessionDuration(45);
       result.current.complete();
     });
     act(() => result.current.reset());
@@ -136,9 +137,9 @@ describe("reset", () => {
 });
 
 describe("getNextUnfinishedStep", () => {
-  it("returns gender when nothing is answered", () => {
+  it("returns goal when nothing is answered", () => {
     const { result } = renderHook(() => useOnboardingStore());
-    expect(result.current.getNextUnfinishedStep()).toBe("gender");
+    expect(result.current.getNextUnfinishedStep()).toBe("goal");
   });
 
   it("returns goal after gender is answered", () => {
@@ -153,13 +154,13 @@ describe("getNextUnfinishedStep", () => {
     expect(result.current.getNextUnfinishedStep()).toBe("goal");
   });
 
-  it("returns frequency after goal is answered", () => {
+  it("returns equipment after goal is answered", () => {
     const { result } = renderHook(() => useOnboardingStore());
     act(() => {
       result.current.skipGender();
       result.current.setGoal("lose_weight");
     });
-    expect(result.current.getNextUnfinishedStep()).toBe("frequency");
+    expect(result.current.getNextUnfinishedStep()).toBe("equipment");
   });
 
   it("returns equipment after frequency is answered", () => {
@@ -191,6 +192,7 @@ describe("getNextUnfinishedStep", () => {
       result.current.setFrequency(3);
       result.current.setEquipment("full_gym");
       result.current.setExperience("intermediate");
+      result.current.setSessionDuration(45);
     });
     expect(result.current.getNextUnfinishedStep()).toBe("review");
   });

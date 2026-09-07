@@ -70,7 +70,12 @@ export interface RestTimerState {
 
 export interface GenerationMeta {
   generationSource: "llm" | "fallback_template" | "fallback_substitution";
-  goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+  goalSnapshot:
+    | "build_strength"
+    | "build_muscle"
+    | "lose_weight"
+    | "improve_fitness"
+    | "custom";
   customGoalSnapshot: string | null;
   reasoning?: WorkoutReasoning | null;
 }

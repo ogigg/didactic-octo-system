@@ -6,12 +6,12 @@ import { trackEvent } from "@/lib/track-event";
 
 const STEP_INDEX: Record<OnboardingStep, number> = {
   gender: 1,
-  goal: 2,
-  frequency: 3,
-  equipment: 4,
-  experience: 5,
-  strength: 6,
-  review: 7,
+  goal: 1,
+  equipment: 2,
+  experience: 3,
+  frequency: 4,
+  strength: 4,
+  review: 5,
 };
 
 /**

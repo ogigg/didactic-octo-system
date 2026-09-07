@@ -7,6 +7,7 @@ import type { WorkoutSummary } from "@/stores/workout-store";
 
 export type GoalSnapshot =
   | "build_strength"
+  | "build_muscle"
   | "lose_weight"
   | "improve_fitness"
   | "custom";

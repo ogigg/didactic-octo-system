@@ -630,3 +630,5 @@ Invariants:
 - max-weight selection orders load descending, reps descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
 - max-reps selection orders reps descending, load descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
 - callers must be authenticated and receive only their own records; an authenticated user with no eligible sets receives `[]`
+
+Onboarding supports `goal_type.build_muscle` and `frequency_type.1`. New submissions explicitly supply session duration and may supply a training-style override and optional `training_custom_prompt` (200 characters).

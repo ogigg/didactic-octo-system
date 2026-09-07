@@ -13,10 +13,16 @@ const profileSchema = z.object({
   id: z.string().uuid(),
   gender: z.enum(["male", "female", "prefer_not_to_say"]).nullable(),
   goal: z
-    .enum(["build_strength", "lose_weight", "improve_fitness", "custom"])
+    .enum([
+      "build_strength",
+      "build_muscle",
+      "lose_weight",
+      "improve_fitness",
+      "custom",
+    ])
     .nullable(),
   custom_goal: z.string().nullable(),
-  weekly_frequency: z.enum(["2", "3", "4", "5_plus"]).nullable(),
+  weekly_frequency: z.enum(["1", "2", "3", "4", "5_plus"]).nullable(),
   onboarding_completed: z.boolean(),
   initial_queue_generated_at: z.string().nullable().optional(),
   queue_generation_request_id: z.string().nullable().optional(),
