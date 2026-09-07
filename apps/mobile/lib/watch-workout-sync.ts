@@ -10,8 +10,10 @@ import type {
   RestTimerState,
   WorkoutExercise,
   WorkoutSummary,
+  WorkoutWarmup,
 } from "@/stores/workout-store";
 import { getExerciseOccurrenceId } from "@/stores/workout-store";
+import { toKg, type WeightUnit } from "@/lib/unit-conversion";
 
 export interface WatchSetSnapshot {
   id: string;
@@ -20,6 +22,7 @@ export interface WatchSetSnapshot {
   targetReps: number | null;
   actualLoadKg: number | null;
   actualReps: number | null;
+  targetDurationSeconds?: number | null;
   durationSeconds: number | null;
   isCompleted: boolean;
   previousDisplay: string | null;
@@ -44,6 +47,11 @@ export interface WatchRestSnapshot {
   pausedRemainingSeconds: number | null;
 }
 
+export interface WatchWarmupSnapshot {
+  durationSeconds: number;
+  isCompleted: boolean;
+}
+
 export interface WatchWorkoutSnapshot {
   workoutId: string;
   name: string;
@@ -51,8 +59,10 @@ export interface WatchWorkoutSnapshot {
   startedAt: string;
   finishedAt: string | null;
   selectedExerciseId: string | null;
+  warmup?: WatchWarmupSnapshot | null;
   exercises: WatchExerciseSnapshot[];
   rest: WatchRestSnapshot | null;
+  weightUnit?: WeightUnit;
 }
 
 const actionEnvelopeSchema = z.object({
@@ -70,6 +80,11 @@ const actionEnvelopeSchema = z.object({
     "skipRest",
     "healthWorkoutStarted",
     "finishWorkout",
+    "requestState",
+    "reopenSet",
+    "healthWorkoutSaved",
+    "healthWorkoutFailed",
+    "setWarmupComplete",
   ]),
   payload: z.string(),
 });
@@ -80,15 +95,34 @@ const actionPayloadSchema = z.object({
   setId: z.string().min(1).optional(),
   loadKg: z.number().finite().min(0).max(1_500).optional(),
   reps: z.number().int().min(0).max(1_000).optional(),
+  durationSeconds: z.number().finite().int().min(0).max(86_400).optional(),
   deltaSeconds: z.number().int().min(-600).max(600).optional(),
   restId: z.string().min(1).optional(),
+  endDate: z.string().datetime().nullable().optional(),
+  pausedRemainingSeconds: z
+    .number()
+    .finite()
+    .min(0)
+    .max(86_400)
+    .nullable()
+    .optional(),
   completedAt: z.string().datetime().optional(),
+  finishedAt: z.string().datetime().optional(),
+  isCompleted: z.boolean().optional(),
   healthWorkoutUUID: z.string().uuid().optional(),
 });
 
 function numericValue(value: string): number | null {
   const parsed = Number(value);
   return value.trim() !== "" && Number.isFinite(parsed) ? parsed : null;
+}
+
+function canonicalLoadKg(
+  value: string | null | undefined,
+  unit: WeightUnit
+): number | null {
+  const numeric = value == null ? null : numericValue(value);
+  return numeric == null ? null : toKg(numeric, unit);
 }
 
 function firstIncompleteExerciseId(
@@ -102,7 +136,8 @@ function firstIncompleteExerciseId(
 
 function exerciseSnapshots(
   exercises: WorkoutExercise[],
-  localizedNames?: ReadonlyMap<string, string>
+  localizedNames?: ReadonlyMap<string, string>,
+  weightUnit: WeightUnit = "kg"
 ): WatchExerciseSnapshot[] {
   return exercises.map((exercise) => ({
     id: getExerciseOccurrenceId(exercise),
@@ -115,10 +150,11 @@ function exerciseSnapshots(
     sets: exercise.sets.map((set) => ({
       id: set.id,
       type: set.type,
-      targetLoadKg: numericValue(set.kg),
-      targetReps: numericValue(set.reps),
-      actualLoadKg: numericValue(set.kg),
+      targetLoadKg: canonicalLoadKg(set.plannedKg ?? set.kg, weightUnit),
+      targetReps: numericValue(set.plannedReps ?? set.reps),
+      actualLoadKg: canonicalLoadKg(set.kg, weightUnit),
       actualReps: numericValue(set.reps),
+      targetDurationSeconds: set.plannedDurationSeconds ?? set.durationSeconds,
       durationSeconds: set.durationSeconds,
       isCompleted: set.isCompleted,
       previousDisplay: set.previousDisplay,
@@ -149,8 +185,10 @@ export function buildActiveWatchSnapshot(input: {
   startedAtMs: number;
   exercises: WorkoutExercise[];
   restTimer: RestTimerState | null;
+  warmup?: WorkoutWarmup | null;
   selectedExerciseId?: string | null;
   localizedNames?: ReadonlyMap<string, string>;
+  weightUnit?: WeightUnit;
 }): WatchWorkoutSnapshot {
   const validSelection = input.exercises.some(
     (exercise) => getExerciseOccurrenceId(exercise) === input.selectedExerciseId
@@ -164,8 +202,19 @@ export function buildActiveWatchSnapshot(input: {
     selectedExerciseId: validSelection
       ? (input.selectedExerciseId ?? null)
       : firstIncompleteExerciseId(input.exercises),
-    exercises: exerciseSnapshots(input.exercises, input.localizedNames),
+    warmup: input.warmup
+      ? {
+          durationSeconds: input.warmup.durationSeconds,
+          isCompleted: input.warmup.isCompleted,
+        }
+      : null,
+    exercises: exerciseSnapshots(
+      input.exercises,
+      input.localizedNames,
+      input.weightUnit ?? "kg"
+    ),
     rest: restSnapshot(input.restTimer),
+    weightUnit: input.weightUnit ?? "kg",
   };
 }
 
@@ -175,6 +224,7 @@ export function buildCancelledWatchSnapshot(input: {
   exercises: WorkoutExercise[];
   localizedNames?: ReadonlyMap<string, string>;
   cancelledAtMs?: number;
+  weightUnit?: WeightUnit;
 }): WatchWorkoutSnapshot {
   return {
     workoutId: `workout-${input.startedAtMs}`,
@@ -183,15 +233,22 @@ export function buildCancelledWatchSnapshot(input: {
     startedAt: new Date(input.startedAtMs).toISOString(),
     finishedAt: new Date(input.cancelledAtMs ?? Date.now()).toISOString(),
     selectedExerciseId: null,
-    exercises: exerciseSnapshots(input.exercises, input.localizedNames),
+    warmup: null,
+    exercises: exerciseSnapshots(
+      input.exercises,
+      input.localizedNames,
+      input.weightUnit ?? "kg"
+    ),
     rest: null,
+    weightUnit: input.weightUnit ?? "kg",
   };
 }
 
 export function buildCompletedWatchSnapshot(
   summary: WorkoutSummary,
   startedAtMs: number | null,
-  localizedNames?: ReadonlyMap<string, string>
+  localizedNames?: ReadonlyMap<string, string>,
+  weightUnit?: WeightUnit
 ): WatchWorkoutSnapshot {
   const inferredStart = Math.max(
     0,
@@ -204,8 +261,19 @@ export function buildCompletedWatchSnapshot(
     startedAt: new Date(inferredStart).toISOString(),
     finishedAt: new Date(summary.finishedAtMs).toISOString(),
     selectedExerciseId: null,
-    exercises: exerciseSnapshots(summary.exercises, localizedNames),
+    warmup: summary.warmup
+      ? {
+          durationSeconds: summary.warmup.durationSeconds,
+          isCompleted: summary.warmup.isCompleted,
+        }
+      : null,
+    exercises: exerciseSnapshots(
+      summary.exercises,
+      localizedNames,
+      weightUnit ?? summary.weightUnit ?? "kg"
+    ),
     rest: null,
+    weightUnit: weightUnit ?? summary.weightUnit ?? "kg",
   };
 }
 
@@ -244,6 +312,14 @@ export function parseWatchAction(
   };
 }
 
+export function extractWatchCommandID(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const commandID = (value as { commandID?: unknown }).commandID;
+  return typeof commandID === "string" && commandID.length > 0
+    ? commandID
+    : null;
+}
+
 export interface WatchActionReconciliationContext {
   currentRevision: number;
   workoutId: string | null;
@@ -251,7 +327,7 @@ export interface WatchActionReconciliationContext {
   exerciseExists: boolean;
   setState: "missing" | "incomplete" | "completed";
   restId: string | null;
-  canReconcileStaleSetMutation?: boolean;
+  canApplyHealthCommand?: boolean;
 }
 
 export function shouldApplyWatchAction(
@@ -259,11 +335,20 @@ export function shouldApplyWatchAction(
   context: WatchActionReconciliationContext
 ): boolean {
   const { envelope, payload } = parsed;
+  if (envelope.type === "requestState") return true;
+
   if (
-    !context.isActive ||
-    payload.workoutId !== context.workoutId ||
-    envelope.baseRevision > context.currentRevision
+    envelope.type === "healthWorkoutSaved" ||
+    envelope.type === "healthWorkoutFailed"
   ) {
+    return (
+      payload.workoutId !== undefined &&
+      (context.workoutId === payload.workoutId ||
+        context.canApplyHealthCommand === true)
+    );
+  }
+
+  if (!context.isActive || payload.workoutId !== context.workoutId) {
     return false;
   }
 
@@ -272,11 +357,11 @@ export function shouldApplyWatchAction(
       return context.exerciseExists;
     case "updateSet":
     case "completeSet":
-      return (
-        (envelope.baseRevision === context.currentRevision ||
-          context.canReconcileStaleSetMutation === true) &&
-        context.setState === "incomplete"
-      );
+      return context.setState === "incomplete";
+    case "reopenSet":
+      return context.setState === "completed";
+    case "setWarmupComplete":
+      return true;
     case "adjustRest":
     case "pauseRest":
     case "resumeRest":
