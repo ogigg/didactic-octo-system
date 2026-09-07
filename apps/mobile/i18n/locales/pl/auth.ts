@@ -1,4 +1,8 @@
 export const auth = {
+  linkError: {
+    title: "Nie udało się użyć tego linku",
+    body: "Link mógł wygasnąć lub zostać już użyty. Spróbuj się zalogować albo poproś o nowy link do resetowania hasła.",
+  },
   setup: {
     saving: "Zapisywanie planu…",
     create: "Utwórz moje treningi",
@@ -27,6 +31,13 @@ export const auth = {
     divider: "lub kontynuuj z",
   },
   signUp: {
+    showPassword: "Pokaż hasło",
+    hidePassword: "Ukryj hasło",
+    resend: "Wyślij ponownie e-mail potwierdzający",
+    resendCountdown: "Wyślij ponownie za {{seconds}} s",
+    resent: "E-mail wysłany. Sprawdź skrzynkę i folder spam.",
+    changeEmail: "Popraw adres e-mail",
+
     title: "Utwórz konto",
     subtitle: "Rozpocznij swoją drogę fitness",
     emailLabel: "Email",

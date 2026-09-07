@@ -1,3 +1,10 @@
+jest.mock("expo-linking", () => ({ createURL: () => "sweaty://" }));
+jest.mock("@/components/auth/apple-sign-in-button", () => ({
+  AppleSignInButton: () => null,
+}));
+jest.mock("@/components/auth/google-sign-in-button", () => ({
+  GoogleSignInButton: () => null,
+}));
 jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
@@ -5,6 +12,7 @@ jest.mock("@/lib/supabase", () => ({
   supabase: {
     auth: {
       signUp: jest.fn(),
+      resend: jest.fn(),
     },
   },
 }));
@@ -31,27 +39,11 @@ beforeEach(() => {
 });
 
 describe("SignUpScreen", () => {
-  it("renders email, password, and confirm password fields", () => {
+  it("renders just email and password fields", () => {
     render(<SignUpScreen />);
     expect(screen.getByLabelText("Email")).toBeTruthy();
     expect(screen.getByLabelText("Password")).toBeTruthy();
-    expect(screen.getByLabelText("Confirm Password")).toBeTruthy();
-  });
-
-  it("shows validation error when passwords don't match", async () => {
-    render(<SignUpScreen />);
-
-    fireEvent.changeText(screen.getByLabelText("Email"), "user@example.com");
-    fireEvent.changeText(screen.getByLabelText("Password"), "password123");
-    fireEvent.changeText(
-      screen.getByLabelText("Confirm Password"),
-      "different123"
-    );
-    fireEvent.press(screen.getByRole("button", { name: /create account/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Passwords must match")).toBeTruthy();
-    });
+    expect(screen.queryByLabelText("Confirm Password")).toBeNull();
   });
 
   it("calls signUp with valid data", async () => {
@@ -61,16 +53,13 @@ describe("SignUpScreen", () => {
 
     fireEvent.changeText(screen.getByLabelText("Email"), "user@example.com");
     fireEvent.changeText(screen.getByLabelText("Password"), "password123");
-    fireEvent.changeText(
-      screen.getByLabelText("Confirm Password"),
-      "password123"
-    );
     fireEvent.press(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
       expect(mockSignUp).toHaveBeenCalledWith({
         email: "user@example.com",
         password: "password123",
+        options: { emailRedirectTo: expect.any(String) },
       });
     });
   });
@@ -82,14 +71,25 @@ describe("SignUpScreen", () => {
 
     fireEvent.changeText(screen.getByLabelText("Email"), "user@example.com");
     fireEvent.changeText(screen.getByLabelText("Password"), "password123");
-    fireEvent.changeText(
-      screen.getByLabelText("Confirm Password"),
-      "password123"
-    );
     fireEvent.press(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Check your email")).toBeTruthy();
     });
   });
+});
+
+it("allows correcting the address and reveals the password", async () => {
+  mockSignUp.mockResolvedValue({ data: { session: null }, error: null });
+  render(<SignUpScreen />);
+  fireEvent.press(screen.getByText("Show password"));
+  expect(screen.getByLabelText("Password").props.secureTextEntry).toBe(false);
+  fireEvent.changeText(screen.getByLabelText("Email"), "typo@example.com");
+  fireEvent.changeText(screen.getByLabelText("Password"), "password123");
+  fireEvent.press(screen.getByText("Create Account"));
+  await waitFor(() =>
+    expect(screen.getByText("Correct email address")).toBeTruthy()
+  );
+  fireEvent.press(screen.getByText("Correct email address"));
+  expect(screen.getByLabelText("Email").props.value).toBe("typo@example.com");
 });

@@ -1,4 +1,8 @@
 export const auth = {
+  linkError: {
+    title: "This link could not be used",
+    body: "The link may have expired or already been used. Try signing in, or request a new password reset link.",
+  },
   setup: {
     saving: "Saving your plan…",
     create: "Create my workouts",
@@ -27,6 +31,13 @@ export const auth = {
     divider: "or continue with",
   },
   signUp: {
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    resend: "Resend confirmation email",
+    resendCountdown: "Resend in {{seconds}}s",
+    resent: "Confirmation email sent. Check your inbox and spam folder.",
+    changeEmail: "Correct email address",
+
     title: "Create account",
     subtitle: "Start your fitness journey",
     emailLabel: "Email",

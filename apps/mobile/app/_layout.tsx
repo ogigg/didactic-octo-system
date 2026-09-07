@@ -200,6 +200,10 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen
+                  name="auth-link-error"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="statistics"
                   options={{ headerShown: false }}
                 />
