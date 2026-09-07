@@ -241,3 +241,5 @@ Do not use this file as:
 ### Onboarding questionnaire
 
 The initial flow is goal → equipment → experience → schedule → review. Gender and strength estimates are deferred; strength estimates remain editable in settings. Schedule explicitly collects days (including once weekly) and duration. Muscle gain maps to hypertrophy, fitness to endurance, and custom goals default to strength with an editable approach on review. Optional constraints use `training_custom_prompt`. Existing saved drafts remain account-owned.
+
+Onboarding uses a shared five-step progress bar/counter, visible Back action, scrollable content and persistent primary action. Review edits return to review; saving locks submission and editing, and errors retain all answers.

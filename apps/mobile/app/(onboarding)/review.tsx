@@ -100,7 +100,7 @@ export default function ReviewScreen() {
           key={row.step}
           disabled={save.isPending}
           accessibilityRole="button"
-          accessibilityLabel={t("actions.edit", { field: row.label })}
+          accessibilityLabel={`${t("actions.edit", { field: row.label })}: ${row.value}`}
           onPress={() =>
             router.push({
               pathname: `/(onboarding)/${row.step}`,
@@ -130,6 +130,7 @@ export default function ReviewScreen() {
           </Text>
           <Pressable
             accessibilityRole="button"
+            disabled={save.isPending}
             onPress={() => setAdjustStyle(!adjustStyle)}
             style={styles.adjust}
           >
@@ -140,7 +141,9 @@ export default function ReviewScreen() {
           {adjustStyle && (
             <OptionChips
               selected={plan.training_style}
-              onSelect={setTrainingStyle}
+              onSelect={(value) => {
+                if (!save.isPending) setTrainingStyle(value);
+              }}
               options={(
                 ["strength", "hypertrophy", "endurance", "circuit"] as const
               ).map((value) => ({ value, label: t(`review.${value}`) }))}

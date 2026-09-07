@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -47,6 +48,16 @@ export function OnboardingScreen({
   const secondary = useThemeColor({}, "textSecondary");
   const errorColor = useThemeColor({}, "error");
   const index = ONBOARDING_STEPS.indexOf(step);
+  const primary = useThemeColor({}, "primary");
+  const track = useThemeColor({}, "borderSubtle");
+  function back() {
+    if (saving) return;
+    if (router.canGoBack()) router.back();
+    else
+      router.replace(
+        `/(onboarding)/${editMode === "1" ? "review" : ONBOARDING_STEPS[Math.max(0, index - 1)]}` as never
+      );
+  }
   function next() {
     if (!canContinue || saving) return;
     if (onSubmit) {
@@ -59,7 +70,7 @@ export function OnboardingScreen({
       edit_mode: editMode === "1",
       skipped: false,
     });
-    if (editMode === "1") router.back();
+    if (editMode === "1") back();
     else router.push(`/(onboarding)/${ONBOARDING_STEPS[index + 1]}` as never);
   }
   return (
@@ -70,6 +81,52 @@ export function OnboardingScreen({
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <SafeAreaView style={styles.root}>
+          <View style={styles.progressHeader}>
+            <View style={styles.progressRow}>
+              {(index > 0 || editMode === "1") && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={saving}
+                  onPress={back}
+                  style={styles.back}
+                >
+                  <Text style={[Typography.body, { color: primary }]}>
+                    {t("actions.back")}
+                  </Text>
+                </Pressable>
+              )}
+              <Text style={[Typography.caption, { color: secondary }]}>
+                {t("progress.step", {
+                  current: index + 1,
+                  total: ONBOARDING_STEPS.length,
+                })}
+              </Text>
+            </View>
+            <View
+              accessible
+              accessibilityRole="progressbar"
+              accessibilityLabel={t("progress.step", {
+                current: index + 1,
+                total: ONBOARDING_STEPS.length,
+              })}
+              accessibilityValue={{
+                min: 1,
+                max: ONBOARDING_STEPS.length,
+                now: index + 1,
+              }}
+              style={[styles.track, { backgroundColor: track }]}
+            >
+              <View
+                style={[
+                  styles.fill,
+                  {
+                    backgroundColor: primary,
+                    width: `${((index + 1) / ONBOARDING_STEPS.length) * 100}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
           <ScrollView
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
@@ -119,6 +176,16 @@ export function OnboardingScreen({
 }
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  progressHeader: { paddingHorizontal: Spacing.xl, gap: Spacing.sm },
+  progressRow: {
+    minHeight: 44,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  back: { minHeight: 44, minWidth: 44, justifyContent: "center" },
+  track: { height: 4, borderRadius: 2, overflow: "hidden" },
+  fill: { height: 4 },
   content: { flexGrow: 1, padding: Spacing.xl, paddingTop: Spacing["2xl"] },
   subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.xl },
   actions: {

@@ -1,7 +1,12 @@
 import "@/i18n";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 jest.mock("expo-router", () => ({
-  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn() },
+  router: {
+    push: jest.fn(),
+    back: jest.fn(),
+    canGoBack: jest.fn(() => true),
+    replace: jest.fn(),
+  },
   useLocalSearchParams: jest.fn(() => ({})),
 }));
 jest.mock("@/hooks/use-theme-color", () => ({ useThemeColor: () => "#000" }));
@@ -134,4 +139,16 @@ it("blocks duplicate submissions and exposes a retryable save error", () => {
     screen.getByRole("button", { name: "Saving your plan…" })
   ).toBeDisabled();
   expect(screen.getByRole("alert")).toBeTruthy();
+});
+
+it("shows five-step progress including review and provides Back", () => {
+  answerRequired();
+  const screen = render(<ReviewScreen />);
+  expect(screen.getByRole("progressbar").props.accessibilityValue).toEqual({
+    min: 1,
+    max: 5,
+    now: 5,
+  });
+  fireEvent.press(screen.getByText("Back"));
+  expect(router.back).toHaveBeenCalled();
 });
