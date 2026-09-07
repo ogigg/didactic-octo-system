@@ -1,4 +1,4 @@
-"Ready to train" = "Gotowy do treningu  v1";
+"Ready to train" = "Gotowy do treningu";
 "Start a workout on your iPhone. It will appear here even if your watch reconnects later." = "Rozpocznij trening na iPhonie. Pojawi się tutaj także po ponownym połączeniu zegarka.";
 "Workout" = "Trening";
 "Sets" = "Serie";
@@ -58,3 +58,70 @@
 "%@%lld BPM since last set" = "%@%lld ud./min od ostatniej serii";
 "KG" = "KG";
 "%lld/%lld" = "%lld/%lld";
+"Sweaty" = "Sweaty";
+"Complete" = "Ukończono";
+"Saving" = "Zapisywanie";
+"Back" = "Wstecz";
+"Details" = "Szczegóły";
+"Workout details and sync status" = "Szczegóły treningu i stan synchronizacji";
+"Sync status" = "Stan synchronizacji";
+"End workout?" = "Zakończyć trening?";
+"Cancel" = "Anuluj";
+"You can still review this workout on your iPhone" = "Trening nadal sprawdzisz na iPhonie";
+"Warm-up" = "Rozgrzewka";
+"Warm-up complete" = "Rozgrzewka ukończona";
+"Mark warm-up complete" = "Oznacz rozgrzewkę jako ukończoną";
+"%lld min" = "%lld min";
+"Timed" = "Czasowe";
+"Strength" = "Siłowe";
+"%lld sets · %@" = "%lld serii · %@";
+"Rest" = "Przerwa";
+"Skip rest" = "Pomiń przerwę";
+"Skip rest?" = "Pominąć przerwę?";
+"Paused" = "Wstrzymano";
+"Ready" = "Gotowe";
+"Next set" = "Następna seria";
+"Start the next set now" = "Rozpocznij teraz następną serię";
+"Heart rate" = "Tętno";
+"Waiting for a fresh reading" = "Oczekiwanie na świeży pomiar";
+"Updated just now" = "Zaktualizowano przed chwilą";
+"Updated %lld seconds ago" = "Zaktualizowano %lld s temu";
+"Start timer" = "Uruchom minutnik";
+"No set is ready" = "Brak gotowej serii";
+"Target" = "Cel";
+"Previous" = "Poprzednio";
+"No previous result" = "Brak poprzedniego wyniku";
+"Finish workout" = "Zakończ trening";
+"Finish workout?" = "Zakończyć trening?";
+"Open Sweaty on your iPhone to see the full summary" = "Otwórz Sweaty na iPhonie, aby zobaczyć podsumowanie";
+"Apple Health still needs attention" = "Apple Health wymaga uwagi";
+"Saving changes" = "Zapisywanie zmian";
+"Changes will sync when your iPhone reconnects" = "Zmiany zsynchronizują się po połączeniu z iPhonem";
+"Up to date" = "Wszystko aktualne";
+"Waiting for your iPhone" = "Oczekiwanie na iPhone'a";
+"Try Apple Health again" = "Spróbuj ponownie z Apple Health";
+"No workout details yet" = "Brak szczegółów treningu";
+"Previous %@" = "Poprzednio %@";
+"Current" = "Bieżąca";
+"%lld × %@ %@" = "%lld × %@ %@";
+"%@ %@" = "%@ %@";
+"Start a workout on your iPhone" = "Rozpocznij trening na iPhonie";
+"SECONDS" = "SEKUNDY";
+
+"%lld sets" = "%lld serii";
+
+"Waiting for a reading" = "Czekam na pomiar";
+
+"Full summary on iPhone" = "Podsumowanie na iPhonie";
+
+"Target %@" = "Cel: %@";
+
+"Reopen set" = "Popraw serię";
+
+"%@ warm-up" = "%@ rozgrz.";
+
+"Sync now" = "Synchronizuj";
+"Rest complete" = "Koniec przerwy";
+"Ready for your next set" = "Czas na kolejną serię";
+"Timer complete" = "Koniec odliczania";
+"Log your set when ready" = "Zapisz serię, gdy skończysz";

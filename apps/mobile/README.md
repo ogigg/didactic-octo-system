@@ -101,24 +101,32 @@ The native watchOS 10 companion lives in `targets/watch` and is generated into
 the iOS project by `@bacons/apple-targets`. It is not a separate Expo or React
 Native application.
 
-- The phone Zustand workout store is authoritative.
-- The phone publishes versioned full workout snapshots with
-  `WCSession.updateApplicationContext`; reachable watches also receive the same
-  snapshot immediately with `sendMessage`.
-- Phone discard publishes a `cancelled` terminal snapshot before clearing
-  local state so the watch can end its HealthKit workout.
-- The watch uses stable workout, exercise-occurrence, and set IDs. Catalog IDs
-  remain separate so repeated exercises are independently editable. Mutations
-  are persisted in an idempotent command outbox, delivered with `sendMessage`
-  and `transferUserInfo`, and removed only after the phone acknowledges them in
-  a later snapshot.
-- Rest timers use an absolute ISO-8601 end date so reconnects and suspension do
-  not reset the countdown.
-- A watch-led session owns the HealthKit workout. The resulting HealthKit UUID
-  is correlated back to the phone summary, which prevents the phone from
-  writing a duplicate workout.
-- `targets/watch/Info.plist` enables `workout-processing`, and the SwiftUI scene
-  holds watch-connectivity background work until pending transfers drain.
+- The hydrated phone Zustand store is authoritative. Snapshots carry monotonic
+  revisions; the watch caches the snapshot and revision together and overlays
+  its persisted pending commands until acknowledgment.
+- Commands use stable workout, exercise occurrence, set, and rest IDs. The watch
+  sends one command at a time through immediate and durable WatchConnectivity
+  delivery. The phone serializes application, waits for local persistence, and
+  acknowledges duplicates and rejected stale commands as well as accepted ones.
+  A canonical snapshot then reconciles the watch's optimistic state.
+- Local set edits survive incoming snapshots and relaunch. Logging a set works
+  offline, immediately starts rest, and seeds the next set's editor. Rest and
+  timed exercise countdowns use deadlines; rest pause/adjust/resume commands
+  preserve their original timing across delayed delivery. Local notifications
+  alert when a timer expires while the app is suspended (when permitted).
+- Snapshots keep planned and logged values separate, include warm-up completion,
+  and use kilograms on the wire with the workout's persisted kg/lb display unit.
+- Workout completion is queued immediately, independently of Apple Health.
+  HealthKit sessions recover by workout identity; saved UUID receipts travel
+  through the durable command outbox. The phone retains a per-workout export
+  ledger so late success/failure can be handled after the summary is dismissed.
+- `targets/watch/Info.plist` enables `workout-processing`. Active HealthKit
+  sessions provide workout execution; WatchConnectivity background work gets a
+  bounded drain window. watchOS controls delivery and suspension, so the app
+  does not rely on a permanent phone connection or artificial keep-alive.
+- The [watch interface standard](../../docs/styles/watch-interface.md) defines
+  a shared safe-area header and primary action position. Core screens fit the
+  SE 2 40 mm at the default text size; lists/details and larger text can scroll.
 - `expo-target.config.json` sets `icon` to the shared app icon. App Store /
   TestFlight validation requires a watch `AppIcon` asset catalog and
   `CFBundleIconName`; `@bacons/apple-targets` generates both from that config
@@ -131,6 +139,20 @@ npx expo prebuild -p ios --clean
 cd ios && pod install
 xcodebuild -workspace Sweaty.xcworkspace -scheme SweatyWatch build
 ```
+
+For focused simulator validation from the repository root:
+
+```bash
+python3 apps/mobile/scripts/check-watch-coordinator.py
+xcodebuild -project apps/mobile/ios/Sweaty.xcodeproj -target SweatyWatch \
+  -configuration Debug -sdk watchsimulator CODE_SIGNING_ALLOWED=NO build
+```
+
+The coordinator check executes the production state machine with platform
+stubs. It covers offline edits, draft reconciliation, rest commands, units,
+navigation, reopening sets, and completion. Real HealthKit saving, haptics,
+reconnection, and background delivery also need a paired-device check.
+Debug-only layout fixtures are documented in the interface standard.
 
 The checked-in `targets/watch` directory is the source of truth; generated
 `ios` files remain disposable.
