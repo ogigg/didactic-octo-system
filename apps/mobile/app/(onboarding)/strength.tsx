@@ -1,3 +1,4 @@
+import { useState as useValidityState } from "react";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import type { StrengthBaseline } from "@/stores/onboarding-store";
 import { trackEvent } from "@/lib/track-event";
@@ -20,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NumericKeyboardAccessory } from "@/components/numeric-keyboard-accessory";
 
 export default function StrengthScreen() {
+  const [valid, setValid] = useValidityState(true);
   const { equipment, experience, strengthBaselines, setStrengthBaselines } =
     useOnboardingStore();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
@@ -113,6 +115,7 @@ export default function StrengthScreen() {
             </Text>
 
             <StrengthBaselineForm
+              onValidityChange={setValid}
               equipment={equipment}
               experience={experience}
               baselines={strengthBaselines}
@@ -123,6 +126,7 @@ export default function StrengthScreen() {
           <View style={styles.actions}>
             <Button
               label="Continue"
+              disabled={!valid}
               onPress={handleContinue}
               accessibilityLabel="Continue to review"
             />

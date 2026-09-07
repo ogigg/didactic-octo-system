@@ -1,3 +1,4 @@
+import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useTranslation } from "react-i18next";
 import { useUpsertProfile } from "@/hooks/use-profile-mutations";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -48,6 +49,7 @@ const EQUIPMENT_LABELS: Record<Equipment, string> = {
   bodyweight: "Home (bodyweight)",
   dumbbells: "Home Gym (dumbbells)",
   full_gym: "Full Gym",
+  barbell: "Barbell",
 };
 
 const EXPERIENCE_LABELS: Record<Experience, string> = {
@@ -77,6 +79,7 @@ type EditStep =
 export default function ReviewScreen() {
   const { t } = useTranslation("auth");
   const errorColor = useThemeColor({}, "error");
+  const { formatSpaced } = useWeightUnit();
   const store = useOnboardingStore();
   const upsertProfile = useUpsertProfile();
   useFocusEffect(useCallback(() => undefined, []));
@@ -108,7 +111,7 @@ export default function ReviewScreen() {
           .map((b) => {
             const label = BASELINE_LABELS[b.exercise_key] ?? b.exercise_key;
             if (b.load_kg !== null) {
-              return `${label}: ${b.load_kg}kg × ${b.reps}`;
+              return `${label}: ${formatSpaced(b.load_kg)} × ${b.reps}`;
             }
             return `${label}: ${b.reps} reps`;
           })

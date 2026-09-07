@@ -1,3 +1,4 @@
+import { useState as useValidityState } from "react";
 import { useState, useEffect } from "react";
 import {
   Alert,
@@ -34,6 +35,7 @@ export const strengthBaselineKeys = {
 };
 
 export default function StrengthBaselinesScreen() {
+  const [valid, setValid] = useValidityState(true);
   const { t } = useTranslation("strengthBaselines");
 
   const textColor = useThemeColor({}, "text");
@@ -47,7 +49,12 @@ export default function StrengthBaselinesScreen() {
   const queryClient = useQueryClient();
 
   // Fetch current baselines
-  const { data: fetchedBaselines } = useQuery({
+  const {
+    data: fetchedBaselines,
+    isPending: loadingBaselines,
+    isError: loadFailed,
+    refetch,
+  } = useQuery({
     queryKey: strengthBaselineKeys.all,
     queryFn: fetchStrengthBaselines,
   });
@@ -118,8 +125,20 @@ export default function StrengthBaselinesScreen() {
             {t("skipHint")}
           </Text>
 
+          {loadFailed && (
+            <>
+              <Text
+                accessibilityRole="alert"
+                style={[Typography.body, { color: errorColor }]}
+              >
+                {t("error")}
+              </Text>
+              <Button label={t("retry")} onPress={() => void refetch()} />
+            </>
+          )}
           {/* Form */}
           <StrengthBaselineForm
+            onValidityChange={setValid}
             equipment={equipment}
             experience={experience}
             baselines={baselines}
@@ -138,8 +157,12 @@ export default function StrengthBaselinesScreen() {
         <View style={[styles.ctaContainer, { backgroundColor: background }]}>
           <Button
             label={saveMutation.isPending ? t("save.saving") : t("save.button")}
-            onPress={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
+            onPress={() => {
+              if (valid) saveMutation.mutate();
+            }}
+            disabled={
+              saveMutation.isPending || loadingBaselines || loadFailed || !valid
+            }
             accessibilityLabel={t("save.button")}
           />
         </View>

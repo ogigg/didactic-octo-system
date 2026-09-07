@@ -81,6 +81,11 @@ Notes:
 
 ### `strength_baselines`
 
+Settings replace strength baselines atomically through `save_strength_baselines`.
+Bodyweight repetitions may be zero (known inability); unanswered exercises have
+no row. Weighted entries require both load and positive whole repetitions.
+Loads are always stored in kilograms, regardless of the display unit.
+
 Purpose:
 
 - stores baseline strength markers used for load programming and generation logic

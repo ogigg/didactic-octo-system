@@ -1,3 +1,4 @@
+import { strengthBaselinesSchema } from "@/lib/schemas/strength-baseline";
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
@@ -140,6 +141,8 @@ function mapEquipment(equipment: Equipment): TrainingEquipment {
       return "bodyweight";
     case "dumbbells":
       return "dumbbells";
+    case "barbell":
+      return "barbell";
     case "full_gym":
       return "full_gym";
   }
@@ -220,7 +223,7 @@ export async function upsertProfile(
   const { error } = await supabase.rpc("complete_onboarding", {
     p_expected_user_id: expectedUserId ?? user.id,
     p_profile: mapped,
-    p_baselines: data.strengthBaselines,
+    p_baselines: strengthBaselinesSchema.parse(data.strengthBaselines),
   });
   if (error) throw new Error(error.message);
 }
@@ -274,5 +277,22 @@ export async function fetchProfile(expectedUserId?: string): Promise<{
     }
   }
 
-  return data;
+  return z
+    .object({
+      onboarding_completed: z.boolean(),
+      gender: z.enum(["male", "female", "prefer_not_to_say"]).nullable(),
+      goal: z
+        .enum(["build_strength", "lose_weight", "improve_fitness", "custom"])
+        .nullable(),
+      custom_goal: z.string().nullable(),
+      weekly_frequency: z.enum(["2", "3", "4", "5_plus"]).nullable(),
+      equipment_level: z
+        .enum(["bodyweight", "dumbbells", "barbell", "full_gym"])
+        .nullable(),
+      difficulty_level: z
+        .enum(["beginner", "intermediate", "advanced"])
+        .nullable(),
+      weight_unit: z.enum(["kg", "lbs"]),
+    })
+    .parse(data);
 }

@@ -5,7 +5,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 export type Gender = "male" | "female" | "other";
 export type Goal = "build_strength" | "lose_weight" | "improve_fitness";
 export type Frequency = 2 | 3 | 4 | 5; // 5 represents "5+" — downstream uses "5 or more days per week"
-export type Equipment = "bodyweight" | "dumbbells" | "full_gym";
+export type Equipment = "bodyweight" | "dumbbells" | "barbell" | "full_gym";
 export type Experience = "beginner" | "intermediate" | "advanced";
 export type OnboardingStep =
   | "gender"
