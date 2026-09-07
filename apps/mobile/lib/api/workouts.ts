@@ -449,9 +449,12 @@ export async function fetchWeeklyDurations(
 // -----------------------------------------------------------------------------
 
 export async function createWorkoutSession(
-  input: CreateWorkoutSessionInput
+  input: CreateWorkoutSessionInput,
+  expectedUserId?: string
 ): Promise<WorkoutSession> {
   const userId = await getAuthenticatedUserId();
+  if (expectedUserId && userId !== expectedUserId)
+    throw new Error("Account changed before saving");
 
   const { data, error } = await supabase
     .from("workout_sessions")

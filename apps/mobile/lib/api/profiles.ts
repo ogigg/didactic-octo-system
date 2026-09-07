@@ -200,7 +200,10 @@ export async function updateTrainingPreferences(
   }
 }
 
-export async function upsertProfile(data: OnboardingData): Promise<void> {
+export async function upsertProfile(
+  data: OnboardingData,
+  expectedUserId?: string
+): Promise<void> {
   const {
     data: { user },
     error: authError,
@@ -209,6 +212,9 @@ export async function upsertProfile(data: OnboardingData): Promise<void> {
   if (authError || !user) {
     throw new Error(authError?.message ?? "Not authenticated");
   }
+
+  if (expectedUserId && user.id !== expectedUserId)
+    throw new Error("Account changed before saving");
 
   const mapped = mapOnboardingToProfile(data);
   const payload: ProfilePayload = { id: user.id, ...mapped };
@@ -249,11 +255,12 @@ async function upsertStrengthBaselines(
   }
 }
 
-export async function fetchProfile(): Promise<{
+export async function fetchProfile(expectedUserId?: string): Promise<{
   onboarding_completed: boolean;
   gender: DbGender;
-  goal: DbGoal;
-  weekly_frequency: DbFrequency;
+  goal: DbGoal | null;
+  custom_goal: string | null;
+  weekly_frequency: DbFrequency | null;
   equipment_level: string | null;
   difficulty_level: string | null;
   weight_unit: "kg" | "lbs";
@@ -266,11 +273,14 @@ export async function fetchProfile(): Promise<{
   if (authError || !user) {
     throw new Error(authError?.message ?? "Not authenticated");
   }
+  if (expectedUserId && user.id !== expectedUserId) {
+    throw new Error("Session changed while loading profile");
+  }
 
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "onboarding_completed, gender, goal, weekly_frequency, equipment_level, difficulty_level, weight_unit"
+      "onboarding_completed, gender, goal, custom_goal, weekly_frequency, equipment_level, difficulty_level, weight_unit"
     )
     .eq("id", user.id)
     .single();
@@ -280,6 +290,18 @@ export async function fetchProfile(): Promise<{
       return null;
     }
     throw new Error(error.message);
+  }
+
+  // A token refresh or account switch can happen while the query is in
+  // flight. Never hand a response from the previous session to onboarding.
+  if (expectedUserId) {
+    const {
+      data: { user: currentUser },
+      error: currentUserError,
+    } = await supabase.auth.getUser();
+    if (currentUserError || currentUser?.id !== expectedUserId) {
+      throw new Error("Session changed while loading profile");
+    }
   }
 
   return data;

@@ -94,6 +94,16 @@ literal string "0".
 
 This document intentionally avoids treating specific model names as long-term architecture guarantees because model selection can change faster than the surrounding system.
 
+## Authentication And Onboarding Readiness
+
+Authenticated routes wait for the current account's profile and local draft
+hydration before choosing onboarding or home. A profile fetch failure shows a
+retry screen rather than treating the account as new. Completed users cannot
+re-enter onboarding; password recovery keeps its own route until finished.
+Token refresh does not reload or replace the active onboarding draft. Profile
+responses from a previous session are discarded. Drafts and queued writes carry
+account ownership so switching accounts cannot replay another user's answers.
+
 ## Primary Data Flows
 
 ### Workout Generation

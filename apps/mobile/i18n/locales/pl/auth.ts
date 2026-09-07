@@ -1,4 +1,12 @@
 export const auth = {
+  profile: {
+    loading: "Wczytywanie profilu…",
+    error:
+      "Nie udało się wczytać profilu. Twój zapisany plan pozostaje bez zmian.",
+    retry: "Spróbuj ponownie",
+    signOut: "Wyloguj się",
+  },
+
   signIn: {
     title: "Witaj ponownie",
     subtitle: "Zaloguj się, aby kontynuować",

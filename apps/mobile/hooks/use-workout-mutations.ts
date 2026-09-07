@@ -168,7 +168,7 @@ export function useSaveCompletedWorkout() {
           variables.summary.finishedAtMs - variables.summary.durationMs
         }`;
         syncQueue
-          .enqueue("save_workout", stableWorkoutId, variables)
+          .enqueue("save_workout", stableWorkoutId, variables, user.id)
           .catch(console.warn);
       }
     },

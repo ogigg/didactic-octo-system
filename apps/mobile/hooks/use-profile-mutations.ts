@@ -22,7 +22,7 @@ export function useUpsertProfile() {
     onError: (_error: unknown, variables: OnboardingData) => {
       if (user) {
         syncQueue
-          .enqueue("upsert_profile", user.id, variables)
+          .enqueue("upsert_profile", user.id, variables, user.id)
           .catch(console.warn);
       }
     },

@@ -283,3 +283,16 @@ describe("syncWithDatabase", () => {
     expect(result.current.genderSkipped).toBe(true);
   });
 });
+
+describe("account-owned drafts", () => {
+  it("retains a draft for the same account and clears it for another", () => {
+    const store = useOnboardingStore.getState();
+    store.prepareForUser("account-a");
+    store.setCustomGoal("Finish a pull-up");
+    store.prepareForUser("account-a");
+    expect(useOnboardingStore.getState().customGoal).toBe("Finish a pull-up");
+    store.prepareForUser("account-b");
+    expect(useOnboardingStore.getState().customGoal).toBeNull();
+    expect(useOnboardingStore.getState().isCompleted).toBe(false);
+  });
+});

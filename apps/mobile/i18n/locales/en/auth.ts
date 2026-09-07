@@ -1,4 +1,12 @@
 export const auth = {
+  profile: {
+    loading: "Loading your profile…",
+    error:
+      "We couldn’t load your profile. Your saved setup has not been changed.",
+    retry: "Try again",
+    signOut: "Sign out",
+  },
+
   signIn: {
     title: "Welcome back",
     subtitle: "Sign in to continue",

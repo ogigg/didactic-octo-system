@@ -23,6 +23,8 @@ export interface StrengthBaseline {
 }
 
 interface OnboardingState {
+  /** Account that owns this persisted draft. Null means no account has claimed it. */
+  ownerUserId: string | null;
   gender: Gender | null;
   /** true when user explicitly tapped "Skip this step" — distinct from null (not yet reached) */
   genderSkipped: boolean;
@@ -39,6 +41,8 @@ interface OnboardingState {
 }
 
 interface OnboardingActions {
+  /** Claim the persisted draft for an account, clearing another account's draft. */
+  prepareForUser: (userId: string) => void;
   setGender: (gender: Gender) => void;
   skipGender: () => void;
   setGoal: (goal: Goal) => void;
@@ -62,16 +66,24 @@ interface OnboardingActions {
    * Used on login to restore the correct onboarding state.
    */
   syncWithDatabase: (params: {
+    userId?: string;
     onboarding_completed: boolean;
     gender: "male" | "female" | "prefer_not_to_say" | null;
-    goal: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
-    weekly_frequency: "2" | "3" | "4" | "5_plus";
+    goal:
+      | "build_strength"
+      | "lose_weight"
+      | "improve_fitness"
+      | "custom"
+      | null;
+    custom_goal?: string | null;
+    weekly_frequency: "2" | "3" | "4" | "5_plus" | null;
     equipment_level: string | null;
     difficulty_level: string | null;
   }) => void;
 }
 
 const initialState: OnboardingState = {
+  ownerUserId: null,
   gender: null,
   genderSkipped: false,
   goal: null,
@@ -88,6 +100,11 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
   persist(
     (set, get) => ({
       ...initialState,
+
+      prepareForUser: (userId) => {
+        if (get().ownerUserId === userId) return;
+        set({ ...initialState, ownerUserId: userId });
+      },
 
       setGender: (gender) => set({ gender, genderSkipped: false }),
 
@@ -116,7 +133,7 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
         return true;
       },
 
-      reset: () => set(initialState),
+      reset: () => set({ ...initialState }),
 
       getNextUnfinishedStep: () => {
         const {
@@ -140,10 +157,15 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
       },
 
       syncWithDatabase: (params) => {
+        const current = get();
+        if (params.userId && current.ownerUserId !== params.userId) return;
+
         const {
+          userId,
           onboarding_completed,
           gender,
           goal,
+          custom_goal,
           weekly_frequency,
           equipment_level,
           difficulty_level,
@@ -159,10 +181,12 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
 
         const mappedGoal: Goal | null = goal === "custom" ? null : goal;
 
-        const mappedFrequency: Frequency =
-          weekly_frequency === "5_plus"
-            ? 5
-            : (parseInt(weekly_frequency, 10) as Frequency);
+        const mappedFrequency: Frequency | null =
+          weekly_frequency === null
+            ? null
+            : weekly_frequency === "5_plus"
+              ? 5
+              : (parseInt(weekly_frequency, 10) as Frequency);
 
         const mappedEquipment: Equipment | null = equipment_level
           ? (equipment_level as Equipment)
@@ -172,24 +196,43 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           ? (difficulty_level as Experience)
           : null;
 
+        // An incomplete profile can coexist with a local draft. Merge server
+        // defaults into blank fields so a token refresh or retry cannot erase
+        // answers that are still being entered on this device.
+        const preserveDraft = !onboarding_completed;
         set({
-          gender: mappedGender,
-          genderSkipped: gender === null,
-          goal: mappedGoal,
-          customGoal: null,
-          frequency: mappedFrequency,
-          equipment: mappedEquipment,
-          experience: mappedExperience,
-          strengthBaselines: [],
+          ...(preserveDraft && current.gender !== null
+            ? { gender: current.gender, genderSkipped: current.genderSkipped }
+            : { gender: mappedGender, genderSkipped: gender === null }),
+          ...(preserveDraft && (current.goal !== null || current.customGoal)
+            ? { goal: current.goal, customGoal: current.customGoal }
+            : {
+                goal: mappedGoal,
+                customGoal: custom_goal ?? null,
+              }),
+          ...(preserveDraft && current.frequency !== null
+            ? { frequency: current.frequency }
+            : { frequency: mappedFrequency }),
+          ...(preserveDraft && current.equipment !== null
+            ? { equipment: current.equipment }
+            : { equipment: mappedEquipment }),
+          ...(preserveDraft && current.experience !== null
+            ? { experience: current.experience }
+            : { experience: mappedExperience }),
+          // Baselines are local draft input during onboarding. Keep them for
+          // incomplete profiles; completed profiles no longer need the draft.
+          strengthBaselines: preserveDraft ? current.strengthBaselines : [],
           isCompleted: onboarding_completed,
           onboardingStartedAt: onboarding_completed
             ? null
-            : get().onboardingStartedAt,
+            : current.onboardingStartedAt,
+          ...(userId ? { ownerUserId: userId } : {}),
         });
       },
     }),
     {
       name: "onboarding-storage",
+      skipHydration: true,
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state, error) => {
         if (error) {
@@ -201,6 +244,19 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           state?.reset();
         }
       },
+      partialize: (state) => ({
+        ownerUserId: state.ownerUserId,
+        gender: state.gender,
+        genderSkipped: state.genderSkipped,
+        goal: state.goal,
+        customGoal: state.customGoal,
+        frequency: state.frequency,
+        equipment: state.equipment,
+        experience: state.experience,
+        strengthBaselines: state.strengthBaselines,
+        isCompleted: state.isCompleted,
+        onboardingStartedAt: state.onboardingStartedAt,
+      }),
     }
   )
 );

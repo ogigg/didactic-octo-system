@@ -145,9 +145,12 @@ export async function fetchLatestMeasurements(): Promise<LatestMeasurements> {
 export async function upsertMeasurement(
   loggedAt: string,
   fields: MeasurementInput,
-  originalLoggedAt?: string
+  originalLoggedAt?: string,
+  expectedUserId?: string
 ): Promise<void> {
   const userId = await getAuthenticatedUserId();
+  if (expectedUserId && userId !== expectedUserId)
+    throw new Error("Account changed before saving");
 
   // Filter out undefined values, keep only defined numbers
   const cleanFields: Record<string, number> = {};
