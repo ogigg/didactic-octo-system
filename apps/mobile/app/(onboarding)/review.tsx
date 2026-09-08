@@ -1,3 +1,4 @@
+import { isValidCustomGoal } from "@/lib/profanity";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
@@ -32,7 +33,7 @@ export default function ReviewScreen() {
     setTrainingStyle,
   } = store;
   const canSubmit =
-    (goal !== null || !!customGoal) &&
+    (goal !== null || isValidCustomGoal(customGoal)) &&
     frequency !== null &&
     equipment !== null &&
     experience !== null &&

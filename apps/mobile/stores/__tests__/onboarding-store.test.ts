@@ -298,3 +298,24 @@ describe("account-owned drafts", () => {
     expect(useOnboardingStore.getState().isCompleted).toBe(false);
   });
 });
+
+it("resumes an unfinished custom goal before later answers", () => {
+  const store = useOnboardingStore.getState();
+  store.setCustomGoal("ab");
+  store.setEquipment("bodyweight");
+  store.setExperience("beginner");
+  store.setFrequency(1);
+  store.setSessionDuration(15);
+  expect(store.getNextUnfinishedStep()).toBe("goal");
+});
+
+it("requires explicit duration when resuming an older draft", () => {
+  const store = useOnboardingStore.getState();
+  store.setGoal("build_muscle");
+  store.setEquipment("barbell");
+  store.setExperience("advanced");
+  store.setFrequency(1);
+  expect(store.getNextUnfinishedStep()).toBe("frequency");
+  store.setSessionDuration(15);
+  expect(store.getNextUnfinishedStep()).toBe("review");
+});

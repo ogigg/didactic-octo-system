@@ -247,3 +247,11 @@ Onboarding uses a shared five-step progress bar/counter, visible Back action, sc
 ### Signup and email links
 
 Signup asks for email and one password, supports password reveal/autofill, and exposes the same social providers as sign-in. Confirmation retains the address and offers resend (60-second cooldown), correction, and sign-in. Signup confirmation links restore the session; recovery links set the recovery routing state before session restoration. Expired links display a recovery screen. Hosted Supabase auth must allow `sweaty://` and `sweaty://reset-password`, matching local configuration.
+
+### Onboarding verification and rollout (2026-09-08)
+
+Regression coverage includes profile hydration before routing, account-owned drafts and sync replay, interrupted setup, completion retries, initial queue concurrency, atomic queue replacement, pound-to-kilogram conversion, and email confirmation/recovery links. A resumed custom goal must satisfy the same validation as a newly entered answer, and legacy drafts must explicitly choose duration before review.
+
+Run `npm test --workspace mobile -- --runInBand --silent --forceExit`, `npm run check-types`, and `supabase test db supabase/tests/onboarding-completion.test.sql supabase/tests/strength-baselines.test.sql`. The queue function also passes `deno check supabase/functions/generate-workout-queue/index.ts`.
+
+Deploy migrations before the updated queue edge function and mobile release. Configure the hosted auth redirect allowlist as described above. The initial-queue timestamp backfill recognizes existing ready queues or completed workout history. Without either, a completed profile retains one free initial preparation attempt. Production migrations and hosted authentication settings are not changed by local verification.

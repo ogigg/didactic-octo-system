@@ -1,3 +1,4 @@
+import { isValidCustomGoal } from "@/lib/profanity";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -169,8 +170,6 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
       getNextUnfinishedStep: () => {
         const {
           isCompleted,
-          gender,
-          genderSkipped,
           goal,
           customGoal,
           frequency,
@@ -178,7 +177,7 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           experience,
         } = get();
         if (isCompleted) return null;
-        if (goal === null && !customGoal) return "goal";
+        if (goal === null && !isValidCustomGoal(customGoal)) return "goal";
         if (equipment === null) return "equipment";
         if (experience === null) return "experience";
         if (frequency === null || get().sessionDuration === null)

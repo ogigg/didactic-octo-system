@@ -186,3 +186,24 @@ describe("upsertProfile", () => {
     await expect(upsertProfile(answers)).rejects.toThrow("invalid baselines");
   });
 });
+
+it("preserves explicit duration, once-weekly frequency, style and constraints", () => {
+  const result = mapOnboardingToProfile({
+    ...baseOnboardingData,
+    gender: null,
+    goal: "build_muscle",
+    customGoal: null,
+    frequency: 1,
+    sessionDuration: 15,
+    trainingStyle: "circuit",
+    constraints: " No jumping ",
+  });
+  expect(result).toMatchObject({
+    goal: "build_muscle",
+    weekly_frequency: "1",
+    session_duration_minutes: 15,
+    training_split: "full_body",
+    training_style: "circuit",
+    training_custom_prompt: "No jumping",
+  });
+});

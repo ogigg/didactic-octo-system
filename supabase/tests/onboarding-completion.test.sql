@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(14);
+SELECT plan(16);
 INSERT INTO auth.users (id, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 VALUES ('90000000-0000-0000-0000-000000000001', 'onboarding-sql@example.test', '{}', '{}', now(), now());
 CREATE TEMP TABLE onboarding_test_answers AS SELECT '{"gender":null,"goal":"build_strength","custom_goal":null,"weekly_frequency":"3","training_split":"full_body","session_duration_minutes":30,"equipment_level":"bodyweight","training_style":"strength","difficulty_level":"beginner","weight_unit":"kg"}'::jsonb AS payload;
@@ -22,5 +22,10 @@ SELECT ok(release_queue_generation('90000000-0000-0000-0000-000000000001','91000
 SELECT is((SELECT status FROM claim_queue_generation('90000000-0000-0000-0000-000000000001','91000000-0000-0000-0000-000000000002','onboarding')), 'claimed', 'initial retry still allowed');
 SELECT replace_pending_workouts('90000000-0000-0000-0000-000000000001','91000000-0000-0000-0000-000000000002','onboarding','[{"id":"92000000-0000-0000-0000-000000000001","queue_position":1,"status":"ready","workout_data":{},"generation_source":"llm","focus_area":"full_body"}]');
 SELECT is((SELECT status FROM claim_queue_generation('90000000-0000-0000-0000-000000000001','91000000-0000-0000-0000-000000000003','onboarding')), 'already_ready', 'successful initial queue consumes free entitlement');
+INSERT INTO auth.users (id, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+VALUES ('90000000-0000-0000-0000-000000000003', 'onboarding-muscle@example.test', '{}', '{}', now(), now());
+SELECT set_config('request.jwt.claims', '{"sub":"90000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+SELECT lives_ok($$SELECT complete_onboarding((SELECT payload || '{"goal":"build_muscle","weekly_frequency":"1","session_duration_minutes":15,"training_style":"hypertrophy","training_custom_prompt":"No jumping"}' FROM onboarding_test_answers), '[]', '90000000-0000-0000-0000-000000000003')$$, 'once-weekly muscle-building setup is accepted');
+SELECT is((SELECT training_custom_prompt FROM profiles WHERE id='90000000-0000-0000-0000-000000000003'), 'No jumping', 'constraints persist in the same completion transaction');
 SELECT * FROM finish();
 ROLLBACK;

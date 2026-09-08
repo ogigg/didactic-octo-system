@@ -1,4 +1,3 @@
-import { useState as useValidityState } from "react";
 import { useState, useEffect } from "react";
 import {
   Alert,
@@ -28,21 +27,17 @@ import {
 import { trackEvent } from "@/lib/track-event";
 import type { StrengthBaseline } from "@/stores/onboarding-store";
 
-const BASELINE_KEYS = ["strength-baselines"] as const;
-
 export const strengthBaselineKeys = {
   all: ["strength-baselines"] as const,
 };
 
 export default function StrengthBaselinesScreen() {
-  const [valid, setValid] = useValidityState(true);
+  const [valid, setValid] = useState(true);
   const { t } = useTranslation("strengthBaselines");
 
-  const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const background = useThemeColor({}, "background");
-  const border = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
 
   const { data: profile } = useProfile();

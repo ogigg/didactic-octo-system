@@ -4,7 +4,7 @@ import { OnboardingScreen } from "@/components/onboarding/screen";
 import { OnboardingChoice } from "@/components/onboarding/choice";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { containsProfanity, MAX_CUSTOM_GOAL_LENGTH } from "@/lib/profanity";
+import { isValidCustomGoal, MAX_CUSTOM_GOAL_LENGTH } from "@/lib/profanity";
 import { Spacing, Radii, Typography } from "@/constants/theme";
 export default function GoalScreen() {
   const { t } = useTranslation("onboarding");
@@ -12,9 +12,7 @@ export default function GoalScreen() {
   const text = useThemeColor({}, "text");
   const fill = useThemeColor({}, "inputFill");
   const error = useThemeColor({}, "error");
-  const customValid =
-    (customGoal?.trim().length ?? 0) >= 5 &&
-    !containsProfanity(customGoal ?? "");
+  const customValid = isValidCustomGoal(customGoal);
   return (
     <OnboardingScreen
       step="goal"
