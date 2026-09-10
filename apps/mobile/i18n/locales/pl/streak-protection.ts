@@ -1,55 +1,82 @@
 export const streakProtection = {
   eyebrow: "Seria regularności",
+  closeSheet: "Zamknij opcje serii",
   states: {
     none: {
       title: "Twoja seria jest na dobrej drodze",
       body: "Trenuj dalej we własnym tempie.",
     },
     at_risk: {
-      title: "Twoja seria jest wstrzymana",
-      body: "Życie się zdarza. Krótki, spokojny trening może pomóc wrócić do rytmu bez presji.",
+      title: "Twoja seria {{count}} tyg. wciąż trwa",
+      body: "Trening w dowolnym dniu tego tygodnia ją podtrzyma. Krótkie sesje też się liczą.",
     },
     free_earned_freeze: {
-      title: "Chroń swoją serię regularności",
-      body: "Masz zamrożenie serii zdobyte dzięki regularnym treningom. Użyj go za opuszczony tydzień i wróć spokojnie.",
+      title: "Pokryć zeszły tydzień zamrożeniem?",
+      body: "Zdobyłeś to zamrożenie dzięki regularnym treningom. Użycie go oznacza zeszły tydzień jako pokryty, więc seria trwa dalej. Pominięcie też jest w porządku — każdy trening w tym tygodniu zaczyna nowe liczenie.",
     },
     free_lifetime_rescue: {
-      title: "Twoja seria jest wstrzymana",
-      body: "Możesz użyć jednorazowego przywrócenia, aby zachować serię. Bez presji — rozpoczęcie od nowa też jest w porządku.",
+      title: "Podtrzymać serię?",
+      body: "W zeszłym tygodniu nie było treningu. Jednorazowe przywrócenie pokrywa go, więc seria trwa dalej. Możesz też po prostu zacząć trenować w tym tygodniu i liczyć od nowa — obie opcje są dobre.",
     },
     free_comeback: {
-      title: "Wróćmy spokojnie do ruchu",
-      body: "Opuszczony tydzień nie kasuje Twoich postępów. Zacznij krótkie wyzwanie powrotne albo nową serię dzisiaj.",
+      title: "Witaj z powrotem",
+      body: "W zeszłym tygodniu nie było treningu, więc liczenie serii zaczyna się od nowa. Twoja historia i postępy pozostają bez zmian. Krótki trening powrotny to najprostszy sposób, by ruszyć.",
     },
     pro_auto_applied: {
-      title: "Twoja seria jest chroniona",
-      body: "Użyliśmy 1 zamrożenia Pro za opuszczony tydzień. Pozostało: {{freezes}}.",
+      title: "Zeszły tydzień jest pokryty",
+      body_one:
+        "Zamrożenie Pro zostało użyte automatycznie, więc seria trwa dalej. Pozostało {{count}} zamrożenie.",
+      body_few:
+        "Zamrożenie Pro zostało użyte automatycznie, więc seria trwa dalej. Pozostały {{count}} zamrożenia.",
+      body_many:
+        "Zamrożenie Pro zostało użyte automatycznie, więc seria trwa dalej. Pozostało {{count}} zamrożeń.",
+      body_other:
+        "Zamrożenie Pro zostało użyte automatycznie, więc seria trwa dalej. Pozostało {{count}} zamrożenia.",
     },
     pro_available_freeze: {
-      title: "Użyć zamrożenia serii?",
-      body: "Masz zamrożenie Pro dostępne za opuszczony tydzień. Użyj go, gdy będziesz gotowy wrócić.",
+      title: "Pokryć zeszły tydzień zamrożeniem?",
+      body: "W zeszłym tygodniu nie było treningu. Zamrożenie Pro pokrywa go, więc seria trwa dalej. Pominięcie też jest w porządku — każdy trening w tym tygodniu zaczyna nowe liczenie.",
     },
     pro_comeback: {
-      title: "Gotowy na spokojny powrót?",
-      body: "Twoja seria może zacząć się dziś od treningu dopasowanego do przerwy.",
+      title: "Witaj z powrotem",
+      body: "W zeszłym tygodniu nie było treningu i nie zostało żadne zamrożenie, więc liczenie serii zaczyna się od nowa. Twoja historia pozostaje bez zmian. Zacznij treningiem dopasowanym do przerwy albo dostosuj plan, jeśli tydzień był zbyt napięty.",
     },
   },
-  metrics: {
-    streakWeeks: "tyg. serii",
-    freezes: "zamrożenia",
+  details: {
+    coveredWeek: "Tydzień do pokrycia: {{range}}",
+    freezesAvailable_one: "{{count}} zamrożenie dostępne",
+    freezesAvailable_few: "{{count}} zamrożenia dostępne",
+    freezesAvailable_many: "{{count}} zamrożeń dostępnych",
+    freezesAvailable_other: "{{count}} zamrożenia dostępne",
+    restoreAvailable: "Jednorazowe przywrócenie dostępne",
   },
   actions: {
-    restoreOnce: "Przywróć raz",
     useFreeze: "Użyj zamrożenia",
-    upgrade: "Przejdź na Pro",
-    restart: "Zacznij serię od nowa",
+    useRestore: "Użyj jednorazowego przywrócenia",
+    startWorkoutInstead: "Zamiast tego zacznij trening",
     startComebackWorkout: "Zacznij trening powrotny",
-    startComebackChallenge: "Zacznij wyzwanie powrotne",
-    adjustPlan: "Dostosuj plan",
+    startWorkout: "Zacznij trening",
+    adjustPlan: "Dostosuj mój plan",
+    startFresh: "Zacznij nową serię",
     notNow: "Nie teraz",
+    gotIt: "Rozumiem",
+  },
+  pro: {
+    hint: "Pro zawiera comiesięczne zamrożenia serii.",
+    link: "Dowiedz się o Pro",
+  },
+  restartConfirm: {
+    title: "Zacząć nową serię?",
+    body: "Liczenie serii zacznie się od nowa od Twojego następnego treningu. Historia treningów pozostaje bez zmian.",
+    confirm: "Tak, zacznij od nowa",
+    cancel: "Wróć",
+  },
+  feedback: {
+    protectionApplied: "Zeszły tydzień jest pokryty. Seria trwa dalej.",
+    restarted: "Nowy start — seria zaczyna się od Twojego następnego treningu.",
   },
   errors: {
-    title: "Nie udało się zaktualizować serii",
-    message: "Spróbuj ponownie za chwilę.",
+    actionFailed:
+      "Nie udało się zaktualizować serii. Twoje treningi są bezpieczne — spróbuj ponownie.",
   },
 } as const;

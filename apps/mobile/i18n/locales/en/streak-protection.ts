@@ -1,55 +1,76 @@
 export const streakProtection = {
   eyebrow: "Consistency streak",
+  closeSheet: "Close streak options",
   states: {
     none: {
       title: "Your streak is on track",
       body: "Keep going at your pace.",
     },
     at_risk: {
-      title: "Your streak is paused",
-      body: "Life happens. A short, manageable workout can help you get back into rhythm without forcing it.",
+      title: "Your {{count}}-week streak is still going",
+      body: "A workout on any day this week keeps it going. Short sessions count too.",
     },
     free_earned_freeze: {
-      title: "Protect your consistency streak",
-      body: "You earned a streak freeze through consistent training. Use it for the missed week, then ease back in.",
+      title: "Cover last week with your freeze?",
+      body: "You earned this freeze through consistent training. Using it marks last week as covered, so your streak carries on. Skipping it is fine too — any workout this week starts a fresh count.",
     },
     free_lifetime_rescue: {
-      title: "Your streak is paused",
-      body: "You can use your one-time restore to keep your consistency streak. No pressure — restarting is always okay too.",
+      title: "Keep your streak going?",
+      body: "Last week didn’t include a workout. Your one-time restore covers it, so your streak carries on. Or simply train this week and start a fresh count — both are good options.",
     },
     free_comeback: {
-      title: "Let’s get you moving again",
-      body: "A missed week does not erase your progress. Start a short comeback challenge or begin a new streak today.",
+      title: "Welcome back",
+      body: "Last week didn’t include a workout, so your streak count begins again. Your history and progress are untouched. A short comeback workout is the easiest way to get moving.",
     },
     pro_auto_applied: {
-      title: "Your streak is protected",
-      body: "We used 1 Pro freeze for the missed week. You have {{freezes}} remaining.",
+      title: "Last week is covered",
+      body_one:
+        "A Pro freeze was applied automatically, so your streak carries on. You have {{count}} freeze left.",
+      body_other:
+        "A Pro freeze was applied automatically, so your streak carries on. You have {{count}} freezes left.",
     },
     pro_available_freeze: {
-      title: "Use a streak freeze?",
-      body: "You have a Pro freeze available for the missed week. Use it when you are ready to return.",
+      title: "Cover last week with a freeze?",
+      body: "Last week didn’t include a workout. A Pro freeze covers it, so your streak carries on. Skipping it is fine too — any workout this week starts a fresh count.",
     },
     pro_comeback: {
-      title: "Ready for a steady return?",
-      body: "Your streak can restart today with a workout adjusted for time away.",
+      title: "Welcome back",
+      body: "Last week didn’t include a workout and no freezes were left, so your streak count begins again. Your history is untouched. Start with a workout adjusted for time away, or adjust your plan if the week was too full.",
     },
   },
-  metrics: {
-    streakWeeks: "streak weeks",
-    freezes: "freezes",
+  details: {
+    coveredWeek: "Week to cover: {{range}}",
+    freezesAvailable_one: "{{count}} freeze available",
+    freezesAvailable_other: "{{count}} freezes available",
+    restoreAvailable: "One-time restore available",
   },
   actions: {
-    restoreOnce: "Restore once",
     useFreeze: "Use freeze",
-    upgrade: "Upgrade to Pro",
-    restart: "Restart streak",
+    useRestore: "Use one-time restore",
+    startWorkoutInstead: "Start a workout instead",
     startComebackWorkout: "Start comeback workout",
-    startComebackChallenge: "Start comeback challenge",
-    adjustPlan: "Adjust plan",
+    startWorkout: "Start a workout",
+    adjustPlan: "Adjust my plan",
+    startFresh: "Start a new streak",
     notNow: "Not now",
+    gotIt: "Got it",
+  },
+  pro: {
+    hint: "Pro includes monthly streak freezes.",
+    link: "Learn about Pro",
+  },
+  restartConfirm: {
+    title: "Start a new streak?",
+    body: "Your streak count starts again from your next workout. Your workout history stays exactly as it is.",
+    confirm: "Yes, start fresh",
+    cancel: "Back",
+  },
+  feedback: {
+    protectionApplied: "Last week is covered. Your streak carries on.",
+    restarted: "Fresh start — your streak begins with your next workout.",
   },
   errors: {
-    title: "Couldn’t update streak",
-    message: "Please try again in a moment.",
+    actionFailed:
+      "Couldn’t update your streak. Your workouts are safe — please try again.",
   },
 } as const;
