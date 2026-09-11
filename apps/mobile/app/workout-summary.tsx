@@ -147,6 +147,7 @@ interface ExerciseRowProps {
   primaryContainer: string;
   onFeedbackChange: (exerciseId: string, feedback: DifficultyValue) => void;
   workoutSessionId: string | null | undefined;
+  weightUnit: Parameters<typeof getTopSet>[1];
   formatWeight: (kg: number) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: TFunction<any, any>;
@@ -175,6 +176,7 @@ function ExerciseRow({
   primaryContainer,
   onFeedbackChange,
   workoutSessionId,
+  weightUnit,
   formatWeight,
   t,
 }: ExerciseRowProps) {
@@ -185,7 +187,7 @@ function ExerciseRow({
   const completed = exercise.sets.filter((s) => s.isCompleted).length;
   const total = exercise.sets.length;
   const isTimeExercise = exercise.exerciseType === "time";
-  const topSet = isTimeExercise ? null : getTopSet(exercise.sets);
+  const topSet = isTimeExercise ? null : getTopSet(exercise.sets, weightUnit);
   const bestDuration = isTimeExercise
     ? getBestDurationSeconds(exercise.sets)
     : null;
@@ -523,8 +525,11 @@ export default function WorkoutSummaryScreen() {
 
   // Computed values
   const totalVolume = useMemo(
-    () => (summary ? computeTotalVolume(summary.exercises) : 0),
-    [summary]
+    () =>
+      summary
+        ? computeTotalVolume(summary.exercises, summary.weightUnit ?? wu.unit)
+        : 0,
+    [summary, wu.unit]
   );
   const volumeComparison = useMemo(
     () => getVolumeComparison(totalVolume),
@@ -644,7 +649,7 @@ export default function WorkoutSummaryScreen() {
         summary,
         goalSnapshot,
         customGoalSnapshot: customGoal ?? undefined,
-        weightUnit: wu.unit,
+        weightUnit: summary.weightUnit ?? wu.unit,
       },
       {
         onSuccess: () => {
@@ -690,11 +695,12 @@ export default function WorkoutSummaryScreen() {
       summary
         ? getWorkoutShareHighlights(summary.exercises, {
             formatWeight: wu.format,
+            weightUnit: summary.weightUnit ?? wu.unit,
             getExerciseName: (exercise) =>
               exerciseMap.get(exercise.id)?.name ?? exercise.name,
           })
         : [],
-    [exerciseMap, summary, wu.format]
+    [exerciseMap, summary, wu.format, wu.unit]
   );
 
   const shareDateLabel = useMemo(
@@ -1127,6 +1133,7 @@ export default function WorkoutSummaryScreen() {
                       primaryContainer={primaryContainer}
                       onFeedbackChange={handleFeedbackChange}
                       workoutSessionId={summary.workoutSessionId}
+                      weightUnit={summary.weightUnit ?? wu.unit}
                       formatWeight={wu.format}
                       t={t}
                     />

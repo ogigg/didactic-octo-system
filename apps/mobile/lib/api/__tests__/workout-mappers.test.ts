@@ -196,6 +196,38 @@ describe("mapWorkoutStoreToDb", () => {
     expect(completedLog.rpe).toBe(8);
   });
 
+  it("keeps planned targets separate from completed display values", () => {
+    const summary: WorkoutSummary = {
+      ...mockSummary,
+      exercises: [
+        {
+          ...mockSummary.exercises[0]!,
+          sets: [
+            {
+              ...mockSummary.exercises[0]!.sets[1]!,
+              kg: "110",
+              reps: "6",
+              plannedKg: "100",
+              plannedReps: "8",
+              isCompleted: true,
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = mapWorkoutStoreToDb(summary, {
+      goalSnapshot: "build_strength",
+      weightUnit: "lbs",
+    });
+    const set = result.exercises[0].sets[0];
+
+    expect(set.sessionSet.target_load_kg).toBeCloseTo(100 / 2.20462);
+    expect(set.sessionSet.target_reps).toBe(8);
+    expect(set.log.actual_load_kg).toBeCloseTo(110 / 2.20462);
+    expect(set.log.actual_reps).toBe(6);
+  });
+
   it("marks incomplete sets without actual values in log", () => {
     const result = mapWorkoutStoreToDb(mockSummary, {
       goalSnapshot: "build_strength",

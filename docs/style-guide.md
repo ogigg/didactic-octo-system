@@ -26,6 +26,7 @@ implementation. Current detailed standards include:
 
 - buttons, inputs, lists, navigation, and workout UI in
   [`.ai/ui-guidelines.md`](../.ai/ui-guidelines.md#component-patterns)
+- [Apple Watch layouts](styles/watch-interface.md)
 - [bottom sheets and modal selection](styles/bottom-sheets.md)
 - localization and user-facing copy in [`.ai/i18n.md`](../.ai/i18n.md)
 

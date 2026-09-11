@@ -182,12 +182,15 @@ export default function HomeScreen() {
   // Handlers
   const handleCreateWorkout = useCallback(() => {
     if (!isWorkoutActive) {
+      const weightUnit: WeightUnit =
+        (profile?.weight_unit as WeightUnit) ?? "kg";
       startWorkout(t("myWorkouts.newWorkoutName"), [], undefined, null, {
         workoutSource: "manual",
+        weightUnit,
       });
     }
     router.push("/workout");
-  }, [isWorkoutActive, startWorkout, t, router]);
+  }, [isWorkoutActive, profile?.weight_unit, startWorkout, t, router]);
 
   const handleStartTemplate = useCallback(
     async (template: WorkoutTemplate) => {
@@ -206,6 +209,7 @@ export default function HomeScreen() {
         startWorkout(template.name, exercises, undefined, null, {
           workoutSource: "template",
           workoutId: template.id,
+          weightUnit,
         });
       }
       router.push("/workout");
