@@ -67,7 +67,7 @@ export const accountSettings = {
   },
   export: {
     label: "Eksportuj historię treningów",
-    description: "Pobierz ukończone treningi jako CSV lub JSON.",
+    description: "Pobierz dane treningowe lub raport PDF dla trenera.",
     title: "Eksport historii treningów",
     intro:
       "Wybierz zakres dat i format pliku. Menu udostępniania pozwoli Ci zapisać lub wysłać eksport.",
@@ -82,10 +82,55 @@ export const accountSettings = {
     formats: {
       csv: "CSV",
       json: "JSON",
+      pdf: "PDF",
     },
     formatHelp: {
       csv: "Jeden wiersz na serię, gotowy do użycia w arkuszu.",
       json: "Przejrzysty zapis treningów, ćwiczeń, wyników, komentarzy i ocen w strukturze JSON.",
+      pdf: "Czytelny raport dla trenera z wykresami postępów, podsumowaniami i rekordami życiowymi.",
+    },
+    report: {
+      title: "Raport postępów treningowych",
+      subtitle:
+        "Zwięzły przegląd regularności, obciążenia i wyników do udostępnienia trenerowi.",
+      generated: "Wygenerowano",
+      period: "Okres (dni)",
+      workouts: "Treningi",
+      completedSets: "Ukończone serie",
+      totalVolume: "Łączna objętość",
+      trainingTime: "Czas treningów",
+      averageRpe: "Średnie RPE",
+      completionRate: "Ukończone serie",
+      progressTitle: "Podsumowanie postępów",
+      progressInsufficient:
+        "Ukończ co najmniej cztery treningi z zapisanym ciężarem i liczbą powtórzeń, aby zobaczyć trend objętości.",
+      volumeIncreased:
+        "Średnia objętość treningu wzrosła o {{percent}}% w nowszej połowie tego okresu.",
+      volumeDecreased:
+        "Średnia objętość treningu spadła o {{percent}}% w nowszej połowie tego okresu.",
+      volumeSteady:
+        "Średnia objętość treningu pozostała stabilna w tym okresie.",
+      weeklyTitle: "Regularność · ostatnie 8 tygodni",
+      weeklyEmpty: "Brak ukończonych treningów w ostatnich ośmiu tygodniach.",
+      volumeTitle: "Objętość · ostatnie 8 treningów",
+      personalRecordsTitle: "Rekordy życiowe",
+      personalRecordsSubtitle:
+        "Rekordy siłowe są obliczane na podstawie całej historii ukończonych treningów, niezależnie od wybranego okresu raportu.",
+      personalRecordsEmpty: "Brak rekordów dla ćwiczeń z obciążeniem.",
+      exercise: "Ćwiczenie",
+      bestWeight: "Największy ciężar",
+      bestSetVolume: "Objętość serii",
+      estimatedOneRepMax: "Szac. 1RM",
+      recentWorkoutsTitle: "Ostatnie treningi",
+      date: "Data",
+      workout: "Trening",
+      sets: "Serie",
+      volume: "Objętość",
+      duration: "Czas",
+      minutes: "min",
+      sessions: "treningów",
+      footer:
+        "Wygenerowano w Sweaty na podstawie ukończonych treningów. Decyzje treningowe konsultuj z wykwalifikowanym trenerem.",
     },
     privacyTitle: "Twoje dane pozostają pod Twoją kontrolą",
     privacyBody:

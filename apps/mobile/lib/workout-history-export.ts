@@ -10,6 +10,7 @@ export const WORKOUT_EXPORT_PERIODS = {
 export const WORKOUT_EXPORT_FORMATS = {
   json: "json",
   csv: "csv",
+  pdf: "pdf",
 } as const;
 
 export type WorkoutExportPeriod = keyof typeof WORKOUT_EXPORT_PERIODS;
@@ -38,6 +39,12 @@ export function buildWorkoutExportFile(
   format: WorkoutExportFormat,
   exportedAt: Date
 ): WorkoutExportFile {
+  if (format === "pdf") {
+    throw new Error(
+      "PDF exports must be built with buildWorkoutCoachReportFile"
+    );
+  }
+
   const date = exportedAt.toISOString().slice(0, 10);
   const periodName = period === "all" ? "all" : `last-${period}`;
   const name = `sweaty-workout-history-${periodName}-${date}.${format}`;
