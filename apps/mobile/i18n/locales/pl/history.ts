@@ -38,6 +38,37 @@ export const history = {
     comments: {
       title: "Twoje notatki",
     },
+    exerciseMenu: {
+      close: "Zamknij działania ćwiczenia",
+      preview: "{{date}} · {{count}} serii",
+      edit: "Edytuj",
+      delete: "Usuń",
+      open: "Edytuj lub usuń {{exerciseName}}",
+    },
+    exerciseEditor: {
+      title: "Edytuj: {{exerciseName}}",
+      subtitle:
+        "Zmiany zaktualizują historię, rekordy i przyszłe rekomendacje.",
+      close: "Zamknij edytor ćwiczenia",
+      set: "Seria",
+      seconds: "Sekundy",
+      reps: "Powt.",
+      durationForSet: "Sekundy w serii {{number}}",
+      weightForSet: "{{unit}} w serii {{number}}",
+      repsForSet: "Powtórzenia w serii {{number}}",
+      rpeForSet: "RPE w serii {{number}}",
+      removeSet: "Usuń serię {{number}}",
+      addSet: "Dodaj serię",
+      save: "Zapisz zmiany",
+      atLeastOneSet: "Zostaw co najmniej jedną serię albo usuń całe ćwiczenie.",
+      invalidRpe: "RPE musi mieć wartość od 1 do 10.",
+      invalidDuration: "Wpisz dla każdej serii czas dłuższy niż 0 sekund.",
+      invalidWeightSet:
+        "Wpisz dla każdej serii ciężar co najmniej 0 i co najmniej 1 powtórzenie.",
+      errorTitle: "Nie udało się zaktualizować ćwiczenia",
+      errorMessage: "Zmiany nie zostały zapisane. Spróbuj ponownie za chwilę.",
+      success: "Historia ćwiczenia została zaktualizowana.",
+    },
     deleteExercise: {
       accessibilityLabel: "Usuń {{exerciseName}} z tego treningu",
       confirmTitle: "Usunąć ćwiczenie?",
@@ -47,6 +78,7 @@ export const history = {
       remove: "Usuń",
       errorTitle: "Nie udało się usunąć ćwiczenia",
       errorMessage: "Spróbuj ponownie za chwilę.",
+      success: "Ćwiczenie zostało usunięte z historii.",
     },
     deleteWorkout: {
       accessibilityLabel: "Usuń ten trening",

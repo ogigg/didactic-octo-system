@@ -38,6 +38,37 @@ export const history = {
     comments: {
       title: "Your notes",
     },
+    exerciseMenu: {
+      close: "Close exercise actions",
+      preview: "{{date}} · {{count}} sets",
+      edit: "Edit",
+      delete: "Delete",
+      open: "Edit or delete {{exerciseName}}",
+    },
+    exerciseEditor: {
+      title: "Edit {{exerciseName}}",
+      subtitle:
+        "Changes update your history, records, and future recommendations.",
+      close: "Close exercise editor",
+      set: "Set",
+      seconds: "Seconds",
+      reps: "Reps",
+      durationForSet: "Seconds for set {{number}}",
+      weightForSet: "{{unit}} for set {{number}}",
+      repsForSet: "Reps for set {{number}}",
+      rpeForSet: "RPE for set {{number}}",
+      removeSet: "Remove set {{number}}",
+      addSet: "Add set",
+      save: "Save changes",
+      atLeastOneSet: "Keep at least one set, or delete the exercise instead.",
+      invalidRpe: "RPE must be between 1 and 10.",
+      invalidDuration: "Enter a duration greater than 0 seconds for every set.",
+      invalidWeightSet:
+        "Enter a weight of 0 or more and at least 1 rep for every set.",
+      errorTitle: "Could not update exercise",
+      errorMessage: "Your changes were not saved. Try again in a moment.",
+      success: "Exercise history updated.",
+    },
     deleteExercise: {
       accessibilityLabel: "Remove {{exerciseName}} from this workout",
       confirmTitle: "Remove exercise?",
@@ -47,6 +78,7 @@ export const history = {
       remove: "Remove",
       errorTitle: "Could not remove exercise",
       errorMessage: "Try again in a moment.",
+      success: "Exercise deleted from your history.",
     },
     deleteWorkout: {
       accessibilityLabel: "Delete this workout",

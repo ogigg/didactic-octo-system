@@ -97,6 +97,31 @@ const exerciseDetailSchema = z.object({
   sets: z.array(setDetailSchema),
 });
 
+export type WorkoutDetailExercise = z.infer<typeof exerciseDetailSchema>;
+
+const editableExerciseSetSchema = z.object({
+  id: z.string().uuid(),
+  set_number: z.number().int().positive(),
+  set_type: z.enum(["warmup", "working"]),
+  load_kg: z.number().nullable(),
+  reps: z.number().int().nullable(),
+  duration_seconds: z.number().int().nullable(),
+  rpe: z.number().nullable(),
+});
+
+const editableExerciseHistorySchema = z.object({
+  id: z.string().uuid(),
+  session_id: z.string().uuid(),
+  date: z.string(),
+  workout_name: z.string(),
+  sets: z.array(editableExerciseSetSchema),
+});
+
+export type EditableExerciseSet = z.infer<typeof editableExerciseSetSchema>;
+export type EditableExerciseHistory = z.infer<
+  typeof editableExerciseHistorySchema
+>;
+
 const workoutWarmupSchema = z
   .object({
     duration_seconds: z.number().int().positive(),
@@ -225,6 +250,15 @@ export interface SetLogInput {
   not_completed_reason?: string;
 }
 
+export interface CompletedExerciseSetInput {
+  id?: string;
+  set_type: "warmup" | "working";
+  actual_load_kg?: number;
+  actual_reps?: number;
+  actual_duration_seconds?: number;
+  rpe?: number;
+}
+
 // -----------------------------------------------------------------------------
 // Auth Helper
 // -----------------------------------------------------------------------------
@@ -314,6 +348,22 @@ export async function fetchWorkoutDetail(
   }
 
   return workoutDetailSchema.parse(data);
+}
+
+export async function fetchEditableExerciseHistory(
+  exerciseId: string
+): Promise<EditableExerciseHistory[]> {
+  await getAuthenticatedUserId();
+
+  const { data, error } = await supabase.rpc("get_editable_exercise_history", {
+    p_exercise_id: exerciseId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z.array(editableExerciseHistorySchema).parse(data ?? []);
 }
 
 export async function fetchPreviousSetDisplays(
@@ -506,10 +556,25 @@ export async function deleteSessionExercise(
 ): Promise<void> {
   await getAuthenticatedUserId();
 
-  const { error } = await supabase
-    .from("session_exercises")
-    .delete()
-    .eq("id", sessionExerciseId);
+  const { error } = await supabase.rpc("delete_completed_session_exercise", {
+    p_session_exercise_id: sessionExerciseId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function updateCompletedSessionExerciseSets(
+  sessionExerciseId: string,
+  sets: CompletedExerciseSetInput[]
+): Promise<void> {
+  await getAuthenticatedUserId();
+
+  const { error } = await supabase.rpc("update_completed_exercise_sets", {
+    p_session_exercise_id: sessionExerciseId,
+    p_sets: sets,
+  });
 
   if (error) {
     throw new Error(error.message);

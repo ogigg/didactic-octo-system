@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Explain the current database model at a level that is useful for humans and AI agents, while treating `supabase/migrations` as the authoritative schema source.
-> **Last reviewed:** 2026-08-24
+> **Last reviewed:** 2026-09-12
 
 ## Source Of Truth
 
@@ -314,6 +314,13 @@ Notes:
 - deleting a logged exercise occurrence cascades to its `session_sets` and
   `set_logs`, removing it from statistics, progression, and generated-workout
   history
+- completed exercise deletion goes through
+  `delete_completed_session_exercise(UUID)`, which verifies ownership and
+  completed status before performing the cascade
+- completed exercise edits go through `update_completed_exercise_sets(UUID,
+JSONB)`. The RPC verifies ownership and completed status, then replaces the
+  exercise's completed set/log rows transactionally so adding, removing, or
+  changing sets cannot leave partial history.
 
 ### `session_sets`
 
@@ -561,6 +568,9 @@ When database-related work touches behavior, also inspect `supabase/migrations` 
 - progression history RPC (`get_exercise_progression_history`)
 - stats RPCs
 - exercise detail RPCs
+- editable exercise-history RPCs (`get_editable_exercise_history` and
+  `update_completed_exercise_sets`) and verified exercise deletion RPC
+  (`delete_completed_session_exercise`)
 - measurement history RPCs
 - generation allowance / subscription RPCs
 - streak protection RPCs

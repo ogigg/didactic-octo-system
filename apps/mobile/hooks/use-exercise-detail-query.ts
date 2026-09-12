@@ -4,6 +4,7 @@ import {
   fetchExerciseDetail,
   type ExerciseDetailResponse,
 } from "@/lib/api/exercise-detail";
+import { fetchEditableExerciseHistory } from "@/lib/api/workouts";
 import { exerciseDetailKeys } from "@/lib/query-keys";
 
 export function useExerciseDetail(exerciseId: string): {
@@ -21,4 +22,12 @@ export function useExerciseDetail(exerciseId: string): {
   });
 
   return { data, isLoading, isError, error, refetch };
+}
+
+export function useEditableExerciseHistory(exerciseId: string) {
+  return useQuery({
+    queryKey: [...exerciseDetailKeys.detail(exerciseId), "editable-history"],
+    queryFn: () => fetchEditableExerciseHistory(exerciseId),
+    enabled: !!exerciseId,
+  });
 }

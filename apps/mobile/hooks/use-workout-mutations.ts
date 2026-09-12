@@ -19,6 +19,7 @@ import {
   deleteSessionExercise,
   deleteWorkoutSession,
   updateExerciseDifficultyFeedback,
+  updateCompletedSessionExerciseSets,
   updateWorkoutSession,
   upsertSessionExercises,
   upsertSessionSets,
@@ -348,6 +349,24 @@ export function useDeleteSessionExercise() {
       queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
       queryClient.invalidateQueries({ queryKey: statsKeys.all });
       queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+    },
+  });
+}
+
+export function useUpdateCompletedSessionExerciseSets() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      sessionExerciseId: string;
+      sets: Parameters<typeof updateCompletedSessionExerciseSets>[1];
+    }) =>
+      updateCompletedSessionExerciseSets(input.sessionExerciseId, input.sets),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+      queryClient.invalidateQueries({ queryKey: exerciseDetailKeys.all });
+      queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
+      queryClient.invalidateQueries({ queryKey: statsKeys.all });
     },
   });
 }
