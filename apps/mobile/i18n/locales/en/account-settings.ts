@@ -65,6 +65,40 @@ export const accountSettings = {
     title: "These actions are different",
     body: "Signing out only ends your current session. Cancelling a subscription stops future billing but keeps your account. Deleting your account removes your profile and training data, but does not cancel subscriptions billed by the App Store or Google Play.",
   },
+  export: {
+    label: "Export workout history",
+    description: "Download completed workouts as CSV or JSON.",
+    title: "Export workout history",
+    intro:
+      "Choose a date range and file format. Your device's share menu lets you save or send the export.",
+    periodLabel: "Date range",
+    periods: {
+      seven: "7 days",
+      thirty: "30 days",
+      ninety: "90 days",
+      all: "All",
+    },
+    formatLabel: "File format",
+    formats: {
+      csv: "CSV",
+      json: "JSON",
+    },
+    formatHelp: {
+      csv: "One row per set, ready for a spreadsheet.",
+      json: "A clean nested record of workouts, exercises, results, comments, and feedback.",
+    },
+    privacyTitle: "Your data stays in your hands",
+    privacyBody:
+      "The file is created on this device and shared only through the destination you choose.",
+    button: "Export {{format}}",
+    dialogTitle: "Export workout history",
+    emptyTitle: "No workouts to export",
+    emptyBody: "There are no completed workouts in this date range.",
+    unavailableTitle: "Export unavailable",
+    unavailableBody: "Sharing files is not available on this device.",
+    errorTitle: "Couldn't export history",
+    errorBody: "Check your connection and try again.",
+  },
   deletion: {
     label: "Delete account",
     description: "Review permanent data deletion and the 14-day grace period.",

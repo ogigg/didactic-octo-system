@@ -65,6 +65,41 @@ export const accountSettings = {
     title: "Te działania różnią się od siebie",
     body: "Wylogowanie kończy tylko bieżącą sesję. Anulowanie subskrypcji zatrzymuje przyszłe opłaty, ale zachowuje konto. Usunięcie konta usuwa profil i dane treningowe, ale nie anuluje subskrypcji rozliczanych przez App Store lub Google Play.",
   },
+  export: {
+    label: "Eksportuj historię treningów",
+    description: "Pobierz ukończone treningi jako CSV lub JSON.",
+    title: "Eksport historii treningów",
+    intro:
+      "Wybierz zakres dat i format pliku. Menu udostępniania pozwoli Ci zapisać lub wysłać eksport.",
+    periodLabel: "Zakres dat",
+    periods: {
+      seven: "7 dni",
+      thirty: "30 dni",
+      ninety: "90 dni",
+      all: "Wszystko",
+    },
+    formatLabel: "Format pliku",
+    formats: {
+      csv: "CSV",
+      json: "JSON",
+    },
+    formatHelp: {
+      csv: "Jeden wiersz na serię, gotowy do użycia w arkuszu.",
+      json: "Przejrzysty zapis treningów, ćwiczeń, wyników, komentarzy i ocen w strukturze JSON.",
+    },
+    privacyTitle: "Twoje dane pozostają pod Twoją kontrolą",
+    privacyBody:
+      "Plik jest tworzony na tym urządzeniu i trafia wyłącznie do wybranego przez Ciebie miejsca.",
+    button: "Eksportuj {{format}}",
+    dialogTitle: "Eksport historii treningów",
+    emptyTitle: "Brak treningów do eksportu",
+    emptyBody: "W tym zakresie dat nie ma ukończonych treningów.",
+    unavailableTitle: "Eksport jest niedostępny",
+    unavailableBody:
+      "Udostępnianie plików nie jest dostępne na tym urządzeniu.",
+    errorTitle: "Nie udało się wyeksportować historii",
+    errorBody: "Sprawdź połączenie i spróbuj ponownie.",
+  },
   deletion: {
     label: "Usuń konto",
     description:
