@@ -79,6 +79,9 @@ const reportCopy: CoachReportCopy = {
   weeklyTitle: "Weekly consistency",
   weeklyEmpty: "No workouts.",
   volumeTitle: "Workout volume",
+  completionTitle: "Set completion",
+  completedLabel: "Completed",
+  incompleteLabel: "Incomplete",
   personalRecordsTitle: "All-time personal records",
   personalRecordsSubtitle: "All completed workouts.",
   personalRecordsEmpty: "No records.",
@@ -175,7 +178,15 @@ describe("workout history export", () => {
         },
       ],
       unit: "kg",
-      workouts: [workout],
+      workouts: [
+        workout,
+        {
+          ...workout,
+          id: "88888888-8888-4888-8888-888888888888",
+          started_at: "2026-09-11T10:00:00.000Z",
+          completed_at: "2026-09-11T11:00:00.000Z",
+        },
+      ],
     });
 
     expect(file.name).toBe("sweaty-coach-report-last-30d-2026-09-12.pdf");
@@ -183,6 +194,10 @@ describe("workout history export", () => {
     expect(file.contents).toContain("Training progress report");
     expect(file.contents).toContain("All-time personal records");
     expect(file.contents).toContain("512.5 kg");
+    expect(file.contents).toContain('<rect x="');
+    expect(file.contents).toContain('<polyline points="');
+    expect(file.contents).toContain("Set completion");
+    expect(file.contents).toContain('stroke="#0ea5e9"');
     expect(file.contents).toContain("Back Squat &lt;heavy&gt;");
     expect(file.contents).not.toContain("generation_source");
     expect(file.contents).not.toContain(workout.id);

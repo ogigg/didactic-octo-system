@@ -31,6 +31,9 @@ export interface CoachReportCopy {
   weeklyTitle: string;
   weeklyEmpty: string;
   volumeTitle: string;
+  completionTitle: string;
+  completedLabel: string;
+  incompleteLabel: string;
   personalRecordsTitle: string;
   personalRecordsSubtitle: string;
   personalRecordsEmpty: string;
@@ -62,6 +65,7 @@ interface ReportTotals {
   completedSets: number;
   completionRate: number;
   durationMinutes: number;
+  totalSets: number;
   volumeKg: number;
 }
 
@@ -173,6 +177,7 @@ function getTotals(workouts: WorkoutHistoryExportEntry[]): ReportTotals {
     completedSets,
     completionRate: allSets > 0 ? (completedSets / allSets) * 100 : 0,
     durationMinutes,
+    totalSets: allSets,
     volumeKg,
   };
 }
@@ -215,11 +220,6 @@ function buildHtml({
   const recentSummaries = summaries.slice(-8);
   const weeklyActivity = buildWeeklyActivity(summaries, exportedAt);
   const progress = buildProgressSummary(summaries, copy, numberFormatter);
-  const maxWeekly = Math.max(1, ...weeklyActivity.map((week) => week.count));
-  const maxVolume = Math.max(
-    1,
-    ...recentSummaries.map((item) => item.volumeKg)
-  );
   const records = personalRecords
     .slice()
     .sort(
@@ -235,13 +235,13 @@ function buildHtml({
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     @page { size: A4; margin: 15mm; }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { margin: 0; color: #172033; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; line-height: 1.35; }
-    .hero { background: #10233f; border-radius: 14px; color: white; padding: 22px; margin-bottom: 14px; }
-    .brand { color: #67d5ff; font-size: 10px; font-weight: 800; letter-spacing: 1.7px; text-transform: uppercase; }
+    .hero { border: 2px solid #10233f; border-left: 8px solid #0ea5e9; border-radius: 14px; color: #10233f; padding: 20px; margin-bottom: 14px; }
+    .brand { color: #0785bd; font-size: 10px; font-weight: 800; letter-spacing: 1.7px; text-transform: uppercase; }
     h1 { font-size: 26px; line-height: 1.05; margin: 8px 0 7px; }
-    .subtitle { color: #cbd8e8; font-size: 11px; max-width: 420px; }
-    .meta { color: #9fb1c8; margin-top: 13px; }
+    .subtitle { color: #526177; font-size: 11px; max-width: 420px; }
+    .meta { color: #66758b; margin-top: 13px; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px; }
     .card { border: 1px solid #dfe7f1; border-radius: 10px; padding: 10px; break-inside: avoid; }
     .card-label { color: #66758b; font-size: 8px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
@@ -250,11 +250,10 @@ function buildHtml({
     .progress strong { color: #075985; display: block; margin-bottom: 3px; }
     h2 { color: #10233f; font-size: 14px; margin: 17px 0 8px; }
     .chart { border: 1px solid #dfe7f1; border-radius: 10px; padding: 11px; break-inside: avoid; }
-    .bar-row { align-items: center; display: grid; gap: 8px; grid-template-columns: 64px 1fr 50px; margin: 6px 0; }
-    .bar-label { color: #66758b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .bar-track { background: #edf2f7; border-radius: 99px; height: 8px; overflow: hidden; }
-    .bar { background: #0ea5e9; border-radius: 99px; height: 100%; min-width: 2px; }
-    .bar-value { color: #334155; font-size: 9px; text-align: right; }
+    .chart svg { display: block; height: auto; width: 100%; }
+    .chart-row { display: flex; gap: 10px; margin-top: 14px; break-inside: avoid; }
+    .chart-row > section { flex: 1; }
+    .chart-row h2 { margin-top: 0; }
     table { border-collapse: collapse; width: 100%; }
     th { background: #f2f6fa; color: #526177; font-size: 8px; letter-spacing: .35px; padding: 7px 6px; text-align: left; text-transform: uppercase; }
     td { border-bottom: 1px solid #e7edf4; padding: 7px 6px; vertical-align: top; }
@@ -289,13 +288,19 @@ function buildHtml({
 
   <h2>${escapeHtml(copy.weeklyTitle)}</h2>
   <section class="chart">
-    ${weeklyActivity.length === 0 ? `<div class="empty">${escapeHtml(copy.weeklyEmpty)}</div>` : weeklyActivity.map((week) => chartRow(shortDateFormatter.format(week.start), week.count / maxWeekly, `${week.count} ${copy.sessions}`)).join("")}
+    ${weeklyActivity.length === 0 ? `<div class="empty">${escapeHtml(copy.weeklyEmpty)}</div>` : weeklyBarChart(weeklyActivity, shortDateFormatter, copy.sessions)}
   </section>
 
-  <h2>${escapeHtml(copy.volumeTitle)}</h2>
-  <section class="chart">
-    ${recentSummaries.map((workout) => chartRow(shortDateFormatter.format(workout.date), workout.volumeKg / maxVolume, formatVolume(workout.volumeKg))).join("")}
-  </section>
+  <div class="chart-row">
+    <section>
+      <h2>${escapeHtml(copy.volumeTitle)}</h2>
+      <div class="chart">${volumeLineChart(recentSummaries, shortDateFormatter, formatVolume)}</div>
+    </section>
+    <section>
+      <h2>${escapeHtml(copy.completionTitle)}</h2>
+      <div class="chart">${completionDonutChart(totals, copy)}</div>
+    </section>
+  </div>
 
   <h2>${escapeHtml(copy.personalRecordsTitle)}</h2>
   <div class="muted">${escapeHtml(copy.personalRecordsSubtitle)}</div>
@@ -384,9 +389,94 @@ function metricCard(label: string, value: string): string {
   return `<div class="card"><div class="card-label">${escapeHtml(label)}</div><div class="card-value">${escapeHtml(value)}</div></div>`;
 }
 
-function chartRow(label: string, ratio: number, value: string): string {
-  const width = Math.max(0, Math.min(100, ratio * 100));
-  return `<div class="bar-row"><div class="bar-label">${escapeHtml(label)}</div><div class="bar-track"><div class="bar" style="width:${width}%"></div></div><div class="bar-value">${escapeHtml(value)}</div></div>`;
+function weeklyBarChart(
+  weeks: { count: number; start: Date }[],
+  dateFormatter: Intl.DateTimeFormat,
+  sessionsLabel: string
+): string {
+  const width = 680;
+  const height = 190;
+  const chartTop = 18;
+  const chartHeight = 125;
+  const barWidth = 52;
+  const gap = 24;
+  const max = Math.max(1, ...weeks.map((week) => week.count));
+  const bars = weeks
+    .map((week, index) => {
+      const x = 30 + index * (barWidth + gap);
+      const barHeight = (week.count / max) * chartHeight;
+      const y = chartTop + chartHeight - barHeight;
+      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="#0ea5e9" />
+        <text x="${x + barWidth / 2}" y="${Math.max(12, y - 5)}" text-anchor="middle" fill="#334155" font-size="10" font-weight="700">${week.count}</text>
+        <text x="${x + barWidth / 2}" y="163" text-anchor="middle" fill="#66758b" font-size="9">${escapeHtml(dateFormatter.format(week.start))}</text>`;
+    })
+    .join("");
+
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(sessionsLabel)}">
+    <line x1="20" y1="143" x2="660" y2="143" stroke="#cbd5e1" stroke-width="1" />
+    <line x1="20" y1="80" x2="660" y2="80" stroke="#e7edf4" stroke-width="1" stroke-dasharray="4 4" />
+    ${bars}
+  </svg>`;
+}
+
+function volumeLineChart(
+  workouts: WorkoutSummary[],
+  dateFormatter: Intl.DateTimeFormat,
+  formatVolume: (kg: number) => string
+): string {
+  const width = 330;
+  const height = 190;
+  const left = 22;
+  const top = 20;
+  const chartWidth = 286;
+  const chartHeight = 115;
+  const max = Math.max(1, ...workouts.map((workout) => workout.volumeKg));
+  const points = workouts.map((workout, index) => {
+    const x =
+      workouts.length === 1
+        ? left + chartWidth / 2
+        : left + (index / (workouts.length - 1)) * chartWidth;
+    const y = top + chartHeight - (workout.volumeKg / max) * chartHeight;
+    return { workout, x, y };
+  });
+
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(formatVolume(max))}">
+    <line x1="${left}" y1="${top + chartHeight}" x2="${left + chartWidth}" y2="${top + chartHeight}" stroke="#cbd5e1" />
+    <line x1="${left}" y1="${top + chartHeight / 2}" x2="${left + chartWidth}" y2="${top + chartHeight / 2}" stroke="#e7edf4" stroke-dasharray="4 4" />
+    ${points.length > 1 ? `<polyline points="${points.map(({ x, y }) => `${x},${y}`).join(" ")}" fill="none" stroke="#0ea5e9" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />` : ""}
+    ${points
+      .map(
+        ({ workout, x, y }, index) =>
+          `<circle cx="${x}" cy="${y}" r="5" fill="#0ea5e9" stroke="#ffffff" stroke-width="2" />
+      ${index === points.length - 1 ? `<text x="${x}" y="${Math.max(11, y - 9)}" text-anchor="end" fill="#334155" font-size="8" font-weight="700">${escapeHtml(formatVolume(workout.volumeKg))}</text>` : ""}
+      ${index === 0 || index === Math.floor(points.length / 2) || index === points.length - 1 ? `<text x="${x}" y="158" text-anchor="${index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"}" fill="#66758b" font-size="8">${escapeHtml(dateFormatter.format(workout.date))}</text>` : ""}`
+      )
+      .join("")}
+  </svg>`;
+}
+
+function completionDonutChart(
+  totals: ReportTotals,
+  copy: CoachReportCopy
+): string {
+  const radius = 51;
+  const circumference = 2 * Math.PI * radius;
+  const completedRatio = totals.totalSets
+    ? totals.completedSets / totals.totalSets
+    : 0;
+  const dash = completedRatio * circumference;
+  const incompleteSets = totals.totalSets - totals.completedSets;
+
+  return `<svg viewBox="0 0 330 190" role="img" aria-label="${Math.round(totals.completionRate)}%">
+    <circle cx="90" cy="94" r="${radius}" fill="none" stroke="#e7edf4" stroke-width="18" />
+    <circle cx="90" cy="94" r="${radius}" fill="none" stroke="#0ea5e9" stroke-width="18" stroke-dasharray="${dash} ${circumference - dash}" stroke-linecap="round" transform="rotate(-90 90 94)" />
+    <text x="90" y="91" text-anchor="middle" fill="#10233f" font-size="22" font-weight="800">${Math.round(totals.completionRate)}%</text>
+    <text x="90" y="108" text-anchor="middle" fill="#66758b" font-size="8">${escapeHtml(copy.completionRate)}</text>
+    <circle cx="180" cy="72" r="5" fill="#0ea5e9" />
+    <text x="193" y="76" fill="#334155" font-size="10">${escapeHtml(copy.completedLabel)}: ${totals.completedSets}</text>
+    <circle cx="180" cy="107" r="5" fill="#e7edf4" stroke="#cbd5e1" />
+    <text x="193" y="111" fill="#334155" font-size="10">${escapeHtml(copy.incompleteLabel)}: ${incompleteSets}</text>
+  </svg>`;
 }
 
 function escapeHtml(value: string): string {

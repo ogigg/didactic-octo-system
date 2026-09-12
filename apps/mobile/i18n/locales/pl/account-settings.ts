@@ -100,7 +100,7 @@ export const accountSettings = {
       totalVolume: "Łączna objętość",
       trainingTime: "Czas treningów",
       averageRpe: "Średnie RPE",
-      completionRate: "Ukończone serie",
+      completionRate: "Realizacja serii",
       progressTitle: "Podsumowanie postępów",
       progressInsufficient:
         "Ukończ co najmniej cztery treningi z zapisanym ciężarem i liczbą powtórzeń, aby zobaczyć trend objętości.",
@@ -113,6 +113,9 @@ export const accountSettings = {
       weeklyTitle: "Regularność · ostatnie 8 tygodni",
       weeklyEmpty: "Brak ukończonych treningów w ostatnich ośmiu tygodniach.",
       volumeTitle: "Objętość · ostatnie 8 treningów",
+      completionTitle: "Realizacja serii",
+      completedLabel: "Ukończone",
+      incompleteLabel: "Nieukończone",
       personalRecordsTitle: "Rekordy życiowe",
       personalRecordsSubtitle:
         "Rekordy siłowe są obliczane na podstawie całej historii ukończonych treningów, niezależnie od wybranego okresu raportu.",

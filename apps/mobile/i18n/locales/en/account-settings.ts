@@ -113,6 +113,9 @@ export const accountSettings = {
       weeklyTitle: "Weekly consistency · last 8 weeks",
       weeklyEmpty: "No completed workouts in the last eight weeks.",
       volumeTitle: "Workout volume · latest 8 sessions",
+      completionTitle: "Set completion",
+      completedLabel: "Completed",
+      incompleteLabel: "Incomplete",
       personalRecordsTitle: "All-time personal records",
       personalRecordsSubtitle:
         "Strength records are calculated from all completed workout history, regardless of the selected report period.",
