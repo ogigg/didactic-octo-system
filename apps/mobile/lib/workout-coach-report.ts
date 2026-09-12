@@ -13,9 +13,6 @@ import {
 
 export interface CoachReportCopy {
   title: string;
-  subtitle: string;
-  generated: string;
-  period: string;
   allTime: string;
   workouts: string;
   completedSets: string;
@@ -23,11 +20,6 @@ export interface CoachReportCopy {
   trainingTime: string;
   averageRpe: string;
   completionRate: string;
-  progressTitle: string;
-  progressInsufficient: string;
-  volumeIncreased: string;
-  volumeDecreased: string;
-  volumeSteady: string;
   weeklyTitle: string;
   weeklyEmpty: string;
   volumeTitle: string;
@@ -49,7 +41,6 @@ export interface CoachReportCopy {
   duration: string;
   minutes: string;
   sessions: string;
-  footer: string;
 }
 
 interface WorkoutSummary {
@@ -216,10 +207,20 @@ function buildHtml({
   const formatVolume = (kg: number) =>
     `${numberFormatter.format(convertWeight(kg, unit))} ${unit}`;
   const periodDays = WORKOUT_EXPORT_PERIODS[period];
-  const periodLabel = periodDays === null ? copy.allTime : `${periodDays}`;
+  const periodStart =
+    periodDays === null
+      ? null
+      : new Date(exportedAt.getTime() - periodDays * 86_400_000);
+  const periodLabel =
+    periodStart === null
+      ? copy.allTime
+      : `${dateFormatter.format(periodStart)} - ${dateFormatter.format(exportedAt)}`;
   const recentSummaries = summaries.slice(-8);
-  const weeklyActivity = buildWeeklyActivity(summaries, exportedAt);
-  const progress = buildProgressSummary(summaries, copy, numberFormatter);
+  const weeklyActivity = buildWeeklyActivity(
+    summaries,
+    exportedAt,
+    periodStart
+  );
   const records = personalRecords
     .slice()
     .sort(
@@ -237,18 +238,17 @@ function buildHtml({
     @page { size: A4; margin: 15mm; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { margin: 0; color: #172033; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; line-height: 1.35; }
-    .hero { border: 2px solid #10233f; border-left: 8px solid #0ea5e9; border-radius: 14px; color: #10233f; padding: 20px; margin-bottom: 14px; }
+    .hero { border-bottom: 1px solid #cbd5e1; color: #10233f; padding: 0 0 14px; margin-bottom: 14px; }
     .brand { color: #0785bd; font-size: 10px; font-weight: 800; letter-spacing: 1.7px; text-transform: uppercase; }
-    h1 { font-size: 26px; line-height: 1.05; margin: 8px 0 7px; }
-    .subtitle { color: #526177; font-size: 11px; max-width: 420px; }
-    .meta { color: #66758b; margin-top: 13px; }
+    h1 { font-size: 24px; line-height: 1.15; margin: 7px 0; }
+    .meta { color: #526177; margin-top: 5px; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px; }
     .card { border: 1px solid #dfe7f1; border-radius: 10px; padding: 10px; break-inside: avoid; }
     .card-label { color: #66758b; font-size: 8px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
     .card-value { color: #10233f; font-size: 18px; font-weight: 800; margin-top: 3px; }
-    .progress { background: #e9f8ff; border-left: 4px solid #0ea5e9; border-radius: 8px; margin: 0 0 14px; padding: 11px 12px; break-inside: avoid; }
-    .progress strong { color: #075985; display: block; margin-bottom: 3px; }
-    h2 { color: #10233f; font-size: 14px; margin: 17px 0 8px; }
+    h2 { color: #10233f; font-size: 14px; margin: 17px 0 8px; break-after: avoid; }
+    h2 small { color: #526177; font-size: 9px; font-weight: 400; margin-left: 6px; }
+    .chart-section { break-inside: avoid; }
     .chart { border: 1px solid #dfe7f1; border-radius: 10px; padding: 11px; break-inside: avoid; }
     .chart svg { display: block; height: auto; width: 100%; }
     .chart-row { display: flex; gap: 10px; margin-top: 14px; break-inside: avoid; }
@@ -259,17 +259,15 @@ function buildHtml({
     td { border-bottom: 1px solid #e7edf4; padding: 7px 6px; vertical-align: top; }
     tr { break-inside: avoid; }
     .numeric { text-align: right; white-space: nowrap; }
-    .muted { color: #7b899c; }
+    .muted { color: #526177; margin-bottom: 6px; break-after: avoid; }
     .empty { color: #7b899c; font-style: italic; padding: 8px 0; }
-    footer { color: #8a97a8; font-size: 8px; margin-top: 18px; text-align: center; }
   </style>
 </head>
 <body>
   <section class="hero">
     <div class="brand">Sweaty</div>
     <h1>${escapeHtml(copy.title)}</h1>
-    <div class="subtitle">${escapeHtml(copy.subtitle)}</div>
-    <div class="meta">${escapeHtml(copy.period)}: ${escapeHtml(periodLabel)} · ${escapeHtml(copy.generated)}: ${escapeHtml(dateFormatter.format(exportedAt))}</div>
+    <div class="meta">${escapeHtml(periodLabel)}</div>
   </section>
 
   <section class="grid">
@@ -277,18 +275,15 @@ function buildHtml({
     ${metricCard(copy.completedSets, String(totals.completedSets))}
     ${metricCard(copy.totalVolume, formatVolume(totals.volumeKg))}
     ${metricCard(copy.trainingTime, `${numberFormatter.format(totals.durationMinutes)} ${copy.minutes}`)}
-    ${metricCard(copy.averageRpe, totals.averageRpe == null ? "—" : numberFormatter.format(totals.averageRpe))}
+    ${metricCard(copy.averageRpe, totals.averageRpe == null ? "-" : numberFormatter.format(totals.averageRpe))}
     ${metricCard(copy.completionRate, `${Math.round(totals.completionRate)}%`)}
   </section>
 
-  <section class="progress">
-    <strong>${escapeHtml(copy.progressTitle)}</strong>
-    ${escapeHtml(progress)}
-  </section>
-
-  <h2>${escapeHtml(copy.weeklyTitle)}</h2>
+  <section class="chart-section">
+  <h2>${escapeHtml(copy.weeklyTitle)} <small>${escapeHtml(shortDateFormatter.format(periodStart && periodStart > weeklyActivity[0].start ? periodStart : weeklyActivity[0].start))} - ${escapeHtml(shortDateFormatter.format(exportedAt))}</small></h2>
   <section class="chart">
     ${weeklyActivity.length === 0 ? `<div class="empty">${escapeHtml(copy.weeklyEmpty)}</div>` : weeklyBarChart(weeklyActivity, shortDateFormatter, copy.sessions)}
+  </section>
   </section>
 
   <div class="chart-row">
@@ -310,7 +305,7 @@ function buildHtml({
       : `
   <table>
     <thead><tr><th>${escapeHtml(copy.exercise)}</th><th class="numeric">${escapeHtml(copy.bestWeight)}</th><th class="numeric">${escapeHtml(copy.bestSetVolume)}</th><th class="numeric">${escapeHtml(copy.estimatedOneRepMax)}</th></tr></thead>
-    <tbody>${records.map((record) => `<tr><td>${escapeHtml(record.exercise_name)}</td><td class="numeric">${escapeHtml(formatWeightWithSpace(record.max_weight_kg, unit))}${record.max_weight_reps ? ` × ${record.max_weight_reps}` : ""}</td><td class="numeric">${escapeHtml(formatVolume(record.max_volume_set_kg))}</td><td class="numeric">${record.est_1rm_kg == null ? "—" : escapeHtml(formatWeightWithSpace(record.est_1rm_kg, unit))}</td></tr>`).join("")}</tbody>
+    <tbody>${records.map((record) => `<tr><td>${escapeHtml(record.exercise_name)}</td><td class="numeric">${escapeHtml(formatWeightWithSpace(record.max_weight_kg, unit))}${record.max_weight_reps ? ` × ${record.max_weight_reps}` : ""}</td><td class="numeric">${escapeHtml(formatVolume(record.max_volume_set_kg))}</td><td class="numeric">${record.est_1rm_kg == null ? "-" : escapeHtml(formatWeightWithSpace(record.est_1rm_kg, unit))}</td></tr>`).join("")}</tbody>
   </table>`
   }
 
@@ -327,12 +322,15 @@ function buildHtml({
       .join("")}</tbody>
   </table>
 
-  <footer>${escapeHtml(copy.footer)}</footer>
 </body>
 </html>`;
 }
 
-function buildWeeklyActivity(summaries: WorkoutSummary[], now: Date) {
+function buildWeeklyActivity(
+  summaries: WorkoutSummary[],
+  now: Date,
+  periodStart: Date | null
+) {
   const startOfCurrentWeek = startOfWeek(now);
   return Array.from({ length: 8 }, (_, index) => {
     const start = new Date(startOfCurrentWeek);
@@ -345,6 +343,10 @@ function buildWeeklyActivity(summaries: WorkoutSummary[], now: Date) {
       ).length,
       start,
     };
+  }).filter((week) => {
+    const end = new Date(week.start);
+    end.setDate(end.getDate() + 7);
+    return periodStart === null || end > periodStart;
   });
 }
 
@@ -354,35 +356,6 @@ function startOfWeek(date: Date): Date {
   const day = result.getDay();
   result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
   return result;
-}
-
-function buildProgressSummary(
-  summaries: WorkoutSummary[],
-  copy: CoachReportCopy,
-  numberFormatter: Intl.NumberFormat
-): string {
-  if (summaries.length < 4) return copy.progressInsufficient;
-
-  const midpoint = Math.floor(summaries.length / 2);
-  const earlier = summaries.slice(0, midpoint);
-  const recent = summaries.slice(midpoint);
-  const earlierAverage = average(earlier.map((item) => item.volumeKg));
-  const recentAverage = average(recent.map((item) => item.volumeKg));
-
-  if (earlierAverage === 0) return copy.progressInsufficient;
-
-  const change = ((recentAverage - earlierAverage) / earlierAverage) * 100;
-  if (Math.abs(change) < 2) return copy.volumeSteady;
-
-  const template = change > 0 ? copy.volumeIncreased : copy.volumeDecreased;
-  return template.replace(
-    "{{percent}}",
-    numberFormatter.format(Math.abs(change))
-  );
-}
-
-function average(values: number[]): number {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function metricCard(label: string, value: string): string {
@@ -398,12 +371,12 @@ function weeklyBarChart(
   const height = 190;
   const chartTop = 18;
   const chartHeight = 125;
-  const barWidth = 52;
-  const gap = 24;
+  const slotWidth = 640 / weeks.length;
+  const barWidth = Math.min(52, slotWidth * 0.65);
   const max = Math.max(1, ...weeks.map((week) => week.count));
   const bars = weeks
     .map((week, index) => {
-      const x = 30 + index * (barWidth + gap);
+      const x = 20 + index * slotWidth + (slotWidth - barWidth) / 2;
       const barHeight = (week.count / max) * chartHeight;
       const y = chartTop + chartHeight - barHeight;
       return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="#0ea5e9" />
@@ -426,9 +399,9 @@ function volumeLineChart(
 ): string {
   const width = 330;
   const height = 190;
-  const left = 22;
+  const left = 66;
   const top = 20;
-  const chartWidth = 286;
+  const chartWidth = 242;
   const chartHeight = 115;
   const max = Math.max(1, ...workouts.map((workout) => workout.volumeKg));
   const points = workouts.map((workout, index) => {
@@ -441,6 +414,8 @@ function volumeLineChart(
   });
 
   return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(formatVolume(max))}">
+    <text x="${left - 8}" y="${top + 3}" text-anchor="end" fill="#66758b" font-size="8">${escapeHtml(formatVolume(max))}</text>
+    <text x="${left - 8}" y="${top + chartHeight + 3}" text-anchor="end" fill="#66758b" font-size="8">0</text>
     <line x1="${left}" y1="${top + chartHeight}" x2="${left + chartWidth}" y2="${top + chartHeight}" stroke="#cbd5e1" />
     <line x1="${left}" y1="${top + chartHeight / 2}" x2="${left + chartWidth}" y2="${top + chartHeight / 2}" stroke="#e7edf4" stroke-dasharray="4 4" />
     ${points.length > 1 ? `<polyline points="${points.map(({ x, y }) => `${x},${y}`).join(" ")}" fill="none" stroke="#0ea5e9" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />` : ""}
@@ -470,8 +445,7 @@ function completionDonutChart(
   return `<svg viewBox="0 0 330 190" role="img" aria-label="${Math.round(totals.completionRate)}%">
     <circle cx="90" cy="94" r="${radius}" fill="none" stroke="#e7edf4" stroke-width="18" />
     <circle cx="90" cy="94" r="${radius}" fill="none" stroke="#0ea5e9" stroke-width="18" stroke-dasharray="${dash} ${circumference - dash}" stroke-linecap="round" transform="rotate(-90 90 94)" />
-    <text x="90" y="91" text-anchor="middle" fill="#10233f" font-size="22" font-weight="800">${Math.round(totals.completionRate)}%</text>
-    <text x="90" y="108" text-anchor="middle" fill="#66758b" font-size="8">${escapeHtml(copy.completionRate)}</text>
+    <text x="90" y="102" text-anchor="middle" fill="#10233f" font-size="22" font-weight="800">${Math.round(totals.completionRate)}%</text>
     <circle cx="180" cy="72" r="5" fill="#0ea5e9" />
     <text x="193" y="76" fill="#334155" font-size="10">${escapeHtml(copy.completedLabel)}: ${totals.completedSets}</text>
     <circle cx="180" cy="107" r="5" fill="#e7edf4" stroke="#cbd5e1" />

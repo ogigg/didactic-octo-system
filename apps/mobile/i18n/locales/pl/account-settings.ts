@@ -87,38 +87,26 @@ export const accountSettings = {
     formatHelp: {
       csv: "Jeden wiersz na serię, gotowy do użycia w arkuszu.",
       json: "Przejrzysty zapis treningów, ćwiczeń, wyników, komentarzy i ocen w strukturze JSON.",
-      pdf: "Czytelny raport dla trenera z wykresami postępów, podsumowaniami i rekordami życiowymi.",
+      pdf: "Wykresy treningów, podsumowanie wyników i rekordy życiowe.",
     },
     report: {
-      title: "Raport postępów treningowych",
-      subtitle:
-        "Zwięzły przegląd regularności, obciążenia i wyników do udostępnienia trenerowi.",
-      generated: "Wygenerowano",
-      period: "Okres (dni)",
+      title: "Raport treningowy",
+      allTime: "Cała historia treningów",
       workouts: "Treningi",
       completedSets: "Ukończone serie",
       totalVolume: "Łączna objętość",
       trainingTime: "Czas treningów",
       averageRpe: "Średnie RPE",
       completionRate: "Realizacja serii",
-      progressTitle: "Podsumowanie postępów",
-      progressInsufficient:
-        "Ukończ co najmniej cztery treningi z zapisanym ciężarem i liczbą powtórzeń, aby zobaczyć trend objętości.",
-      volumeIncreased:
-        "Średnia objętość treningu wzrosła o {{percent}}% w nowszej połowie tego okresu.",
-      volumeDecreased:
-        "Średnia objętość treningu spadła o {{percent}}% w nowszej połowie tego okresu.",
-      volumeSteady:
-        "Średnia objętość treningu pozostała stabilna w tym okresie.",
-      weeklyTitle: "Regularność · ostatnie 8 tygodni",
-      weeklyEmpty: "Brak ukończonych treningów w ostatnich ośmiu tygodniach.",
-      volumeTitle: "Objętość · ostatnie 8 treningów",
+      weeklyTitle: "Treningi w tygodniu",
+      weeklyEmpty: "Brak ukończonych treningów w tym okresie wykresu.",
+      volumeTitle: "Objętość ostatnich treningów",
       completionTitle: "Realizacja serii",
       completedLabel: "Ukończone",
       incompleteLabel: "Nieukończone",
       personalRecordsTitle: "Rekordy życiowe",
       personalRecordsSubtitle:
-        "Rekordy siłowe są obliczane na podstawie całej historii ukończonych treningów, niezależnie od wybranego okresu raportu.",
+        "Do 10 rekordów ze wszystkich ukończonych treningów. Objętość = ciężar × powtórzenia; 1RM to wartość szacowana.",
       personalRecordsEmpty: "Brak rekordów dla ćwiczeń z obciążeniem.",
       exercise: "Ćwiczenie",
       bestWeight: "Największy ciężar",
@@ -132,8 +120,6 @@ export const accountSettings = {
       duration: "Czas",
       minutes: "min",
       sessions: "treningów",
-      footer:
-        "Wygenerowano w Sweaty na podstawie ukończonych treningów. Decyzje treningowe konsultuj z wykwalifikowanym trenerem.",
     },
     privacyTitle: "Twoje dane pozostają pod Twoją kontrolą",
     privacyBody:

@@ -177,21 +177,13 @@ function getCoachReportCopy(
 ): CoachReportCopy {
   return {
     title: t("export.report.title"),
-    subtitle: t("export.report.subtitle"),
-    generated: t("export.report.generated"),
-    period: t("export.report.period"),
-    allTime: t("export.periods.all"),
+    allTime: t("export.report.allTime"),
     workouts: t("export.report.workouts"),
     completedSets: t("export.report.completedSets"),
     totalVolume: t("export.report.totalVolume"),
     trainingTime: t("export.report.trainingTime"),
     averageRpe: t("export.report.averageRpe"),
     completionRate: t("export.report.completionRate"),
-    progressTitle: t("export.report.progressTitle"),
-    progressInsufficient: t("export.report.progressInsufficient"),
-    volumeIncreased: t("export.report.volumeIncreased"),
-    volumeDecreased: t("export.report.volumeDecreased"),
-    volumeSteady: t("export.report.volumeSteady"),
     weeklyTitle: t("export.report.weeklyTitle"),
     weeklyEmpty: t("export.report.weeklyEmpty"),
     volumeTitle: t("export.report.volumeTitle"),
@@ -213,7 +205,6 @@ function getCoachReportCopy(
     duration: t("export.report.duration"),
     minutes: t("export.report.minutes"),
     sessions: t("export.report.sessions"),
-    footer: t("export.report.footer"),
   };
 }
 
