@@ -16,10 +16,13 @@ import {
   streakProtectionKeys,
   workoutStatsKeys,
 } from "@/lib/query-keys";
-import { getMockStreakStatus } from "@/lib/streak-prompt-mock";
+import {
+  getMockStreakStatus,
+  runMockStreakMutation,
+} from "@/lib/streak-prompt-mock";
 
 function runStreakMutation(action: () => Promise<void>): Promise<void> {
-  return getMockStreakStatus() ? Promise.resolve() : action();
+  return getMockStreakStatus() ? runMockStreakMutation() : action();
 }
 
 function useInvalidateStreakProtection() {

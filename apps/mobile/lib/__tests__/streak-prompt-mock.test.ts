@@ -1,4 +1,28 @@
-import { getMockStreakStatus } from "@/lib/streak-prompt-mock";
+import {
+  getMockStreakStatus,
+  runMockStreakMutation,
+} from "@/lib/streak-prompt-mock";
+
+describe("runMockStreakMutation", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.useRealTimers();
+    delete process.env.EXPO_PUBLIC_MOCK_STREAK_PROMPT_FAIL;
+  });
+
+  it("resolves after a short delay by default", async () => {
+    const promise = runMockStreakMutation();
+    jest.runAllTimers();
+    await expect(promise).resolves.toBeUndefined();
+  });
+
+  it("rejects when the fail flag is set", async () => {
+    process.env.EXPO_PUBLIC_MOCK_STREAK_PROMPT_FAIL = "true";
+    const promise = runMockStreakMutation();
+    jest.runAllTimers();
+    await expect(promise).rejects.toThrow("Mocked streak mutation failure");
+  });
+});
 
 describe("getMockStreakStatus", () => {
   afterEach(() => {
