@@ -37,20 +37,31 @@ describe("streak protection copy", () => {
       states.free_lifetime_rescue,
       states.pro_available_freeze,
     ]) {
-      expect(state.body).toMatch(/carries on/);
-      expect(state.body).toMatch(/fine too|good options/);
+      expect(state.body).toMatch(/streak (stays|whole)/);
+      expect(state.body).toMatch(/start(ing)? fresh/);
     }
 
-    expect(states.free_comeback.body).toMatch(/untouched/);
-    expect(states.pro_comeback.body).toMatch(/untouched/);
+    expect(states.free_comeback.body).toMatch(/still stands/);
+    expect(states.pro_comeback.body).toMatch(/still stands/);
   });
 
   it("keeps the restart confirmation honest about workout history", () => {
     expect(resources.en.streakProtection.restartConfirm.body).toMatch(
-      /history stays/
+      /logged stays/
     );
     expect(resources.pl.streakProtection.restartConfirm.body).toMatch(
-      /Historia treningów pozostaje/
+      /co zapisałeś, zostaje/
     );
+  });
+
+  it("keeps titles and buttons short enough for one line at large text sizes", () => {
+    const { states, actions } = resources.en.streakProtection;
+
+    for (const state of Object.values(states)) {
+      expect(state.title.length).toBeLessThanOrEqual(36);
+    }
+    for (const label of Object.values(actions)) {
+      expect(label.length).toBeLessThanOrEqual(20);
+    }
   });
 });

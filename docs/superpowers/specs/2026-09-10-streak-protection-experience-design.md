@@ -84,8 +84,12 @@ protection left. It is never a primary or secondary button.
 
 ## Copy Principles
 
-- Describe the missed week neutrally ("Last week didn't include a workout").
-- Explain what each choice does and that skipping a protection is fine.
+- Describe the missed week neutrally ("a rest week", "the gap from last
+  week"), never as a failure.
+- Keep it short: titles are one line, bodies at most two or three short
+  sentences, button labels two or three words.
+- Explain what each choice does and that skipping a protection is fine
+  ("your call").
 - No loss framing, exclamation marks, urgency, or "upgrade now" language.
   Guarded by `i18n/__tests__/streak-protection-copy.test.ts`.
 - All strings live in `i18n/locales/{en,pl}/streak-protection.ts`.

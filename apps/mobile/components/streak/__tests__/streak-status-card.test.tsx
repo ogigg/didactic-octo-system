@@ -41,11 +41,9 @@ describe("StreakStatusCard", () => {
     );
 
     expect(screen.getByRole("header")).toHaveTextContent(
-      "Your 5-week streak is still going"
+      "Still on a 5-week streak"
     );
-    expect(
-      screen.getByText(/A workout on any day this week keeps it going/)
-    ).toBeTruthy();
+    expect(screen.getByText(/One workout this week keeps it/)).toBeTruthy();
 
     fireEvent.press(screen.getByRole("button", { name: "Start a workout" }));
     expect(onStartWorkout).toHaveBeenCalledTimes(1);
@@ -75,7 +73,7 @@ describe("StreakStatusCard", () => {
     expect(screen.getByRole("header")).toHaveTextContent(
       "Last week is covered"
     );
-    expect(screen.getByText(/You have 1 freeze left/)).toBeTruthy();
+    expect(screen.getByText(/1 freeze left/)).toBeTruthy();
   });
 
   it("shows the workout starting and blocks dismissal meanwhile", () => {

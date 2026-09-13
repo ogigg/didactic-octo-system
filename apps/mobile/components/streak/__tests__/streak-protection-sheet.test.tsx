@@ -95,29 +95,27 @@ describe("StreakProtectionSheet", () => {
       const handlers = renderSheet(baseStatus);
 
       expect(screen.getByRole("header")).toHaveTextContent(
-        "Keep your streak going?"
+        "Fill the gap from last week?"
       );
-      expect(screen.getByText("Week to cover: Jun 29 – Jul 5")).toBeTruthy();
-      expect(screen.getByText("One-time restore available")).toBeTruthy();
+      expect(screen.getByText("Covers Jun 29 – Jul 5")).toBeTruthy();
+      expect(screen.getByText("One-time restore, unused")).toBeTruthy();
 
-      fireEvent.press(button("Use one-time restore"));
+      fireEvent.press(button("Use restore"));
       expect(handlers.onApplyProtection).toHaveBeenCalledWith(
         "lifetime_rescue"
       );
 
-      expect(button("Start a workout instead")).toBeTruthy();
+      expect(button("Train instead")).toBeTruthy();
       expect(button("Not now")).toBeTruthy();
       expect(queryButton(/Upgrade/)).toBeNull();
-      expect(queryButton("Start a new streak")).toBeNull();
-      expect(
-        screen.getByRole("link", { name: "Learn about Pro" })
-      ).toBeTruthy();
+      expect(queryButton("Start over")).toBeNull();
+      expect(screen.getByRole("link", { name: "See Pro" })).toBeTruthy();
     });
 
     it("closes the sheet before navigating to Pro details", () => {
       const handlers = renderSheet(baseStatus);
 
-      fireEvent.press(screen.getByRole("link", { name: "Learn about Pro" }));
+      fireEvent.press(screen.getByRole("link", { name: "See Pro" }));
 
       expect(handlers.onUpgrade).toHaveBeenCalledTimes(1);
       expect(handlers.onDismiss).not.toHaveBeenCalled();
@@ -134,7 +132,7 @@ describe("StreakProtectionSheet", () => {
         })
       );
 
-      expect(screen.getByText("1 freeze available")).toBeTruthy();
+      expect(screen.getByText("1 freeze left")).toBeTruthy();
       fireEvent.press(button("Use freeze"));
       expect(handlers.onApplyProtection).toHaveBeenCalledWith("earned_freeze");
       expect(screen.queryByRole("link")).toBeNull();
@@ -153,7 +151,7 @@ describe("StreakProtectionSheet", () => {
         })
       );
 
-      expect(screen.getByText("2 freezes available")).toBeTruthy();
+      expect(screen.getByText("2 freezes left")).toBeTruthy();
       fireEvent.press(button("Use freeze"));
       expect(handlers.onApplyProtection).toHaveBeenCalledWith("pro_freeze");
       expect(screen.queryByRole("link")).toBeNull();
@@ -169,27 +167,23 @@ describe("StreakProtectionSheet", () => {
         })
       );
 
-      expect(screen.getByRole("header")).toHaveTextContent("Welcome back");
-      expect(screen.queryByText(/Week to cover/)).toBeNull();
+      expect(screen.getByRole("header")).toHaveTextContent("Good to see you");
+      expect(screen.queryByText(/Covers/)).toBeNull();
 
-      fireEvent.press(button("Start comeback workout"));
+      fireEvent.press(button("Start a workout"));
       expect(handlers.onComeback).toHaveBeenCalledTimes(1);
       expect(handlers.onDismiss).not.toHaveBeenCalled();
 
-      fireEvent.press(button("Start a new streak"));
+      fireEvent.press(button("Start over"));
       expect(handlers.onRestart).not.toHaveBeenCalled();
-      expect(screen.getByRole("header")).toHaveTextContent(
-        "Start a new streak?"
-      );
-      expect(
-        screen.getByText(/Your workout history stays exactly as it is/)
-      ).toBeTruthy();
+      expect(screen.getByRole("header")).toHaveTextContent("Start over?");
+      expect(screen.getByText(/Everything you’ve logged stays/)).toBeTruthy();
 
       fireEvent.press(button("Back"));
-      expect(screen.getByRole("header")).toHaveTextContent("Welcome back");
+      expect(screen.getByRole("header")).toHaveTextContent("Good to see you");
 
-      fireEvent.press(button("Start a new streak"));
-      fireEvent.press(button("Yes, start fresh"));
+      fireEvent.press(button("Start over"));
+      fireEvent.press(button("Start over"));
       expect(handlers.onRestart).toHaveBeenCalledTimes(1);
     });
 
@@ -206,7 +200,7 @@ describe("StreakProtectionSheet", () => {
       fireEvent.press(button("Adjust my plan"));
       expect(handlers.onAdjustPlan).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole("link")).toBeNull();
-      expect(button("Start a new streak")).toBeTruthy();
+      expect(button("Start over")).toBeTruthy();
     });
   });
 
@@ -238,11 +232,11 @@ describe("StreakProtectionSheet", () => {
     it("marks the in-flight action busy and disables the others", () => {
       renderSheet(baseStatus, { pendingAction: "apply" });
 
-      expect(button("Use one-time restore")).toHaveAccessibilityState({
+      expect(button("Use restore")).toHaveAccessibilityState({
         busy: true,
         disabled: true,
       });
-      expect(button("Start a workout instead")).toHaveAccessibilityState({
+      expect(button("Train instead")).toHaveAccessibilityState({
         disabled: true,
       });
       expect(button("Not now")).toHaveAccessibilityState({ disabled: true });
@@ -252,13 +246,13 @@ describe("StreakProtectionSheet", () => {
       const handlers = renderSheet(baseStatus, { hasError: true });
 
       expect(screen.getByRole("alert")).toHaveTextContent(
-        "Couldn’t update your streak. Your workouts are safe — please try again."
+        "That didn’t go through. Your workouts are unaffected — try again."
       );
-      expect(button("Use one-time restore")).toHaveAccessibilityState({
+      expect(button("Use restore")).toHaveAccessibilityState({
         disabled: false,
       });
 
-      fireEvent.press(button("Use one-time restore"));
+      fireEvent.press(button("Use restore"));
       expect(handlers.onApplyProtection).toHaveBeenCalledWith(
         "lifetime_rescue"
       );

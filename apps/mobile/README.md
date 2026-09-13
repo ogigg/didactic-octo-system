@@ -36,6 +36,11 @@ npm run test:watch
 npm run test:coverage
 ```
 
+To preview a streak-protection prompt locally without calling the streak RPCs,
+set `EXPO_PUBLIC_MOCK_STREAK_PROMPT_STATE` in `.env` and restart Expo. For
+example, `free_lifetime_rescue` opens the restore sheet; the other supported
+states are listed in `.env.example`.
+
 Native iOS development builds:
 
 ```bash
