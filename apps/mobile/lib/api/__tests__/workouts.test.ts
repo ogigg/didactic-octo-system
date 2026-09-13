@@ -18,11 +18,19 @@ jest.mock("@/lib/workout-deletion-logger", () => ({
     mockLogWorkoutDeletionTrace(...args),
 }));
 
+const mockListCommentsForSession = jest.fn();
+
+jest.mock("@/lib/api/workout-session-comments", () => ({
+  listCommentsForSession: (...args: unknown[]) =>
+    mockListCommentsForSession(...args),
+}));
+
 import { supabase } from "@/lib/supabase";
 import {
   createWorkoutSession,
   deleteSessionExercise,
   deleteWorkoutSession,
+  fetchCompletedWorkoutDetails,
   fetchPreviousSetDisplays,
   fetchWorkoutDetail,
   fetchWorkoutSessions,
@@ -101,6 +109,7 @@ function mockUnauthenticated() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockListCommentsForSession.mockResolvedValue([]);
 });
 
 describe("fetchWorkoutSessions", () => {
@@ -135,7 +144,6 @@ describe("fetchWorkoutDetail", () => {
       data: validDetail,
       error: null,
     });
-
     const result = await fetchWorkoutDetail(validSession.id);
 
     expect(result.exercises).toHaveLength(1);
@@ -162,6 +170,62 @@ describe("fetchWorkoutDetail", () => {
     });
 
     await expect(fetchWorkoutDetail(validSession.id)).rejects.toThrow();
+  });
+});
+
+describe("fetchCompletedWorkoutDetails", () => {
+  it("filters completed sessions by range and resolves their full details", async () => {
+    mockAuthenticatedUser();
+    const response = {
+      data: [{ id: validSession.id, completed_at: validDetail.completed_at }],
+      error: null,
+    };
+    const query: Record<string, jest.Mock> = {
+      select: jest.fn(),
+      eq: jest.fn(),
+      not: jest.fn(),
+      lte: jest.fn(),
+      gte: jest.fn().mockResolvedValue(response),
+      order: jest.fn(),
+      range: jest.fn(),
+    };
+    Object.entries(query)
+      .filter(([name]) => name !== "gte")
+      .forEach(([, method]) => method.mockReturnValue(query));
+    (mockSupabase.from as jest.Mock).mockReturnValue(query);
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: validDetail,
+      error: null,
+    });
+    mockListCommentsForSession.mockResolvedValue([
+      {
+        id: "550e8400-e29b-41d4-a716-446655440050",
+        user_id: validSession.user_id,
+        workout_session_id: validSession.id,
+        comment: "Felt strong",
+        created_at: "2026-03-22T11:01:00Z",
+      },
+    ]);
+
+    const result = await fetchCompletedWorkoutDetails(
+      "2026-03-01T00:00:00.000Z",
+      "2026-04-01T00:00:00.000Z"
+    );
+
+    expect(query.gte).toHaveBeenCalledWith(
+      "completed_at",
+      "2026-03-01T00:00:00.000Z"
+    );
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "get_workout_session_detail",
+      { p_session_id: validSession.id }
+    );
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: validSession.id,
+        comments: [expect.objectContaining({ comment: "Felt strong" })],
+      }),
+    ]);
   });
 });
 
