@@ -513,20 +513,21 @@ export default function ExerciseDetailScreen() {
   ]);
 
   const handleSaveHistory = useCallback(
-    (sets: CompletedExerciseSetInput[]) => {
+    async (sets: CompletedExerciseSetInput[]) => {
       if (!selectedHistory) return;
-      updateExerciseSetsMutation.mutate(
-        { sessionExerciseId: selectedHistory.id, sets },
-        {
-          onSuccess: () =>
-            showSuccess(tHistory("detail.exerciseEditor.success")),
-          onError: () =>
-            Alert.alert(
-              tHistory("detail.exerciseEditor.errorTitle"),
-              tHistory("detail.exerciseEditor.errorMessage")
-            ),
-        }
-      );
+      try {
+        await updateExerciseSetsMutation.mutateAsync({
+          sessionExerciseId: selectedHistory.id,
+          sets,
+        });
+        showSuccess(tHistory("detail.exerciseEditor.success"));
+      } catch (error) {
+        Alert.alert(
+          tHistory("detail.exerciseEditor.errorTitle"),
+          tHistory("detail.exerciseEditor.errorMessage")
+        );
+        throw error;
+      }
     },
     [selectedHistory, showSuccess, tHistory, updateExerciseSetsMutation]
   );
@@ -1339,6 +1340,12 @@ export default function ExerciseDetailScreen() {
           <ExerciseHistoryEditSheet
             visible={historyEditorVisible}
             exerciseName={exercise?.name ?? ""}
+            workoutName={selectedHistory?.workout_name ?? ""}
+            workoutDate={
+              selectedHistory
+                ? (formatLongDate(selectedHistory.date) ?? selectedHistory.date)
+                : ""
+            }
             exerciseType={
               detail?.exercise_type ?? exercise?.exercise_type ?? "weight"
             }

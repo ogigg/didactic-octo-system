@@ -47,6 +47,7 @@ export const history = {
     },
     exerciseEditor: {
       title: "Edit {{exerciseName}}",
+      workoutContext: "{{workoutName}} · {{workoutDate}}",
       subtitle:
         "Changes update your history, records, and future recommendations.",
       close: "Close exercise editor",
@@ -58,6 +59,11 @@ export const history = {
       repsForSet: "Reps for set {{number}}",
       rpeForSet: "RPE for set {{number}}",
       removeSet: "Remove set {{number}}",
+      removeSetTitle: "Remove this series?",
+      removeSetMessage:
+        "Series {{number}} contains logged data. It will be removed when you save your changes.",
+      cancel: "Cancel",
+      remove: "Remove",
       addSet: "Add set",
       save: "Save changes",
       discardTitle: "Discard changes?",
@@ -66,6 +72,9 @@ export const history = {
       discardChanges: "Discard",
       atLeastOneSet: "Keep at least one set, or delete the exercise instead.",
       invalidRpe: "RPE must be between 1 and 10.",
+      positiveHint: "Greater than 0",
+      positiveIntegerHint: "Whole number > 0",
+      rpeHint: "Whole number 1–10",
       invalidDuration: "Enter a duration greater than 0 seconds for every set.",
       invalidWeightSet:
         "Enter a weight greater than 0 and at least 1 rep for every set.",

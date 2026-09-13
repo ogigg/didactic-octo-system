@@ -47,6 +47,7 @@ export const history = {
     },
     exerciseEditor: {
       title: "Edytuj: {{exerciseName}}",
+      workoutContext: "{{workoutName}} · {{workoutDate}}",
       subtitle:
         "Zmiany zaktualizują historię, rekordy i przyszłe rekomendacje.",
       close: "Zamknij edytor ćwiczenia",
@@ -58,6 +59,11 @@ export const history = {
       repsForSet: "Powtórzenia w serii {{number}}",
       rpeForSet: "RPE w serii {{number}}",
       removeSet: "Usuń serię {{number}}",
+      removeSetTitle: "Usunąć tę serię?",
+      removeSetMessage:
+        "Seria {{number}} zawiera zapisane dane. Zostanie usunięta po zapisaniu zmian.",
+      cancel: "Anuluj",
+      remove: "Usuń",
       addSet: "Dodaj serię",
       save: "Zapisz zmiany",
       discardTitle: "Odrzucić zmiany?",
@@ -66,6 +72,9 @@ export const history = {
       discardChanges: "Odrzuć",
       atLeastOneSet: "Zostaw co najmniej jedną serię albo usuń całe ćwiczenie.",
       invalidRpe: "RPE musi mieć wartość od 1 do 10.",
+      positiveHint: "Więcej niż 0",
+      positiveIntegerHint: "Liczba całkowita > 0",
+      rpeHint: "Liczba całkowita 1–10",
       invalidDuration: "Wpisz dla każdej serii czas dłuższy niż 0 sekund.",
       invalidWeightSet:
         "Wpisz dla każdej serii ciężar większy niż 0 i co najmniej 1 powtórzenie.",

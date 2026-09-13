@@ -4,6 +4,10 @@ import {
 } from "@/components/ui/app-bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import {
+  NUMERIC_ACCESSORY_ID,
+  NumericKeyboardAccessory,
+} from "@/components/numeric-keyboard-accessory";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
@@ -27,10 +31,12 @@ import {
 interface ExerciseHistoryEditSheetProps {
   visible: boolean;
   exerciseName: string;
+  workoutName: string;
+  workoutDate: string;
   exerciseType: "weight" | "time";
   sets: EditableExerciseSet[];
   onClose: () => void;
-  onSave: (sets: CompletedExerciseSetInput[]) => void;
+  onSave: (sets: CompletedExerciseSetInput[]) => void | Promise<void>;
 }
 
 interface SetDraft {
@@ -51,9 +57,22 @@ function parseDecimal(value: string): number {
   return Number(value.replace(",", "."));
 }
 
+function isPositiveInteger(value: string): boolean {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0;
+}
+
+function isValidRpe(value: string): boolean {
+  return (
+    value.trim() === "" || (isPositiveInteger(value) && Number(value) <= 10)
+  );
+}
+
 export function ExerciseHistoryEditSheet({
   visible,
   exerciseName,
+  workoutName,
+  workoutDate,
   exerciseType,
   sets,
   onClose,
@@ -65,7 +84,7 @@ export function ExerciseHistoryEditSheet({
   const nextKey = useRef(0);
   const wu = useWeightUnit();
   const [drafts, setDrafts] = useState<SetDraft[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const text = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textDisabled = useThemeColor({}, "textDisabled");
@@ -91,7 +110,7 @@ export function ExerciseHistoryEditSheet({
     }));
     initialDraftsRef.current = initialDrafts;
     setDrafts(initialDrafts);
-    setErrorMessage(null);
+    setIsSaving(false);
   }, [sets, visible, wu]);
 
   const updateDraft = (key: string, field: keyof SetDraft, value: string) => {
@@ -119,8 +138,19 @@ export function ExerciseHistoryEditSheet({
 
   const hasUnsavedChanges =
     JSON.stringify(drafts) !== JSON.stringify(initialDraftsRef.current);
+  const allDraftsValid =
+    drafts.length > 0 &&
+    drafts.every((draft) =>
+      exerciseType === "time"
+        ? isPositiveInteger(draft.duration) && isValidRpe(draft.rpe)
+        : parseDecimal(draft.load) > 0 &&
+          isPositiveInteger(draft.reps) &&
+          isValidRpe(draft.rpe)
+    );
 
   const handleRequestClose = () => {
+    if (isSaving) return;
+
     if (!hasUnsavedChanges) {
       sheetRef.current?.dismiss();
       return;
@@ -143,9 +173,31 @@ export function ExerciseHistoryEditSheet({
     );
   };
 
-  const handleSave = () => {
+  const handleRemove = (draft: SetDraft, index: number) => {
+    const remove = () =>
+      setDrafts((current) => current.filter((item) => item.key !== draft.key));
+
+    if (!draft.id) {
+      remove();
+      return;
+    }
+
+    Alert.alert(
+      t("detail.exerciseEditor.removeSetTitle"),
+      t("detail.exerciseEditor.removeSetMessage", { number: index + 1 }),
+      [
+        { text: t("detail.exerciseEditor.cancel"), style: "cancel" },
+        {
+          text: t("detail.exerciseEditor.remove"),
+          style: "destructive",
+          onPress: remove,
+        },
+      ]
+    );
+  };
+
+  const handleSave = async () => {
     if (drafts.length === 0) {
-      setErrorMessage(t("detail.exerciseEditor.atLeastOneSet"));
       return;
     }
 
@@ -156,14 +208,12 @@ export function ExerciseHistoryEditSheet({
         rpe !== undefined &&
         (!Number.isInteger(rpe) || rpe < 1 || rpe > 10)
       ) {
-        setErrorMessage(t("detail.exerciseEditor.invalidRpe"));
         return;
       }
 
       if (exerciseType === "time") {
         const duration = Number(draft.duration);
         if (!Number.isInteger(duration) || duration <= 0) {
-          setErrorMessage(t("detail.exerciseEditor.invalidDuration"));
           return;
         }
         payload.push({
@@ -181,7 +231,6 @@ export function ExerciseHistoryEditSheet({
           !Number.isInteger(reps) ||
           reps <= 0
         ) {
-          setErrorMessage(t("detail.exerciseEditor.invalidWeightSet"));
           return;
         }
         payload.push({
@@ -194,7 +243,15 @@ export function ExerciseHistoryEditSheet({
       }
     }
 
-    sheetRef.current?.dismiss(() => onSave(payload));
+    setIsSaving(true);
+    try {
+      await onSave(payload);
+      sheetRef.current?.dismiss();
+    } catch {
+      return;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -215,6 +272,12 @@ export function ExerciseHistoryEditSheet({
         <View style={styles.heading}>
           <Text style={[Typography.titleMd, { color: text }]} numberOfLines={2}>
             {t("detail.exerciseEditor.title", { exerciseName })}
+          </Text>
+          <Text style={[Typography.label, { color: primary }]}>
+            {t("detail.exerciseEditor.workoutContext", {
+              workoutName,
+              workoutDate,
+            })}
           </Text>
           <Text style={[Typography.caption, { color: textSecondary }]}>
             {t("detail.exerciseEditor.subtitle")}
@@ -275,117 +338,203 @@ export function ExerciseHistoryEditSheet({
           <View style={styles.removeButton} />
         </View>
 
-        {drafts.map((draft, index) => (
-          <View
-            key={draft.key}
-            style={[styles.setRow, { borderColor: border }]}
-          >
-            <Text
-              style={[
-                styles.setLabel,
-                Typography.label,
-                { color: textSecondary },
-              ]}
+        {drafts.map((draft, index) => {
+          const durationInvalid = !isPositiveInteger(draft.duration);
+          const loadInvalid = parseDecimal(draft.load) <= 0;
+          const repsInvalid = !isPositiveInteger(draft.reps);
+          const rpeInvalid = !isValidRpe(draft.rpe);
+          const accessoryId =
+            Platform.OS === "ios" ? NUMERIC_ACCESSORY_ID : undefined;
+
+          return (
+            <View
+              key={draft.key}
+              style={[styles.setRow, { borderColor: border }]}
             >
-              {index + 1}
-            </Text>
-            {exerciseType === "time" ? (
-              <TextInput
-                accessibilityLabel={t("detail.exerciseEditor.durationForSet", {
-                  number: index + 1,
-                })}
-                keyboardType="number-pad"
-                onChangeText={(value) => {
-                  if (/^\d*$/.test(value)) {
-                    updateDraft(draft.key, "duration", value);
-                  }
-                }}
-                placeholder="0"
-                placeholderTextColor={textDisabled}
+              <Text
                 style={[
-                  styles.input,
-                  { backgroundColor: inputFill, color: text },
+                  styles.setLabel,
+                  styles.setNumber,
+                  Typography.label,
+                  { color: textSecondary },
                 ]}
-                value={draft.duration}
-              />
-            ) : (
-              <>
+              >
+                {index + 1}
+              </Text>
+              {exerciseType === "time" ? (
+                <View style={styles.inputColumn}>
+                  <TextInput
+                    accessibilityLabel={t(
+                      "detail.exerciseEditor.durationForSet",
+                      { number: index + 1 }
+                    )}
+                    editable={!isSaving}
+                    inputAccessoryViewID={accessoryId}
+                    keyboardType="number-pad"
+                    onChangeText={(value) => {
+                      if (/^\d*$/.test(value)) {
+                        updateDraft(draft.key, "duration", value);
+                      }
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={textDisabled}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: inputFill,
+                        borderColor: durationInvalid ? error : "transparent",
+                        color: text,
+                      },
+                    ]}
+                    value={draft.duration}
+                  />
+                  {durationInvalid ? (
+                    <Text
+                      style={[
+                        Typography.micro,
+                        styles.fieldHint,
+                        { color: error },
+                      ]}
+                    >
+                      {t("detail.exerciseEditor.positiveIntegerHint")}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <>
+                  <View style={styles.inputColumn}>
+                    <TextInput
+                      accessibilityLabel={t(
+                        "detail.exerciseEditor.weightForSet",
+                        { number: index + 1, unit: wu.label }
+                      )}
+                      editable={!isSaving}
+                      inputAccessoryViewID={accessoryId}
+                      keyboardType="decimal-pad"
+                      onChangeText={(value) =>
+                        updateDraft(draft.key, "load", value)
+                      }
+                      placeholder="0"
+                      placeholderTextColor={textDisabled}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: inputFill,
+                          borderColor: loadInvalid ? error : "transparent",
+                          color: text,
+                        },
+                      ]}
+                      value={draft.load}
+                    />
+                    {loadInvalid ? (
+                      <Text
+                        style={[
+                          Typography.micro,
+                          styles.fieldHint,
+                          { color: error },
+                        ]}
+                      >
+                        {t("detail.exerciseEditor.positiveHint")}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.inputColumn}>
+                    <TextInput
+                      accessibilityLabel={t(
+                        "detail.exerciseEditor.repsForSet",
+                        { number: index + 1 }
+                      )}
+                      editable={!isSaving}
+                      inputAccessoryViewID={accessoryId}
+                      keyboardType="number-pad"
+                      onChangeText={(value) => {
+                        if (/^\d*$/.test(value)) {
+                          updateDraft(draft.key, "reps", value);
+                        }
+                      }}
+                      placeholder="0"
+                      placeholderTextColor={textDisabled}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: inputFill,
+                          borderColor: repsInvalid ? error : "transparent",
+                          color: text,
+                        },
+                      ]}
+                      value={draft.reps}
+                    />
+                    {repsInvalid ? (
+                      <Text
+                        style={[
+                          Typography.micro,
+                          styles.fieldHint,
+                          { color: error },
+                        ]}
+                      >
+                        {t("detail.exerciseEditor.positiveIntegerHint")}
+                      </Text>
+                    ) : null}
+                  </View>
+                </>
+              )}
+              <View style={styles.inputColumn}>
                 <TextInput
-                  accessibilityLabel={t("detail.exerciseEditor.weightForSet", {
-                    number: index + 1,
-                    unit: wu.label,
-                  })}
-                  keyboardType="decimal-pad"
-                  onChangeText={(value) =>
-                    updateDraft(draft.key, "load", value)
-                  }
-                  placeholder="0"
-                  placeholderTextColor={textDisabled}
-                  style={[
-                    styles.input,
-                    { backgroundColor: inputFill, color: text },
-                  ]}
-                  value={draft.load}
-                />
-                <TextInput
-                  accessibilityLabel={t("detail.exerciseEditor.repsForSet", {
+                  accessibilityLabel={t("detail.exerciseEditor.rpeForSet", {
                     number: index + 1,
                   })}
+                  editable={!isSaving}
+                  inputAccessoryViewID={accessoryId}
                   keyboardType="number-pad"
                   onChangeText={(value) => {
                     if (/^\d*$/.test(value)) {
-                      updateDraft(draft.key, "reps", value);
+                      updateDraft(draft.key, "rpe", value);
                     }
                   }}
-                  placeholder="0"
+                  placeholder="—"
                   placeholderTextColor={textDisabled}
                   style={[
                     styles.input,
-                    { backgroundColor: inputFill, color: text },
+                    {
+                      backgroundColor: inputFill,
+                      borderColor: rpeInvalid ? error : "transparent",
+                      color: text,
+                    },
                   ]}
-                  value={draft.reps}
+                  value={draft.rpe}
                 />
-              </>
-            )}
-            <TextInput
-              accessibilityLabel={t("detail.exerciseEditor.rpeForSet", {
-                number: index + 1,
-              })}
-              keyboardType="number-pad"
-              onChangeText={(value) => {
-                if (/^(?:10|[1-9])?$/.test(value)) {
-                  updateDraft(draft.key, "rpe", value);
-                }
-              }}
-              placeholder="—"
-              placeholderTextColor={textDisabled}
-              style={[
-                styles.input,
-                { backgroundColor: inputFill, color: text },
-              ]}
-              value={draft.rpe}
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("detail.exerciseEditor.removeSet", {
-                number: index + 1,
-              })}
-              hitSlop={6}
-              onPress={() =>
-                setDrafts((current) =>
-                  current.filter((item) => item.key !== draft.key)
-                )
-              }
-              style={styles.removeButton}
-            >
-              <IconSymbol name="trash" size={18} color={error} />
-            </Pressable>
-          </View>
-        ))}
+                {rpeInvalid ? (
+                  <Text
+                    style={[
+                      Typography.micro,
+                      styles.fieldHint,
+                      { color: error },
+                    ]}
+                  >
+                    {t("detail.exerciseEditor.rpeHint")}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("detail.exerciseEditor.removeSet", {
+                  number: index + 1,
+                })}
+                disabled={isSaving}
+                hitSlop={6}
+                onPress={() => handleRemove(draft, index)}
+                style={styles.removeButton}
+              >
+                <IconSymbol name="trash" size={18} color={error} />
+              </Pressable>
+            </View>
+          );
+        })}
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("detail.exerciseEditor.addSet")}
+          disabled={isSaving}
           onPress={handleAdd}
           style={[styles.addButton, { borderColor: primary }]}
         >
@@ -395,17 +544,23 @@ export function ExerciseHistoryEditSheet({
           </Text>
         </Pressable>
 
-        {errorMessage ? (
+        {drafts.length === 0 ? (
           <Text
             accessibilityRole="alert"
             style={[Typography.caption, { color: error }]}
           >
-            {errorMessage}
+            {t("detail.exerciseEditor.atLeastOneSet")}
           </Text>
         ) : null}
 
-        <Button label={t("detail.exerciseEditor.save")} onPress={handleSave} />
+        <Button
+          disabled={!hasUnsavedChanges || !allDraftsValid}
+          label={t("detail.exerciseEditor.save")}
+          loading={isSaving}
+          onPress={handleSave}
+        />
       </ScrollView>
+      <NumericKeyboardAccessory />
     </AppBottomSheet>
   );
 }
@@ -419,18 +574,21 @@ const styles = StyleSheet.create({
   heading: { gap: Spacing.xs, marginBottom: Spacing.sm },
   columnLabels: { alignItems: "center", flexDirection: "row", gap: Spacing.sm },
   setRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     borderBottomWidth: 1,
     flexDirection: "row",
     gap: Spacing.sm,
     paddingBottom: Spacing.sm,
   },
   setLabel: { textAlign: "center", width: 28 },
+  setNumber: { paddingTop: Spacing.md },
   inputLabel: { flex: 1, textAlign: "center" },
+  inputColumn: { flex: 1, gap: 2 },
+  fieldHint: { textAlign: "center" },
   input: {
     ...Typography.bodyMedium,
     borderRadius: Radii.sm,
-    flex: 1,
+    borderWidth: 1,
     minHeight: 44,
     paddingHorizontal: Spacing.sm,
     textAlign: "center",

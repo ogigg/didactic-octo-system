@@ -63,12 +63,25 @@ jest.mock("@/hooks/use-weight-unit", () => ({
 
 jest.mock("react-i18next", () => ({
   useTranslation: jest.fn(() => ({
-    t: (key: string, options?: { number?: number }) =>
-      options?.number ? `${key}-${options.number}` : key,
+    t: (
+      key: string,
+      options?: { number?: number; workoutName?: string; workoutDate?: string }
+    ) =>
+      options?.number
+        ? `${key}-${options.number}`
+        : options?.workoutName
+          ? `${options.workoutName} · ${options.workoutDate}`
+          : key,
   })),
 }));
 
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import { Alert } from "react-native";
 
 import { ExerciseHistoryEditSheet } from "../exercise-history-edit-sheet";
@@ -84,12 +97,18 @@ const set = {
 };
 
 describe("ExerciseHistoryEditSheet", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("saves edited load, reps, and an integer RPE from 1 to 10", () => {
     const onSave = jest.fn();
     render(
       <ExerciseHistoryEditSheet
         visible
         exerciseName="Bench Press"
+        workoutName="Full body Workout"
+        workoutDate="Sep 12, 2026"
         exerciseType="weight"
         sets={[set]}
         onClose={jest.fn()}
@@ -109,9 +128,10 @@ describe("ExerciseHistoryEditSheet", () => {
     fireEvent.changeText(rpeInput, "8.5");
     expect(rpeInput).toHaveProp("value", "7");
     fireEvent.changeText(rpeInput, "11");
-    expect(rpeInput).toHaveProp("value", "7");
+    expect(rpeInput).toHaveProp("value", "11");
+    expect(screen.getByText("detail.exerciseEditor.rpeHint")).toBeTruthy();
     fireEvent.changeText(rpeInput, "0");
-    expect(rpeInput).toHaveProp("value", "7");
+    expect(rpeInput).toHaveProp("value", "0");
     fireEvent.changeText(rpeInput, "10");
     fireEvent.press(
       screen.getByRole("button", { name: "detail.exerciseEditor.save" })
@@ -130,10 +150,13 @@ describe("ExerciseHistoryEditSheet", () => {
 
   it("adds and removes series without allowing an empty history entry", () => {
     const onSave = jest.fn();
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     render(
       <ExerciseHistoryEditSheet
         visible
         exerciseName="Bench Press"
+        workoutName="Full body Workout"
+        workoutDate="Sep 12, 2026"
         exerciseType="weight"
         sets={[set]}
         onClose={jest.fn()}
@@ -153,9 +176,11 @@ describe("ExerciseHistoryEditSheet", () => {
     fireEvent.press(
       screen.getByRole("button", { name: "detail.exerciseEditor.removeSet-1" })
     );
-    fireEvent.press(
-      screen.getByRole("button", { name: "detail.exerciseEditor.save" })
+    const removeAlert = alertSpy.mock.calls.at(-1);
+    const removeButton = removeAlert?.[2]?.find(
+      (button) => button.style === "destructive"
     );
+    act(() => removeButton?.onPress?.());
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "detail.exerciseEditor.atLeastOneSet"
@@ -169,6 +194,8 @@ describe("ExerciseHistoryEditSheet", () => {
       <ExerciseHistoryEditSheet
         visible
         exerciseName="Bench Press"
+        workoutName="Full body Workout"
+        workoutDate="Sep 12, 2026"
         exerciseType="weight"
         sets={[set]}
         onClose={jest.fn()}
@@ -180,13 +207,10 @@ describe("ExerciseHistoryEditSheet", () => {
       screen.getByLabelText("detail.exerciseEditor.weightForSet-1"),
       "0"
     );
-    fireEvent.press(
+    expect(screen.getByText("detail.exerciseEditor.positiveHint")).toBeTruthy();
+    expect(
       screen.getByRole("button", { name: "detail.exerciseEditor.save" })
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "detail.exerciseEditor.invalidWeightSet"
-    );
+    ).toBeDisabled();
     expect(onSave).not.toHaveBeenCalled();
   });
 
@@ -197,6 +221,8 @@ describe("ExerciseHistoryEditSheet", () => {
       <ExerciseHistoryEditSheet
         visible
         exerciseName="Bench Press"
+        workoutName="Full body Workout"
+        workoutDate="Sep 12, 2026"
         exerciseType="weight"
         sets={[set]}
         onClose={onClose}
@@ -220,5 +246,47 @@ describe("ExerciseHistoryEditSheet", () => {
     fireEvent.press(closeButton);
     expect(alertSpy).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows workout context, an iOS Done toolbar, and prevents duplicate saves", async () => {
+    let resolveSave: (() => void) | undefined;
+    const onClose = jest.fn();
+    const onSave = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        })
+    );
+    render(
+      <ExerciseHistoryEditSheet
+        visible
+        exerciseName="Bench Press"
+        workoutName="Full body Workout"
+        workoutDate="Sep 12, 2026"
+        exerciseType="weight"
+        sets={[set]}
+        onClose={onClose}
+        onSave={onSave}
+      />
+    );
+
+    expect(screen.getByText("Full body Workout · Sep 12, 2026")).toBeTruthy();
+    expect(screen.getByText("Done")).toBeTruthy();
+
+    fireEvent.changeText(
+      screen.getByLabelText("detail.exerciseEditor.repsForSet-1"),
+      "9"
+    );
+    const saveButton = screen.getByRole("button", {
+      name: "detail.exerciseEditor.save",
+    });
+    fireEvent.press(saveButton);
+    fireEvent.press(saveButton);
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(saveButton).toHaveAccessibilityState({ busy: true, disabled: true });
+
+    await act(async () => resolveSave?.());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 });

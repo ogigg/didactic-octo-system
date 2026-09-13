@@ -163,20 +163,22 @@ export default function WorkoutDetailScreen() {
   );
 
   const handleSaveExercise = useCallback(
-    (sets: CompletedExerciseSetInput[]) => {
+    async (sets: CompletedExerciseSetInput[]) => {
       if (!selectedExercise) return;
 
-      updateExerciseSetsMutation.mutate(
-        { sessionExerciseId: selectedExercise.id, sets },
-        {
-          onSuccess: () => showSuccess(t("detail.exerciseEditor.success")),
-          onError: () =>
-            Alert.alert(
-              t("detail.exerciseEditor.errorTitle"),
-              t("detail.exerciseEditor.errorMessage")
-            ),
-        }
-      );
+      try {
+        await updateExerciseSetsMutation.mutateAsync({
+          sessionExerciseId: selectedExercise.id,
+          sets,
+        });
+        showSuccess(t("detail.exerciseEditor.success"));
+      } catch (error) {
+        Alert.alert(
+          t("detail.exerciseEditor.errorTitle"),
+          t("detail.exerciseEditor.errorMessage")
+        );
+        throw error;
+      }
     },
     [selectedExercise, showSuccess, t, updateExerciseSetsMutation]
   );
@@ -578,6 +580,11 @@ export default function WorkoutDetailScreen() {
                 selectedExercise.exercise_name)
               : ""
           }
+          workoutName={detail?.name ?? t("detail.fallbackName")}
+          workoutDate={formatDate(
+            detail?.completed_at ?? null,
+            i18n.resolvedLanguage ?? i18n.language
+          )}
           exerciseType={selectedExercise?.exercise_type ?? "weight"}
           sets={
             selectedExercise?.sets
