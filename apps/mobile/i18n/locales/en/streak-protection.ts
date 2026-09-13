@@ -11,37 +11,38 @@ export const streakProtection = {
       body: "One workout this week keeps it. Anything counts.",
     },
     free_earned_freeze: {
-      title: "Use your freeze on last week?",
-      body: "You earned it by showing up week after week. It fills the gap and your streak stays whole. Or skip it and start fresh — your call.",
+      title: "Missed a week? Keep your streak",
+      body: "Your training earned you a freeze. Use it to cover last week and keep your streak, or start a new streak with your next workout.",
     },
     free_lifetime_rescue: {
-      title: "Fill the gap from last week?",
-      body: "Your one-time restore covers the week you missed and keeps the streak whole. Training this week and starting fresh is just as good.",
+      title: "Give your streak another week",
+      body: "Missed last week? Use your one-time restore to keep your streak, or start a new streak with your next workout.",
     },
     free_comeback: {
-      title: "Good to see you",
-      body: "Last week was a rest week, so the counter starts over. Everything you’ve logged still stands. A short workout is the easiest way back in.",
+      title: "Ready for your next workout?",
+      body: "Your next workout starts a new streak. Your past workouts are all saved. Pick up where you left off, even if today’s session is a short one.",
     },
     pro_auto_applied: {
-      title: "Last week is covered",
-      body_one: "A Pro freeze filled the gap for you. {{count}} freeze left.",
+      title: "Your streak is safe",
+      body_one:
+        "Pro used a freeze to keep your streak going through last week. {{count}} freeze left.",
       body_other:
-        "A Pro freeze filled the gap for you. {{count}} freezes left.",
+        "Pro used a freeze to keep your streak going through last week. {{count}} freezes left.",
     },
     pro_available_freeze: {
-      title: "Use a freeze on last week?",
-      body: "It fills the gap and your streak stays whole. Or skip it and start fresh — your call.",
+      title: "Keep your streak going",
+      body: "Use a freeze to cover last week and keep your streak, or start a new streak with your next workout.",
     },
     pro_comeback: {
-      title: "Good to see you",
-      body: "No freezes were left for last week, so the counter starts over. Everything you’ve logged still stands. Ease back in, or lighten your plan if the weeks feel too full.",
+      title: "Ready for your next workout?",
+      body: "You had no freezes left to cover last week. Your next workout starts a new streak, and your past workouts are all saved. Need a lighter schedule? Adjust your plan below.",
     },
   },
   details: {
     coveredWeek: "Covers {{range}}",
     freezesAvailable_one: "{{count}} freeze left",
     freezesAvailable_other: "{{count}} freezes left",
-    restoreAvailable: "One-time restore, unused",
+    restoreAvailable: "One-time restore available",
   },
   actions: {
     useFreeze: "Use freeze",

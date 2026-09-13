@@ -95,10 +95,10 @@ describe("StreakProtectionSheet", () => {
       const handlers = renderSheet(baseStatus);
 
       expect(screen.getByRole("header")).toHaveTextContent(
-        "Fill the gap from last week?"
+        "Give your streak another week"
       );
       expect(screen.getByText("Covers Jun 29 – Jul 5")).toBeTruthy();
-      expect(screen.getByText("One-time restore, unused")).toBeTruthy();
+      expect(screen.getByText("One-time restore available")).toBeTruthy();
 
       fireEvent.press(button("Use restore"));
       expect(handlers.onApplyProtection).toHaveBeenCalledWith(
@@ -167,7 +167,9 @@ describe("StreakProtectionSheet", () => {
         })
       );
 
-      expect(screen.getByRole("header")).toHaveTextContent("Good to see you");
+      expect(screen.getByRole("header")).toHaveTextContent(
+        "Ready for your next workout?"
+      );
       expect(screen.queryByText(/Covers/)).toBeNull();
 
       fireEvent.press(button("Start a workout"));
@@ -180,7 +182,9 @@ describe("StreakProtectionSheet", () => {
       expect(screen.getByText(/Everything you’ve logged stays/)).toBeTruthy();
 
       fireEvent.press(button("Back"));
-      expect(screen.getByRole("header")).toHaveTextContent("Good to see you");
+      expect(screen.getByRole("header")).toHaveTextContent(
+        "Ready for your next workout?"
+      );
 
       fireEvent.press(button("Start over"));
       fireEvent.press(button("Start over"));

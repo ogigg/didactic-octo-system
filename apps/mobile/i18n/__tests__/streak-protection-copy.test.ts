@@ -37,12 +37,12 @@ describe("streak protection copy", () => {
       states.free_lifetime_rescue,
       states.pro_available_freeze,
     ]) {
-      expect(state.body).toMatch(/streak (stays|whole)/);
-      expect(state.body).toMatch(/start(ing)? fresh/);
+      expect(state.body).toMatch(/keep your streak/);
+      expect(state.body).toMatch(/start a new streak with your next workout/);
     }
 
-    expect(states.free_comeback.body).toMatch(/still stands/);
-    expect(states.pro_comeback.body).toMatch(/still stands/);
+    expect(states.free_comeback.body).toMatch(/past workouts are all saved/);
+    expect(states.pro_comeback.body).toMatch(/past workouts are all saved/);
   });
 
   it("keeps the restart confirmation honest about workout history", () => {

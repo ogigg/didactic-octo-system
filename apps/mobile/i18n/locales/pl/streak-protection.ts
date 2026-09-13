@@ -11,35 +11,35 @@ export const streakProtection = {
       body: "Jeden trening w tym tygodniu ją utrzyma. Każdy się liczy.",
     },
     free_earned_freeze: {
-      title: "Użyć zamrożenia na zeszły tydzień?",
-      body: "Zdobyłeś je, trenując tydzień po tygodniu. Wypełni lukę i seria zostanie cała. Możesz też je pominąć i zacząć od nowa — Twój wybór.",
+      title: "Zachowaj swoją serię",
+      body: "Za regularne treningi masz zamrożenie. Użyj go, by zachować serię mimo przerwy w zeszłym tygodniu, albo zacznij nową serię od kolejnego treningu.",
     },
     free_lifetime_rescue: {
-      title: "Wypełnić lukę z zeszłego tygodnia?",
-      body: "Jednorazowe przywrócenie pokryje opuszczony tydzień i seria zostanie cała. Trening w tym tygodniu i start od nowa są równie dobre.",
+      title: "Daj swojej serii kolejny tydzień",
+      body: "Tydzień bez treningu? Możesz raz przywrócić serię po przerwie albo zacząć nową od kolejnego treningu.",
     },
     free_comeback: {
-      title: "Dobrze Cię widzieć",
-      body: "Zeszły tydzień był odpoczynkiem, więc licznik startuje od zera. Wszystko, co zapisałeś, zostaje. Krótki trening to najprostszy powrót.",
+      title: "Czas na kolejny trening?",
+      body: "Kolejny trening rozpocznie nową serię. Wszystkie poprzednie treningi są zapisane. Wróć do ćwiczeń, nawet jeśli dziś masz czas tylko na krótką sesję.",
     },
     pro_auto_applied: {
-      title: "Zeszły tydzień jest pokryty",
+      title: "Twoja seria trwa dalej",
       body_one:
-        "Zamrożenie Pro wypełniło lukę za Ciebie. Zostało {{count}} zamrożenie.",
+        "Pro automatycznie użyło zamrożenia za zeszły tydzień. Zostało {{count}} zamrożenie.",
       body_few:
-        "Zamrożenie Pro wypełniło lukę za Ciebie. Zostały {{count}} zamrożenia.",
+        "Pro automatycznie użyło zamrożenia za zeszły tydzień. Zostały {{count}} zamrożenia.",
       body_many:
-        "Zamrożenie Pro wypełniło lukę za Ciebie. Zostało {{count}} zamrożeń.",
+        "Pro automatycznie użyło zamrożenia za zeszły tydzień. Zostało {{count}} zamrożeń.",
       body_other:
-        "Zamrożenie Pro wypełniło lukę za Ciebie. Zostało {{count}} zamrożenia.",
+        "Pro automatycznie użyło zamrożenia za zeszły tydzień. Zostało {{count}} zamrożenia.",
     },
     pro_available_freeze: {
-      title: "Użyć zamrożenia na zeszły tydzień?",
-      body: "Wypełni lukę i seria zostanie cała. Możesz też je pominąć i zacząć od nowa — Twój wybór.",
+      title: "Zachowaj swoją serię",
+      body: "Użyj zamrożenia, by zachować serię mimo przerwy w zeszłym tygodniu, albo zacznij nową serię od kolejnego treningu.",
     },
     pro_comeback: {
-      title: "Dobrze Cię widzieć",
-      body: "Na zeszły tydzień nie zostało żadne zamrożenie, więc licznik startuje od zera. Wszystko, co zapisałeś, zostaje. Wróć spokojnie albo odchudź plan, jeśli tygodnie są za pełne.",
+      title: "Czas na kolejny trening?",
+      body: "Nie było już zamrożeń na zeszły tydzień. Kolejny trening rozpocznie nową serię, a poprzednie treningi są zapisane. Masz mniej czasu na ćwiczenia? Dostosuj plan poniżej.",
     },
   },
   details: {
@@ -48,7 +48,7 @@ export const streakProtection = {
     freezesAvailable_few: "Zostały {{count}} zamrożenia",
     freezesAvailable_many: "Zostało {{count}} zamrożeń",
     freezesAvailable_other: "Zostało {{count}} zamrożenia",
-    restoreAvailable: "Jednorazowe przywrócenie, niewykorzystane",
+    restoreAvailable: "Dostępne jednorazowe przywrócenie",
   },
   actions: {
     useFreeze: "Użyj zamrożenia",
