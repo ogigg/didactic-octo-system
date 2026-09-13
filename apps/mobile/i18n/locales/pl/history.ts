@@ -72,8 +72,7 @@ export const history = {
       discardChanges: "Odrzuć",
       atLeastOneSet: "Zostaw co najmniej jedną serię albo usuń całe ćwiczenie.",
       invalidRpe: "RPE musi mieć wartość od 1 do 10.",
-      positiveHint: "Więcej niż 0",
-      positiveIntegerHint: "Liczba całkowita > 0",
+      positiveHint: "Wartość > 0",
       rpeHint: "Liczba całkowita 1–10",
       invalidDuration: "Wpisz dla każdej serii czas dłuższy niż 0 sekund.",
       invalidWeightSet:

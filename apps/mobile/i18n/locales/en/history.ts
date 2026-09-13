@@ -72,8 +72,7 @@ export const history = {
       discardChanges: "Discard",
       atLeastOneSet: "Keep at least one set, or delete the exercise instead.",
       invalidRpe: "RPE must be between 1 and 10.",
-      positiveHint: "Greater than 0",
-      positiveIntegerHint: "Whole number > 0",
+      positiveHint: "Value > 0",
       rpeHint: "Whole number 1–10",
       invalidDuration: "Enter a duration greater than 0 seconds for every set.",
       invalidWeightSet:

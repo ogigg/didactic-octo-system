@@ -396,7 +396,7 @@ export function ExerciseHistoryEditSheet({
                         { color: error },
                       ]}
                     >
-                      {t("detail.exerciseEditor.positiveIntegerHint")}
+                      {t("detail.exerciseEditor.positiveHint")}
                     </Text>
                   ) : null}
                 </View>
@@ -472,7 +472,7 @@ export function ExerciseHistoryEditSheet({
                           { color: error },
                         ]}
                       >
-                        {t("detail.exerciseEditor.positiveIntegerHint")}
+                        {t("detail.exerciseEditor.positiveHint")}
                       </Text>
                     ) : null}
                   </View>
