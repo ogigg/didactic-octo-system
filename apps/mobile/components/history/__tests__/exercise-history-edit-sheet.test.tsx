@@ -1,16 +1,42 @@
 jest.mock("@/components/ui/app-bottom-sheet", () => {
   const React = require("react");
-  const { View } = require("react-native");
+  const { Pressable, View } = require("react-native");
   return {
     AppBottomSheet: React.forwardRef(
       (
-        { children, visible }: { children: React.ReactNode; visible: boolean },
+        {
+          children,
+          closeAccessibilityLabel,
+          onClose,
+          onRequestClose,
+          visible,
+        }: {
+          children: React.ReactNode;
+          closeAccessibilityLabel: string;
+          onClose: () => void;
+          onRequestClose?: () => void;
+          visible: boolean;
+        },
         ref: React.Ref<{ dismiss: (callback?: () => void) => void }>
       ) => {
         React.useImperativeHandle(ref, () => ({
-          dismiss: (callback?: () => void) => callback?.(),
+          dismiss: (callback?: () => void) => {
+            onClose();
+            callback?.();
+          },
         }));
-        return visible ? React.createElement(View, null, children) : null;
+        return visible
+          ? React.createElement(
+              View,
+              null,
+              React.createElement(Pressable, {
+                accessibilityLabel: closeAccessibilityLabel,
+                accessibilityRole: "button",
+                onPress: onRequestClose,
+              }),
+              children
+            )
+          : null;
       }
     ),
   };
@@ -43,6 +69,7 @@ jest.mock("react-i18next", () => ({
 }));
 
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import { Alert } from "react-native";
 
 import { ExerciseHistoryEditSheet } from "../exercise-history-edit-sheet";
 
@@ -57,7 +84,7 @@ const set = {
 };
 
 describe("ExerciseHistoryEditSheet", () => {
-  it("saves edited load, reps, and RPE", () => {
+  it("saves edited load, reps, and an integer RPE from 1 to 10", () => {
     const onSave = jest.fn();
     render(
       <ExerciseHistoryEditSheet
@@ -78,10 +105,14 @@ describe("ExerciseHistoryEditSheet", () => {
       screen.getByLabelText("detail.exerciseEditor.repsForSet-1"),
       "6"
     );
-    fireEvent.changeText(
-      screen.getByLabelText("detail.exerciseEditor.rpeForSet-1"),
-      "8.5"
-    );
+    const rpeInput = screen.getByLabelText("detail.exerciseEditor.rpeForSet-1");
+    fireEvent.changeText(rpeInput, "8.5");
+    expect(rpeInput).toHaveProp("value", "7");
+    fireEvent.changeText(rpeInput, "11");
+    expect(rpeInput).toHaveProp("value", "7");
+    fireEvent.changeText(rpeInput, "0");
+    expect(rpeInput).toHaveProp("value", "7");
+    fireEvent.changeText(rpeInput, "10");
     fireEvent.press(
       screen.getByRole("button", { name: "detail.exerciseEditor.save" })
     );
@@ -92,7 +123,7 @@ describe("ExerciseHistoryEditSheet", () => {
         set_type: "working",
         actual_load_kg: 82.5,
         actual_reps: 6,
-        rpe: 8.5,
+        rpe: 10,
       },
     ]);
   });
@@ -130,5 +161,64 @@ describe("ExerciseHistoryEditSheet", () => {
       "detail.exerciseEditor.atLeastOneSet"
     );
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("requires weight to be greater than zero", () => {
+    const onSave = jest.fn();
+    render(
+      <ExerciseHistoryEditSheet
+        visible
+        exerciseName="Bench Press"
+        exerciseType="weight"
+        sets={[set]}
+        onClose={jest.fn()}
+        onSave={onSave}
+      />
+    );
+
+    fireEvent.changeText(
+      screen.getByLabelText("detail.exerciseEditor.weightForSet-1"),
+      "0"
+    );
+    fireEvent.press(
+      screen.getByRole("button", { name: "detail.exerciseEditor.save" })
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "detail.exerciseEditor.invalidWeightSet"
+    );
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("warns before closing only while changes are unsaved", () => {
+    const onClose = jest.fn();
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    render(
+      <ExerciseHistoryEditSheet
+        visible
+        exerciseName="Bench Press"
+        exerciseType="weight"
+        sets={[set]}
+        onClose={onClose}
+        onSave={jest.fn()}
+      />
+    );
+
+    const repsInput = screen.getByLabelText(
+      "detail.exerciseEditor.repsForSet-1"
+    );
+    const closeButton = screen.getByRole("button", {
+      name: "detail.exerciseEditor.close",
+    });
+
+    fireEvent.changeText(repsInput, "9");
+    fireEvent.press(closeButton);
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.changeText(repsInput, "8");
+    fireEvent.press(closeButton);
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

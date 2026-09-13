@@ -93,6 +93,30 @@ describe("AppBottomSheet", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("allows a consumer to intercept a user-requested close", () => {
+    const onClose = jest.fn();
+    const onRequestClose = jest.fn();
+    render(
+      <SafeAreaProvider initialMetrics={initialMetrics}>
+        <AppBottomSheet
+          visible
+          onClose={onClose}
+          onRequestClose={onRequestClose}
+          closeAccessibilityLabel="Close sheet"
+        >
+          <Text>Sheet content</Text>
+        </AppBottomSheet>
+      </SafeAreaProvider>
+    );
+
+    fireEvent.press(
+      screen.getByLabelText("Close sheet", { includeHiddenElements: true })
+    );
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("supports a compact fixed height", () => {
     render(
       <SafeAreaProvider initialMetrics={initialMetrics}>

@@ -43,6 +43,7 @@ const OPEN_SPRING = { damping: 26, stiffness: 260, mass: 0.9 };
 interface AppBottomSheetProps extends PropsWithChildren {
   visible: boolean;
   onClose: () => void;
+  onRequestClose?: () => void;
   closeAccessibilityLabel: string;
   height?: ViewStyle["height"];
   testID?: string;
@@ -59,6 +60,7 @@ export const AppBottomSheet = forwardRef<
   {
     visible,
     onClose,
+    onRequestClose,
     closeAccessibilityLabel,
     height,
     testID,
@@ -130,8 +132,22 @@ export const AppBottomSheet = forwardRef<
       return;
     }
 
+    if (onRequestClose) {
+      onRequestClose();
+      return;
+    }
+
     requestClose();
-  }, [requestClose]);
+  }, [onRequestClose, requestClose]);
+
+  const handleUserRequestClose = useCallback(() => {
+    if (onRequestClose) {
+      onRequestClose();
+      return;
+    }
+
+    requestClose();
+  }, [onRequestClose, requestClose]);
 
   useImperativeHandle(
     ref,
@@ -155,12 +171,17 @@ export const AppBottomSheet = forwardRef<
             event.translationY > DISMISS_DISTANCE ||
             event.velocityY > DISMISS_VELOCITY
           ) {
-            runOnJS(requestClose)();
+            if (onRequestClose) {
+              translateY.value = withSpring(0, OPEN_SPRING);
+              runOnJS(onRequestClose)();
+            } else {
+              runOnJS(requestClose)();
+            }
           } else {
             translateY.value = withSpring(0, OPEN_SPRING);
           }
         }),
-    [requestClose, translateY]
+    [onRequestClose, requestClose, translateY]
   );
 
   const backdropStyle = useAnimatedStyle(() => ({
@@ -177,7 +198,7 @@ export const AppBottomSheet = forwardRef<
       statusBarTranslucent
       animationType="none"
       presentationStyle="overFullScreen"
-      onRequestClose={() => requestClose()}
+      onRequestClose={handleUserRequestClose}
     >
       <KeyboardAvoidingView
         style={styles.flex}
@@ -198,7 +219,7 @@ export const AppBottomSheet = forwardRef<
             <Animated.View
               testID={testID}
               accessibilityViewIsModal
-              onAccessibilityEscape={() => requestClose()}
+              onAccessibilityEscape={handleUserRequestClose}
               style={[
                 styles.sheet,
                 height != null && { height },

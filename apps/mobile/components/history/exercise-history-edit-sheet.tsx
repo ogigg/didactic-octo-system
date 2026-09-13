@@ -14,6 +14,7 @@ import type {
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -60,6 +61,7 @@ export function ExerciseHistoryEditSheet({
 }: ExerciseHistoryEditSheetProps) {
   const { t } = useTranslation("history");
   const sheetRef = useRef<AppBottomSheetHandle>(null);
+  const initialDraftsRef = useRef<SetDraft[]>([]);
   const nextKey = useRef(0);
   const wu = useWeightUnit();
   const [drafts, setDrafts] = useState<SetDraft[]>([]);
@@ -74,21 +76,21 @@ export function ExerciseHistoryEditSheet({
 
   useEffect(() => {
     if (!visible) return;
-    setDrafts(
-      sets.map((set) => ({
-        key: set.id,
-        id: set.id,
-        setType: set.set_type,
-        load: displayNumber(
-          set.load_kg == null
-            ? null
-            : Math.round(wu.convert(set.load_kg) * 10) / 10
-        ),
-        reps: displayNumber(set.reps),
-        duration: displayNumber(set.duration_seconds),
-        rpe: displayNumber(set.rpe),
-      }))
-    );
+    const initialDrafts = sets.map((set) => ({
+      key: set.id,
+      id: set.id,
+      setType: set.set_type,
+      load: displayNumber(
+        set.load_kg == null
+          ? null
+          : Math.round(wu.convert(set.load_kg) * 10) / 10
+      ),
+      reps: displayNumber(set.reps),
+      duration: displayNumber(set.duration_seconds),
+      rpe: displayNumber(set.rpe),
+    }));
+    initialDraftsRef.current = initialDrafts;
+    setDrafts(initialDrafts);
     setErrorMessage(null);
   }, [sets, visible, wu]);
 
@@ -115,6 +117,32 @@ export function ExerciseHistoryEditSheet({
     ]);
   };
 
+  const hasUnsavedChanges =
+    JSON.stringify(drafts) !== JSON.stringify(initialDraftsRef.current);
+
+  const handleRequestClose = () => {
+    if (!hasUnsavedChanges) {
+      sheetRef.current?.dismiss();
+      return;
+    }
+
+    Alert.alert(
+      t("detail.exerciseEditor.discardTitle"),
+      t("detail.exerciseEditor.discardMessage"),
+      [
+        {
+          text: t("detail.exerciseEditor.keepEditing"),
+          style: "cancel",
+        },
+        {
+          text: t("detail.exerciseEditor.discardChanges"),
+          style: "destructive",
+          onPress: () => sheetRef.current?.dismiss(),
+        },
+      ]
+    );
+  };
+
   const handleSave = () => {
     if (drafts.length === 0) {
       setErrorMessage(t("detail.exerciseEditor.atLeastOneSet"));
@@ -124,7 +152,10 @@ export function ExerciseHistoryEditSheet({
     const payload: CompletedExerciseSetInput[] = [];
     for (const draft of drafts) {
       const rpe = draft.rpe.trim() === "" ? undefined : parseDecimal(draft.rpe);
-      if (rpe !== undefined && (!Number.isFinite(rpe) || rpe < 1 || rpe > 10)) {
+      if (
+        rpe !== undefined &&
+        (!Number.isInteger(rpe) || rpe < 1 || rpe > 10)
+      ) {
         setErrorMessage(t("detail.exerciseEditor.invalidRpe"));
         return;
       }
@@ -146,7 +177,7 @@ export function ExerciseHistoryEditSheet({
         const reps = Number(draft.reps);
         if (
           !Number.isFinite(load) ||
-          load < 0 ||
+          load <= 0 ||
           !Number.isInteger(reps) ||
           reps <= 0
         ) {
@@ -171,6 +202,7 @@ export function ExerciseHistoryEditSheet({
       ref={sheetRef}
       visible={visible}
       onClose={onClose}
+      onRequestClose={handleRequestClose}
       closeAccessibilityLabel={t("detail.exerciseEditor.close")}
       height="88%"
       testID="exercise-history-edit-sheet"
@@ -263,9 +295,11 @@ export function ExerciseHistoryEditSheet({
                   number: index + 1,
                 })}
                 keyboardType="number-pad"
-                onChangeText={(value) =>
-                  updateDraft(draft.key, "duration", value)
-                }
+                onChangeText={(value) => {
+                  if (/^\d*$/.test(value)) {
+                    updateDraft(draft.key, "duration", value);
+                  }
+                }}
                 placeholder="0"
                 placeholderTextColor={textDisabled}
                 style={[
@@ -298,9 +332,11 @@ export function ExerciseHistoryEditSheet({
                     number: index + 1,
                   })}
                   keyboardType="number-pad"
-                  onChangeText={(value) =>
-                    updateDraft(draft.key, "reps", value)
-                  }
+                  onChangeText={(value) => {
+                    if (/^\d*$/.test(value)) {
+                      updateDraft(draft.key, "reps", value);
+                    }
+                  }}
                   placeholder="0"
                   placeholderTextColor={textDisabled}
                   style={[
@@ -315,8 +351,12 @@ export function ExerciseHistoryEditSheet({
               accessibilityLabel={t("detail.exerciseEditor.rpeForSet", {
                 number: index + 1,
               })}
-              keyboardType="decimal-pad"
-              onChangeText={(value) => updateDraft(draft.key, "rpe", value)}
+              keyboardType="number-pad"
+              onChangeText={(value) => {
+                if (/^(?:10|[1-9])?$/.test(value)) {
+                  updateDraft(draft.key, "rpe", value);
+                }
+              }}
               placeholder="—"
               placeholderTextColor={textDisabled}
               style={[
@@ -338,7 +378,7 @@ export function ExerciseHistoryEditSheet({
               }
               style={styles.removeButton}
             >
-              <IconSymbol name="minus" size={20} color={error} />
+              <IconSymbol name="trash" size={18} color={error} />
             </Pressable>
           </View>
         ))}

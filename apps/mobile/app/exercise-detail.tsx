@@ -346,7 +346,7 @@ function SessionRow({
   return (
     <View style={[styles.sessionRow, { borderBottomColor: border }]}>
       <View style={styles.sessionHeader}>
-        <View style={styles.sessionTitleWrap}>
+        <View style={styles.sessionPrimaryRow}>
           <Text
             style={[
               Typography.titleMd,
@@ -357,24 +357,24 @@ function SessionRow({
           >
             {session.workout_name}
           </Text>
-          <Text style={[Typography.caption, { color: textMuted }]}>
-            {completedSetsLabel}
+          <Text
+            style={[Typography.micro, styles.sessionDate, { color: primary }]}
+          >
+            {formattedDate ?? session.date}
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={menuAccessibilityLabel}
+            hitSlop={8}
+            onPress={onOpenMenu}
+            style={styles.sessionMenuButton}
+          >
+            <IconSymbol name="ellipsis" size={20} color={textSecondary} />
+          </Pressable>
         </View>
-        <Text
-          style={[Typography.micro, styles.sessionDate, { color: primary }]}
-        >
-          {formattedDate ?? session.date}
+        <Text style={[Typography.caption, { color: textMuted }]}>
+          {completedSetsLabel}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={menuAccessibilityLabel}
-          hitSlop={8}
-          onPress={onOpenMenu}
-          style={styles.sessionMenuButton}
-        >
-          <IconSymbol name="ellipsis" size={20} color={textSecondary} />
-        </Pressable>
       </View>
 
       <View style={styles.setList}>
@@ -1500,17 +1500,16 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
   },
   sessionHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.md,
-  },
-  sessionTitleWrap: {
-    flex: 1,
-    minWidth: 0,
     gap: 2,
   },
+  sessionPrimaryRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
   sessionTitle: {
-    flexShrink: 1,
+    flex: 1,
+    minWidth: 0,
   },
   sessionDate: {
     flexShrink: 0,
@@ -1518,11 +1517,10 @@ const styles = StyleSheet.create({
   },
   sessionMenuButton: {
     alignItems: "center",
-    height: 44,
+    height: 24,
     justifyContent: "center",
     marginRight: -Spacing.sm,
-    marginTop: -Spacing.sm,
-    width: 44,
+    width: 32,
   },
   setList: {
     gap: Spacing.sm,
