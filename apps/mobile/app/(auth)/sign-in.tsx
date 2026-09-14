@@ -302,7 +302,6 @@ const styles = StyleSheet.create({
   providerHintBanner: {
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderLeftWidth: 4,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
