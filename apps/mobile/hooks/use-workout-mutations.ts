@@ -428,7 +428,7 @@ export function useDeleteWorkoutSession() {
       );
 
       queryClient.setQueriesData<CalendarSessionRow[] | undefined>(
-        { queryKey: calendarKeys.all },
+        { queryKey: calendarKeys.entries(), exact: true },
         (entries) =>
           entries?.filter((entry) => entry.id !== sessionId) ?? entries
       );

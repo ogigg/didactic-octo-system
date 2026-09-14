@@ -444,6 +444,7 @@ Notes:
 - a partial unique index allows only one protection event per user + covered week
 - protected weeks are counted alongside qualifying completed workout weeks by `get_streak_status`
 - qualifying workout weeks require a completed `workout_sessions` row with at least one completed `set_logs` row
+- the mobile total-workouts count does not yet apply the completed-set requirement; see the qualifying-workout discrepancy in `docs/superpowers/specs/2026-09-10-streak-protection-experience-design.md` (SWE-139)
 
 ## Operational / Product Support
 

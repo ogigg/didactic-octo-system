@@ -12,6 +12,7 @@ import {
   type StreakProtectionType,
 } from "@/lib/api/streak-protection";
 import {
+  calendarKeys,
   statsKeys,
   streakProtectionKeys,
   workoutStatsKeys,
@@ -22,6 +23,7 @@ function useInvalidateStreakProtection() {
 
   return () => {
     queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+    queryClient.invalidateQueries({ queryKey: calendarKeys.streakWeeks() });
     queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
     queryClient.invalidateQueries({ queryKey: statsKeys.all });
   };
