@@ -124,10 +124,13 @@ export default function SignInScreen() {
 
           {providerHint && (
             <View
-              style={[styles.errorBanner, { backgroundColor: primarySurface }]}
+              style={[
+                styles.providerHintBanner,
+                { backgroundColor: primarySurface, borderColor: primary },
+              ]}
               accessibilityRole="alert"
             >
-              <Text style={[Typography.body, { color: textSecondary }]}>
+              <Text style={[Typography.bodyMedium, { color: textColor }]}>
                 {providerHint}
               </Text>
             </View>
@@ -296,6 +299,13 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   subtitle: { marginTop: Spacing.xs },
+  providerHintBanner: {
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
   errorBanner: {
     borderRadius: Radii.md,
     padding: Spacing.lg,
