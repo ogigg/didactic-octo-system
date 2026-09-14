@@ -32,25 +32,34 @@ Deno.test("filterCatalogByPreferences removes hard_dislike exercises", () => {
   );
 });
 
-Deno.test("filterCatalogByPreferences keeps soft_dislike and preferred exercises", () => {
-  const prefs: ExercisePreference[] = [
-    { exercise_id: "a", preference: "soft_dislike" },
-    { exercise_id: "b", preference: "preferred" },
-  ];
+Deno.test(
+  "filterCatalogByPreferences keeps soft_dislike and preferred exercises",
+  () => {
+    const prefs: ExercisePreference[] = [
+      { exercise_id: "a", preference: "soft_dislike" },
+      { exercise_id: "b", preference: "preferred" },
+    ];
 
-  assertEquals(filterCatalogByPreferences(CATALOG, prefs), CATALOG);
-});
+    assertEquals(filterCatalogByPreferences(CATALOG, prefs), CATALOG);
+  }
+);
 
-Deno.test("filterCatalogByPreferences returns full catalog without preferences", () => {
-  assertEquals(filterCatalogByPreferences(CATALOG, undefined), CATALOG);
-  assertEquals(filterCatalogByPreferences(CATALOG, []), CATALOG);
-});
+Deno.test(
+  "filterCatalogByPreferences returns full catalog without preferences",
+  () => {
+    assertEquals(filterCatalogByPreferences(CATALOG, undefined), CATALOG);
+    assertEquals(filterCatalogByPreferences(CATALOG, []), CATALOG);
+  }
+);
 
-Deno.test("filterCatalogByPreferences ignores exclusions when they empty the catalog", () => {
-  const prefs: ExercisePreference[] = CATALOG.map((e) => ({
-    exercise_id: e.id,
-    preference: "hard_dislike" as const,
-  }));
+Deno.test(
+  "filterCatalogByPreferences ignores exclusions when they empty the catalog",
+  () => {
+    const prefs: ExercisePreference[] = CATALOG.map((e) => ({
+      exercise_id: e.id,
+      preference: "hard_dislike" as const,
+    }));
 
-  assertEquals(filterCatalogByPreferences(CATALOG, prefs), CATALOG);
-});
+    assertEquals(filterCatalogByPreferences(CATALOG, prefs), CATALOG);
+  }
+);
