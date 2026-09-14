@@ -1,3 +1,4 @@
+import { ProfileLoadingTransition } from "@/components/auth/profile-loading-transition";
 import "@/i18n";
 import {
   DarkTheme,
@@ -200,6 +201,10 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen
+                  name="auth-link-error"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="statistics"
                   options={{ headerShown: false }}
                 />
@@ -248,6 +253,7 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
               </Stack>
+              <ProfileLoadingTransition />
               <ToastHost />
               <StatusBar style="auto" />
             </ThemeProvider>

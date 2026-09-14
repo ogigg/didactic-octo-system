@@ -52,7 +52,12 @@ import {
 
 interface SaveWorkoutInput {
   summary: WorkoutSummary;
-  goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+  goalSnapshot:
+    | "build_strength"
+    | "build_muscle"
+    | "lose_weight"
+    | "improve_fitness"
+    | "custom";
   customGoalSnapshot?: string;
   weightUnit?: WeightUnit;
 }
@@ -281,7 +286,7 @@ export function useSaveCompletedWorkout() {
           variables.summary.finishedAtMs - variables.summary.durationMs
         }`;
         syncQueue
-          .enqueue("save_workout", stableWorkoutId, variables)
+          .enqueue("save_workout", stableWorkoutId, variables, user.id)
           .catch(console.warn);
       }
     },

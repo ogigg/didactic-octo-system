@@ -30,6 +30,12 @@ export const home = {
     completed_other: "{{count}} workouts done",
   },
   workoutQueue: {
+    preparing:
+      "Preparing your workouts. Your current plan is kept until the new one is ready.",
+    preparationError:
+      "We couldn’t prepare your workouts. Your saved setup and existing workouts are safe. Try again.",
+    retryPreparation: "Try again",
+
     title: "Your Plan",
     loading: "Loading your plan...",
     readyCount: "{{ready}}/{{total}}",

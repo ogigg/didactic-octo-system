@@ -94,6 +94,24 @@ literal string "0".
 
 This document intentionally avoids treating specific model names as long-term architecture guarantees because model selection can change faster than the surrounding system.
 
+## Authentication And Onboarding Readiness
+
+Authenticated routes wait for the current account's profile and local draft
+hydration before choosing onboarding or home. A profile fetch failure shows a
+retry screen rather than treating the account as new. Completed users cannot
+re-enter onboarding; password recovery keeps its own route until finished.
+Token refresh does not reload or replace the active onboarding draft. Profile
+responses from a previous session are discarded. Drafts and queued writes carry
+account ownership so switching accounts cannot replay another user's answers.
+
+Onboarding completion writes profile answers and optional baselines in one
+transaction. Retrying completion for an already completed profile preserves its
+saved preferences. A queued successful save reconciles local completion and
+invalidates the profile query. Home prepares the initial queue automatically;
+transport failures expose a retry without asking for setup again. Queue
+replacement preserves the old workouts until the backend commits a complete
+replacement. Initial generation entitlement is consumed only after success.
+
 ## Primary Data Flows
 
 ### Workout Generation
@@ -237,3 +255,21 @@ Do not use this file as:
 - the current product source of truth
 - a guarantee that every named integration is fully implemented
 - a substitute for checking the actual codebase when implementation details matter
+
+### Onboarding questionnaire
+
+The initial flow is goal → equipment → experience → schedule → review. Gender and strength estimates are deferred; strength estimates remain editable in settings. Schedule explicitly collects days (including once weekly) and duration. Muscle gain maps to hypertrophy, fitness to endurance, and custom goals default to strength with an editable approach on review. Optional constraints use `training_custom_prompt`. Existing saved drafts remain account-owned.
+
+Onboarding uses a shared five-step progress bar/counter, visible Back action, scrollable content and persistent primary action. Review edits return to review; saving locks submission and editing, and errors retain all answers.
+
+### Signup and email links
+
+Signup asks for email and one password, supports password reveal/autofill, and exposes the same social providers as sign-in. Confirmation retains the address and offers resend (60-second cooldown), correction, and sign-in. Signup confirmation links restore the session; recovery links set the recovery routing state before session restoration. Expired links display a recovery screen. Hosted Supabase auth must allow `sweaty://` and `sweaty://reset-password`, matching local configuration.
+
+### Onboarding verification and rollout (2026-09-08)
+
+Regression coverage includes profile hydration before routing, account-owned drafts and sync replay, interrupted setup, completion retries, initial queue concurrency, atomic queue replacement, pound-to-kilogram conversion, and email confirmation/recovery links. A resumed custom goal must satisfy the same validation as a newly entered answer, and legacy drafts must explicitly choose duration before review.
+
+Run `npm test --workspace mobile -- --runInBand --silent --forceExit`, `npm run check-types`, and `supabase test db supabase/tests/onboarding-completion.test.sql supabase/tests/strength-baselines.test.sql`. The queue function also passes `deno check supabase/functions/generate-workout-queue/index.ts`.
+
+Deploy migrations before the updated queue edge function and mobile release. Configure the hosted auth redirect allowlist as described above. The initial-queue timestamp backfill recognizes existing ready queues or completed workout history. Without either, a completed profile retains one free initial preparation attempt. Production migrations and hosted authentication settings are not changed by local verification.

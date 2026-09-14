@@ -169,6 +169,7 @@ export const generateWorkoutResponseSchema = z.object({
   ]),
   goal_snapshot: z.enum([
     "build_strength",
+    "build_muscle",
     "lose_weight",
     "improve_fitness",
     "custom",
@@ -794,7 +795,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 
   const user = `## User Profile
 - Goal: ${profile.goal}${profile.custom_goal ? ` (${profile.custom_goal})` : ""}
-- Weekly frequency: ${profile.weekly_frequency} days/week
+- Weekly frequency: ${profile.weekly_frequency === "5_plus" ? "5 or more" : profile.weekly_frequency} days/week
 - Gender: ${profile.gender ?? "not specified"}
 
 ## Workout Parameters

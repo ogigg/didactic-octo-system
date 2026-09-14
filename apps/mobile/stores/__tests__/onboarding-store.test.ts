@@ -123,6 +123,7 @@ describe("reset", () => {
       result.current.setFrequency(3);
       result.current.setEquipment("full_gym");
       result.current.setExperience("intermediate");
+      result.current.setSessionDuration(45);
       result.current.complete();
     });
     act(() => result.current.reset());
@@ -136,9 +137,9 @@ describe("reset", () => {
 });
 
 describe("getNextUnfinishedStep", () => {
-  it("returns gender when nothing is answered", () => {
+  it("returns goal when nothing is answered", () => {
     const { result } = renderHook(() => useOnboardingStore());
-    expect(result.current.getNextUnfinishedStep()).toBe("gender");
+    expect(result.current.getNextUnfinishedStep()).toBe("goal");
   });
 
   it("returns goal after gender is answered", () => {
@@ -153,13 +154,13 @@ describe("getNextUnfinishedStep", () => {
     expect(result.current.getNextUnfinishedStep()).toBe("goal");
   });
 
-  it("returns frequency after goal is answered", () => {
+  it("returns equipment after goal is answered", () => {
     const { result } = renderHook(() => useOnboardingStore());
     act(() => {
       result.current.skipGender();
       result.current.setGoal("lose_weight");
     });
-    expect(result.current.getNextUnfinishedStep()).toBe("frequency");
+    expect(result.current.getNextUnfinishedStep()).toBe("equipment");
   });
 
   it("returns equipment after frequency is answered", () => {
@@ -191,6 +192,7 @@ describe("getNextUnfinishedStep", () => {
       result.current.setFrequency(3);
       result.current.setEquipment("full_gym");
       result.current.setExperience("intermediate");
+      result.current.setSessionDuration(45);
     });
     expect(result.current.getNextUnfinishedStep()).toBe("review");
   });
@@ -282,4 +284,38 @@ describe("syncWithDatabase", () => {
     expect(result.current.gender).toBeNull();
     expect(result.current.genderSkipped).toBe(true);
   });
+});
+
+describe("account-owned drafts", () => {
+  it("retains a draft for the same account and clears it for another", () => {
+    const store = useOnboardingStore.getState();
+    store.prepareForUser("account-a");
+    store.setCustomGoal("Finish a pull-up");
+    store.prepareForUser("account-a");
+    expect(useOnboardingStore.getState().customGoal).toBe("Finish a pull-up");
+    store.prepareForUser("account-b");
+    expect(useOnboardingStore.getState().customGoal).toBeNull();
+    expect(useOnboardingStore.getState().isCompleted).toBe(false);
+  });
+});
+
+it("resumes an unfinished custom goal before later answers", () => {
+  const store = useOnboardingStore.getState();
+  store.setCustomGoal("ab");
+  store.setEquipment("bodyweight");
+  store.setExperience("beginner");
+  store.setFrequency(1);
+  store.setSessionDuration(15);
+  expect(store.getNextUnfinishedStep()).toBe("goal");
+});
+
+it("requires explicit duration when resuming an older draft", () => {
+  const store = useOnboardingStore.getState();
+  store.setGoal("build_muscle");
+  store.setEquipment("barbell");
+  store.setExperience("advanced");
+  store.setFrequency(1);
+  expect(store.getNextUnfinishedStep()).toBe("frequency");
+  store.setSessionDuration(15);
+  expect(store.getNextUnfinishedStep()).toBe("review");
 });

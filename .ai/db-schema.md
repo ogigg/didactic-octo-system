@@ -59,6 +59,8 @@ Important columns:
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
 - `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
+- `initial_queue_generated_at`: when the first successful onboarding queue replacement was committed; a null value means the onboarding free retry is still available
+- `queue_generation_request_id`, `queue_generation_started_at`: server-managed claim token and timestamp for the queue replacement currently being generated; claims expire after 15 minutes
 - `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL
 - `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state
 - `deletion_scheduled_at`: when non-null, the account is scheduled for hard deletion at this timestamp. Signing back in before then clears the flag. A scheduled job (`purge_expired_deletions()`) purges expired rows, which cascades to every user-owned table.
@@ -71,11 +73,18 @@ Notes:
 
 - profile rows are auto-created when a new auth user is created
 - this table is one of the most important sources of generation context
+- onboarding profile and baseline writes go through `complete_onboarding(...)`, which locks the profile, validates the payload, and commits both records atomically; repeated calls after completion return the existing profile unchanged
+- authenticated clients cannot write the queue claim or initial-generation marker directly
 - account deletion is soft with a 14-day grace period — see `request_account_deletion`, `cancel_account_deletion`, `purge_expired_deletions`
 - after the grace period, `purge_expired_deletions()` deletes the matching `auth.users` row; foreign-key cascades remove the profile and user-owned app data
 - no separate legal, security, or fraud-retention archive is implemented in this repository; external store purchase and billing records are outside this database purge
 
 ### `strength_baselines`
+
+Settings replace strength baselines atomically through `save_strength_baselines`.
+Bodyweight repetitions may be zero (known inability); unanswered exercises have
+no row. Weighted entries require both load and positive whole repetitions.
+Loads are always stored in kilograms, regardless of the display unit.
 
 Purpose:
 
@@ -249,6 +258,8 @@ Notes:
 
 - unique per user + queue position
 - supports a pre-generated workout flow instead of generating only at the moment of use
+- queue replacement generation keeps the current rows untouched while new workouts are generated; `replace_pending_workouts(...)` swaps the full ready queue in one transaction only after every requested workout succeeds
+- `claim_queue_generation(...)` serializes replacements per profile and allows stale claims to be reclaimed after 15 minutes; a completed onboarding queue returns an idempotent already-ready result
 
 ### `workout_sessions`
 
@@ -564,6 +575,7 @@ When database-related work touches behavior, also inspect `supabase/migrations` 
 - exercise detail RPCs
 - measurement history RPCs
 - generation allowance / subscription RPCs
+- onboarding completion and queue replacement RPCs (`complete_onboarding`, `claim_queue_generation`, `release_queue_generation`, `replace_pending_workouts`)
 - streak protection RPCs
 
 Those functions are part of the practical database interface even though they are not tables.
@@ -619,3 +631,5 @@ Invariants:
 - max-weight selection orders load descending, reps descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
 - max-reps selection orders reps descending, load descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
 - callers must be authenticated and receive only their own records; an authenticated user with no eligible sets receives `[]`
+
+Onboarding supports `goal_type.build_muscle` and `frequency_type.1`. New submissions explicitly supply session duration and may supply a training-style override and optional `training_custom_prompt` (200 characters).

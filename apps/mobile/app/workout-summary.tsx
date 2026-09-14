@@ -640,6 +640,7 @@ export default function WorkoutSummaryScreen() {
 
     const goalSnapshot:
       | "build_strength"
+      | "build_muscle"
       | "lose_weight"
       | "improve_fitness"
       | "custom" = customGoal ? "custom" : (goal ?? "improve_fitness");
