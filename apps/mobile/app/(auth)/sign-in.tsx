@@ -19,6 +19,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Button } from "@/components/ui/button";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { fetchLoginProviderHint } from "@/lib/api/login-provider-hint";
@@ -49,6 +50,14 @@ export default function SignInScreen() {
   const errorColor = useThemeColor({}, "error");
   const borderSubtle = useThemeColor({}, "borderSubtle");
   const primarySurface = useThemeColor({}, "primarySurface");
+  const warning = useThemeColor({}, "warning");
+  const warningSurface = useThemeColor(
+    {
+      light: "rgba(255, 172, 48, 0.14)",
+      dark: "rgba(255, 214, 10, 0.14)",
+    },
+    "primarySurface"
+  );
 
   const {
     control,
@@ -126,11 +135,22 @@ export default function SignInScreen() {
             <View
               style={[
                 styles.providerHintBanner,
-                { backgroundColor: primarySurface, borderColor: primary },
+                { backgroundColor: warningSurface, borderColor: warning },
               ]}
               accessibilityRole="alert"
             >
-              <Text style={[Typography.bodyMedium, { color: textColor }]}>
+              <IconSymbol
+                name="exclamationmark.triangle.fill"
+                size={20}
+                color={warning}
+              />
+              <Text
+                style={[
+                  Typography.bodyMedium,
+                  styles.providerHintText,
+                  { color: textColor },
+                ]}
+              >
                 {providerHint}
               </Text>
             </View>
@@ -300,11 +320,15 @@ const styles = StyleSheet.create({
   },
   subtitle: { marginTop: Spacing.xs },
   providerHintBanner: {
+    alignItems: "flex-start",
     borderRadius: Radii.md,
     borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
+  providerHintText: { flex: 1 },
   errorBanner: {
     borderRadius: Radii.md,
     padding: Spacing.lg,
