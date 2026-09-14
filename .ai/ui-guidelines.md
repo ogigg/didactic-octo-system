@@ -24,8 +24,10 @@ Design system and UI guidelines for the AI-powered workout generation mobile app
 
 ## Onboarding Navigation
 
-Forward steps use the native push animation. Back uses the existing stack when
-available; after relaunch, it replaces the route with the preceding step. The
+Forward steps use the native push animation. Back pops only when the preceding route in the local onboarding stack matches
+the intended step (or summary when editing). Parent navigation history and
+duplicate summary routes are not valid back targets. Otherwise, it replaces
+the route with the intended step. The
 onboarding stack sets `animationTypeForReplace: "pop"` so this fallback also
 looks like backward navigation.
 

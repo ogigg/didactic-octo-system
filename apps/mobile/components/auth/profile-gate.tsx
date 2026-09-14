@@ -17,8 +17,6 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 
-export const FORCE_PROFILE_GATE = false;
-
 function ProfileSkeleton({ onboarding }: { onboarding: boolean }) {
   const fill = useThemeColor({}, "inputFill");
   const surface = useThemeColor({}, "backgroundSubtle");

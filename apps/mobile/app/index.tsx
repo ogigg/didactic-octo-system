@@ -1,7 +1,4 @@
-import {
-  FORCE_PROFILE_GATE,
-  ProfileGate,
-} from "@/components/auth/profile-gate";
+import { ProfileGate } from "@/components/auth/profile-gate";
 import { Redirect } from "expo-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -12,7 +9,6 @@ export default function Index() {
     useAuth();
   const { isCompleted, getNextUnfinishedStep } = useOnboardingStore();
 
-  if (FORCE_PROFILE_GATE) return <ProfileGate />;
   if (isPasswordRecovery) return <Redirect href="/(auth)/reset-password" />;
   if (
     profileStatus === "error" ||

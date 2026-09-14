@@ -8,6 +8,7 @@ jest.mock("expo-router", () => ({
     replace: jest.fn(),
   },
   useLocalSearchParams: jest.fn(() => ({})),
+  useNavigation: jest.fn(),
 }));
 jest.mock("@/hooks/use-theme-color", () => ({ useThemeColor: () => "#000" }));
 jest.mock("@/hooks/use-profile-mutations", () => ({
@@ -18,7 +19,7 @@ jest.mock("@/hooks/use-profile-mutations", () => ({
   })),
 }));
 jest.mock("@/lib/track-event", () => ({ trackEvent: jest.fn() }));
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { useUpsertProfile } from "@/hooks/use-profile-mutations";
 import GoalScreen from "../goal";
@@ -36,6 +37,13 @@ function answerRequired() {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  (useNavigation as jest.Mock).mockReturnValue({
+    getState: () => ({
+      index: 1,
+      routes: [{ name: "frequency" }, { name: "review" }],
+    }),
+    goBack: router.back,
+  });
   useOnboardingStore.getState().reset();
   (useLocalSearchParams as jest.Mock).mockReturnValue({});
   (useUpsertProfile as jest.Mock).mockReturnValue({
@@ -119,6 +127,13 @@ it("lets the user adjust the proposed style without changing their goal", () => 
 it("returns edited answers to review", () => {
   answerRequired();
   (useLocalSearchParams as jest.Mock).mockReturnValue({ editMode: "1" });
+  (useNavigation as jest.Mock).mockReturnValue({
+    getState: () => ({
+      index: 1,
+      routes: [{ name: "review" }, { name: "equipment" }],
+    }),
+    goBack: router.back,
+  });
   render(<EquipmentScreen />);
   fireEvent.press(screen.getByRole("radio", { name: /Bodyweight. Exercises/ }));
   fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
@@ -153,7 +168,10 @@ it("shows five-step progress including review and provides Back", () => {
 
 it("returns from a resumed review to the preceding step without stack history", () => {
   answerRequired();
-  (router.canGoBack as jest.Mock).mockReturnValueOnce(false);
+  (useNavigation as jest.Mock).mockReturnValue({
+    getState: () => ({ index: 0, routes: [{ name: "review" }] }),
+    goBack: router.back,
+  });
   render(<ReviewScreen />);
   fireEvent.press(screen.getByRole("button", { name: "Back" }));
   expect(router.replace).toHaveBeenCalledWith("/(onboarding)/frequency");
@@ -166,4 +184,19 @@ it("shows an example goal without filling in an answer", () => {
     screen.getByPlaceholderText("e.g. I want to learn a muscle-up").props.value
   ).toBe("");
   expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+});
+
+it("ignores duplicate summary history rather than showing summary again", () => {
+  answerRequired();
+  (useNavigation as jest.Mock).mockReturnValue({
+    getState: () => ({
+      index: 1,
+      routes: [{ name: "review" }, { name: "review" }],
+    }),
+    goBack: router.back,
+  });
+  render(<ReviewScreen />);
+  fireEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(router.replace).toHaveBeenCalledWith("/(onboarding)/frequency");
+  expect(router.back).not.toHaveBeenCalled();
 });

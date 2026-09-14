@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ export function OnboardingScreen({
   error = false,
 }: OnboardingScreenProps) {
   const { t } = useTranslation("onboarding");
+  const navigation = useNavigation();
   const { editMode } = useLocalSearchParams<{ editMode?: string }>();
   useOnboardingStepAnalytics(step as OnboardingStep, editMode);
   const text = useThemeColor({}, "text");
@@ -52,11 +53,14 @@ export function OnboardingScreen({
   const track = useThemeColor({}, "borderSubtle");
   function back() {
     if (saving) return;
-    if (router.canGoBack()) router.back();
-    else
-      router.replace(
-        `/(onboarding)/${editMode === "1" ? "review" : ONBOARDING_STEPS[Math.max(0, index - 1)]}` as never
-      );
+    const target =
+      editMode === "1" ? "review" : ONBOARDING_STEPS[Math.max(0, index - 1)];
+    const state = navigation.getState();
+    const previous = state?.routes[state.index - 1];
+    // Parent history may lead to a redirect that opens review again after relaunch.
+    // Only pop when the local stack actually contains the intended previous step.
+    if (previous?.name === target) navigation.goBack();
+    else router.replace(`/(onboarding)/${target}` as never);
   }
   function next() {
     if (!canContinue || saving) return;
