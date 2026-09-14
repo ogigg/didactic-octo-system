@@ -1,6 +1,9 @@
 import { Redirect, Stack, useSegments } from "expo-router";
 
-import { ProfileGate } from "@/components/auth/profile-gate";
+import {
+  FORCE_PROFILE_GATE,
+  ProfileGate,
+} from "@/components/auth/profile-gate";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -15,6 +18,7 @@ export default function AuthLayout() {
 
   const segments = useSegments();
   const recoveryRoute = (segments as string[]).includes("reset-password");
+  if (FORCE_PROFILE_GATE) return <ProfileGate />;
   if (isPasswordRecovery && !recoveryRoute)
     return <Redirect href="/(auth)/reset-password" />;
   if (

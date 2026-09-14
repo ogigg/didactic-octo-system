@@ -10,7 +10,10 @@ export const auth = {
       "Nie udało się zapisać ustawień. Sprawdź połączenie i spróbuj ponownie. Odpowiedzi są zachowane i zsynchronizują się po połączeniu.",
   },
   profile: {
-    loading: "Wczytywanie profilu…",
+    slow: "Wczytywanie trwa dłużej niż zwykle. Sprawdź połączenie z internetem lub spróbuj ponownie.",
+    loadingTitle: "Jeszcze chwila",
+    loading: "Wczytujemy twój profil. Za chwilę przejdziesz dalej.",
+    errorTitle: "Spróbujmy jeszcze raz",
     error:
       "Nie udało się wczytać profilu. Twój zapisany plan pozostaje bez zmian.",
     retry: "Spróbuj ponownie",
@@ -39,7 +42,7 @@ export const auth = {
     changeEmail: "Popraw adres e-mail",
 
     title: "Utwórz konto",
-    subtitle: "Rozpocznij swoją drogę fitness",
+    subtitle: "Treningi dopasowane do twoich celów",
     emailLabel: "Email",
     emailPlaceholder: "ty@example.com",
     passwordLabel: "Hasło",

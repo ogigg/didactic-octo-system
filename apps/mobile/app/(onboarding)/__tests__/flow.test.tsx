@@ -90,12 +90,10 @@ it("reviews the actual duration/style and saves optional constraints", () => {
   const mutate = jest.fn();
   (useUpsertProfile as jest.Mock).mockReturnValue({ mutate });
   render(<ReviewScreen />);
-  expect(screen.getByText("1 day · 15 min per workout")).toBeTruthy();
-  expect(screen.getByText("Training approach: Muscle building")).toBeTruthy();
+  expect(screen.getByText("1 day per week · 15 min per workout")).toBeTruthy();
+  expect(screen.getByText("Training focus: Muscle building")).toBeTruthy();
   fireEvent.changeText(
-    screen.getByLabelText(
-      "Any movements or limitations to consider? (optional)"
-    ),
+    screen.getByLabelText("Anything we should take into account? (optional)"),
     "Avoid jumping"
   );
   fireEvent.press(screen.getByRole("button", { name: "Create my workouts" }));
@@ -111,7 +109,9 @@ it("reviews the actual duration/style and saves optional constraints", () => {
 it("lets the user adjust the proposed style without changing their goal", () => {
   answerRequired();
   render(<ReviewScreen />);
-  fireEvent.press(screen.getByRole("button", { name: "Adjust approach" }));
+  fireEvent.press(
+    screen.getByRole("button", { name: "Change training focus" })
+  );
   fireEvent.press(screen.getByRole("radio", { name: "Strength" }));
   expect(useOnboardingStore.getState().trainingStyle).toBe("strength");
   expect(useOnboardingStore.getState().goal).toBe("build_muscle");
@@ -120,9 +120,7 @@ it("returns edited answers to review", () => {
   answerRequired();
   (useLocalSearchParams as jest.Mock).mockReturnValue({ editMode: "1" });
   render(<EquipmentScreen />);
-  fireEvent.press(
-    screen.getByRole("radio", { name: /Bodyweight. No weights/ })
-  );
+  fireEvent.press(screen.getByRole("radio", { name: /Bodyweight. Exercises/ }));
   fireEvent.press(screen.getByRole("button", { name: "Save changes" }));
   expect(router.back).toHaveBeenCalled();
 });
@@ -136,7 +134,7 @@ it("blocks duplicate submissions and exposes a retryable save error", () => {
   });
   render(<ReviewScreen />);
   expect(
-    screen.getByRole("button", { name: "Saving your plan…" })
+    screen.getByRole("button", { name: "Saving your preferences…" })
   ).toBeDisabled();
   expect(screen.getByRole("alert")).toBeTruthy();
 });

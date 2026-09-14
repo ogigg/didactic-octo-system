@@ -10,7 +10,10 @@ export const auth = {
       "We couldn’t save your setup. Check your connection and try again. Your answers are kept and will sync when you reconnect.",
   },
   profile: {
-    loading: "Loading your profile…",
+    slow: "This is taking longer than usual. Check your internet connection, or try loading your profile again.",
+    loadingTitle: "A moment before you begin",
+    loading: "We’re loading your profile. You’ll be able to continue shortly.",
+    errorTitle: "Let’s try that again",
     error:
       "We couldn’t load your profile. Your saved setup has not been changed.",
     retry: "Try again",
@@ -39,7 +42,7 @@ export const auth = {
     changeEmail: "Correct email address",
 
     title: "Create account",
-    subtitle: "Start your fitness journey",
+    subtitle: "Workouts planned around your goals",
     emailLabel: "Email",
     emailPlaceholder: "you@example.com",
     passwordLabel: "Password",

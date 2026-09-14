@@ -9,7 +9,10 @@ import {
 import React from "react";
 import { useTranslation } from "react-i18next";
 
-import { ProfileGate } from "@/components/auth/profile-gate";
+import {
+  FORCE_PROFILE_GATE,
+  ProfileGate,
+} from "@/components/auth/profile-gate";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,6 +26,7 @@ export default function TabLayout() {
 
   const completed = useOnboardingStore((s) => s.isCompleted);
   const nextStep = useOnboardingStore((s) => s.getNextUnfinishedStep);
+  if (FORCE_PROFILE_GATE) return <ProfileGate />;
   if (!isInitialized || profileStatus !== "ready") return <ProfileGate />;
   if (isPasswordRecovery) return <Redirect href="/(auth)/reset-password" />;
   if (isAuthenticated && !completed)
