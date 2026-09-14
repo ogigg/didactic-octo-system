@@ -5,6 +5,7 @@ const MAX_RETRIES = 15;
 const MAX_BACKOFF_MS = 60_000;
 
 export interface SyncQueueItem {
+  ownerId: string;
   id: string;
   operation: string;
   payload: unknown;
@@ -15,13 +16,19 @@ export interface SyncQueueItem {
   status: "pending" | "dead";
 }
 
-type SyncHandler = (payload: unknown) => Promise<void>;
+type SyncHandler = (payload: unknown, ownerId: string) => Promise<void>;
 
 export class SyncQueue {
   private handlers = new Map<string, SyncHandler>();
   private items: SyncQueueItem[] = [];
   private isProcessing = false;
   private loaded = false;
+  private activeUserId: string | null = null;
+
+  /** Set the only account whose queued writes may be replayed. */
+  setActiveUser(userId: string | null): void {
+    this.activeUserId = userId;
+  }
 
   registerHandler(operation: string, handler: SyncHandler): void {
     this.handlers.set(operation, handler);
@@ -30,13 +37,19 @@ export class SyncQueue {
   async enqueue(
     operation: string,
     id: string,
-    payload: unknown
+    payload: unknown,
+    ownerId?: string
   ): Promise<void> {
     await this.load();
+    const activeUserId = ownerId ?? this.activeUserId;
+    if (!activeUserId) {
+      throw new Error("Cannot queue a sync operation without an active user");
+    }
     const now = Date.now();
 
     const existingIndex = this.items.findIndex(
       (item) =>
+        item.ownerId === activeUserId &&
         item.id === id &&
         item.operation === operation &&
         item.status === "pending"
@@ -47,6 +60,7 @@ export class SyncQueue {
       if (now > existing.updatedAt) {
         this.items[existingIndex] = {
           ...existing,
+          ownerId: activeUserId,
           payload,
           updatedAt: now,
           retryCount: 0,
@@ -55,6 +69,7 @@ export class SyncQueue {
       }
     } else {
       this.items.push({
+        ownerId: activeUserId,
         id,
         operation,
         payload,
@@ -71,6 +86,8 @@ export class SyncQueue {
 
   async processQueue(): Promise<void> {
     if (this.isProcessing) return;
+    const activeUserId = this.activeUserId;
+    if (!activeUserId) return;
     this.isProcessing = true;
 
     try {
@@ -84,13 +101,22 @@ export class SyncQueue {
       for (let i = 0; i < this.items.length; i++) {
         const item = this.items[i];
         if (item.status !== "pending") continue;
+        if (this.activeUserId !== activeUserId) break;
+        // Never replay a write for another account. Keep it queued so that
+        // the original account can continue after it signs back in.
+        if (!item.ownerId) {
+          item.status = "dead";
+          changed = true;
+          continue;
+        }
+        if (item.ownerId !== activeUserId) continue;
         if (item.nextRetryAt > now) continue;
 
         const handler = this.handlers.get(item.operation);
         if (!handler) continue;
 
         try {
-          await handler(item.payload);
+          await handler(item.payload, item.ownerId);
           toRemove.push(i);
           changed = true;
         } catch {
@@ -152,7 +178,8 @@ export class SyncQueue {
   private async load(): Promise<void> {
     if (this.loaded) return;
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    this.items = raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    this.items = Array.isArray(parsed) ? parsed : [];
     this.loaded = true;
   }
 

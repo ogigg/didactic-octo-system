@@ -198,7 +198,9 @@ export async function triggerQueueGeneration(
   );
 
   if (error) {
-    const body = data as {
+    const responseBody =
+      data ?? (await error.context?.json?.().catch(() => null));
+    const body = responseBody as {
       error?: string;
       used?: number;
       remaining?: number;
@@ -212,7 +214,10 @@ export async function triggerQueueGeneration(
         tier: body.tier ?? "free",
       });
     }
-    throw new Error(error.message);
+    throw new Error(body?.error ?? error.message);
+  }
+  if (!data?.success && !data?.skipped) {
+    throw new Error("Workout preparation did not complete");
   }
 }
 

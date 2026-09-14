@@ -127,6 +127,13 @@ export default function AccountSettingsScreen() {
                 label={t("subscription.label")}
                 description={t("subscription.description")}
                 onPress={() => navigate("/subscription")}
+                position="middle"
+              />
+              <ListRow
+                icon="square.and.arrow.up"
+                label={t("export.label")}
+                description={t("export.description")}
+                onPress={() => navigate("/export-history" as Href)}
                 position="last"
               />
             </ListGroup>

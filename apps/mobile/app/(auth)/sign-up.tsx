@@ -1,6 +1,9 @@
+import * as Linking from "expo-linking";
+import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "expo-router";
-import { useState } from "react";
+import { Link, router } from "expo-router";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
@@ -32,6 +35,38 @@ export default function SignUpScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [successEmail, setSuccessEmail] = useState<string | null>(null);
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [resent, setResent] = useState(false);
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+  async function resend() {
+    if (!successEmail || resending || cooldown > 0) return;
+    setResending(true);
+    setAuthError(null);
+    setResent(false);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: successEmail,
+        options: {
+          emailRedirectTo: Linking.createURL("", { scheme: "sweaty" }),
+        },
+      });
+      if (error) throw error;
+      setResent(true);
+      setCooldown(60);
+    } catch {
+      setAuthError(t("errors.generic"));
+    } finally {
+      setResending(false);
+    }
+  }
+
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
@@ -51,32 +86,40 @@ export default function SignUpScreen() {
   async function onSubmit(data: SignUpFormData) {
     setAuthError(null);
     trackEvent("signup_started", { auth_method: "email" });
-    const { error, data: authData } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-    });
-
-    if (error) {
-      trackEvent("signup_failed", {
-        auth_method: "email",
-        error_code: normalizeAuthError(error),
-        failure_stage: "password",
+    try {
+      const { error, data: authData } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: Linking.createURL("", { scheme: "sweaty" }),
+        },
       });
-      setAuthError(
-        error.message.toLowerCase().includes("already")
-          ? t("errors.emailAlreadyInUse")
-          : t("errors.generic")
-      );
-      return;
-    }
 
-    // If email confirmation is required, identities will be empty or session null
-    trackEvent("user_signed_up", {
-      auth_method: "email",
-      is_email_confirmation_required: !authData.session,
-    });
-    if (!authData.session) {
-      setSuccessEmail(data.email);
+      if (error) {
+        trackEvent("signup_failed", {
+          auth_method: "email",
+          error_code: normalizeAuthError(error),
+          failure_stage: "password",
+        });
+        setAuthError(
+          error.message.toLowerCase().includes("already")
+            ? t("errors.emailAlreadyInUse")
+            : t("errors.generic")
+        );
+        return;
+      }
+
+      // If email confirmation is required, identities will be empty or session null
+      trackEvent("user_signed_up", {
+        auth_method: "email",
+        is_email_confirmation_required: !authData.session,
+      });
+      if (!authData.session) {
+        setSuccessEmail(data.email);
+        setCooldown(60);
+      }
+    } catch {
+      setAuthError(t("errors.networkError"));
     }
     // Otherwise onAuthStateChange fires and index.tsx handles routing
   }
@@ -96,6 +139,44 @@ export default function SignUpScreen() {
         >
           {t("signUp.checkEmailBody", { email: successEmail })}
         </Text>
+        {authError && (
+          <Text accessibilityRole="alert" style={{ color: errorColor }}>
+            {authError}
+          </Text>
+        )}
+        {resent && (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={{ color: textSecondary }}
+          >
+            {t("signUp.resent")}
+          </Text>
+        )}
+        <Button
+          label={
+            cooldown > 0
+              ? t("signUp.resendCountdown", { seconds: cooldown })
+              : t("signUp.resend")
+          }
+          onPress={resend}
+          loading={resending}
+          disabled={cooldown > 0}
+        />
+        <Button
+          variant="secondary"
+          label={t("signUp.changeEmail")}
+          disabled={resending}
+          onPress={() => {
+            setSuccessEmail(null);
+            setAuthError(null);
+            setResent(false);
+          }}
+        />
+        <Button
+          variant="ghost"
+          label={t("signUp.signInLink")}
+          onPress={() => router.replace("/(auth)/sign-in")}
+        />
       </SafeAreaView>
     );
   }
@@ -154,6 +235,8 @@ export default function SignUpScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoComplete="email"
                   returnKeyType="next"
                   accessibilityLabel={t("signUp.emailLabel")}
                   onChangeText={onChange}
@@ -189,8 +272,13 @@ export default function SignUpScreen() {
                   ]}
                   placeholder={t("signUp.passwordPlaceholder")}
                   placeholderTextColor={textMuted}
-                  secureTextEntry
-                  returnKeyType="next"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
+                  autoComplete="new-password"
+                  onSubmitEditing={handleSubmit(onSubmit)}
+                  returnKeyType="done"
                   accessibilityLabel={t("signUp.passwordLabel")}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -205,50 +293,29 @@ export default function SignUpScreen() {
             )}
           </View>
 
-          {/* Confirm Password */}
-          <View style={styles.field}>
-            <Text style={[Typography.label, { color: textSecondary }]}>
-              {t("signUp.confirmPasswordLabel")}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.reveal}
+          >
+            <Text style={[Typography.body, { color: primary }]}>
+              {t(showPassword ? "signUp.hidePassword" : "signUp.showPassword")}
             </Text>
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[
-                    styles.input,
-                    { backgroundColor: inputFill, color: textColor },
-                    errors.confirmPassword && {
-                      borderColor: errorColor,
-                      borderWidth: 1,
-                    },
-                  ]}
-                  placeholder={t("signUp.confirmPasswordPlaceholder")}
-                  placeholderTextColor={textMuted}
-                  secureTextEntry
-                  returnKeyType="done"
-                  accessibilityLabel={t("signUp.confirmPasswordLabel")}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  value={value}
-                  onSubmitEditing={handleSubmit(onSubmit)}
-                />
-              )}
-            />
-            {errors.confirmPassword && (
-              <Text style={[Typography.caption, { color: errorColor }]}>
-                {t(errors.confirmPassword.message as AuthValidationKey)}
-              </Text>
-            )}
-          </View>
+          </Pressable>
 
           <Button
             label={t("signUp.submitButton")}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
+            loading={isSubmitting}
             accessibilityLabel={t("signUp.submitButton")}
           />
 
+          <Text style={[Typography.caption, { color: textSecondary }]}>
+            {t("signIn.divider")}
+          </Text>
+          <AppleSignInButton />
+          <GoogleSignInButton />
           <View style={styles.footer}>
             <Text style={[Typography.body, { color: textSecondary }]}>
               {t("signUp.hasAccount")}
@@ -273,6 +340,7 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  reveal: { minHeight: 44, justifyContent: "center" },
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing["3xl"],

@@ -56,3 +56,50 @@ describe("Live Activity set deep links", () => {
     expect(second?.sets[0]?.isCompleted).toBe(true);
   });
 });
+
+jest.mock("@/stores/auth-store", () => ({
+  useAuthStore: { setState: jest.fn() },
+}));
+import { renderHook, waitFor } from "@testing-library/react-native";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
+import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/stores/auth-store";
+import { useDeepLinks } from "../use-deep-links";
+
+describe("email confirmation links", () => {
+  const replace = jest.fn();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue({ replace });
+    (supabase.auth.setSession as jest.Mock).mockResolvedValue({ error: null });
+  });
+  it.each([
+    ["signup", "/"],
+    ["recovery", "/reset-password"],
+  ])("restores a %s session", async (type, route) => {
+    (Linking.getInitialURL as jest.Mock).mockResolvedValue(
+      `sweaty://#type=${type}&access_token=test-access&refresh_token=test-refresh`
+    );
+    renderHook(() => useDeepLinks());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(route));
+    expect(supabase.auth.setSession).toHaveBeenCalledWith({
+      access_token: "test-access",
+      refresh_token: "test-refresh",
+    });
+    if (type === "recovery")
+      expect(useAuthStore.setState).toHaveBeenCalledWith({
+        isPasswordRecovery: true,
+      });
+  });
+  it("shows an actionable error for expired links", async () => {
+    (Linking.getInitialURL as jest.Mock).mockResolvedValue(
+      "sweaty://#error=access_denied&error_code=otp_expired"
+    );
+    renderHook(() => useDeepLinks());
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/auth-link-error")
+    );
+    expect(supabase.auth.setSession).not.toHaveBeenCalled();
+  });
+});

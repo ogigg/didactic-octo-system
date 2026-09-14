@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
@@ -20,6 +20,8 @@ import {
   normalizeGenerationFailure,
 } from "../_shared/posthog.ts";
 
+type ServiceClient = SupabaseClient<any, "public", any>;
+
 // ---------------------------------------------------------------------------
 // Request Schema
 // ---------------------------------------------------------------------------
@@ -29,6 +31,74 @@ const requestSchema = z.object({
   count: z.number().int().min(1).max(7),
   trigger: z.enum(["onboarding", "preference_change"]),
 });
+
+function getTargetQueueCount(weeklyFrequency: string | null): number {
+  switch (weeklyFrequency) {
+    case "2":
+      return 2;
+    case "3":
+      return 3;
+    case "4":
+      return 4;
+    case "5_plus":
+      return 5;
+    default:
+      return 3;
+  }
+}
+
+interface GeneratedQueueRow {
+  id: string;
+  queue_position: number;
+  status: "ready";
+  focus_area: string | null;
+  workout_data: Record<string, unknown>;
+  generation_source: "llm" | "fallback_template" | "fallback_substitution";
+  generated_at: string;
+}
+
+async function claimQueueGeneration(
+  supabaseClient: ServiceClient,
+  userId: string,
+  requestId: string,
+  trigger: "onboarding" | "preference_change"
+): Promise<"claimed" | "in_progress" | "already_ready"> {
+  const { data, error } = await supabaseClient.rpc("claim_queue_generation", {
+    p_user_id: userId,
+    p_request_id: requestId,
+    p_trigger: trigger,
+  });
+
+  if (error) throw error;
+
+  const result = (Array.isArray(data) ? data[0] : data) as {
+    status?: "claimed" | "in_progress" | "already_ready";
+  } | null;
+  if (
+    result?.status !== "claimed" &&
+    result?.status !== "in_progress" &&
+    result?.status !== "already_ready"
+  ) {
+    throw new Error("Invalid queue generation claim response");
+  }
+
+  return result.status;
+}
+
+async function releaseQueueGeneration(
+  supabaseClient: ServiceClient,
+  userId: string,
+  requestId: string
+): Promise<void> {
+  const { error } = await supabaseClient.rpc("release_queue_generation", {
+    p_user_id: userId,
+    p_request_id: requestId,
+  });
+
+  if (error) {
+    console.error("[generate-workout-queue] Failed to release claim:", error);
+  }
+}
 
 function captureQueueFailureEvent(params: {
   userId: string;
@@ -65,6 +135,8 @@ Deno.serve(async (req: Request) => {
   let userIdForTelemetry: string | null = null;
   let requestIdForTelemetry: string | null = null;
   let queueStartedAtForTelemetry: number | null = null;
+  let queueClaimed = false;
+  let queueClaimClient: ServiceClient | null = null;
 
   try {
     // 1. Auth
@@ -103,14 +175,14 @@ Deno.serve(async (req: Request) => {
         400
       );
     }
-    const { count, trigger, request_id } = parsed.data;
+    const { count: requestedCount, trigger, request_id } = parsed.data;
     const requestId = request_id ?? crypto.randomUUID();
     const queueStartedAt = Date.now();
     requestIdForTelemetry = requestId;
     queueStartedAtForTelemetry = queueStartedAt;
 
     console.log(
-      `[generate-workout-queue] User ${user.id}: generating ${count} workouts (${trigger})`
+      `[generate-workout-queue] User ${user.id}: generating up to ${requestedCount} workouts (${trigger})`
     );
 
     // 3. Fetch profile with preferences
@@ -134,9 +206,9 @@ Deno.serve(async (req: Request) => {
       capturePostHogEvent("workout_queue_failed", user.id, {
         request_id: requestId,
         trigger,
-        count,
+        count: requestedCount,
         ready_count: 0,
-        failed_count: count,
+        failed_count: requestedCount,
         error_code: "profile_missing",
       });
       return errorResponse(
@@ -216,7 +288,58 @@ Deno.serve(async (req: Request) => {
     const recentComments: RecentSessionComment[] =
       (commentRows as RecentSessionComment[] | null) ?? [];
 
-    // 7. Generation allowance check (skip for onboarding — free pass)
+    // 7. The server owns the queue size; the client cannot request more than
+    // the user's saved weekly frequency.
+    const count =
+      trigger === "onboarding"
+        ? getTargetQueueCount(profile.weekly_frequency)
+        : Math.min(
+            requestedCount,
+            getTargetQueueCount(profile.weekly_frequency)
+          );
+
+    // 8. Claim the profile before any slow generation work. The old queue
+    // remains visible until a complete replacement is committed.
+    const claimStatus = await claimQueueGeneration(
+      supabaseClient,
+      user.id,
+      requestId,
+      trigger
+    );
+
+    if (claimStatus === "already_ready") {
+      return jsonResponse({
+        success: true,
+        skipped: true,
+        reason: "initial_queue_already_ready",
+        request_id: requestId,
+      });
+    }
+
+    if (claimStatus === "in_progress") {
+      captureQueueFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "validation",
+        error: "generation already in progress",
+        startedAt: queueStartedAt,
+        trigger,
+      });
+      return jsonResponse(
+        {
+          error: "generation_already_in_progress",
+          skipped: true,
+          request_id: requestId,
+        },
+        409
+      );
+    }
+
+    queueClaimed = true;
+    queueClaimClient = supabaseClient;
+
+    // 9. Check allowance after the claim so concurrent requests cannot both
+    // pass a stale allowance read.
     if (trigger === "preference_change") {
       const allowance = await checkGenerationAllowance(
         supabaseClient,
@@ -256,84 +379,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 8. Check for concurrent generation — skip if already in progress
-    const { data: existingQueue } = await userClient
-      .from("pending_workouts")
-      .select("id, status")
-      .eq("user_id", user.id);
-
-    const hasInFlightGeneration = (existingQueue ?? []).some(
-      (pw) => pw.status === "queued" || pw.status === "generating"
-    );
-
-    if (hasInFlightGeneration) {
-      console.log(
-        "[generate-workout-queue] Generation already in progress, skipping"
-      );
-      captureQueueFailureEvent({
-        userId: user.id,
-        requestId,
-        stage: "validation",
-        error: "generation already in progress",
-        startedAt: queueStartedAt,
-        trigger,
-      });
-      return jsonResponse({
-        skipped: true,
-        reason: "generation_already_in_progress",
-      });
-    }
-
-    // 9. Clear existing pending workouts for this user
-    const { error: deleteError } = await userClient
-      .from("pending_workouts")
-      .delete()
-      .eq("user_id", user.id);
-
-    if (deleteError) {
-      console.error(
-        "[generate-workout-queue] Error clearing queue:",
-        deleteError
-      );
-      captureQueueFailureEvent({
-        userId: user.id,
-        requestId,
-        stage: "persistence",
-        error: deleteError,
-        startedAt: queueStartedAt,
-        trigger,
-      });
-      return errorResponse("Failed to clear existing queue", 500);
-    }
-
-    // 10. Create N pending_workout rows with status 'queued'
-    const queuedWorkouts = Array.from({ length: count }, (_, i) => ({
-      user_id: user.id,
+    // 10. Generate each workout in memory. No pending rows are touched until
+    // every requested workout is ready for the atomic replacement RPC.
+    const generatedRows: GeneratedQueueRow[] = [];
+    const insertedWorkouts = Array.from({ length: count }, (_, i) => ({
+      id: crypto.randomUUID(),
       queue_position: i + 1,
-      status: "queued",
       focus_area: getFocusAreaForPosition(profile.training_split, i + 1),
     }));
-
-    const { data: insertedWorkouts, error: insertError } = await userClient
-      .from("pending_workouts")
-      .insert(queuedWorkouts)
-      .select("id, queue_position, focus_area");
-
-    if (insertError || !insertedWorkouts) {
-      console.error(
-        "[generate-workout-queue] Error creating queue:",
-        insertError
-      );
-      captureQueueFailureEvent({
-        userId: user.id,
-        requestId,
-        stage: "persistence",
-        error: insertError,
-        startedAt: queueStartedAt,
-        trigger,
-      });
-      return errorResponse("Failed to create workout queue", 500);
-    }
 
     // 11. Generate each workout sequentially
     const results: {
@@ -357,34 +410,6 @@ Deno.serve(async (req: Request) => {
         trigger,
       });
 
-      // Set status to 'generating'
-      const { error: markGeneratingError } = await userClient
-        .from("pending_workouts")
-        .update({ status: "generating" })
-        .eq("id", pw.id);
-
-      if (markGeneratingError) {
-        captureQueueFailureEvent({
-          userId: user.id,
-          requestId,
-          stage: "persistence",
-          error: markGeneratingError,
-          startedAt: generationStartedAt,
-          trigger,
-          queuePosition: pw.queue_position,
-          workoutId: pw.id,
-        });
-        await userClient
-          .from("pending_workouts")
-          .update({ status: "failed" })
-          .eq("id", pw.id);
-        results.push({
-          position: pw.queue_position,
-          status: "failed",
-        });
-        continue;
-      }
-
       // Generate
       const genResult = await generateSingleWorkout({
         supabaseClient: userClient,
@@ -406,43 +431,23 @@ Deno.serve(async (req: Request) => {
       });
 
       if (genResult.success && genResult.data) {
-        const { error: readyError } = await userClient
-          .from("pending_workouts")
-          .update({
-            workout_data: genResult.data as unknown as Record<string, unknown>,
-            generation_source: genResult.generationSource,
-            status: "ready",
-            generated_at: new Date().toISOString(),
-          })
-          .eq("id", pw.id);
-
-        if (readyError) {
-          captureQueueFailureEvent({
-            userId: user.id,
-            requestId,
-            stage: "persistence",
-            error: readyError,
-            startedAt: generationStartedAt,
-            trigger,
-            queuePosition: pw.queue_position,
-            workoutId: pw.id,
-          });
-          await userClient
-            .from("pending_workouts")
-            .update({ status: "failed" })
-            .eq("id", pw.id);
-          results.push({
-            position: pw.queue_position,
-            status: "failed",
-          });
-          continue;
-        }
+        const generatedAt = new Date().toISOString();
+        const generationSource = genResult.generationSource ?? "llm";
+        generatedRows.push({
+          id: pw.id,
+          queue_position: pw.queue_position,
+          status: "ready",
+          focus_area: pw.focus_area,
+          workout_data: genResult.data as unknown as Record<string, unknown>,
+          generation_source: generationSource,
+          generated_at: generatedAt,
+        });
 
         capturePostHogEvent("workout_generation_completed", user.id, {
           request_id: requestId,
           workout_id: pw.id,
           queue_position: pw.queue_position,
-          generation_source: genResult.generationSource,
+          generation_source: generationSource,
           generation_time_ms: Math.max(0, Date.now() - generationStartedAt),
           trigger,
         });
@@ -466,17 +471,12 @@ Deno.serve(async (req: Request) => {
         results.push({
           position: pw.queue_position,
           status: "ready",
-          source: genResult.generationSource,
+          source: generationSource,
         });
       } else {
         console.error(
           `[generate-workout-queue] Failed position ${pw.queue_position}: ${genResult.error}`
         );
-
-        await userClient
-          .from("pending_workouts")
-          .update({ status: "failed" })
-          .eq("id", pw.id);
 
         captureQueueFailureEvent({
           userId: user.id,
@@ -494,6 +494,7 @@ Deno.serve(async (req: Request) => {
           status: "failed",
           error: genResult.error,
         });
+        break;
       }
     }
 
@@ -508,15 +509,7 @@ Deno.serve(async (req: Request) => {
     const fallbackCount = results.filter(
       (r) => r.status === "ready" && r.source !== "llm"
     ).length;
-    if (failedCount === 0 && successfulCount === count) {
-      capturePostHogEvent("workout_queue_ready", user.id, {
-        request_id: requestId,
-        trigger,
-        count,
-        fallback_count: fallbackCount,
-        total_generation_time_ms: Math.max(0, Date.now() - queueStartedAt),
-      });
-    } else {
+    if (failedCount > 0 || successfulCount !== count) {
       capturePostHogEvent("workout_queue_failed", user.id, {
         request_id: requestId,
         trigger,
@@ -525,7 +518,55 @@ Deno.serve(async (req: Request) => {
         failed_count: failedCount,
         error_code: failedCount > 0 ? "generation_failed" : "internal",
       });
+
+      return jsonResponse(
+        {
+          error: "generation_failed",
+          count,
+          trigger,
+          results,
+        },
+        500
+      );
     }
+
+    const { error: replaceError } = await supabaseClient.rpc(
+      "replace_pending_workouts",
+      {
+        p_user_id: user.id,
+        p_request_id: requestId,
+        p_trigger: trigger,
+        p_workouts: generatedRows,
+      }
+    );
+
+    if (replaceError) {
+      captureQueueFailureEvent({
+        userId: user.id,
+        requestId,
+        stage: "persistence",
+        error: replaceError,
+        startedAt: queueStartedAt,
+        trigger,
+      });
+      capturePostHogEvent("workout_queue_failed", user.id, {
+        request_id: requestId,
+        trigger,
+        count,
+        ready_count: 0,
+        failed_count: count,
+        error_code: "queue_replace_failed",
+      });
+      return errorResponse("Failed to save workout queue", 500);
+    }
+
+    capturePostHogEvent("workout_queue_ready", user.id, {
+      request_id: requestId,
+      trigger,
+      count,
+      fallback_count: fallbackCount,
+      total_generation_time_ms: Math.max(0, Date.now() - queueStartedAt),
+    });
 
     if (trigger !== "onboarding") {
       if (successfulCount > 0) {
@@ -560,5 +601,18 @@ Deno.serve(async (req: Request) => {
       });
     }
     return errorResponse("Internal server error", 500);
+  } finally {
+    if (
+      queueClaimed &&
+      queueClaimClient &&
+      userIdForTelemetry &&
+      requestIdForTelemetry
+    ) {
+      await releaseQueueGeneration(
+        queueClaimClient,
+        userIdForTelemetry,
+        requestIdForTelemetry
+      );
+    }
   }
 });

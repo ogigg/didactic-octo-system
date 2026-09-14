@@ -1,6 +1,7 @@
 import { Session } from "@supabase/supabase-js";
 import { create } from "zustand";
 
+import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 import { syncQueue } from "@/lib/sync-queue";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -18,14 +19,21 @@ interface AuthState {
   session: Session | null;
   isLoading: boolean;
   isInitialized: boolean;
+  profileStatus: "loading" | "ready" | "error";
+  isPasswordRecovery: boolean;
 }
 
 interface AuthActions {
   initialize: () => () => void;
   signOut: () => Promise<void>;
+  retryProfile: () => Promise<void>;
+  finishPasswordRecovery: () => void;
 }
 
-export const useAuthStore = create<AuthState & AuthActions>()((set) => {
+export const useAuthStore = create<AuthState & AuthActions>()((set, get) => {
+  let transition = 0;
+  let disposed = false;
+  let activeUserId: string | null = null;
   let explicitSignOutInProgress = false;
   let activeAnalyticsUserId: string | null = null;
   let signOutAnalyticsHandled = false;
@@ -81,23 +89,82 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
   }
 
   async function syncOnboardingState() {
+    const userId = get().session?.user.id;
+    if (!userId) {
+      set({ profileStatus: "loading" });
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        acceptSession(data.session);
+      } catch {
+        set({ profileStatus: "error" });
+      }
+      return;
+    }
+    const request = ++transition;
+    set({ profileStatus: "loading" });
     try {
-      const profile = await fetchProfile();
+      if (
+        useOnboardingStore.persist &&
+        !useOnboardingStore.persist.hasHydrated()
+      ) {
+        await useOnboardingStore.persist.rehydrate();
+      }
+      if (disposed || request !== transition) return;
+      useOnboardingStore.getState().prepareForUser(userId);
+      // Supabase auth events run under its session lock. Defer network work.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (disposed || request !== transition) return;
+      const profile = await fetchProfile(userId);
+      if (
+        disposed ||
+        request !== transition ||
+        get().session?.user.id !== userId
+      )
+        return;
       if (profile) {
         useOnboardingStore.getState().syncWithDatabase(profile);
         setUserProperties({
           onboarding_completed: profile.onboarding_completed,
-          goal_category: profile.goal,
+          goal_category: profile.goal ?? undefined,
           weekly_frequency:
             profile.weekly_frequency === "5_plus"
               ? 5
-              : Number(profile.weekly_frequency),
+              : Number(profile.weekly_frequency) || undefined,
           equipment: profile.equipment_level,
           experience: profile.difficulty_level,
         });
       }
+      set({ profileStatus: "ready" });
     } catch (error) {
-      console.warn("[auth-store] Failed to sync onboarding state:", error);
+      if (!disposed && request === transition) {
+        set({ profileStatus: "error" });
+        console.warn("[auth-store] Failed to sync onboarding state:", error);
+      }
+    }
+  }
+
+  function acceptSession(session: Session | null) {
+    const userId = session?.user.id ?? null;
+    const changed = userId !== activeUserId;
+    activeUserId = userId;
+    if (changed) {
+      void queryClient.cancelQueries();
+      queryClient.clear();
+    }
+    syncQueue.setActiveUser(userId);
+    if (userId) setTimeout(() => void syncQueue.processQueue(), 0);
+    set({
+      session,
+      isInitialized: true,
+      ...(changed && session ? { profileStatus: "loading" as const } : {}),
+    });
+    syncAnalyticsIdentity(session);
+    if (!session) {
+      ++transition;
+      set({ profileStatus: "ready", isPasswordRecovery: false });
+    } else if (changed || get().profileStatus !== "ready") {
+      void syncOnboardingState();
     }
   }
 
@@ -115,6 +182,10 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
     session: null,
     isLoading: false,
     isInitialized: false,
+    profileStatus: "loading",
+    isPasswordRecovery: false,
+    retryProfile: syncOnboardingState,
+    finishPasswordRecovery: () => set({ isPasswordRecovery: false }),
 
     initialize: () => {
       // Each auth subscription owns a fresh transition guard. The PostHog
@@ -124,34 +195,39 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
       activeAnalyticsUserId = null;
       signOutAnalyticsHandled = false;
 
-      // Get existing session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        set({ session, isInitialized: true });
-        syncAnalyticsIdentity(session);
-        if (session) {
-          syncOnboardingState();
-        }
-      });
+      ++transition;
+      disposed = false;
+      activeUserId = null;
+      let receivedEvent = false;
+      supabase.auth
+        .getSession()
+        .then(({ data: { session } }) => {
+          if (!disposed && !receivedEvent) acceptSession(session);
+        })
+        .catch(() => {
+          if (!disposed && !receivedEvent)
+            set({ isInitialized: true, profileStatus: "error" });
+        });
 
-      // Subscribe to auth state changes
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange((event, session) => {
-        set({ session, isInitialized: true });
-        if (!session) {
-          handleSignedOutAnalytics();
-        } else {
-          syncAnalyticsIdentity(session);
-        }
-        if (session) {
-          syncOnboardingState();
-          if (event === "SIGNED_IN") {
-            clearPendingDeletion();
-          }
-        }
+        receivedEvent = true;
+        if (event === "PASSWORD_RECOVERY") set({ isPasswordRecovery: true });
+        // Leave the Supabase auth callback before requesting authenticated data.
+        if (disposed) return;
+        acceptSession(session);
+        if (session && event === "SIGNED_IN")
+          setTimeout(() => {
+            if (!disposed) void clearPendingDeletion();
+          }, 0);
       });
 
-      return () => subscription.unsubscribe();
+      return () => {
+        disposed = true;
+        ++transition;
+        subscription.unsubscribe();
+      };
     },
 
     signOut: async () => {
@@ -175,8 +251,16 @@ export const useAuthStore = create<AuthState & AuthActions>()((set) => {
             error
           );
         }
-        useOnboardingStore.getState().reset();
-        set({ session: null });
+        ++transition;
+        activeUserId = null;
+        void queryClient.cancelQueries();
+        queryClient.clear();
+        syncQueue.setActiveUser(null);
+        set({
+          session: null,
+          profileStatus: "ready",
+          isPasswordRecovery: false,
+        });
         finalizeExplicitSignOut();
       } finally {
         explicitSignOutInProgress = false;

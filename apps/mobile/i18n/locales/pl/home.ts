@@ -32,6 +32,12 @@ export const home = {
     completed_other: "{{count}} treningu ukończonego",
   },
   workoutQueue: {
+    preparing:
+      "Przygotowujemy treningi. Obecny plan pozostaje dostępny do czasu ukończenia nowego.",
+    preparationError:
+      "Nie udało się przygotować treningów. Twoje ustawienia i obecne treningi są zachowane. Spróbuj ponownie.",
+    retryPreparation: "Spróbuj ponownie",
+
     title: "Twój plan",
     loading: "Ładowanie twojego planu...",
     readyCount: "{{ready}}/{{total}}",
