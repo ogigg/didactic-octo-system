@@ -50,5 +50,5 @@
 
 ## Git
 
-- When working on a Linear issue, name the branch `ticket-number-short-description` from `remote/master`.
+- When working on a Linear issue, name the branch `ticket-number-short-description` from `remote/main`.
 - Create a new branch per programming task. Skip this for conversation-only work.

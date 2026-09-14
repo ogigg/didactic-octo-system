@@ -88,6 +88,40 @@ const HIGH_RPE_THRESHOLD = 9;
 const TIME_INCREMENT_TOO_EASY = 15;
 const TIME_INCREMENT_OK = 10;
 
+/** Conservative starting-load anchors per equipment family (kg). */
+const INITIAL_LOAD_DEFAULTS: {
+  match: (equipment: string[]) => boolean;
+  defaultKg: number;
+  minKg: number;
+}[] = [
+  {
+    match: (eq) => eq.some((e) => e.toLowerCase().includes("barbell")),
+    defaultKg: 30,
+    minKg: 20, // empty Olympic bar
+  },
+  {
+    match: (eq) => eq.some((e) => e.toLowerCase().includes("dumbbell")),
+    defaultKg: 10,
+    minKg: 4,
+  },
+  {
+    match: (eq) =>
+      eq.some(
+        (e) =>
+          e.toLowerCase().includes("machine") ||
+          e.toLowerCase().includes("cable")
+      ),
+    defaultKg: 15,
+    minKg: 5,
+  },
+];
+
+const FALLBACK_INITIAL_LOAD = { defaultKg: 10, minKg: 5 };
+/** Fraction of a similar exercise's primary load used as the starting point. */
+const SIMILAR_EXERCISE_FACTOR = 0.75;
+/** Fraction of a matched strength-baseline load used as the starting point. */
+const BASELINE_FACTOR = 0.4;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -370,4 +404,86 @@ export function calculateProgression(
     reason_code: PROGRESSION_REASON_CODES.REP_RANGE_INCREASE,
     evidence,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Initial Load Suggestion (new exercises)
+// ---------------------------------------------------------------------------
+
+export interface InitialLoadOptions {
+  equipment: string[];
+  /** History from a biomechanically similar exercise the user has trained. */
+  similarExerciseHistory?: ExerciseHistory | null;
+  /** Load (kg) from a strength baseline matching the movement pattern, if any. */
+  baselineLoadKg?: number | null;
+}
+
+/**
+ * Majority load among completed weight sets; null when none qualify.
+ */
+export function getPrimaryHistoryLoadKg(
+  history: ExerciseHistory | null | undefined
+): number | null {
+  const completedSets = (history?.working_sets ?? []).filter(
+    (s): s is WorkingSetRecord & { load_kg: number } =>
+      s.completed && s.load_kg != null && s.load_kg > 0
+  );
+  if (completedSets.length === 0) return null;
+
+  const loadCounts = new Map<number, number>();
+  for (const s of completedSets) {
+    loadCounts.set(s.load_kg, (loadCounts.get(s.load_kg) ?? 0) + 1);
+  }
+  return [...loadCounts.entries()].reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+}
+
+function resolveInitialLoadAnchor(equipment: string[]): {
+  defaultKg: number;
+  minKg: number;
+} {
+  for (const anchor of INITIAL_LOAD_DEFAULTS) {
+    if (anchor.match(equipment)) return anchor;
+  }
+  return FALLBACK_INITIAL_LOAD;
+}
+
+/**
+ * Deterministic starting load (kg) for an exercise the user has never trained.
+ *
+ * Priority order:
+ * 1. Similar exercise history (conservative fraction of its primary load)
+ * 2. Muscle-matched strength baseline (conservative fraction)
+ * 3. Equipment-family default
+ * Result is rounded down to the equipment's plate/dumbbell increment and
+ * never falls below the equipment floor (e.g. empty barbell = 20kg).
+ */
+export function suggestInitialLoadKg(options: InitialLoadOptions): number {
+  const increment = Math.max(getWeightIncrement(options.equipment), 1);
+  const roundDown = (kg: number) =>
+    Math.max(increment, Math.floor(kg / increment) * increment);
+
+  let candidateKg = 0;
+
+  const similarLoadKg = getPrimaryHistoryLoadKg(options.similarExerciseHistory);
+  if (similarLoadKg != null && similarLoadKg > 0) {
+    candidateKg = similarLoadKg * SIMILAR_EXERCISE_FACTOR;
+  }
+
+  if (
+    !candidateKg &&
+    options.baselineLoadKg != null &&
+    options.baselineLoadKg > 0
+  ) {
+    candidateKg = options.baselineLoadKg * BASELINE_FACTOR;
+  }
+
+  const anchor = resolveInitialLoadAnchor(options.equipment);
+  if (!candidateKg) {
+    candidateKg = anchor.defaultKg;
+  } else {
+    // Even informed guesses stay above the equipment floor.
+    return Math.max(roundDown(candidateKg), anchor.minKg);
+  }
+
+  return roundDown(candidateKg);
 }

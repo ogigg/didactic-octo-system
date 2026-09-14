@@ -1,4 +1,25 @@
 export const auth = {
+  linkError: {
+    title: "Nie udało się użyć tego linku",
+    body: "Link mógł wygasnąć lub zostać już użyty. Spróbuj się zalogować albo poproś o nowy link do resetowania hasła.",
+  },
+  setup: {
+    saving: "Zapisywanie planu…",
+    create: "Utwórz moje treningi",
+    saveError:
+      "Nie udało się zapisać ustawień. Sprawdź połączenie i spróbuj ponownie. Odpowiedzi są zachowane i zsynchronizują się po połączeniu.",
+  },
+  profile: {
+    slow: "Wczytywanie trwa dłużej niż zwykle. Sprawdź połączenie z internetem lub spróbuj ponownie.",
+    loadingTitle: "Jeszcze chwila",
+    loading: "Wczytujemy twój profil. Za chwilę przejdziesz dalej.",
+    errorTitle: "Spróbujmy jeszcze raz",
+    error:
+      "Nie udało się wczytać profilu. Twój zapisany plan pozostaje bez zmian.",
+    retry: "Spróbuj ponownie",
+    signOut: "Wyloguj się",
+  },
+
   signIn: {
     title: "Witaj ponownie",
     subtitle: "Zaloguj się, aby kontynuować",
@@ -13,8 +34,15 @@ export const auth = {
     divider: "lub kontynuuj z",
   },
   signUp: {
+    showPassword: "Pokaż hasło",
+    hidePassword: "Ukryj hasło",
+    resend: "Wyślij ponownie e-mail potwierdzający",
+    resendCountdown: "Wyślij ponownie za {{seconds}} s",
+    resent: "E-mail wysłany. Sprawdź skrzynkę i folder spam.",
+    changeEmail: "Popraw adres e-mail",
+
     title: "Utwórz konto",
-    subtitle: "Rozpocznij swoją drogę fitness",
+    subtitle: "Treningi dopasowane do twoich celów",
     emailLabel: "Email",
     emailPlaceholder: "ty@example.com",
     passwordLabel: "Hasło",

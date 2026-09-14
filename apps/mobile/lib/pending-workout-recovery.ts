@@ -123,7 +123,12 @@ export function isPendingWorkoutStale(workout: PendingWorkout): boolean {
 export async function buildFallbackPendingWorkoutData(params: {
   focusArea: FocusArea | null;
   equipment: "bodyweight" | "dumbbells" | "barbell" | "full_gym";
-  goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+  goalSnapshot:
+    | "build_strength"
+    | "build_muscle"
+    | "lose_weight"
+    | "improve_fitness"
+    | "custom";
   customGoalSnapshot: string | null;
 }): Promise<GenerateWorkoutResponse | null> {
   const focusArea = params.focusArea ?? "full_body";

@@ -1,6 +1,7 @@
 import {
   buildActiveWatchSnapshot,
   buildCancelledWatchSnapshot,
+  extractWatchCommandID,
   makeWatchEnvelope,
   parseWatchAction,
   registerWatchCommand,
@@ -84,6 +85,37 @@ describe("watch workout synchronization", () => {
     });
   });
 
+  it("keeps planned values stable and converts display-unit loads on the wire", () => {
+    const snapshot = buildActiveWatchSnapshot({
+      workoutName: "Imperial push",
+      startedAtMs: Date.parse("2026-07-29T10:00:00.000Z"),
+      exercises: [
+        {
+          ...exercises[0]!,
+          sets: [
+            {
+              ...exercises[0]!.sets[0]!,
+              kg: "110",
+              reps: "6",
+              plannedKg: "100",
+              plannedReps: "8",
+            },
+          ],
+        },
+      ],
+      restTimer: null,
+      weightUnit: "lbs",
+    });
+
+    expect(snapshot.weightUnit).toBe("lbs");
+    expect(snapshot.exercises[0]?.sets[0]).toMatchObject({
+      targetLoadKg: 100 / 2.20462,
+      targetReps: 8,
+      actualLoadKg: 110 / 2.20462,
+      actualReps: 6,
+    });
+  });
+
   it("runtime-validates commands and their JSON payload", () => {
     const valid = parseWatchAction({
       protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
@@ -97,6 +129,9 @@ describe("watch workout synchronization", () => {
         setId: "next-set-stable-id",
         loadKg: 45,
         reps: 8,
+        durationSeconds: 45,
+        restId: "rest-1",
+        completedAt: "2026-07-29T10:12:01.000Z",
       }),
     });
 
@@ -174,7 +209,7 @@ describe("watch workout synchronization", () => {
     ).toEqual(["exercise-long-lived-id", "exercise-long-lived-id"]);
   });
 
-  it("rejects future-base commands while reconciling stale commands for the same entity", () => {
+  it("accepts stale commands for an incomplete set on the same workout", () => {
     const parsed = parseWatchAction({
       protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
       commandID: "stale-command",
@@ -197,35 +232,11 @@ describe("watch workout synchronization", () => {
       setState: "incomplete" as const,
       restId: null,
     };
-    expect(shouldApplyWatchAction(parsed!, context)).toBe(false);
-    expect(
-      shouldApplyWatchAction(parsed!, {
-        ...context,
-        canReconcileStaleSetMutation: true,
-      })
-    ).toBe(true);
+    expect(shouldApplyWatchAction(parsed!, context)).toBe(true);
     expect(
       shouldApplyWatchAction(
         { ...parsed!, envelope: { ...parsed!.envelope, baseRevision: 6 } },
-        {
-          ...context,
-          canReconcileStaleSetMutation: true,
-        }
-      )
-    ).toBe(false);
-    expect(
-      shouldApplyWatchAction(
-        {
-          ...parsed!,
-          envelope: {
-            ...parsed!.envelope,
-            type: "updateSet",
-          },
-        },
-        {
-          ...context,
-          canReconcileStaleSetMutation: true,
-        }
+        context
       )
     ).toBe(true);
     expect(
@@ -239,7 +250,28 @@ describe("watch workout synchronization", () => {
         },
         context
       )
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldApplyWatchAction(
+        {
+          ...parsed!,
+          envelope: {
+            ...parsed!.envelope,
+            type: "updateSet",
+          },
+        },
+        context
+      )
+    ).toBe(true);
+    expect(
+      shouldApplyWatchAction(
+        {
+          ...parsed!,
+          envelope: { ...parsed!.envelope, type: "reopenSet" },
+        },
+        { ...context, setState: "completed" }
+      )
+    ).toBe(true);
   });
 
   it("deduplicates repeated command delivery before mutation", () => {
@@ -277,5 +309,77 @@ describe("watch workout synchronization", () => {
         restId: "rest-cycle-2",
       })
     ).toBe(false);
+  });
+
+  it("accepts a state refresh request without a workout ID", () => {
+    const parsed = parseWatchAction({
+      protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
+      commandID: "request-state",
+      baseRevision: 0,
+      sentAt: "2026-07-29T10:12:00.000Z",
+      type: "requestState",
+      payload: "{}",
+    });
+
+    expect(parsed?.payload.workoutId).toBeUndefined();
+    expect(
+      shouldApplyWatchAction(parsed!, {
+        currentRevision: 0,
+        workoutId: null,
+        isActive: false,
+        exerciseExists: false,
+        setState: "missing",
+        restId: null,
+      })
+    ).toBe(true);
+  });
+
+  it("accepts a late Health receipt even when its revision is newer", () => {
+    const parsed = parseWatchAction({
+      protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
+      commandID: "health-saved-future-revision",
+      baseRevision: 99,
+      sentAt: "2026-07-29T10:12:00.000Z",
+      type: "healthWorkoutSaved",
+      payload: JSON.stringify({
+        workoutId: "workout-1785319200000",
+        healthWorkoutUUID: "11111111-1111-4111-8111-111111111111",
+      }),
+    });
+
+    expect(
+      shouldApplyWatchAction(parsed!, {
+        currentRevision: 7,
+        workoutId: null,
+        isActive: false,
+        exerciseExists: false,
+        setState: "missing",
+        restId: null,
+        canApplyHealthCommand: true,
+      })
+    ).toBe(true);
+  });
+
+  it("accepts explicit warmup state commands", () => {
+    const parsed = parseWatchAction({
+      protocolVersion: WATCH_SYNC_PROTOCOL_VERSION,
+      commandID: "warmup-state",
+      baseRevision: 3,
+      sentAt: "2026-07-29T10:12:00.000Z",
+      type: "setWarmupComplete",
+      payload: JSON.stringify({
+        workoutId: "workout-1785319200000",
+        isCompleted: true,
+      }),
+    });
+
+    expect(parsed?.payload.isCompleted).toBe(true);
+  });
+
+  it("extracts command IDs so malformed commands can still be acknowledged", () => {
+    expect(extractWatchCommandID({ commandID: "bad-payload" })).toBe(
+      "bad-payload"
+    );
+    expect(extractWatchCommandID({ commandID: 42 })).toBeNull();
   });
 });

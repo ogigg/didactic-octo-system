@@ -9,6 +9,8 @@ import {
 import React from "react";
 import { useTranslation } from "react-i18next";
 
+import { ProfileGate } from "@/components/auth/profile-gate";
+import { useOnboardingStore } from "@/stores/onboarding-store";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -16,7 +18,15 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { t } = useTranslation("common");
-  const { isAuthenticated, isInitialized } = useAuth();
+  const { isAuthenticated, isInitialized, profileStatus, isPasswordRecovery } =
+    useAuth();
+
+  const completed = useOnboardingStore((s) => s.isCompleted);
+  const nextStep = useOnboardingStore((s) => s.getNextUnfinishedStep);
+  if (!isInitialized || profileStatus !== "ready") return <ProfileGate />;
+  if (isPasswordRecovery) return <Redirect href="/(auth)/reset-password" />;
+  if (isAuthenticated && !completed)
+    return <Redirect href={`/(onboarding)/${nextStep()}` as never} />;
 
   if (isInitialized && !isAuthenticated) {
     return <Redirect href="/(auth)/sign-in" />;

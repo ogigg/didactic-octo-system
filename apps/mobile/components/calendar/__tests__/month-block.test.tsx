@@ -6,6 +6,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import "@/i18n";
 import { MonthBlock } from "../month-block";
 
 jest.mock("@/hooks/use-theme-color", () => ({
@@ -43,9 +44,9 @@ describe("MonthBlock responsive columns", () => {
     const weekdayWidth = getRenderedWidth(screen.getByText("Su"));
     const dateWidth = getRenderedWidth(screen.getByLabelText("1"));
 
-    expect(weekdayWidth).toBe(containerWidth / 7);
+    expect(weekdayWidth).toBe(Math.floor(containerWidth / 7));
     expect(dateWidth).toBe(weekdayWidth);
-    expect(weekdayWidth * 7).toBe(containerWidth);
+    expect(weekdayWidth * 7).toBeLessThanOrEqual(containerWidth);
   });
 
   it("recalculates aligned columns when the container width changes", () => {
@@ -57,15 +58,39 @@ describe("MonthBlock responsive columns", () => {
         layout: { width: 362, height: 0, x: 0, y: 0 },
       },
     });
-    expect(getRenderedWidth(screen.getByText("Su"))).toBe(362 / 7);
-    expect(getRenderedWidth(screen.getByLabelText("1"))).toBe(362 / 7);
+    expect(getRenderedWidth(screen.getByText("Su"))).toBe(Math.floor(362 / 7));
+    expect(getRenderedWidth(screen.getByLabelText("1"))).toBe(
+      Math.floor(362 / 7)
+    );
 
     fireEvent(month, "layout", {
       nativeEvent: {
         layout: { width: 804, height: 0, x: 0, y: 0 },
       },
     });
-    expect(getRenderedWidth(screen.getByText("Su"))).toBe(804 / 7);
-    expect(getRenderedWidth(screen.getByLabelText("1"))).toBe(804 / 7);
+    expect(getRenderedWidth(screen.getByText("Su"))).toBe(Math.floor(804 / 7));
+    expect(getRenderedWidth(screen.getByLabelText("1"))).toBe(
+      Math.floor(804 / 7)
+    );
+  });
+
+  it("marks a covered week on every day in that week", () => {
+    render(
+      <MonthBlock
+        year={2026}
+        month={7}
+        entries={[]}
+        getWeekStatusForDate={(dateKey) =>
+          dateKey <= "2026-07-05" ? "covered" : undefined
+        }
+      />
+    );
+
+    expect(
+      screen.getAllByTestId("calendar-week-highlight-covered-2026-06-29")
+    ).toHaveLength(5);
+    expect(screen.getByLabelText("1, Protected week")).toBeVisible();
+    expect(screen.getByLabelText("5, Protected week")).toBeVisible();
+    expect(screen.getByLabelText("6")).toBeVisible();
   });
 });

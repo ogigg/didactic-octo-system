@@ -59,6 +59,9 @@ Important columns:
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
 - `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
+- `initial_queue_generated_at`: when the first successful onboarding queue replacement was committed; a null value means the onboarding free retry is still available
+- `queue_generation_request_id`, `queue_generation_started_at`: server-managed claim token and timestamp for the queue replacement currently being generated; claims expire after 15 minutes
+- `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL
 - `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state
 - `deletion_scheduled_at`: when non-null, the account is scheduled for hard deletion at this timestamp. Signing back in before then clears the flag. A scheduled job (`purge_expired_deletions()`) purges expired rows, which cascades to every user-owned table.
 
@@ -70,11 +73,18 @@ Notes:
 
 - profile rows are auto-created when a new auth user is created
 - this table is one of the most important sources of generation context
+- onboarding profile and baseline writes go through `complete_onboarding(...)`, which locks the profile, validates the payload, and commits both records atomically; repeated calls after completion return the existing profile unchanged
+- authenticated clients cannot write the queue claim or initial-generation marker directly
 - account deletion is soft with a 14-day grace period — see `request_account_deletion`, `cancel_account_deletion`, `purge_expired_deletions`
 - after the grace period, `purge_expired_deletions()` deletes the matching `auth.users` row; foreign-key cascades remove the profile and user-owned app data
 - no separate legal, security, or fraud-retention archive is implemented in this repository; external store purchase and billing records are outside this database purge
 
 ### `strength_baselines`
+
+Settings replace strength baselines atomically through `save_strength_baselines`.
+Bodyweight repetitions may be zero (known inability); unanswered exercises have
+no row. Weighted entries require both load and positive whole repetitions.
+Loads are always stored in kilograms, regardless of the display unit.
 
 Purpose:
 
@@ -248,6 +258,8 @@ Notes:
 
 - unique per user + queue position
 - supports a pre-generated workout flow instead of generating only at the moment of use
+- queue replacement generation keeps the current rows untouched while new workouts are generated; `replace_pending_workouts(...)` swaps the full ready queue in one transaction only after every requested workout succeeds
+- `claim_queue_generation(...)` serializes replacements per profile and allows stale claims to be reclaimed after 15 minutes; a completed onboarding queue returns an idempotent already-ready result
 
 ### `workout_sessions`
 
@@ -443,6 +455,7 @@ Notes:
 - a partial unique index allows only one protection event per user + covered week
 - protected weeks are counted alongside qualifying completed workout weeks by `get_streak_status`
 - qualifying workout weeks require a completed `workout_sessions` row with at least one completed `set_logs` row
+- the mobile total-workouts count does not yet apply the completed-set requirement; see the qualifying-workout discrepancy in `docs/superpowers/specs/2026-09-10-streak-protection-experience-design.md` (SWE-139)
 
 ## Operational / Product Support
 
@@ -492,6 +505,41 @@ Notes:
 - writes are intended to happen through server-side logic / RPCs
 - `check_generation_allowance` may be called by the owning authenticated user or by `service_role`; `record_generation_usage` and `update_subscription_status` are service-role-only because they mutate entitlement/accounting state through `SECURITY DEFINER` RPCs
 
+### `llm_generation_logs`
+
+Purpose:
+
+- raw LLM request/response traces for every workout generation, used to debug bad model output (for example exercises generated with a `0` kg load)
+
+Important columns:
+
+- `user_id`, `pending_workout_id`: generation context (nullable)
+- `function_name`: which edge function triggered the call (`generate-workout`, `generate-next-workout`)
+- `model`: OpenRouter model used
+- `status`: `success`, `parse_error`, `api_error`, or `timeout`
+- `request_messages`: full system + user prompt sent to the model
+- `raw_response`: unmodified OpenRouter JSON response
+- `parsed_content`: the JSON parsed out of the model content before app-level enrichment
+- `reasoning_content`: separate reasoning/chain-of-thought field returned by the model, when present
+- `error_message`, `duration_ms`, `prompt_tokens`, `completion_tokens`
+
+Relationships:
+
+- optionally tied to a profile and a pending workout
+
+Notes:
+
+- written exclusively by edge functions via the service role key
+- RLS is enabled with an admin-only SELECT policy; regular users can never read generation logs
+- surfaced in the admin dashboard (`apps/admin`) under Generations
+
+## Admin Access
+
+- `profiles.is_admin` grants access to the admin dashboard and admin-only RLS policies
+- the `public.is_admin()` helper function is used by all admin policies (`exercises`, `exercise_translations`, `exercise_media_assets`, `llm_generation_logs`, and storage writes to the `exercise-media` bucket)
+- admins are promoted manually: `UPDATE public.profiles SET is_admin = TRUE WHERE id = '<user-uuid>';`
+- the admin dashboard lives in `apps/admin` and authenticates with the same Supabase project as the mobile app; RLS remains the security boundary even for admins
+
 ## Relationships Summary
 
 ```text
@@ -527,6 +575,7 @@ When database-related work touches behavior, also inspect `supabase/migrations` 
 - exercise detail RPCs
 - measurement history RPCs
 - generation allowance / subscription RPCs
+- onboarding completion and queue replacement RPCs (`complete_onboarding`, `claim_queue_generation`, `release_queue_generation`, `replace_pending_workouts`)
 - streak protection RPCs
 
 Those functions are part of the practical database interface even though they are not tables.
@@ -582,3 +631,5 @@ Invariants:
 - max-weight selection orders load descending, reps descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
 - max-reps selection orders reps descending, load descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
 - callers must be authenticated and receive only their own records; an authenticated user with no eligible sets receives `[]`
+
+Onboarding supports `goal_type.build_muscle` and `frequency_type.1`. New submissions explicitly supply session duration and may supply a training-style override and optional `training_custom_prompt` (200 characters).

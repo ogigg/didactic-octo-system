@@ -1,3 +1,4 @@
+import { ProfileLoadingTransition } from "@/components/auth/profile-loading-transition";
 import "@/i18n";
 import {
   DarkTheme,
@@ -16,6 +17,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
+import { AnalyticsScreenTracker } from "@/components/analytics-screen-tracker";
 import { AnimatedSplash } from "@/components/animated-splash";
 import { ToastHost } from "@/components/ui/toast-host";
 import { WatchBridgeHost } from "@/components/watch-bridge-host";
@@ -129,6 +131,7 @@ export default function RootLayout() {
             <WorkoutLiveActivityHost />
             <WatchBridgeHost />
             <ThemeProvider value={theme}>
+              <AnalyticsScreenTracker />
               <Stack
                 screenOptions={{
                   contentStyle: styles.transparent,
@@ -198,6 +201,10 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen
+                  name="auth-link-error"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="statistics"
                   options={{ headerShown: false }}
                 />
@@ -234,10 +241,19 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="export-history"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="change-password"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="delete-account"
                   options={{ headerShown: false }}
                 />
               </Stack>
+              <ProfileLoadingTransition />
               <ToastHost />
               <StatusBar style="auto" />
             </ThemeProvider>

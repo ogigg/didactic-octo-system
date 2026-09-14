@@ -9,6 +9,7 @@ import { isWatchPaired, sendWorkoutState } from "@/modules/watch-bridge/src";
 import type { WorkoutExercise } from "@/stores/workout-store";
 
 let latestRevision = 0;
+let publicationQueue = Promise.resolve();
 
 export function currentWatchRevision(): number {
   return latestRevision;
@@ -23,7 +24,10 @@ export async function publishWatchSnapshot(
   snapshot: WatchWorkoutSnapshot
 ): Promise<boolean> {
   if (Platform.OS !== "ios" || !isWatchPaired()) return false;
-  await sendWorkoutState(makeWatchEnvelope(snapshot, nextWatchRevision()));
+  const envelope = makeWatchEnvelope(snapshot, nextWatchRevision());
+  const publication = publicationQueue.then(() => sendWorkoutState(envelope));
+  publicationQueue = publication.catch(() => undefined);
+  await publication;
   return true;
 }
 

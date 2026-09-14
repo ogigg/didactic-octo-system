@@ -32,6 +32,7 @@ export const workoutStatsKeys = {
 export const calendarKeys = {
   all: ["calendar"] as const,
   entries: () => [...calendarKeys.all, "entries"] as const,
+  streakWeeks: () => [...calendarKeys.all, "streak-weeks"] as const,
 };
 
 export const exerciseMuscleKeys = {

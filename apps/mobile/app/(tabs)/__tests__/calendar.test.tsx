@@ -12,6 +12,7 @@ let mockCalendarHookState: {
     year: number,
     month: number
   ) => { date: string; sessions: { id: string; title: string }[] }[];
+  getWeekStatusForDate: (dateKey: string) => undefined;
   isLoading: boolean;
   isRefetching: boolean;
   refetch: typeof mockRefetch;
@@ -68,6 +69,7 @@ describe("CalendarScreen pull-to-refresh", () => {
           },
         ];
       },
+      getWeekStatusForDate: () => undefined,
       isLoading: false,
       isRefetching: false,
       refetch: mockRefetch,
@@ -260,4 +262,39 @@ describe("CalendarScreen pull-to-refresh", () => {
       params: { id: "session-1" },
     });
   });
+});
+
+it("updates the visible month range and today marker after midnight", () => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date(2026, 8, 30, 23, 59, 59));
+  mockCalendarHookState = {
+    getEntriesForMonth: () => [],
+    getWeekStatusForDate: () => undefined,
+    isLoading: false,
+    isRefetching: false,
+    refetch: mockRefetch,
+  };
+  const { UNSAFE_getByType, unmount } = render(<CalendarScreen />);
+  try {
+    expect(UNSAFE_getByType(FlatList).props.data).toContainEqual({
+      year: 2024,
+      month: 10,
+    });
+    expect(
+      screen.getByTestId("calendar-day-2026-09-30").props.accessibilityLabel
+    ).toContain("today");
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(UNSAFE_getByType(FlatList).props.data).not.toContainEqual({
+      year: 2024,
+      month: 10,
+    });
+    expect(
+      screen.getByTestId("calendar-day-2026-10-01").props.accessibilityLabel
+    ).toContain("today");
+  } finally {
+    unmount();
+    jest.useRealTimers();
+  }
 });

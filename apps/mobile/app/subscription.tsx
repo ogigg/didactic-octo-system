@@ -1,6 +1,7 @@
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useEffect, useRef } from "react";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { ProBadge } from "@/components/subscription/pro-badge";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSubscription } from "@/hooks/use-subscription";
+import { trackEvent } from "@/lib/track-event";
 import { openSubscriptionManagement } from "@/lib/subscription-management";
 
 interface BenefitItemProps {
@@ -67,8 +69,25 @@ export default function SubscriptionScreen() {
     weeklyLimit === 0 || !isFinite(weeklyLimit)
       ? 0
       : Math.min(weeklyUsage / weeklyLimit, 1);
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || isProActive || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+
+    trackEvent("paywall_viewed", {
+      source: "subscription",
+      used_count: weeklyUsage,
+      limit_count: weeklyLimit,
+    });
+  }, [isLoading, isProActive, weeklyLimit, weeklyUsage]);
 
   function handleUpgrade() {
+    trackEvent("upgrade_tapped", {
+      source: "subscription",
+      used_count: weeklyUsage,
+      limit_count: weeklyLimit,
+    });
     Alert.alert(t("screen.upgradeCta"), t("screen.comingSoon"));
   }
 

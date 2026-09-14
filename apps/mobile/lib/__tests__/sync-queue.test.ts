@@ -19,6 +19,7 @@ describe("SyncQueue", () => {
     mockAsyncStorage.getItem.mockResolvedValue(null);
     mockAsyncStorage.setItem.mockResolvedValue(undefined);
     queue = new SyncQueue();
+    queue.setActiveUser("test-user");
   });
 
   describe("enqueue()", () => {
@@ -92,7 +93,7 @@ describe("SyncQueue", () => {
       await queue.enqueue("upsert_profile", "user-1", { name: "test" });
       await queue.processQueue();
 
-      expect(handler).toHaveBeenCalledWith({ name: "test" });
+      expect(handler).toHaveBeenCalledWith({ name: "test" }, "test-user");
       const lastCall =
         mockAsyncStorage.setItem.mock.calls[
           mockAsyncStorage.setItem.mock.calls.length - 1
@@ -133,6 +134,7 @@ describe("SyncQueue", () => {
         items[0].nextRetryAt = 0;
         mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(items));
         queue = new SyncQueue();
+        queue.setActiveUser("test-user");
         queue.registerHandler("op", handler);
         await queue.processQueue();
       }
@@ -159,6 +161,7 @@ describe("SyncQueue", () => {
       items[0].nextRetryAt = Date.now() + 999999;
       mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(items));
       queue = new SyncQueue();
+      queue.setActiveUser("test-user");
       queue.registerHandler("op", handler);
 
       await queue.processQueue();
@@ -169,6 +172,22 @@ describe("SyncQueue", () => {
     it("skips items with no registered handler", async () => {
       await queue.enqueue("unknown_op", "id-1", {});
       await queue.processQueue();
+    });
+
+    it("does not replay another account's item", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      queue.registerHandler("op", handler);
+
+      await queue.enqueue("op", "id-1", {}, "other-user");
+      await queue.processQueue();
+
+      expect(handler).not.toHaveBeenCalled();
+      const stored = JSON.parse(
+        mockAsyncStorage.setItem.mock.calls[
+          mockAsyncStorage.setItem.mock.calls.length - 1
+        ][1] as string
+      );
+      expect(stored[0].status).toBe("pending");
     });
 
     it("prevents concurrent processQueue calls", async () => {
@@ -205,6 +224,7 @@ describe("SyncQueue", () => {
   describe("getDeadItems()", () => {
     it("returns only dead items", async () => {
       const deadItem = {
+        ownerId: "test-user",
         id: "id-1",
         operation: "op",
         payload: {},
@@ -218,6 +238,7 @@ describe("SyncQueue", () => {
         JSON.stringify([deadItem])
       );
       queue = new SyncQueue();
+      queue.setActiveUser("test-user");
 
       const dead = await queue.getDeadItems();
       expect(dead).toHaveLength(1);
@@ -228,6 +249,7 @@ describe("SyncQueue", () => {
   describe("retryDeadItems()", () => {
     it("resets dead items to pending with retryCount 0", async () => {
       const deadItem = {
+        ownerId: "test-user",
         id: "id-1",
         operation: "op",
         payload: {},
@@ -241,6 +263,7 @@ describe("SyncQueue", () => {
         JSON.stringify([deadItem])
       );
       queue = new SyncQueue();
+      queue.setActiveUser("test-user");
 
       await queue.retryDeadItems();
 
@@ -261,6 +284,7 @@ describe("SyncQueue", () => {
       queue.registerHandler("op", handler);
 
       const item = {
+        ownerId: "test-user",
         id: "id-1",
         operation: "op",
         payload: {},
@@ -272,6 +296,7 @@ describe("SyncQueue", () => {
       };
       mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify([item]));
       queue = new SyncQueue();
+      queue.setActiveUser("test-user");
       queue.registerHandler("op", handler);
 
       const before = Date.now();

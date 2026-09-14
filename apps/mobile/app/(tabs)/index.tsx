@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -16,7 +15,11 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutQueue } from "@/components/workout-queue";
 import { UsageIndicator } from "@/components/subscription/usage-indicator";
 import { Paywall } from "@/components/subscription/paywall";
-import { StreakProtectionSheet } from "@/components/streak/streak-protection-sheet";
+import {
+  StreakProtectionSheet,
+  type StreakSheetPendingAction,
+} from "@/components/streak/streak-protection-sheet";
+import { StreakStatusCard } from "@/components/streak/streak-status-card";
 import { WorkoutTemplateCard } from "@/components/workout-template-card";
 import { WorkoutPlanCard } from "@/components/workout-plan-card";
 import { GradientSurface } from "@/components/ui/gradient-surface";
@@ -46,12 +49,19 @@ import {
 import { buildTemplateWorkoutExercises } from "@/lib/start-template-workout";
 import { getMondayLocal } from "@/lib/iso-week";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
+import { usePaywallStore } from "@/stores/paywall-store";
+import { useToastStore } from "@/stores/toast-store";
 import { useWorkoutStore } from "@/stores/workout-store";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import type { WorkoutTemplate } from "@/stores/workout-templates-store";
 import { trackEvent, type EventPayload } from "@/lib/track-event";
-import type { StreakStatus } from "@/lib/api/streak-protection";
+import type {
+  StreakPromptState,
+  StreakProtectionType,
+  StreakStatus,
+} from "@/lib/api/streak-protection";
 import { markComebackWorkoutStarted } from "@/lib/comeback-workout";
+import { getStreakPromptPresentation } from "@/lib/streak-prompt";
 import type { WeightUnit } from "@/lib/unit-conversion";
 
 // -----------------------------------------------------------------------------
@@ -101,10 +111,12 @@ export default function HomeScreen() {
   const restartStreak = useRestartStreak();
   const recordComebackEvent = useRecordComebackEvent();
   const startPendingWorkout = useStartPendingWorkout();
+  const isPaywallOpen = usePaywallStore((s) => s.isOpen);
+  const showSuccessToast = useToastStore((s) => s.showSuccess);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-  const [locallyHiddenPromptState, setLocallyHiddenPromptState] = useState<
-    string | null
-  >(null);
+  const [locallyHiddenPromptState, setLocallyHiddenPromptState] =
+    useState<StreakPromptState | null>(null);
+  const [streakActionError, setStreakActionError] = useState(false);
   const shownPromptRef = useRef<string | null>(null);
   const earnedFreezeTrackedRef = useRef(false);
   const handleRefresh = useCallback(async () => {
@@ -160,17 +172,19 @@ export default function HomeScreen() {
   );
   const nextQueuedWorkout = useMemo(() => selectNextWorkout(queue), [queue]);
   const streakStatus = streakStatusQuery.data;
-  const shouldShowStreakSheet =
-    !!streakStatus &&
-    streakStatus.should_show_prompt &&
-    streakStatus.prompt_state !== "none" &&
-    locallyHiddenPromptState !== streakStatus.prompt_state;
-  const isStreakActionPending =
-    applyStreakProtection.isPending ||
-    dismissStreakPrompt.isPending ||
-    restartStreak.isPending ||
-    recordComebackEvent.isPending ||
-    startPendingWorkout.isPending;
+  const streakPresentation = getStreakPromptPresentation(streakStatus, {
+    isWorkoutActive,
+    isPaywallOpen,
+    hiddenPromptState: locallyHiddenPromptState,
+  });
+  const shouldShowStreakSheet = streakPresentation === "sheet";
+  const shouldShowStreakCard = streakPresentation === "card";
+  const streakPendingAction: StreakSheetPendingAction | null =
+    applyStreakProtection.isPending
+      ? "apply"
+      : restartStreak.isPending
+        ? "restart"
+        : null;
 
   // Colors
   const primary = useThemeColor({}, "primary");
@@ -182,10 +196,15 @@ export default function HomeScreen() {
   // Handlers
   const handleCreateWorkout = useCallback(() => {
     if (!isWorkoutActive) {
-      startWorkout(t("myWorkouts.newWorkoutName"), []);
+      const weightUnit: WeightUnit =
+        (profile?.weight_unit as WeightUnit) ?? "kg";
+      startWorkout(t("myWorkouts.newWorkoutName"), [], undefined, null, {
+        workoutSource: "manual",
+        weightUnit,
+      });
     }
     router.push("/workout");
-  }, [isWorkoutActive, startWorkout, t, router]);
+  }, [isWorkoutActive, profile?.weight_unit, startWorkout, t, router]);
 
   const handleStartTemplate = useCallback(
     async (template: WorkoutTemplate) => {
@@ -201,7 +220,11 @@ export default function HomeScreen() {
           resolveName: (id, fallback) => exerciseMap.get(id)?.name ?? fallback,
           previousById,
         });
-        startWorkout(template.name, exercises);
+        startWorkout(template.name, exercises, undefined, null, {
+          workoutSource: "template",
+          workoutId: template.id,
+          weightUnit,
+        });
       }
       router.push("/workout");
     },
@@ -212,31 +235,38 @@ export default function HomeScreen() {
     router.push("/workout");
   }, [router]);
 
-  const handleStreakError = useCallback(
-    (error: unknown) => {
-      console.warn("Streak protection action failed:", error);
-      Alert.alert(tStreak("errors.title"), tStreak("errors.message"));
+  // Closing the prompt is bookkeeping only: it must never surface an error to
+  // the user or keep them from training. The backend cooldown is best-effort.
+  const snoozeStreakPrompt = useCallback(
+    (status: StreakStatus) => {
+      setLocallyHiddenPromptState(status.prompt_state);
+      setStreakActionError(false);
+      dismissStreakPrompt.mutate(status.prompt_state, {
+        onError: (error) =>
+          console.warn("Streak prompt dismissal failed:", error),
+      });
     },
-    [tStreak]
+    [dismissStreakPrompt]
   );
 
   const handleDismissStreakPrompt = useCallback(() => {
     if (!streakStatus) return;
 
-    setLocallyHiddenPromptState(streakStatus.prompt_state);
     trackEvent("streak_prompt_dismissed", streakAnalyticsPayload(streakStatus));
-    dismissStreakPrompt.mutate(streakStatus.prompt_state, {
-      onError: handleStreakError,
-    });
-  }, [dismissStreakPrompt, handleStreakError, streakStatus]);
+    snoozeStreakPrompt(streakStatus);
+  }, [snoozeStreakPrompt, streakStatus]);
 
+  // Mutations that spend a resource keep the sheet open on failure so the
+  // user can simply tap the same action again.
   const handleApplyStreakProtection = useCallback(
-    (type: "lifetime_rescue" | "earned_freeze" | "pro_freeze") => {
+    (type: StreakProtectionType) => {
       if (!streakStatus) return;
 
+      setStreakActionError(false);
       applyStreakProtection.mutate(type, {
         onSuccess: () => {
           setLocallyHiddenPromptState(streakStatus.prompt_state);
+          showSuccessToast(tStreak("feedback.protectionApplied"));
           trackEvent("streak_protection_applied", {
             ...streakAnalyticsPayload(streakStatus),
             protection_type: type,
@@ -249,16 +279,18 @@ export default function HomeScreen() {
             );
           }
         },
-        onError: handleStreakError,
+        onError: (error) => {
+          console.warn("Streak protection failed:", error);
+          setStreakActionError(true);
+        },
       });
     },
-    [applyStreakProtection, handleStreakError, streakStatus]
+    [applyStreakProtection, showSuccessToast, streakStatus, tStreak]
   );
 
   const handleStartComeback = useCallback(() => {
     if (!streakStatus) return;
 
-    setLocallyHiddenPromptState(streakStatus.prompt_state);
     trackEvent(
       "comeback_workout_started",
       streakAnalyticsPayload(streakStatus)
@@ -268,9 +300,7 @@ export default function HomeScreen() {
       startedAtMs: Date.now(),
       hadReadyWorkout: nextQueuedWorkout != null,
     }).catch(console.warn);
-    dismissStreakPrompt.mutate(streakStatus.prompt_state, {
-      onError: handleStreakError,
-    });
+    snoozeStreakPrompt(streakStatus);
     recordComebackEvent.mutate(
       {
         eventType: "comeback_started",
@@ -279,7 +309,10 @@ export default function HomeScreen() {
           has_ready_workout: nextQueuedWorkout != null,
         },
       },
-      { onError: handleStreakError }
+      {
+        onError: (error) =>
+          console.warn("Comeback start tracking failed:", error),
+      }
     );
 
     if (isWorkoutActive) {
@@ -288,55 +321,56 @@ export default function HomeScreen() {
     }
 
     if (nextQueuedWorkout) {
-      startPendingWorkout.mutate({ pendingWorkout: nextQueuedWorkout });
+      startPendingWorkout.mutate({
+        pendingWorkout: nextQueuedWorkout,
+        workoutSource: "comeback",
+      });
       return;
     }
 
     router.push("/training-preferences" as never);
   }, [
-    dismissStreakPrompt,
-    handleStreakError,
     isWorkoutActive,
     nextQueuedWorkout,
     recordComebackEvent,
     router,
+    snoozeStreakPrompt,
     startPendingWorkout,
     streakStatus,
   ]);
 
   const handleAdjustPlan = useCallback(() => {
     if (streakStatus) {
-      setLocallyHiddenPromptState(streakStatus.prompt_state);
-      dismissStreakPrompt.mutate(streakStatus.prompt_state, {
-        onError: handleStreakError,
-      });
+      snoozeStreakPrompt(streakStatus);
     }
 
     router.push("/training-preferences" as never);
-  }, [dismissStreakPrompt, handleStreakError, router, streakStatus]);
+  }, [router, snoozeStreakPrompt, streakStatus]);
 
   const handleUpgradeFromStreak = useCallback(() => {
     if (!streakStatus) return;
 
-    setLocallyHiddenPromptState(streakStatus.prompt_state);
     trackEvent("streak_upgrade_tapped", streakAnalyticsPayload(streakStatus));
-    dismissStreakPrompt.mutate(streakStatus.prompt_state, {
-      onError: handleStreakError,
-    });
+    snoozeStreakPrompt(streakStatus);
     router.push("/subscription" as never);
-  }, [dismissStreakPrompt, handleStreakError, router, streakStatus]);
+  }, [router, snoozeStreakPrompt, streakStatus]);
 
   const handleRestartStreak = useCallback(() => {
     if (!streakStatus) return;
 
+    setStreakActionError(false);
     restartStreak.mutate(undefined, {
       onSuccess: () => {
         setLocallyHiddenPromptState(streakStatus.prompt_state);
+        showSuccessToast(tStreak("feedback.restarted"));
         trackEvent("streak_restarted", streakAnalyticsPayload(streakStatus));
       },
-      onError: handleStreakError,
+      onError: (error) => {
+        console.warn("Streak restart failed:", error);
+        setStreakActionError(true);
+      },
     });
-  }, [handleStreakError, restartStreak, streakStatus]);
+  }, [restartStreak, showSuccessToast, streakStatus, tStreak]);
 
   const activeExercises = useMemo(
     () =>
@@ -362,6 +396,8 @@ export default function HomeScreen() {
             workout.status === "queued" ||
             workout.status === "regenerating"
         ).length,
+        failed_count: queue.filter((workout) => workout.status === "failed")
+          .length,
         total_count: queue.length,
         has_active_workout: isWorkoutActive,
       });
@@ -375,7 +411,7 @@ export default function HomeScreen() {
   }, [streakStatus]);
 
   useEffect(() => {
-    if (!streakStatus || !shouldShowStreakSheet) return;
+    if (!streakStatus || streakPresentation === null) return;
 
     if (shownPromptRef.current === streakStatus.prompt_state) {
       return;
@@ -392,7 +428,7 @@ export default function HomeScreen() {
       earnedFreezeTrackedRef.current = true;
       trackEvent("streak_freeze_earned", streakAnalyticsPayload(streakStatus));
     }
-  }, [shouldShowStreakSheet, streakStatus]);
+  }, [streakPresentation, streakStatus]);
 
   return (
     <TabScreen>
@@ -464,6 +500,16 @@ export default function HomeScreen() {
 
           {/* AI Generation usage (free users only) */}
           <UsageIndicator />
+
+          {/* Informational streak states stay inline and never block training */}
+          {streakStatus && shouldShowStreakCard && (
+            <StreakStatusCard
+              status={streakStatus}
+              isStarting={startPendingWorkout.isPending}
+              onStartWorkout={handleStartComeback}
+              onDismiss={handleDismissStreakPrompt}
+            />
+          )}
 
           {/* Active Workout (if in-progress, show above queue) */}
           {isWorkoutActive && (
@@ -537,7 +583,8 @@ export default function HomeScreen() {
         <StreakProtectionSheet
           visible={shouldShowStreakSheet}
           status={streakStatus}
-          isPending={isStreakActionPending}
+          pendingAction={streakPendingAction}
+          hasError={streakActionError}
           onApplyProtection={handleApplyStreakProtection}
           onComeback={handleStartComeback}
           onAdjustPlan={handleAdjustPlan}

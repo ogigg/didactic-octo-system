@@ -66,8 +66,11 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Keep user-facing strings in `i18n/locales/en`.
 - Validate external and AI-generated data with Zod before it drives UI behavior.
 - Optimize for mobile realities: interrupted sessions, offline-sensitive flows, and fast in-workout interactions.
+- The Calendar marks protected and ended streak weeks from persisted streak events and qualifying workouts with connected, rounded date bands: very light blue for weeks with a qualifying workout, icy blue with a snowflake for protection, subtle coral for a streak break. Workout dates and calendar week bands use device-local Monday–Sunday boundaries. Persisted protected weeks retain their recorded Monday date labels; the backend streak counter still uses its existing UTC boundaries. Today has an outline even on workout and protected days; the marker, bands, and month range refresh at local midnight and on app resume. The calendar starts on Monday; bands have no bottom border and end at week and row boundaries. Development builds also show next week as an ended streak preview, including its month when the preview crosses a month boundary. Set `MOCK_NEXT_WEEK_AS_RUINED` to `false` in `lib/streak-calendar.ts` to disable this local-only preview; it never writes to the database. The same preview flag also shows September 21–27, 2026 as a failed week with a blue freeze marker on September 24 (a visual mock, separate from the weekly protection rules).
 - The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
 - Account deletion is available through Profile → Account & Data. Active subscribers are warned before continuing and can open the official Apple or Google Play subscription-management destination; if that destination is unavailable, the app tries the platform's official support page and then shows a localized error.
+- Password management is available through Profile → Account & Data. Signed-in OAuth users can add email/password sign-in without replacing their existing identity, while password users can change their password. Secure password changes use provider reauthentication for Apple on iOS and Supabase's email nonce flow otherwise.
+- Workout history export is available from the History header and through Profile → Account & Data. Users can export completed workouts from the last 7, 30, or 90 days, or all time. JSON and CSV omit internal IDs, generation metadata, planned targets, and other implementation fields; JSON keeps a clean nested training record while CSV provides one row per set. PDF creates a localized training report with summary metrics, a weekly-frequency bar chart, workout-volume line chart, set-completion donut chart, recent workout detail, and all-time strength PRs. The header shows the selected date range. Weekly bars cover up to eight weeks within that range; boundary weeks include only selected workouts. The volume chart and workout table show the latest eight sessions. Volume changes are shown without interpreting them as progress. Reports respect the user's kg/lb preference. Optional duration is included in data exports only for timed exercise results. Files are created in the app cache and handed to the device share menu.
 - Deletion does not cancel store billing. After the 14-day grace period, the implemented purge deletes `auth.users` and cascades through user-owned app data in the database. The repository implements no separate legal/security retention archive; Apple or Google purchase and billing records remain governed by those providers.
 
 ### Startup splash
@@ -100,24 +103,33 @@ The native watchOS 10 companion lives in `targets/watch` and is generated into
 the iOS project by `@bacons/apple-targets`. It is not a separate Expo or React
 Native application.
 
-- The phone Zustand workout store is authoritative.
-- The phone publishes versioned full workout snapshots with
-  `WCSession.updateApplicationContext`; reachable watches also receive the same
-  snapshot immediately with `sendMessage`.
-- Phone discard publishes a `cancelled` terminal snapshot before clearing
-  local state so the watch can end its HealthKit workout.
-- The watch uses stable workout, exercise-occurrence, and set IDs. Catalog IDs
-  remain separate so repeated exercises are independently editable. Mutations
-  are persisted in an idempotent command outbox, delivered with `sendMessage`
-  and `transferUserInfo`, and removed only after the phone acknowledges them in
-  a later snapshot.
-- Rest timers use an absolute ISO-8601 end date so reconnects and suspension do
-  not reset the countdown.
-- A watch-led session owns the HealthKit workout. The resulting HealthKit UUID
-  is correlated back to the phone summary, which prevents the phone from
-  writing a duplicate workout.
-- `targets/watch/Info.plist` enables `workout-processing`, and the SwiftUI scene
-  holds watch-connectivity background work until pending transfers drain.
+- The hydrated phone Zustand store is authoritative. Snapshots carry monotonic
+  revisions; the watch caches the snapshot and revision together and overlays
+  its persisted pending commands until acknowledgment.
+- Commands use stable workout, exercise occurrence, set, and rest IDs. The watch
+  sends one command at a time through immediate and durable WatchConnectivity
+  delivery. The phone serializes application, waits for local persistence, and
+  acknowledges duplicates and rejected stale commands as well as accepted ones.
+  A canonical snapshot then reconciles the watch's optimistic state.
+- Local set edits survive incoming snapshots and relaunch. Logging a set works
+  offline, immediately starts rest, and seeds the next set's editor. Rest and
+  timed exercise countdowns use deadlines; rest pause/adjust/resume commands
+  preserve their original timing across delayed delivery. Local notifications
+  alert when a timer expires while the app is suspended (when permitted).
+- Snapshots keep planned and logged values separate, include warm-up completion,
+  and use kilograms on the wire with the workout's persisted kg/lb display unit.
+- Workout completion is queued immediately, independently of Apple Health.
+  HealthKit sessions recover by workout identity and retain that identity after
+  transient recovery errors so another session cannot overwrite it; saved UUID receipts travel
+  through the durable command outbox. The phone retains a per-workout export
+  ledger so late success/failure can be handled after the summary is dismissed.
+- `targets/watch/Info.plist` enables `workout-processing`. Active HealthKit
+  sessions provide workout execution; WatchConnectivity background work gets a
+  bounded drain window. watchOS controls delivery and suspension, so the app
+  does not rely on a permanent phone connection or artificial keep-alive.
+- The [watch interface standard](../../docs/styles/watch-interface.md) defines
+  a shared safe-area header and primary action position. Core screens fit the
+  SE 2 40 mm at the default text size; lists/details and larger text can scroll.
 - `expo-target.config.json` sets `icon` to the shared app icon. App Store /
   TestFlight validation requires a watch `AppIcon` asset catalog and
   `CFBundleIconName`; `@bacons/apple-targets` generates both from that config
@@ -130,6 +142,20 @@ npx expo prebuild -p ios --clean
 cd ios && pod install
 xcodebuild -workspace Sweaty.xcworkspace -scheme SweatyWatch build
 ```
+
+For focused simulator validation from the repository root:
+
+```bash
+python3 apps/mobile/scripts/check-watch-coordinator.py
+xcodebuild -project apps/mobile/ios/Sweaty.xcodeproj -target SweatyWatch \
+  -configuration Debug -sdk watchsimulator CODE_SIGNING_ALLOWED=NO build
+```
+
+The coordinator check executes the production state machine with platform
+stubs. It covers offline edits, draft reconciliation, rest commands, units,
+navigation, reopening sets, and completion. Real HealthKit saving, haptics,
+reconnection, and background delivery also need a paired-device check.
+Debug-only layout fixtures are documented in the interface standard.
 
 The checked-in `targets/watch` directory is the source of truth; generated
 `ios` files remain disposable.

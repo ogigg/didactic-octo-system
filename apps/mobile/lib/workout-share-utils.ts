@@ -1,6 +1,7 @@
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import { getBestDurationSeconds, getTopSet } from "@/lib/workout-summary-utils";
+import type { WeightUnit } from "@/lib/unit-conversion";
 
 export const WORKOUT_SHARE_HIGHLIGHT_LIMIT = 3;
 
@@ -14,6 +15,7 @@ export interface WorkoutShareHighlight {
 
 interface GetWorkoutShareHighlightsOptions {
   formatWeight: (kg: number) => string;
+  weightUnit?: WeightUnit;
   getExerciseName?: (exercise: WorkoutExercise) => string;
   limit?: number;
 }
@@ -22,6 +24,7 @@ export function getWorkoutShareHighlights(
   exercises: WorkoutExercise[],
   {
     formatWeight,
+    weightUnit = "kg",
     getExerciseName,
     limit = WORKOUT_SHARE_HIGHLIGHT_LIMIT,
   }: GetWorkoutShareHighlightsOptions
@@ -38,7 +41,7 @@ export function getWorkoutShareHighlights(
       metric =
         bestDuration != null ? formatExerciseDuration(bestDuration) : null;
     } else {
-      const topSet = getTopSet(exercise.sets);
+      const topSet = getTopSet(exercise.sets, weightUnit);
       metric = topSet ? `${formatWeight(topSet.kg)} x ${topSet.reps}` : null;
     }
 

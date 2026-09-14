@@ -1,18 +1,22 @@
 import type { WorkoutExercise, WorkoutSet } from "@/stores/workout-store";
+import { toKg, type WeightUnit } from "@/lib/unit-conversion";
 
 // ---------------------------------------------------------------------------
 // Volume computation
 // ---------------------------------------------------------------------------
 
-export function computeTotalVolume(exercises: WorkoutExercise[]): number {
+export function computeTotalVolume(
+  exercises: WorkoutExercise[],
+  weightUnit: WeightUnit = "kg"
+): number {
   let total = 0;
   for (const exercise of exercises) {
     for (const set of exercise.sets) {
       if (!set.isCompleted) continue;
-      const kg = parseFloat(set.kg);
+      const displayLoad = parseFloat(set.kg);
       const reps = parseFloat(set.reps);
-      if (!isNaN(kg) && !isNaN(reps)) {
-        total += kg * reps;
+      if (!isNaN(displayLoad) && !isNaN(reps)) {
+        total += toKg(displayLoad, weightUnit) * reps;
       }
     }
   }
@@ -108,15 +112,19 @@ export interface TopSet {
   reps: number;
 }
 
-export function getTopSet(sets: WorkoutSet[]): TopSet | null {
+export function getTopSet(
+  sets: WorkoutSet[],
+  weightUnit: WeightUnit = "kg"
+): TopSet | null {
   let best: TopSet | null = null;
   let bestScore = -1;
 
   for (const set of sets) {
     if (!set.isCompleted) continue;
-    const kg = parseFloat(set.kg);
+    const displayLoad = parseFloat(set.kg);
     const reps = parseFloat(set.reps);
-    if (isNaN(kg) || isNaN(reps)) continue;
+    if (isNaN(displayLoad) || isNaN(reps)) continue;
+    const kg = toKg(displayLoad, weightUnit);
     const score = kg * reps;
     if (score > bestScore) {
       bestScore = score;

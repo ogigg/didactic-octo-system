@@ -130,11 +130,6 @@ export function RestTimerBar() {
     };
   }, [notificationContent, restTimer]);
 
-  // Collapse the sheet whenever the timer goes away (skip, finish, etc.)
-  useEffect(() => {
-    if (!restTimer) setExpanded(false);
-  }, [restTimer]);
-
   const isFinished = restTimer
     ? getRestTimerProgress(
         restTimer.startedAtMs,
@@ -172,7 +167,12 @@ export function RestTimerBar() {
 
   const handleCollapse = useCallback(() => setExpanded(false), []);
 
-  if (!restTimer || isFinished) return null;
+  if (!restTimer || isFinished) {
+    // Keep the expanded sheet mounted so it can play its exit animation
+    // before collapsing.
+    if (!expanded) return null;
+    return <RestTimerSheet onClose={handleCollapse} />;
+  }
 
   const {
     durationSeconds,

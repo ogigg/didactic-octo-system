@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 
+import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 import { useWorkoutStore } from "@/stores/workout-store";
 
@@ -117,18 +118,27 @@ export function useDeepLinks(): void {
       handled.add(rawUrl);
 
       const params = parseParams(rawUrl);
+      if (params.error || params.error_code) {
+        router.replace("/auth-link-error");
+        return;
+      }
       if (
-        params.type === "recovery" &&
         params.access_token &&
-        params.refresh_token
+        params.refresh_token &&
+        ["signup", "recovery", "magiclink", "email_change"].includes(
+          params.type
+        )
       ) {
+        const recovery = params.type === "recovery";
+        if (recovery) useAuthStore.setState({ isPasswordRecovery: true });
         const { error } = await supabase.auth.setSession({
           access_token: params.access_token,
           refresh_token: params.refresh_token,
         });
-        if (!error) {
-          router.replace("/reset-password");
-        }
+        if (error) {
+          if (recovery) useAuthStore.setState({ isPasswordRecovery: false });
+          router.replace("/auth-link-error");
+        } else router.replace(recovery ? "/reset-password" : "/");
         return;
       }
 
@@ -150,14 +160,15 @@ export function useDeepLinks(): void {
 
     Linking.getInitialURL()
       .then((url) => {
-        if (url) void process(url);
+        if (url)
+          void process(url).catch(() => router.replace("/auth-link-error"));
       })
       .catch(() => {
         /* getInitialURL is best-effort */
       });
 
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      void process(url);
+      void process(url).catch(() => router.replace("/auth-link-error"));
     });
 
     return () => {

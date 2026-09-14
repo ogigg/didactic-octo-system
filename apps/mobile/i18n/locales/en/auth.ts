@@ -1,4 +1,25 @@
 export const auth = {
+  linkError: {
+    title: "This link could not be used",
+    body: "The link may have expired or already been used. Try signing in, or request a new password reset link.",
+  },
+  setup: {
+    saving: "Saving your plan…",
+    create: "Create my workouts",
+    saveError:
+      "We couldn’t save your setup. Check your connection and try again. Your answers are kept and will sync when you reconnect.",
+  },
+  profile: {
+    slow: "This is taking longer than usual. Check your internet connection, or try loading your profile again.",
+    loadingTitle: "A moment before you begin",
+    loading: "We’re loading your profile. You’ll be able to continue shortly.",
+    errorTitle: "Let’s try that again",
+    error:
+      "We couldn’t load your profile. Your saved setup has not been changed.",
+    retry: "Try again",
+    signOut: "Sign out",
+  },
+
   signIn: {
     title: "Welcome back",
     subtitle: "Sign in to continue",
@@ -13,8 +34,15 @@ export const auth = {
     divider: "or continue with",
   },
   signUp: {
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    resend: "Resend confirmation email",
+    resendCountdown: "Resend in {{seconds}}s",
+    resent: "Confirmation email sent. Check your inbox and spam folder.",
+    changeEmail: "Correct email address",
+
     title: "Create account",
-    subtitle: "Start your fitness journey",
+    subtitle: "Workouts planned around your goals",
     emailLabel: "Email",
     emailPlaceholder: "you@example.com",
     passwordLabel: "Password",

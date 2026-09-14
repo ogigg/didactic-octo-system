@@ -20,6 +20,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { sendFeedback } from "@/lib/api/feedback";
+import { trackEvent } from "@/lib/track-event";
 import type {
   FeedbackFormData,
   FeedbackValidationKey,
@@ -55,7 +56,14 @@ export default function FeedbackScreen() {
         platform: Platform.OS,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      trackEvent("product_feedback_submitted", {
+        feedback_type: variables.type,
+        has_title: variables.title.trim().length > 0,
+        description_length_bucket: getDescriptionLengthBucket(
+          variables.description.length
+        ),
+      });
       Alert.alert(t("success.title"), t("success.message"), [
         {
           text: t("success.button"),
@@ -63,7 +71,11 @@ export default function FeedbackScreen() {
         },
       ]);
     },
-    onError: (_error) => {
+    onError: (error, variables) => {
+      trackEvent("product_feedback_failed", {
+        feedback_type: variables.type,
+        error_code: normalizeFeedbackError(error),
+      });
       Alert.alert(t("error.title"), t("error.message"));
     },
   });
@@ -250,6 +262,44 @@ export default function FeedbackScreen() {
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
+}
+
+function getDescriptionLengthBucket(
+  length: number
+): "empty" | "short" | "medium" | "long" {
+  if (length === 0) return "empty";
+  if (length <= 80) return "short";
+  if (length <= 500) return "medium";
+  return "long";
+}
+
+function normalizeFeedbackError(
+  error: unknown
+): "network" | "validation" | "unauthorized" | "rate_limited" | "unknown" {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (
+    message.includes("network") ||
+    message.includes("fetch") ||
+    message.includes("timeout") ||
+    message.includes("offline")
+  ) {
+    return "network";
+  }
+  if (message.includes("unauthorized") || message.includes("jwt")) {
+    return "unauthorized";
+  }
+  if (message.includes("rate") || message.includes("too many")) {
+    return "rate_limited";
+  }
+  if (
+    message.includes("invalid") ||
+    message.includes("required") ||
+    message.includes("constraint")
+  ) {
+    return "validation";
+  }
+  return "unknown";
 }
 
 function SectionTitle({

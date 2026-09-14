@@ -22,6 +22,35 @@ Design system and UI guidelines for the AI-powered workout generation mobile app
 
 ---
 
+## Onboarding Navigation
+
+Forward steps use the native push animation. Back pops only when the preceding route in the local onboarding stack matches
+the intended step (or summary when editing). Parent navigation history and
+duplicate summary routes are not valid back targets. Otherwise, it replaces
+the route with the intended step. The
+onboarding stack sets `animationTypeForReplace: "pop"` so this fallback also
+looks like backward navigation.
+
+## Profile Loading
+
+The shared `components/auth/profile-gate.tsx` screen covers profile loading at
+app entry, authentication, onboarding, and the main tabs. Use a short localized
+heading, an honest loading status, and a decorative skeleton with a gentle
+opacity pulse. Anchor the heading and skeleton near the top safe area.
+Keep the copy limited to the heading and loading status; omit promotional taglines. Do not imply that workout generation has started or show invented
+progress. Disable the pulse for reduced motion and hide skeleton shapes from
+screen readers. Keep content scrollable for small screens and larger text sizes.
+Use onboarding choice placeholders until the current account's saved state confirms
+onboarding is complete, then use the home preview skeleton. Never use a different
+account's cached completion state. After eight seconds, show connection guidance
+and a retry action; retry resets that timer. At successful profile load, a root
+router overlay fades away over 220 ms, without delaying navigation. Skip that
+transition for reduced motion, sign-out, and password recovery.
+On failure, replace the skeleton with the error message, retry, and sign-out
+actions. Copy is maintained in the English and Polish `auth.profile` namespace.
+
+---
+
 ## Design Tokens
 
 ### Color System

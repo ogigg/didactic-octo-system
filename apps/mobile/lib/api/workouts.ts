@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
 import {
+  listCommentsForSession,
+  type WorkoutSessionComment,
+} from "@/lib/api/workout-session-comments";
+import {
   formatPreviousDurationSet,
   formatPreviousWeightSet,
   type ExercisePreviousSets,
@@ -50,6 +54,7 @@ export const workoutSessionSchema = z.object({
   ]),
   goal_snapshot: z.enum([
     "build_strength",
+    "build_muscle",
     "lose_weight",
     "improve_fitness",
     "custom",
@@ -131,6 +136,7 @@ export const workoutDetailSchema = z.object({
   ]),
   goal_snapshot: z.enum([
     "build_strength",
+    "build_muscle",
     "lose_weight",
     "improve_fitness",
     "custom",
@@ -143,6 +149,10 @@ export const workoutDetailSchema = z.object({
 });
 
 export type WorkoutDetail = z.infer<typeof workoutDetailSchema>;
+
+export interface WorkoutHistoryExportEntry extends WorkoutDetail {
+  comments: WorkoutSessionComment[];
+}
 
 const progressionHistoryWorkingSetSchema = z.object({
   load_kg: z.number().nullable().optional(),
@@ -191,6 +201,7 @@ export interface CreateWorkoutSessionInput {
   generation_source?: "llm" | "fallback_template" | "fallback_substitution";
   goal_snapshot:
     | "build_strength"
+    | "build_muscle"
     | "lose_weight"
     | "improve_fitness"
     | "custom";
@@ -314,6 +325,57 @@ export async function fetchWorkoutDetail(
   }
 
   return workoutDetailSchema.parse(data);
+}
+
+export async function fetchCompletedWorkoutDetails(
+  startIso: string | undefined,
+  endIso: string
+): Promise<WorkoutHistoryExportEntry[]> {
+  await getAuthenticatedUserId();
+
+  const pageSize = 500;
+  const sessions: { id: string; completed_at: string }[] = [];
+
+  for (let offset = 0; ; offset += pageSize) {
+    let query = supabase
+      .from("workout_sessions")
+      .select("id, completed_at")
+      .eq("status", "completed")
+      .not("completed_at", "is", null)
+      .lte("completed_at", endIso)
+      .order("completed_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (startIso) query = query.gte("completed_at", startIso);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+
+    const page = z
+      .array(z.object({ id: z.string().uuid(), completed_at: z.string() }))
+      .parse(data ?? []);
+    sessions.push(...page);
+
+    if (page.length < pageSize) break;
+  }
+
+  const workouts: WorkoutHistoryExportEntry[] = [];
+  for (let offset = 0; offset < sessions.length; offset += 10) {
+    const batch = await Promise.all(
+      sessions.slice(offset, offset + 10).map(async ({ id }) => {
+        const [{ data, error }, comments] = await Promise.all([
+          supabase.rpc("get_workout_session_detail", { p_session_id: id }),
+          listCommentsForSession(id),
+        ]);
+        if (error) throw new Error(error.message);
+        return { ...workoutDetailSchema.parse(data), comments };
+      })
+    );
+    workouts.push(...batch);
+  }
+
+  return workouts;
 }
 
 export async function fetchPreviousSetDisplays(
@@ -449,9 +511,12 @@ export async function fetchWeeklyDurations(
 // -----------------------------------------------------------------------------
 
 export async function createWorkoutSession(
-  input: CreateWorkoutSessionInput
+  input: CreateWorkoutSessionInput,
+  expectedUserId?: string
 ): Promise<WorkoutSession> {
   const userId = await getAuthenticatedUserId();
+  if (expectedUserId && userId !== expectedUserId)
+    throw new Error("Account changed before saving");
 
   const { data, error } = await supabase
     .from("workout_sessions")
