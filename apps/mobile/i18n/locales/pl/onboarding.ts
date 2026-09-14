@@ -12,6 +12,7 @@ export const onboarding = {
     review: "Sprawdź ustawienia treningów",
   },
   goal: {
+    placeholder: "Np. chcę nauczyć się muscle-upa",
     title: "Co chcesz osiągnąć?",
     subtitle:
       "Dopasujemy treningi do twojego celu. W każdej chwili możesz go zmienić.",

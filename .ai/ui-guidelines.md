@@ -22,6 +22,13 @@ Design system and UI guidelines for the AI-powered workout generation mobile app
 
 ---
 
+## Onboarding Navigation
+
+Forward steps use the native push animation. Back uses the existing stack when
+available; after relaunch, it replaces the route with the preceding step. The
+onboarding stack sets `animationTypeForReplace: "pop"` so this fallback also
+looks like backward navigation.
+
 ## Profile Loading
 
 The shared `components/auth/profile-gate.tsx` screen covers profile loading at

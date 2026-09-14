@@ -27,6 +27,8 @@ export default function OnboardingLayout() {
       screenOptions={{
         headerShown: false,
         animation: "slide_from_right",
+        // Back after relaunch replaces the route because there is no stack history.
+        animationTypeForReplace: "pop",
         contentStyle: { backgroundColor: colors.background },
       }}
     />

@@ -10,6 +10,7 @@ export default function GoalScreen() {
   const { t } = useTranslation("onboarding");
   const { goal, customGoal, setGoal, setCustomGoal } = useOnboardingStore();
   const text = useThemeColor({}, "text");
+  const secondary = useThemeColor({}, "textSecondary");
   const fill = useThemeColor({}, "inputFill");
   const error = useThemeColor({}, "error");
   const customValid = isValidCustomGoal(customGoal);
@@ -38,6 +39,8 @@ export default function GoalScreen() {
       <Text style={[Typography.body, { color: text }]}>{t("goal.custom")}</Text>
       <TextInput
         style={[styles.input, { color: text, backgroundColor: fill }]}
+        placeholder={t("goal.placeholder")}
+        placeholderTextColor={secondary}
         value={customGoal ?? ""}
         onChangeText={setCustomGoal}
         maxLength={MAX_CUSTOM_GOAL_LENGTH}

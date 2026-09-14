@@ -150,3 +150,20 @@ it("shows five-step progress including review and provides Back", () => {
   fireEvent.press(screen.getByText("Back"));
   expect(router.back).toHaveBeenCalled();
 });
+
+it("returns from a resumed review to the preceding step without stack history", () => {
+  answerRequired();
+  (router.canGoBack as jest.Mock).mockReturnValueOnce(false);
+  render(<ReviewScreen />);
+  fireEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(router.replace).toHaveBeenCalledWith("/(onboarding)/frequency");
+  expect(router.back).not.toHaveBeenCalled();
+});
+
+it("shows an example goal without filling in an answer", () => {
+  render(<GoalScreen />);
+  expect(
+    screen.getByPlaceholderText("e.g. I want to learn a muscle-up").props.value
+  ).toBe("");
+  expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+});

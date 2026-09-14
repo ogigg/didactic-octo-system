@@ -12,6 +12,7 @@ export const onboarding = {
     review: "Review your preferences",
   },
   goal: {
+    placeholder: "e.g. I want to learn a muscle-up",
     title: "What would you like to achieve?",
     subtitle:
       "We’ll use your goal to plan your workouts. You can change it at any time.",
