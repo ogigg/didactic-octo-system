@@ -30,6 +30,21 @@ jest.mock("@/hooks/use-weight-unit", () => ({
 
 jest.mock("@/hooks/use-exercise-detail-query", () => ({
   useExerciseDetail: (...args: unknown[]) => mockUseExerciseDetail(...args),
+  useEditableExerciseHistory: jest.fn(() => ({
+    data: [],
+    isLoading: false,
+  })),
+}));
+
+jest.mock("@/hooks/use-workout-mutations", () => ({
+  useDeleteSessionExercise: jest.fn(() => ({ mutate: jest.fn() })),
+  useUpdateCompletedSessionExerciseSets: jest.fn(() => ({
+    mutate: jest.fn(),
+  })),
+}));
+
+jest.mock("@/stores/toast-store", () => ({
+  useToastStore: jest.fn(() => jest.fn()),
 }));
 
 jest.mock("@/hooks/use-exercises-query", () => ({
@@ -56,6 +71,14 @@ jest.mock("@/components/exercise/exercise-preference-icon", () => ({
 
 jest.mock("@/components/exercise/exercise-preference-sheet", () => ({
   ExercisePreferenceSheet: () => null,
+}));
+
+jest.mock("@/components/history/exercise-history-menu", () => ({
+  ExerciseHistoryMenu: () => null,
+}));
+
+jest.mock("@/components/history/exercise-history-edit-sheet", () => ({
+  ExerciseHistoryEditSheet: () => null,
 }));
 
 jest.mock("@/components/stats/volume-bar-chart", () => ({

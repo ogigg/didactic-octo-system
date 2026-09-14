@@ -30,11 +30,13 @@ import {
   createWorkoutSession,
   deleteSessionExercise,
   deleteWorkoutSession,
+  fetchEditableExerciseHistory,
   fetchCompletedWorkoutDetails,
   fetchPreviousSetDisplays,
   fetchWorkoutDetail,
   fetchWorkoutSessions,
   updateExerciseDifficultyFeedback,
+  updateCompletedSessionExerciseSets,
   updateWorkoutSession,
 } from "../workouts";
 
@@ -394,33 +396,99 @@ describe("updateWorkoutSession", () => {
 describe("deleteSessionExercise", () => {
   it("deletes the exercise occurrence after authenticating", async () => {
     mockAuthenticatedUser();
-    const mockEq = jest.fn().mockResolvedValue({ error: null });
-    const mockDelete = jest.fn().mockReturnValue({ eq: mockEq });
-    (mockSupabase.from as jest.Mock).mockReturnValue({
-      delete: mockDelete,
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: null,
+      error: null,
     });
 
     await deleteSessionExercise("550e8400-e29b-41d4-a716-446655440020");
 
-    expect(mockSupabase.from).toHaveBeenCalledWith("session_exercises");
-    expect(mockEq).toHaveBeenCalledWith(
-      "id",
-      "550e8400-e29b-41d4-a716-446655440020"
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "delete_completed_session_exercise",
+      {
+        p_session_exercise_id: "550e8400-e29b-41d4-a716-446655440020",
+      }
     );
   });
 
   it("surfaces database errors", async () => {
     mockAuthenticatedUser();
-    const mockEq = jest
-      .fn()
-      .mockResolvedValue({ error: { message: "RLS violation" } });
-    (mockSupabase.from as jest.Mock).mockReturnValue({
-      delete: jest.fn().mockReturnValue({ eq: mockEq }),
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: null,
+      error: { message: "Completed exercise not found or not authorized" },
     });
 
     await expect(
       deleteSessionExercise("550e8400-e29b-41d4-a716-446655440020")
-    ).rejects.toThrow("RLS violation");
+    ).rejects.toThrow("Completed exercise not found or not authorized");
+  });
+});
+
+describe("completed exercise history editing", () => {
+  it("fetches editable history with stable database IDs", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          id: "550e8400-e29b-41d4-a716-446655440020",
+          session_id: validSession.id,
+          date: "2026-03-22T11:00:00Z",
+          workout_name: "Push Day",
+          sets: [
+            {
+              id: "550e8400-e29b-41d4-a716-446655440030",
+              set_number: 1,
+              set_type: "working",
+              load_kg: 82.5,
+              reps: 8,
+              duration_seconds: null,
+              rpe: 8,
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+
+    const result = await fetchEditableExerciseHistory(
+      "550e8400-e29b-41d4-a716-446655440001"
+    );
+
+    expect(result[0]?.sets[0]?.load_kg).toBe(82.5);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "get_editable_exercise_history",
+      { p_exercise_id: "550e8400-e29b-41d4-a716-446655440001" }
+    );
+  });
+
+  it("sends the complete edited set list to the transactional RPC", async () => {
+    mockAuthenticatedUser();
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    const sets = [
+      {
+        id: "550e8400-e29b-41d4-a716-446655440030",
+        set_type: "working" as const,
+        actual_load_kg: 85,
+        actual_reps: 6,
+        rpe: 9,
+      },
+    ];
+
+    await updateCompletedSessionExerciseSets(
+      "550e8400-e29b-41d4-a716-446655440020",
+      sets
+    );
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "update_completed_exercise_sets",
+      {
+        p_session_exercise_id: "550e8400-e29b-41d4-a716-446655440020",
+        p_sets: sets,
+      }
+    );
   });
 });
 
