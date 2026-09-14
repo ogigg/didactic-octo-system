@@ -240,6 +240,10 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="export-history"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="change-password"
                   options={{ headerShown: false }}
                 />

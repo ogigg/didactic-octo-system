@@ -115,6 +115,14 @@ describe("AccountSettingsScreen", () => {
     expect(screen.getByText("difference.body")).toBeTruthy();
   });
 
+  it("opens workout history export", () => {
+    render(<AccountSettingsScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: "export.label" }));
+
+    expect(mockNavigate).toHaveBeenCalledWith("/export-history");
+  });
+
   it("identifies deletion as destructive and requires a secondary navigation step", () => {
     render(<AccountSettingsScreen />);
 

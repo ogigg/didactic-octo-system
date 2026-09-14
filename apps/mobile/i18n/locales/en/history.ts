@@ -1,6 +1,7 @@
 export const history = {
   header: {
     back: "Back",
+    export: "Export workout history",
   },
   title: "History",
   dayTitle: "Workouts on {{date}}",

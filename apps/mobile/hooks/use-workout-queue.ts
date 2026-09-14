@@ -733,6 +733,7 @@ export function useStartPendingWorkout() {
           workoutId: input.pendingWorkout.id,
           wasEdited: input.wasEdited ?? false,
           editCount: input.editCount ?? 0,
+          weightUnit,
         }
       );
 

@@ -9,7 +9,9 @@ struct ContentView: View {
                 .ignoresSafeArea()
 
             Group {
-                if let snapshot = coordinator.snapshot {
+                if coordinator.screen == .details {
+                    WorkoutDetailsView()
+                } else if let snapshot = coordinator.snapshot {
                     if snapshot.status == .completed {
                         WorkoutCompleteView(snapshot: snapshot)
                     } else if snapshot.status == .active {
@@ -28,103 +30,67 @@ struct ContentView: View {
 }
 
 struct WaitingView: View {
+    @ScaledMetric(relativeTo: .headline) private var titleSize = 15.0
+    @ScaledMetric(relativeTo: .caption) private var instructionSize = 12.0
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 34))
-                .foregroundStyle(WatchTheme.primary)
-            Text("Ready to train")
-                .font(.headline)
-            Text(
-                "Start a workout on your iPhone. It will appear here even if your watch reconnects later."
-            )
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
+        WatchScreen(
+            title: String(localized: "Sweaty"),
+            headerAction: .details
+        ) {
+            VStack(spacing: 4) {
+                Image(systemName: "figure.strengthtraining.traditional")
+                    .font(.system(size: 24))
+                    .foregroundStyle(WatchTheme.primary)
+                    .accessibilityHidden(true)
+                Text(String(localized: "Ready to train"))
+                    .font(.system(size: titleSize, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(String(localized: "Start a workout on your iPhone"))
+                    .font(.system(size: instructionSize))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .accessibilityElement(children: .combine)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-        .accessibilityElement(children: .combine)
     }
 }
 
-private struct WorkoutCompleteView: View {
+struct WorkoutCompleteView: View {
     let snapshot: WatchWorkoutSnapshot
 
     private var completedSets: Int {
         snapshot.exercises.flatMap(\.sets).filter(\.isCompleted).count
     }
 
-    private var volume: Double {
-        snapshot.exercises.flatMap(\.sets).filter(\.isCompleted).reduce(0) {
-            $0 + ($1.actualLoadKg ?? 0) * ($1.actualReps ?? 0)
-        }
-    }
-
     var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
+        WatchScreen(
+            title: String(localized: "Complete"),
+            headerAction: .details
+        ) {
+            VStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 42))
+                    .font(.system(size: 18))
                     .foregroundStyle(WatchTheme.success)
                     .accessibilityHidden(true)
-                Text(
-                    watchLocalizedFormat(
-                        "%@ complete",
-                        snapshot.name
-                    )
-                )
-                .font(.headline)
-                .multilineTextAlignment(.center)
-
-                HStack {
-                    summaryStat(
-                        "\(completedSets)",
-                        label: String(localized: "Sets")
-                    )
-                    summaryStat(
-                        volume.formatted(
-                            .number.precision(.fractionLength(0))
-                        ),
-                        label: String(localized: "kg volume")
-                    )
-                }
-
-                ForEach(snapshot.exercises) { exercise in
-                    HStack {
-                        Text(exercise.name)
-                            .lineLimit(2)
-                        Spacer()
-                        Text(
-                            watchLocalizedFormat(
-                                "%lld/%lld",
-                                exercise.sets.filter(\.isCompleted).count,
-                                exercise.sets.count
-                            )
-                        )
-                        .foregroundStyle(.secondary)
-                    }
+                Text(snapshot.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(height: 30)
+                Text(watchLocalizedFormat("%lld sets", completedSets))
                     .font(.caption)
-                    .accessibilityElement(children: .combine)
-                }
-
-                Text("Open Sweaty on iPhone to save feedback and view your full summary.")
-                    .font(.caption2)
+                Text(String(localized: "Full summary on iPhone"))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity)
+
         }
     }
 
-    private func summaryStat(_ value: String, label: String) -> some View {
-        VStack {
-            Text(value).font(.headline).monospacedDigit()
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(8)
-        .background(WatchTheme.surface, in: RoundedRectangle(cornerRadius: 10))
-        .accessibilityElement(children: .combine)
-    }
 }

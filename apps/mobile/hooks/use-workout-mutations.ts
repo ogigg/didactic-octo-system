@@ -4,6 +4,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { recordComebackEvent } from "@/lib/api/streak-protection";
@@ -43,6 +44,7 @@ import { trackEvent } from "@/lib/track-event";
 import { normalizeAnalyticsError } from "@/lib/analytics-errors";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
+import { useWorkoutStore } from "@/stores/workout-store";
 import {
   logWorkoutDeletionError,
   logWorkoutDeletionTrace,
@@ -76,9 +78,80 @@ interface DeleteWorkoutMutationContext {
   calendarQueries: [QueryKey, unknown][];
 }
 
+type WatchHealthFailureListener = (workoutId: string) => void;
+const pendingWatchHealthFailures = new Set<string>();
+const watchHealthFailureListeners = new Set<WatchHealthFailureListener>();
+const watchHealthFallbacksInFlight = new Set<string>();
+
+export function notifyWatchHealthFailure(workoutId: string): void {
+  pendingWatchHealthFailures.add(workoutId);
+  watchHealthFailureListeners.forEach((listener) => listener(workoutId));
+}
+
+export function clearWatchHealthFailure(workoutId: string): void {
+  pendingWatchHealthFailures.delete(workoutId);
+}
+
+/**
+ * Retry the phone Health export after the Watch could not save its workout.
+ * The session ID is persisted with the fallback, so this remains usable after
+ * the summary screen has been dismissed or the app has been relaunched.
+ */
+export function retryPendingWatchHealthFallback(workoutId: string): void {
+  const state = useWorkoutStore.getState();
+  const fallback = state.healthWorkoutFallbacks[workoutId];
+  if (
+    state.healthWorkoutFailedIDs[workoutId] !== true ||
+    !fallback?.sessionId ||
+    fallback.started ||
+    watchHealthFallbacksInFlight.has(workoutId)
+  ) {
+    return;
+  }
+
+  watchHealthFallbacksInFlight.add(workoutId);
+  promptAndSyncWorkout(fallback.sessionId, {
+    startedAt: new Date(fallback.startedAtMs),
+    endedAt: new Date(fallback.finishedAtMs),
+    type: "strength",
+  })
+    .then(() => {
+      useWorkoutStore.getState().markHealthWorkoutFallbackStarted(workoutId);
+    })
+    .catch((error) => {
+      console.warn("Watch Health fallback sync failed:", error);
+    })
+    .finally(() => {
+      watchHealthFallbacksInFlight.delete(workoutId);
+    });
+}
+
+function subscribeToWatchHealthFailures(
+  listener: WatchHealthFailureListener
+): () => void {
+  watchHealthFailureListeners.add(listener);
+  pendingWatchHealthFailures.forEach(listener);
+  return () => watchHealthFailureListeners.delete(listener);
+}
+
 export function useSaveCompletedWorkout() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToWatchHealthFailures((workoutId) => {
+      retryPendingWatchHealthFallback(workoutId);
+    });
+    const state = useWorkoutStore.getState();
+    for (const [workoutId, fallback] of Object.entries(
+      state.healthWorkoutFallbacks
+    )) {
+      if (fallback.sessionId) {
+        retryPendingWatchHealthFallback(workoutId);
+      }
+    }
+    return unsubscribe;
+  }, []);
 
   return useMutation({
     mutationFn: async (
@@ -128,7 +201,47 @@ export function useSaveCompletedWorkout() {
       // Mirror to Apple Health / Health Connect (write-only, best-effort).
       // Prompts the user on first run, no-ops if denied or unavailable.
       const { finishedAtMs, durationMs } = variables.summary;
-      if (!variables.summary.healthWorkoutRecordedOnWatch) {
+      const watchWorkoutId =
+        variables.summary.watchWorkoutId ??
+        `workout-${finishedAtMs - durationMs}`;
+      const currentState = useWorkoutStore.getState();
+      // The summary is the mutation input and can predate a late Watch
+      // receipt. Prefer the persisted per-workout ledger whenever it has a
+      // status so a receipt that arrived while the save was in flight cannot
+      // trigger a duplicate phone-side Health export.
+      const watchHealthSaved =
+        currentState.healthWorkoutSavedIDs[watchWorkoutId] !== undefined;
+      const watchHealthPending =
+        currentState.healthWorkoutPendingIDs[watchWorkoutId] === true;
+      const watchHealthFailed =
+        currentState.healthWorkoutFailedIDs[watchWorkoutId] === true;
+      const hasCanonicalWatchHealthStatus =
+        watchHealthSaved || watchHealthPending || watchHealthFailed;
+      const watchHealthIsOwned =
+        variables.summary.healthWorkoutOwnedByWatch === true ||
+        hasCanonicalWatchHealthStatus;
+      if (watchHealthIsOwned && !watchHealthSaved) {
+        currentState.recordHealthWorkoutSession(watchWorkoutId, saved.id);
+        retryPendingWatchHealthFallback(watchWorkoutId);
+      }
+      const watchHealthIsPending =
+        watchHealthPending ||
+        (!hasCanonicalWatchHealthStatus &&
+          variables.summary.healthWorkoutOwnedByWatch === true &&
+          variables.summary.healthWorkoutSavePending === true);
+      const watchHealthHasFailed =
+        watchHealthFailed ||
+        (!hasCanonicalWatchHealthStatus &&
+          variables.summary.healthWorkoutFailed === true);
+      const watchHealthWasRecorded =
+        watchHealthSaved ||
+        (!hasCanonicalWatchHealthStatus &&
+          variables.summary.healthWorkoutRecordedOnWatch === true);
+      if (
+        !watchHealthWasRecorded &&
+        (!watchHealthIsPending || watchHealthHasFailed) &&
+        !(watchHealthIsOwned && watchHealthHasFailed)
+      ) {
         promptAndSyncWorkout(saved.id, {
           startedAt: new Date(finishedAtMs - durationMs),
           endedAt: new Date(finishedAtMs),

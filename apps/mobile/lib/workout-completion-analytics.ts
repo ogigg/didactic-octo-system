@@ -28,7 +28,10 @@ export function trackCompletedWorkout(
     total_sets: stats.totalSets,
     completed_sets: stats.completedSets,
     completion_rate: stats.completionRate,
-    total_volume_kg: computeTotalVolume(summary.exercises),
+    total_volume_kg: computeTotalVolume(
+      summary.exercises,
+      summary.weightUnit ?? "kg"
+    ),
     duration_seconds: Math.floor(summary.durationMs / 1000),
     goal_snapshot: goalSnapshot,
     is_partial: stats.completionRate < 100,

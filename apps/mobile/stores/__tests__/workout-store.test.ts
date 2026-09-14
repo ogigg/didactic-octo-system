@@ -481,3 +481,160 @@ describe("migratePersistedWorkoutExercisesFromV0", () => {
     expect(ifHelperReran[0]?.sets[0]?.type).toBe("warmup");
   });
 });
+
+describe("watch workout state", () => {
+  beforeEach(() => {
+    useWorkoutStore.getState().clearWorkout({ suppressAbandonment: true });
+  });
+
+  it("seeds planned set values separately from editable values", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise], undefined, null, {
+        weightUnit: "lbs",
+      });
+
+    const set = useWorkoutStore.getState().exercises[0]?.sets[0];
+    expect(set).toMatchObject({ plannedKg: "80", plannedReps: "5" });
+
+    useWorkoutStore
+      .getState()
+      .updateSetField("bench-press", "set-1", "kg", "85");
+    expect(useWorkoutStore.getState().exercises[0]?.sets[0]).toMatchObject({
+      kg: "85",
+      plannedKg: "80",
+    });
+  });
+
+  it("completes a watch set and creates its anchored rest in one store update", () => {
+    const now = Date.parse("2026-07-29T10:12:01.000Z");
+    const dateNowSpy = jest.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      useWorkoutStore
+        .getState()
+        .startWorkout("Push day", [baseExercise], undefined, null, {
+          weightUnit: "kg",
+        });
+      useWorkoutStore.getState().completeSet("bench-press", "set-2", {
+        kg: "90",
+        reps: "3",
+        restId: "rest-watch",
+        startedAtMs: now - 1_000,
+      });
+
+      const state = useWorkoutStore.getState();
+      expect(state.exercises[0]?.sets[1]).toMatchObject({
+        kg: "90",
+        reps: "3",
+        isCompleted: true,
+      });
+      expect(state.restTimer).toMatchObject({
+        id: "rest-watch",
+        exerciseId: state.exercises[0]?.occurrenceId,
+        startedAtMs: now - 1_000,
+      });
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  it("completes a phone set and starts its rest in one store update", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise], undefined, null, {
+        weightUnit: "kg",
+      });
+    useWorkoutStore.setState({ firstSetLogged: true, progressReached50: true });
+
+    const listener = jest.fn();
+    const unsubscribe = useWorkoutStore.subscribe(listener);
+    try {
+      useWorkoutStore.getState().toggleSetComplete("bench-press", "set-2", {
+        restId: "rest-phone",
+        startedAtMs: 1_750_000_000_000,
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    const state = useWorkoutStore.getState();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(state.exercises[0]?.sets[1]?.isCompleted).toBe(true);
+    expect(state.restTimer).toMatchObject({
+      id: "rest-phone",
+      exerciseId: state.exercises[0]?.occurrenceId,
+      startedAtMs: 1_750_000_000_000,
+    });
+  });
+
+  it("keeps health receipts durable and does not let a late failure override success", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise], undefined, null, {
+        weightUnit: "kg",
+      });
+    const startedAtMs = useWorkoutStore.getState().startedAtMs!;
+    const workoutId = `workout-${startedAtMs}`;
+    useWorkoutStore.getState().markHealthWorkoutOwnedByWatch(workoutId);
+    useWorkoutStore.getState().finishWorkout(undefined, startedAtMs + 60_000);
+
+    expect(useWorkoutStore.getState().completedWorkoutSummary).toMatchObject({
+      healthWorkoutOwnedByWatch: true,
+      healthWorkoutSavePending: true,
+      healthWorkoutRecordedOnWatch: false,
+    });
+
+    useWorkoutStore
+      .getState()
+      .markHealthWorkoutSaved(
+        workoutId,
+        "11111111-1111-4111-8111-111111111111"
+      );
+    useWorkoutStore.getState().markHealthWorkoutFailed(workoutId);
+
+    const state = useWorkoutStore.getState();
+    expect(state.healthWorkoutSavedIDs[workoutId]).toBe(
+      "11111111-1111-4111-8111-111111111111"
+    );
+    expect(state.healthWorkoutFailedIDs[workoutId]).toBeUndefined();
+    expect(state.completedWorkoutSummary).toMatchObject({
+      healthWorkoutRecordedOnWatch: true,
+      healthWorkoutSavePending: false,
+      healthWorkoutFailed: false,
+    });
+
+    useWorkoutStore.getState().clearWorkout({ suppressAbandonment: true });
+    expect(useWorkoutStore.getState().healthWorkoutSavedIDs[workoutId]).toBe(
+      "11111111-1111-4111-8111-111111111111"
+    );
+  });
+
+  it("keeps a failed watch Health export retryable after summary dismissal", () => {
+    useWorkoutStore
+      .getState()
+      .startWorkout("Push day", [baseExercise], undefined, null, {
+        weightUnit: "kg",
+      });
+    const startedAtMs = useWorkoutStore.getState().startedAtMs!;
+    const workoutId = `workout-${startedAtMs}`;
+    useWorkoutStore.getState().markHealthWorkoutOwnedByWatch(workoutId);
+    useWorkoutStore.getState().finishWorkout(undefined, startedAtMs + 60_000);
+    useWorkoutStore
+      .getState()
+      .recordHealthWorkoutSession(workoutId, "session-1");
+    useWorkoutStore.getState().clearWorkout({ suppressAbandonment: true });
+
+    useWorkoutStore.getState().markHealthWorkoutFailed(workoutId);
+
+    expect(useWorkoutStore.getState().healthWorkoutFailedIDs[workoutId]).toBe(
+      true
+    );
+    expect(
+      useWorkoutStore.getState().healthWorkoutFallbacks[workoutId]
+    ).toMatchObject({
+      sessionId: "session-1",
+      startedAtMs,
+      finishedAtMs: startedAtMs + 60_000,
+    });
+  });
+});

@@ -168,6 +168,7 @@ export function useGenerateWorkout() {
 
       startWorkout(data.workout_name, exercises, generationMeta, warmup, {
         workoutSource: "queued_ai",
+        weightUnit,
       });
       router.push("/workout");
     },

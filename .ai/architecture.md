@@ -140,20 +140,38 @@ User performs workout
 ### Apple Watch Workout Execution
 
 The watchOS companion is a native SwiftUI target generated from
-`apps/mobile/targets/watch`. The phone-side Zustand store remains canonical.
-The phone sends versioned full snapshots through WatchConnectivity application
-context, while the watch sends stable-ID commands through a persistent,
-idempotent outbox. Immediate messages improve latency and queued user-info
-transfers preserve actions across disconnections. The watch owns HealthKit
-collection for watch-led sessions and returns the saved workout UUID so the
-phone does not create a duplicate HealthKit workout.
+`apps/mobile/targets/watch`. The phone-side Zustand store remains canonical,
+while the watch maintains a persisted local workout projection for disconnected
+logging. Snapshot revisions order phone publications; stable workout, exercise
+occurrence, set, and rest-cycle IDs identify mutations.
 
-Exercise occurrence IDs are distinct from catalog IDs so duplicate exercises
-in one session remain independently addressable. Phone discard publishes a
-terminal cancellation before clearing local state. The watch persists a global
-revision high-water mark to reject delayed snapshots from older workouts,
-enables watchOS workout background processing, and drains pending
-WatchConnectivity transfers from a SwiftUI background task.
+The phone waits for workout-store hydration before consuming commands and waits
+for its serialized AsyncStorage writes before acknowledging them. Commands for
+existing incomplete sets in the current workout can arrive after unrelated
+phone changes. Completed sets require an explicit reopen action. Wire loads are
+kilograms; the bridge converts the phone's display-unit values at the boundary.
+Planned values are stored separately from editable actual values.
+
+Phone snapshots use WatchConnectivity application context and immediate messages.
+The watch persists commands before applying them locally, sends them in order,
+and removes them only after acknowledgment. Incoming snapshots are merged with
+pending commands and an editor draft. The snapshot and its revision are cached
+together, allowing relaunch without waiting for a newer phone publication.
+Rest changes use watch-generated cycle IDs and anchored times, so delayed
+receipt does not restart a countdown.
+
+HealthKit sessions are bound to workout identity and recoverable after a watch
+process restart. Cancellation discards the recording. Ownership means recording
+is pending, not that it was saved: the watch persists the saved UUID receipt
+before sending it to the phone. The phone retains Health export coordination
+across summary dismissal to handle late success or failure without duplicating
+a confirmed watch recording.
+
+The SwiftUI scene enables workout background processing and bounds its
+WatchConnectivity background drain. Rest alerts are owned by the coordinator,
+independent of the visible screen, with a local-notification fallback. The
+[watch interface standard](../docs/styles/watch-interface.md) defines shared
+navigation, safe-area placement, and compact-screen verification.
 
 ### Workout History Deletion
 
