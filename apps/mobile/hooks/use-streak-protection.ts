@@ -12,24 +12,18 @@ import {
   type StreakProtectionType,
 } from "@/lib/api/streak-protection";
 import {
+  calendarKeys,
   statsKeys,
   streakProtectionKeys,
   workoutStatsKeys,
 } from "@/lib/query-keys";
-import {
-  getMockStreakStatus,
-  runMockStreakMutation,
-} from "@/lib/streak-prompt-mock";
-
-function runStreakMutation(action: () => Promise<void>): Promise<void> {
-  return getMockStreakStatus() ? runMockStreakMutation() : action();
-}
 
 function useInvalidateStreakProtection() {
   const queryClient = useQueryClient();
 
   return () => {
     queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+    queryClient.invalidateQueries({ queryKey: calendarKeys.streakWeeks() });
     queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
     queryClient.invalidateQueries({ queryKey: statsKeys.all });
   };
@@ -40,7 +34,7 @@ export function useStreakStatus() {
 
   return useQuery({
     queryKey: streakProtectionKeys.status(user?.id ?? ""),
-    queryFn: () => getMockStreakStatus() ?? fetchStreakStatus(),
+    queryFn: fetchStreakStatus,
     enabled: !!user,
     staleTime: 60_000,
   });
@@ -51,7 +45,7 @@ export function useApplyStreakProtection() {
 
   return useMutation({
     mutationFn: (protectionType: StreakProtectionType) =>
-      runStreakMutation(() => applyStreakProtection(protectionType)),
+      applyStreakProtection(protectionType),
     onSuccess: invalidate,
   });
 }
@@ -61,7 +55,7 @@ export function useDismissStreakPrompt() {
 
   return useMutation({
     mutationFn: (promptState: StreakPromptState) =>
-      runStreakMutation(() => dismissStreakPrompt(promptState)),
+      dismissStreakPrompt(promptState),
     onSuccess: invalidate,
   });
 }
@@ -70,7 +64,7 @@ export function useRestartStreak() {
   const invalidate = useInvalidateStreakProtection();
 
   return useMutation({
-    mutationFn: () => runStreakMutation(restartStreak),
+    mutationFn: restartStreak,
     onSuccess: invalidate,
   });
 }
@@ -82,10 +76,7 @@ export function useRecordComebackEvent() {
     mutationFn: (input: {
       eventType: ComebackEventType;
       metadata?: Record<string, string | number | boolean | null>;
-    }) =>
-      runStreakMutation(() =>
-        recordComebackEvent(input.eventType, input.metadata)
-      ),
+    }) => recordComebackEvent(input.eventType, input.metadata),
     onSuccess: invalidate,
   });
 }

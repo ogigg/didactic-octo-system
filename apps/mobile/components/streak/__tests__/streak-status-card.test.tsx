@@ -70,9 +70,7 @@ describe("StreakStatusCard", () => {
       />
     );
 
-    expect(screen.getByRole("header")).toHaveTextContent(
-      "Last week is covered"
-    );
+    expect(screen.getByRole("header")).toHaveTextContent("Your streak is safe");
     expect(screen.getByText(/1 freeze left/)).toBeTruthy();
   });
 

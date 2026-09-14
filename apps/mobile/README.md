@@ -36,11 +36,6 @@ npm run test:watch
 npm run test:coverage
 ```
 
-To preview a streak-protection prompt locally without calling the streak RPCs,
-set `EXPO_PUBLIC_MOCK_STREAK_PROMPT_STATE` in `.env` and restart Expo. For
-example, `free_lifetime_rescue` opens the restore sheet; the other supported
-states are listed in `.env.example`.
-
 Native iOS development builds:
 
 ```bash
@@ -71,6 +66,7 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - Keep user-facing strings in `i18n/locales/en`.
 - Validate external and AI-generated data with Zod before it drives UI behavior.
 - Optimize for mobile realities: interrupted sessions, offline-sensitive flows, and fast in-workout interactions.
+- The Calendar marks protected and ended streak weeks from persisted streak events and qualifying workouts with connected, rounded date bands: very light blue for weeks with a qualifying workout, icy blue with a snowflake for protection, subtle coral for a streak break. Workout dates and calendar week bands use device-local Monday–Sunday boundaries. Persisted protected weeks retain their recorded Monday date labels; the backend streak counter still uses its existing UTC boundaries. Today has an outline even on workout and protected days; the marker, bands, and month range refresh at local midnight and on app resume. The calendar starts on Monday; bands have no bottom border and end at week and row boundaries. Development builds also show next week as an ended streak preview, including its month when the preview crosses a month boundary. Set `MOCK_NEXT_WEEK_AS_RUINED` to `false` in `lib/streak-calendar.ts` to disable this local-only preview; it never writes to the database. The same preview flag also shows September 21–27, 2026 as a failed week with a blue freeze marker on September 24 (a visual mock, separate from the weekly protection rules).
 - The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
 - Account deletion is available through Profile → Account & Data. Active subscribers are warned before continuing and can open the official Apple or Google Play subscription-management destination; if that destination is unavailable, the app tries the platform's official support page and then shows a localized error.
 - Password management is available through Profile → Account & Data. Signed-in OAuth users can add email/password sign-in without replacing their existing identity, while password users can change their password. Secure password changes use provider reauthentication for Apple on iOS and Supabase's email nonce flow otherwise.

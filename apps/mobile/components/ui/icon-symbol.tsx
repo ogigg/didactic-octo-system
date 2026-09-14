@@ -44,6 +44,7 @@ const MAPPING = {
   xmark: "close",
   "checkmark.circle.fill": "check-circle",
   "flame.fill": "local-fire-department",
+  snowflake: "ac-unit",
   "trophy.fill": "emoji-events",
   "figure.strengthtraining.traditional": "fitness-center",
   number: "tag",

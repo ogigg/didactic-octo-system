@@ -1,8 +1,14 @@
 const mockFetchCalendarEntries = jest.fn();
+const mockFetchStreakCalendarData = jest.fn();
 
 jest.mock("@/lib/api/workouts", () => ({
   fetchCalendarEntries: (...args: unknown[]) =>
     mockFetchCalendarEntries(...args),
+}));
+
+jest.mock("@/lib/api/streak-calendar", () => ({
+  fetchStreakCalendarData: (...args: unknown[]) =>
+    mockFetchStreakCalendarData(...args),
 }));
 
 jest.mock("react-i18next", () => ({
@@ -49,6 +55,13 @@ describe("useCalendarEntries refresh", () => {
       client.clear();
     }
     jest.clearAllMocks();
+  });
+
+  beforeEach(() => {
+    mockFetchStreakCalendarData.mockResolvedValue({
+      qualifyingCompletedAtDates: [],
+      protectedWeekStarts: [],
+    });
   });
 
   it("updates month entries after a successful refetch", async () => {
@@ -125,5 +138,22 @@ describe("useCalendarEntries refresh", () => {
     expect(
       before.flatMap((entry) => entry.sessions.map((s) => s.title))
     ).toEqual(["Push day"]);
+  });
+
+  it("exposes persisted protection weeks to the calendar", async () => {
+    const protectedWeekStart = "2026-09-07";
+    mockFetchStreakCalendarData.mockResolvedValueOnce({
+      qualifyingCompletedAtDates: [],
+      protectedWeekStarts: [protectedWeekStart],
+    });
+
+    const { Wrapper } = createHarness();
+    const { result } = renderHook(() => useCalendarEntries(), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.getWeekStatusForDate("2026-09-09")).toBe("covered");
+    });
   });
 });
