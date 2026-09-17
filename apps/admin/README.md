@@ -9,7 +9,8 @@ project as the mobile app and reuses its auth.
   images to the `exercise-media` storage bucket.
 - **Generations** — browse raw LLM request/response traces for every workout
   generation (`llm_generation_logs`), including reasoning content, parsed
-  output, token usage, and errors. Working sets generated with a `0` kg load
+  output, token usage, and errors. Failed generations retain the request and
+  partial response when available. Working sets generated with a `0` kg load
   are flagged on the trace detail page.
 
 ## Setup
