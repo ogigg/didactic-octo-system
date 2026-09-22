@@ -1003,9 +1003,30 @@ export default function ExerciseDetailScreen() {
           <>
             <Divider />
             <View style={styles.sectionBlock}>
-              <SectionTitle title={t("overview.volume")} />
+              <View style={styles.chartHeader}>
+                <Text
+                  style={[
+                    Typography.titleSm,
+                    styles.chartTitle,
+                    { color: textColor },
+                  ]}
+                >
+                  {t("overview.volume")}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("overview.seeFullStatistics")}
+                  onPress={() => router.push("/statistics")}
+                  style={styles.statisticsLink}
+                >
+                  <Text style={[Typography.caption, { color: primary }]}>
+                    {t("overview.seeFullStatistics")}
+                  </Text>
+                  <IconSymbol name="chevron.right" size={12} color={primary} />
+                </Pressable>
+              </View>
               <VolumeBarChart
-                data={detail?.volume_weeks ?? []}
+                data={detail?.volume_weeks.slice(-10) ?? []}
                 today={todayProgress}
                 metric={isTimeExercise ? "duration" : "volume"}
                 labels={{
@@ -1410,6 +1431,16 @@ const styles = StyleSheet.create({
   },
   sectionBlock: {
     gap: Spacing.lg,
+  },
+  chartHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  chartTitle: { flex: 1 },
+  statisticsLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    minHeight: 44,
+    maxWidth: "50%",
+    flexShrink: 1,
   },
   sectionTitleWrap: {
     gap: 2,

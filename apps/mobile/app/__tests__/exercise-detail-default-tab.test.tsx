@@ -1,3 +1,4 @@
+const mockRouterPush = jest.fn();
 const mockVolumeBarChart = jest.fn((_props: unknown) => null);
 const mockUseExerciseDetail = jest.fn();
 const mockUseExercise = jest.fn();
@@ -7,7 +8,7 @@ const mockUseRemoveExercisePreference = jest.fn();
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: jest.fn(() => ({ exerciseId: "exercise-1" })),
-  useRouter: jest.fn(() => ({ push: jest.fn(), back: jest.fn() })),
+  useRouter: jest.fn(() => ({ push: mockRouterPush, back: jest.fn() })),
 }));
 
 jest.mock("react-i18next", () => ({
@@ -285,6 +286,30 @@ describe("ExerciseDetailScreen default tab", () => {
     );
     act(() => useWorkoutStore.setState({ isActive: false, exercises: [] }));
     expect(screen.getByText("overview.emptyTitle")).toBeTruthy();
+  });
+
+  it("limits the preview to the ten latest weekly entries", () => {
+    const weeks = Array.from({ length: 14 }, (_, index) => ({
+      week_start: new Date(Date.UTC(2026, 0, 5 + index * 7))
+        .toISOString()
+        .slice(0, 10),
+      volume_kg: 100 + index,
+    }));
+    mockDetailQuery({ sessions: [] });
+    const query = mockUseExerciseDetail();
+    mockUseExerciseDetail.mockReturnValue({
+      ...query,
+      data: { ...query.data, volume_weeks: weeks },
+    });
+    render(<ExerciseDetailScreen />);
+    fireEvent.press(screen.getByRole("button", { name: "tabs.overview" }));
+    expect(mockVolumeBarChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: weeks.slice(-10) })
+    );
+    fireEvent.press(
+      screen.getByRole("button", { name: "overview.seeFullStatistics" })
+    );
+    expect(mockRouterPush).toHaveBeenCalledWith("/statistics");
   });
 
   it("defaults to How To when the exercise has no execution history", () => {
