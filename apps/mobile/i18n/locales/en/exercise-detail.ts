@@ -5,6 +5,9 @@ export const exerciseDetail = {
     howTo: "How To",
   },
   overview: {
+    statisticsTitle: "Exercise statistics",
+    statisticsRange:
+      "Weekly totals from the last 52 weeks. Weeks without logged results are omitted.",
     seeFullStatistics: "See full statistics",
     records: "Personal Records",
     recordsHint: "Your best results for this exercise.",

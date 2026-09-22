@@ -144,6 +144,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { useWorkoutStore } from "@/stores/workout-store";
 
 import ExerciseDetailScreen from "../exercise-detail";
+import ExerciseStatisticsScreen from "../exercise-statistics";
 
 const emptyRecords = {
   max_weight_kg: 0,
@@ -309,7 +310,47 @@ describe("ExerciseDetailScreen default tab", () => {
     fireEvent.press(
       screen.getByRole("button", { name: "overview.seeFullStatistics" })
     );
-    expect(mockRouterPush).toHaveBeenCalledWith("/statistics");
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: "/exercise-statistics",
+      params: { exerciseId: "exercise-1" },
+    });
+  });
+
+  it("shows all available weeks on the dedicated exercise statistics screen", () => {
+    const weeks = Array.from({ length: 20 }, (_, index) => ({
+      week_start: new Date(Date.UTC(2026, 0, 5 + index * 7))
+        .toISOString()
+        .slice(0, 10),
+      volume_kg: 100 + index,
+    }));
+    mockDetailQuery({ sessions: [] });
+    const query = mockUseExerciseDetail();
+    mockUseExerciseDetail.mockReturnValue({
+      ...query,
+      data: { ...query.data, volume_weeks: weeks },
+    });
+    render(<ExerciseStatisticsScreen />);
+    expect(mockUseExerciseDetail).toHaveBeenCalledWith("exercise-1");
+    expect(screen.getByText("overview.statisticsTitle")).toBeTruthy();
+    expect(screen.getByText("overview.statisticsRange")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "tabs.howTo" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "overview.seeFullStatistics" })
+    ).toBeNull();
+    expect(mockVolumeBarChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: weeks, chartHeight: 200 })
+    );
+  });
+
+  it("shows an empty state and an error with retry on the full statistics screen", () => {
+    mockDetailQuery({ sessions: [] });
+    const { rerender } = render(<ExerciseStatisticsScreen />);
+    expect(screen.getByText("overview.emptyTitle")).toBeTruthy();
+    mockDetailQuery({ isError: true });
+    rerender(<ExerciseStatisticsScreen />);
+    const refetch = mockUseExerciseDetail().refetch;
+    fireEvent.press(screen.getByRole("button", { name: "error.retry" }));
+    expect(refetch).toHaveBeenCalled();
   });
 
   it("defaults to How To when the exercise has no execution history", () => {
