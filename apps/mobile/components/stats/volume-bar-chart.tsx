@@ -251,7 +251,6 @@ export function VolumeBarChart({
         style={[styles.chartArea, { height: chartHeight }]}
       >
         {data.map((week, index) => {
-          const isCurrentWeek = index === data.length - 1;
           const isActive = activeWeek === week.week_start;
           const value = values[index] ?? 0;
           const isEmpty = value === 0;
@@ -279,7 +278,7 @@ export function VolumeBarChart({
                       ? isActive
                         ? 1
                         : 0.35
-                      : isEmpty || isCurrentWeek
+                      : isEmpty
                         ? 1
                         : 0.6,
                   },
