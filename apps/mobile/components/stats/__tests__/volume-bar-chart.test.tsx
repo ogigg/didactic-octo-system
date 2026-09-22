@@ -96,7 +96,7 @@ describe("VolumeBarChart", () => {
   });
 });
 
-it("shows two checked sets as solid load and the third as a dashed forecast", () => {
+it("shows two checked sets as hatched load and the third as a dashed forecast", () => {
   const { rerender } = render(
     <VolumeBarChart
       data={[]}

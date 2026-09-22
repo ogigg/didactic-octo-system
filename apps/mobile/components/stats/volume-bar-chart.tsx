@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useTranslation } from "react-i18next";
+import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { ExerciseChartProgress } from "@/lib/exercise-chart-progress";
@@ -75,6 +76,7 @@ export function VolumeBarChart({
   getTooltip,
 }: VolumeBarChartProps) {
   const { t } = useTranslation("stats");
+  const hatchId = `today-hatch-${useId().replace(/:/g, "")}`;
   const { formatVolume } = useWeightUnit();
   const primaryColor = useThemeColor({}, "primary");
   const borderColor = useThemeColor({}, "border");
@@ -314,13 +316,38 @@ export function VolumeBarChart({
               testID="today-completed"
               style={[
                 styles.bar,
+                styles.completedBar,
                 today.forecast > today.completed ? styles.stackedBar : null,
                 {
                   height: (today.completed / maxValue) * chartHeight,
-                  backgroundColor: primaryColor,
+                  borderColor: primaryColor,
+                  borderWidth: today.completed > 0 ? 1 : 0,
                 },
               ]}
-            />
+            >
+              <Svg
+                width="100%"
+                height="100%"
+                pointerEvents="none"
+                accessible={false}
+              >
+                <Defs>
+                  <Pattern
+                    id={hatchId}
+                    patternUnits="userSpaceOnUse"
+                    width={8}
+                    height={8}
+                  >
+                    <Path
+                      d="M-2 2L2-2 M0 8L8 0 M6 10L10 6"
+                      stroke={primaryColor}
+                      strokeWidth={1}
+                    />
+                  </Pattern>
+                </Defs>
+                <Rect width="100%" height="100%" fill={`url(#${hatchId})`} />
+              </Svg>
+            </View>
           </Pressable>
         ) : null}
       </View>
@@ -408,6 +435,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   todayLabel: { width: 64, alignSelf: "flex-end", textAlign: "right" },
+  completedBar: {
+    borderWidth: 1,
+    borderBottomLeftRadius: Radii.sm,
+    borderBottomRightRadius: Radii.sm,
+    overflow: "hidden",
+    opacity: 0.6,
+  },
   stackedBar: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   forecastBar: {
     borderWidth: 1,
