@@ -116,6 +116,7 @@ export function VolumeBarChart({
     average: t("volume.weeklyAvg"),
     perWeek: t("volume.perWeek"),
   };
+  const todayOpacity = activeWeek ? (activeWeek === "today" ? 1 : 0.35) : null;
   const activeWeekData = data.find((week) => week.week_start === activeWeek);
   const todayMetrics = today
     ? [
@@ -308,6 +309,7 @@ export function VolumeBarChart({
                       ((today.forecast - today.completed) / maxValue) *
                       chartHeight,
                     borderColor: primaryColor,
+                    opacity: todayOpacity ?? 0.45,
                   },
                 ]}
               />
@@ -322,6 +324,7 @@ export function VolumeBarChart({
                   height: (today.completed / maxValue) * chartHeight,
                   borderColor: primaryColor,
                   borderWidth: today.completed > 0 ? 1 : 0,
+                  opacity: todayOpacity ?? 0.6,
                 },
               ]}
             >
@@ -437,15 +440,11 @@ const styles = StyleSheet.create({
   todayLabel: { width: 64, alignSelf: "flex-end", textAlign: "right" },
   stackedBar: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   completedBar: {
-    borderBottomLeftRadius: 2,
-    borderBottomRightRadius: 2,
     borderWidth: 1,
     overflow: "hidden",
-    opacity: 0.6,
   },
   forecastBar: {
     borderWidth: 1,
-    opacity: 0.45,
     borderStyle: "dashed",
     backgroundColor: "transparent",
   },

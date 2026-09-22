@@ -123,3 +123,28 @@ it("shows two checked sets as hatched load and the third as a dashed forecast", 
   expect(screen.queryByTestId("today-forecast")).toBeNull();
   expect(screen.getByTestId("today-completed")).toHaveStyle({ height: 120 });
 });
+
+it("highlights both Today sections on hover and dims them when a historical bar is selected", () => {
+  render(
+    <VolumeBarChart
+      data={[{ week_start: "2026-06-01", volume_kg: 300 }]}
+      today={{ completed: 200, forecast: 300, completedSets: 2, totalSets: 3 }}
+      getTooltip={() => ({
+        title: "Historical week",
+        accessibilityLabel: "Historical week",
+        metrics: [],
+      })}
+    />
+  );
+  const today = screen.getByLabelText(/volume.today, volume.completed: 200kg/);
+  const history = screen.getByLabelText("Historical week");
+  fireEvent(today, "hoverIn");
+  expect(screen.getByTestId("today-completed")).toHaveStyle({ opacity: 1 });
+  expect(screen.getByTestId("today-forecast")).toHaveStyle({ opacity: 1 });
+  fireEvent.press(screen.getByLabelText("volume.closeTooltip"));
+  expect(screen.getByTestId("today-completed")).toHaveStyle({ opacity: 0.6 });
+  expect(screen.getByTestId("today-forecast")).toHaveStyle({ opacity: 0.45 });
+  fireEvent.press(history);
+  expect(screen.getByTestId("today-completed")).toHaveStyle({ opacity: 0.35 });
+  expect(screen.getByTestId("today-forecast")).toHaveStyle({ opacity: 0.35 });
+});
