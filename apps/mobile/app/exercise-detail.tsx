@@ -33,6 +33,7 @@ import { ExerciseHistoryEditSheet } from "@/components/history/exercise-history-
 import { ExerciseHistoryMenu } from "@/components/history/exercise-history-menu";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ExerciseInsights } from "@/components/stats/exercise-insights";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
@@ -1002,6 +1003,13 @@ export default function ExerciseDetailScreen({
                 />
               </View>
             </View>
+          </>
+        ) : null}
+
+        {fullStatistics ? (
+          <>
+            <Divider />
+            <ExerciseInsights sessions={sessions} isTime={isTimeExercise} />
           </>
         ) : null}
 

@@ -26,6 +26,7 @@ jest.mock("@/hooks/use-theme-color", () => ({
 jest.mock("@/hooks/use-weight-unit", () => ({
   useWeightUnit: jest.fn(() => ({
     format: (value: number) => `${value}kg`,
+    formatVolume: (value: number) => `${value}kg`,
     formatSpaced: (value: number) => `${value} kg`,
   })),
 }));
@@ -332,6 +333,8 @@ describe("ExerciseDetailScreen default tab", () => {
     render(<ExerciseStatisticsScreen />);
     expect(mockUseExerciseDetail).toHaveBeenCalledWith("exercise-1");
     expect(screen.getByText("overview.statisticsTitle")).toBeTruthy();
+    expect(screen.getByText("insights.title")).toBeTruthy();
+    expect(screen.getByText("insights.frequency")).toBeTruthy();
     expect(screen.getByText("overview.statisticsRange")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "tabs.howTo" })).toBeNull();
     expect(
@@ -344,6 +347,27 @@ describe("ExerciseDetailScreen default tab", () => {
         scrollable: true,
       })
     );
+  });
+
+  it("renders populated insights only on the full statistics screen", () => {
+    mockDetailQuery({
+      sessions: Array.from({ length: 10 }, (_, index) => ({
+        date: `2026-08-${String(20 - index).padStart(2, "0")}`,
+        workout_name: "Workout",
+        sets: [
+          { set_number: 1, load_kg: 60, reps: index < 5 ? 12 : 8, rpe: null },
+        ],
+      })),
+    });
+    const { unmount } = render(<ExerciseDetailScreen />);
+    expect(screen.queryByText("insights.title")).toBeNull();
+    unmount();
+    render(<ExerciseStatisticsScreen />);
+    expect(screen.getByText("insights.repProgress")).toBeTruthy();
+    expect(screen.getByText("insights.previousFive")).toBeTruthy();
+    expect(screen.getByText("480kg")).toBeTruthy();
+    expect(screen.getByText("720kg")).toBeTruthy();
+    expect(screen.getByText('insights.change:{"value":"+50%"}')).toBeTruthy();
   });
 
   it("shows an empty state and an error with retry on the full statistics screen", () => {
