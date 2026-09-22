@@ -323,7 +323,7 @@ export function VolumeBarChart({
                 {
                   height: (today.completed / maxValue) * chartHeight,
                   borderColor: primaryColor,
-                  borderWidth: today.completed > 0 ? 2 : 0,
+                  borderWidth: today.completed > 0 ? 1 : 0,
                   opacity: todayOpacity ?? 0.6,
                 },
               ]}
@@ -344,7 +344,7 @@ export function VolumeBarChart({
                     <Path
                       d="M-2 2L2-2 M0 8L8 0 M6 10L10 6"
                       stroke={primaryColor}
-                      strokeWidth={2}
+                      strokeWidth={1}
                     />
                   </Pattern>
                 </Defs>
@@ -440,11 +440,11 @@ const styles = StyleSheet.create({
   todayLabel: { width: 64, alignSelf: "flex-end", textAlign: "right" },
   stackedBar: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   completedBar: {
-    borderWidth: 2,
+    borderWidth: 1,
     overflow: "hidden",
   },
   forecastBar: {
-    borderWidth: 2,
+    borderWidth: 1,
     borderStyle: "dashed",
     backgroundColor: "transparent",
   },
