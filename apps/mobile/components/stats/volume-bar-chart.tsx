@@ -417,8 +417,8 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: "100%",
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
   },
   overlay: { flex: 1 },
   tooltipPosition: { position: "absolute" },
