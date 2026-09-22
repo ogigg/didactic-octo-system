@@ -317,6 +317,7 @@ export function VolumeBarChart({
               style={[
                 styles.bar,
                 styles.completedBar,
+                today.forecast > today.completed ? styles.stackedBar : null,
                 {
                   height: (today.completed / maxValue) * chartHeight,
                   borderColor: primaryColor,
@@ -413,6 +414,8 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: "100%",
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
   },
   overlay: { flex: 1 },
   tooltipPosition: { position: "absolute" },
@@ -432,7 +435,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   todayLabel: { width: 64, alignSelf: "flex-end", textAlign: "right" },
+  stackedBar: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   completedBar: {
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
     borderWidth: 1,
     overflow: "hidden",
     opacity: 0.6,
