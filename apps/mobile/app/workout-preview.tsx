@@ -38,16 +38,22 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import {
   useEditPendingWorkout,
+  useRecoverStalePendingWorkouts,
   useRegenerateWorkout,
   useStartPendingWorkout,
   useWorkoutQueueData,
 } from "@/hooks/use-workout-queue";
 import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
+import {
+  GenerationLimitReachedError,
+  WorkoutGenerationError,
+} from "@/lib/api/pending-workouts";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import { getWorkingSetLabel } from "@/lib/exercise-set-structure";
 import { applyPendingExerciseSwap } from "@/lib/pending-exercise-swap";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
+import { isPendingWorkoutStale } from "@/lib/pending-workout-recovery";
 import { trackEvent } from "@/lib/track-event";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
@@ -119,6 +125,8 @@ export default function WorkoutPreviewScreen() {
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
   const primaryContainer = useThemeColor({}, "primaryContainer");
+  const error = useThemeColor({}, "error");
+  const destructiveSurface = useThemeColor({}, "destructiveSurface");
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const border = useThemeColor({}, "border");
   const inputFill = useThemeColor({}, "inputFill");
@@ -134,6 +142,7 @@ export default function WorkoutPreviewScreen() {
   // Mutations
   const startMutation = useStartPendingWorkout();
   const regenerateMutation = useRegenerateWorkout();
+  const recoverMutation = useRecoverStalePendingWorkouts();
   const editMutation = useEditPendingWorkout();
 
   // Local edit state
@@ -213,7 +222,7 @@ export default function WorkoutPreviewScreen() {
           : []
       );
     }
-  }, [workout?.workout_data]);
+  }, [workout?.user_edits, workout?.workout_data]);
 
   useEffect(() => {
     openedAtRef.current = Date.now();
@@ -292,6 +301,49 @@ export default function WorkoutPreviewScreen() {
     },
     [isRegenerating, regenerateMutation, workout]
   );
+
+  const regenerationError =
+    regenerateMutation.isError &&
+    regenerateMutation.variables?.pendingWorkout.id === workout?.id
+      ? regenerateMutation.error
+      : null;
+  const recoveryError = recoverMutation.isError ? recoverMutation.error : null;
+  const visibleError = recoveryError ?? regenerationError;
+  const isStaleWorkout = workout ? isPendingWorkoutStale(workout) : false;
+  const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
+    workout?.last_regenerated_at ?? null
+  );
+  const isRetryableFailedWorkout =
+    workout?.status === "failed" && regenerationEligibility.canRegenerate;
+  const handleRegenerationRetry = useCallback(() => {
+    if (!workout) return;
+
+    if (recoveryError || isRegenerating || isStaleWorkout) {
+      recoverMutation.mutate();
+      return;
+    }
+
+    submitRegeneration(
+      regenerateMutation.variables?.pendingWorkout.id === workout.id
+        ? regenerateMutation.variables.feedback
+        : undefined
+    );
+  }, [
+    isRegenerating,
+    isStaleWorkout,
+    recoveryError,
+    recoverMutation,
+    regenerateMutation,
+    submitRegeneration,
+    workout,
+  ]);
+  const regenerationErrorRetryable =
+    !(regenerationError instanceof GenerationLimitReachedError) &&
+    (regenerationError instanceof WorkoutGenerationError
+      ? regenerationError.retryable
+      : true);
+  const canRetryRegeneration =
+    regenerationErrorRetryable && regenerationEligibility.canRegenerate;
 
   const persistEdits = useCallback(() => {
     if (!workout || dirtyEditTypes.length === 0 || isRegenerating) return;
@@ -372,6 +424,79 @@ export default function WorkoutPreviewScreen() {
               <Text style={[Typography.caption, { color: textDisabled }]}>
                 {t("empty.subtitle")}
               </Text>
+              {visibleError ? (
+                <View
+                  style={[
+                    styles.statusCard,
+                    {
+                      backgroundColor: destructiveSurface,
+                      borderColor: error,
+                    },
+                  ]}
+                  accessibilityRole="alert"
+                >
+                  <Text style={[Typography.titleSm, { color: error }]}>
+                    {recoveryError
+                      ? t("status.recoveryFailedTitle")
+                      : t("status.regenerationFailedTitle")}
+                  </Text>
+                  <Text style={[Typography.caption, { color: textSecondary }]}>
+                    {recoveryError
+                      ? t("status.recoveryFailedMessage")
+                      : t("status.regenerationFailedMessage")}
+                  </Text>
+                  {visibleError instanceof WorkoutGenerationError &&
+                  visibleError.request_id ? (
+                    <Text style={[Typography.micro, { color: textMuted }]}>
+                      {t("status.referenceId", {
+                        id: visibleError.request_id,
+                      })}
+                    </Text>
+                  ) : null}
+                  {canRetryRegeneration || isStaleWorkout || recoveryError ? (
+                    <Button
+                      label={
+                        recoveryError
+                          ? t("status.retryRecovery")
+                          : t("status.retryRegeneration")
+                      }
+                      onPress={handleRegenerationRetry}
+                      variant="secondary"
+                      disabled={
+                        regenerateMutation.isPending ||
+                        recoverMutation.isPending
+                      }
+                    />
+                  ) : null}
+                </View>
+              ) : isStaleWorkout || isRetryableFailedWorkout ? (
+                <View
+                  style={[
+                    styles.statusCard,
+                    {
+                      backgroundColor: primaryContainer,
+                      borderColor: border,
+                    },
+                  ]}
+                >
+                  <Text style={[Typography.titleSm, { color: primary }]}>
+                    {isRetryableFailedWorkout
+                      ? t("status.regenerationFailedTitle")
+                      : t("status.regeneratingTitle")}
+                  </Text>
+                  <Text style={[Typography.caption, { color: textSecondary }]}>
+                    {isRetryableFailedWorkout
+                      ? t("status.regenerationFailedMessage")
+                      : t("status.regeneratingMessage")}
+                  </Text>
+                  <Button
+                    label={t("status.retryRegeneration")}
+                    onPress={handleRegenerationRetry}
+                    variant="secondary"
+                    disabled={recoverMutation.isPending}
+                  />
+                </View>
+              ) : null}
             </View>
           </SafeAreaView>
         </SafeAreaProvider>
@@ -381,12 +506,10 @@ export default function WorkoutPreviewScreen() {
 
   const warmup = workout.workout_data.warmup;
   const estimatedMinutes = estimateMinutes(localExercises, warmup);
-  const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
-    workout.last_regenerated_at
-  );
   const regenerable = regenerationEligibility.canRegenerate && !isRegenerating;
   const canEdit = isEditing && !isRegenerating;
-  const showFooter = isNextUp || regenerable || isRegenerating;
+  const showFooter =
+    isNextUp || regenerable || isRegenerating || visibleError !== null;
 
   return (
     <KeyboardAvoidingView
@@ -483,7 +606,56 @@ export default function WorkoutPreviewScreen() {
               ]}
             />
 
-            {isRegenerating ? (
+            {visibleError ? (
+              <View
+                style={[
+                  styles.statusCard,
+                  {
+                    backgroundColor: destructiveSurface,
+                    borderColor: error,
+                  },
+                ]}
+                accessibilityRole="alert"
+              >
+                <View style={styles.statusCardHeader}>
+                  <View
+                    style={[styles.statusDot, { backgroundColor: error }]}
+                  />
+                  <Text style={[Typography.titleSm, { color: error }]}>
+                    {recoveryError
+                      ? t("status.recoveryFailedTitle")
+                      : t("status.regenerationFailedTitle")}
+                  </Text>
+                </View>
+                <Text style={[Typography.caption, { color: textSecondary }]}>
+                  {recoveryError
+                    ? t("status.recoveryFailedMessage")
+                    : t("status.regenerationFailedMessage")}
+                </Text>
+                {visibleError instanceof WorkoutGenerationError &&
+                visibleError.request_id ? (
+                  <Text style={[Typography.micro, { color: textMuted }]}>
+                    {t("status.referenceId", {
+                      id: visibleError.request_id,
+                    })}
+                  </Text>
+                ) : null}
+                {canRetryRegeneration || isStaleWorkout || recoveryError ? (
+                  <Button
+                    label={
+                      recoveryError
+                        ? t("status.retryRecovery")
+                        : t("status.retryRegeneration")
+                    }
+                    onPress={handleRegenerationRetry}
+                    variant="secondary"
+                    disabled={
+                      regenerateMutation.isPending || recoverMutation.isPending
+                    }
+                  />
+                ) : null}
+              </View>
+            ) : isRegenerating ? (
               <View
                 style={[
                   styles.statusCard,
@@ -504,6 +676,14 @@ export default function WorkoutPreviewScreen() {
                 <Text style={[Typography.caption, { color: textSecondary }]}>
                   {t("status.regeneratingMessage")}
                 </Text>
+                {isStaleWorkout ? (
+                  <Button
+                    label={t("status.retryRegeneration")}
+                    onPress={handleRegenerationRetry}
+                    variant="secondary"
+                    disabled={recoverMutation.isPending}
+                  />
+                ) : null}
               </View>
             ) : null}
 

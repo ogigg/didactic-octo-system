@@ -53,13 +53,13 @@ Deno.test(
 );
 
 Deno.test(
-  "filterCatalogByPreferences ignores exclusions when they empty the catalog",
+  "filterCatalogByPreferences never restores hard exclusions when they empty the catalog",
   () => {
     const prefs: ExercisePreference[] = CATALOG.map((e) => ({
       exercise_id: e.id,
       preference: "hard_dislike" as const,
     }));
 
-    assertEquals(filterCatalogByPreferences(CATALOG, prefs), CATALOG);
+    assertEquals(filterCatalogByPreferences(CATALOG, prefs), []);
   }
 );

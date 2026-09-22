@@ -27,7 +27,7 @@ export default async function AdminLayout({
             href="/generations"
             className="rounded px-3 py-2 text-text-secondary hover:bg-bg-elevated hover:text-text"
           >
-            Generations
+            Generation control room
           </Link>
         </nav>
         <form action={logout} className="mt-auto">

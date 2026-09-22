@@ -110,7 +110,7 @@ function getSetTargets(
 }
 
 export function isPendingWorkoutStale(workout: PendingWorkout): boolean {
-  if (!["queued", "generating", "failed"].includes(workout.status)) {
+  if (!["queued", "generating", "regenerating"].includes(workout.status)) {
     return false;
   }
 

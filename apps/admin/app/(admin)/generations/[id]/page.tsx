@@ -91,10 +91,10 @@ export default async function GenerationDetailPage({
   return (
     <div>
       <Link
-        href="/generations"
+        href="/generations/llm"
         className="text-sm text-text-secondary hover:text-text"
       >
-        ← Back to generations
+        ← Back to raw logs
       </Link>
 
       <div className="mb-6 mt-2 flex flex-wrap items-baseline gap-4">
