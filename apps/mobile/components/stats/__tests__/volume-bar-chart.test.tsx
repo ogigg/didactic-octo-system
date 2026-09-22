@@ -148,3 +148,37 @@ it("highlights both Today sections on hover and dims them when a historical bar 
   expect(screen.getByTestId("today-completed")).toHaveStyle({ opacity: 0.35 });
   expect(screen.getByTestId("today-forecast")).toHaveStyle({ opacity: 0.35 });
 });
+
+it("keeps long histories readable while leaving the preview fitted to its viewport", () => {
+  const data = Array.from({ length: 52 }, (_, index) => ({
+    week_start: new Date(Date.UTC(2026, 0, 5 + index * 7))
+      .toISOString()
+      .slice(0, 10),
+    volume_kg: 100,
+  }));
+  const { rerender } = render(
+    <VolumeBarChart
+      data={data}
+      scrollable
+      getTooltip={(week) => ({
+        title: "Selected week",
+        accessibilityLabel: week.week_start,
+        metrics: [],
+      })}
+    />
+  );
+  fireEvent(screen.getByTestId("chart-viewport"), "layout", {
+    nativeEvent: { layout: { width: 360, height: 140, x: 0, y: 0 } },
+  });
+  expect(screen.getByTestId("chart-content")).toHaveStyle({ width: 1870 });
+  expect(screen.getByTestId("chart-scroll").props.scrollEnabled).toBe(true);
+  const bar = screen.getByLabelText(data[0].week_start);
+  fireEvent(bar, "hoverIn");
+  expect(screen.queryByText("Selected week")).toBeNull();
+  fireEvent.press(bar);
+  expect(screen.getByText("Selected week")).toBeTruthy();
+  fireEvent.press(screen.getByLabelText("volume.closeTooltip"));
+  rerender(<VolumeBarChart data={data.slice(-10)} />);
+  expect(screen.getByTestId("chart-content")).toHaveStyle({ width: 360 });
+  expect(screen.getByTestId("chart-scroll").props.scrollEnabled).toBe(false);
+});

@@ -338,7 +338,11 @@ describe("ExerciseDetailScreen default tab", () => {
       screen.queryByRole("button", { name: "overview.seeFullStatistics" })
     ).toBeNull();
     expect(mockVolumeBarChart).toHaveBeenLastCalledWith(
-      expect.objectContaining({ data: weeks, chartHeight: 200 })
+      expect.objectContaining({
+        data: weeks,
+        chartHeight: 200,
+        scrollable: true,
+      })
     );
   });
 

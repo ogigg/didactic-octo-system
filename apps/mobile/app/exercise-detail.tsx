@@ -1054,6 +1054,7 @@ export default function ExerciseDetailScreen({
                     : detail?.volume_weeks.slice(-10)) ?? []
                 }
                 chartHeight={fullStatistics ? 200 : 120}
+                scrollable={fullStatistics}
                 today={todayProgress}
                 metric={isTimeExercise ? "duration" : "volume"}
                 labels={{
