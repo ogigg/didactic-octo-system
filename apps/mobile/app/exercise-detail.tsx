@@ -61,6 +61,8 @@ import type {
   EditableExerciseHistory,
 } from "@/lib/api/workouts";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
+import { getExerciseChartProgress } from "@/lib/exercise-chart-progress";
+import { useWorkoutStore } from "@/stores/workout-store";
 import { useToastStore } from "@/stores/toast-store";
 
 type Tab = "overview" | "history" | "howTo";
@@ -430,6 +432,20 @@ export default function ExerciseDetailScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
 
   const wu = useWeightUnit();
+  const workoutActive = useWorkoutStore((state) => state.isActive);
+  const workoutExercises = useWorkoutStore((state) => state.exercises);
+  const workoutWeightUnit = useWorkoutStore((state) => state.weightUnit);
+  const todayProgress = useMemo(
+    () =>
+      workoutActive
+        ? getExerciseChartProgress(
+            workoutExercises,
+            exerciseId ?? "",
+            workoutWeightUnit
+          )
+        : undefined,
+    [workoutActive, workoutExercises, exerciseId, workoutWeightUnit]
+  );
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
   const [prefSheetVisible, setPrefSheetVisible] = useState(false);
   const [selectedHistory, setSelectedHistory] =
@@ -825,7 +841,7 @@ export default function ExerciseDetailScreen() {
           : week.volume_kg > 0
       ) ?? false;
     const hasTrackedData =
-      hasRecordData || hasVolumeData || sessions.length > 0;
+      hasRecordData || hasVolumeData || sessions.length > 0 || !!todayProgress;
 
     const renderIntro = () =>
       exercise ? (
@@ -983,13 +999,14 @@ export default function ExerciseDetailScreen() {
           </>
         ) : null}
 
-        {hasVolumeData && detail?.volume_weeks ? (
+        {hasVolumeData || todayProgress ? (
           <>
             <Divider />
             <View style={styles.sectionBlock}>
               <SectionTitle title={t("overview.volume")} />
               <VolumeBarChart
-                data={detail.volume_weeks}
+                data={detail?.volume_weeks ?? []}
+                today={todayProgress}
                 metric={isTimeExercise ? "duration" : "volume"}
                 labels={{
                   total: isTimeExercise

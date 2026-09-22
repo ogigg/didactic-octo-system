@@ -1,11 +1,27 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, View, Text } from "react-native";
+import { useRef, useState } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  Text,
+  useWindowDimensions,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import type { ExerciseChartProgress } from "@/lib/exercise-chart-progress";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
+
+interface ChartAnchor {
+  x: number;
+  y: number;
+  width: number;
+}
 
 interface VolumeWeek {
   week_start: string;
@@ -15,6 +31,7 @@ interface VolumeWeek {
 
 interface VolumeBarChartProps {
   data: VolumeWeek[];
+  today?: ExerciseChartProgress;
   chartHeight?: number;
   metric?: "volume" | "duration";
   labels?: {
@@ -51,6 +68,7 @@ function getMonthLabel(
 
 export function VolumeBarChart({
   data,
+  today,
   chartHeight = 120,
   metric = "volume",
   labels,
@@ -58,20 +76,34 @@ export function VolumeBarChart({
 }: VolumeBarChartProps) {
   const { t } = useTranslation("stats");
   const { formatVolume } = useWeightUnit();
+  const successColor = useThemeColor({}, "success");
   const primaryColor = useThemeColor({}, "primary");
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
   const textSecondary = useThemeColor({}, "textSecondary");
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
+  const chartRef = useRef<View>(null);
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const [anchor, setAnchor] = useState<ChartAnchor>({
+    x: Spacing.lg,
+    y: windowHeight / 2,
+    width: windowWidth - Spacing.lg * 2,
+  });
   const [activeWeek, setActiveWeek] = useState<string | null>(null);
+  const selectBar = (key: string) => {
+    chartRef.current?.measureInWindow((x, y, width) =>
+      setAnchor({ x, y, width })
+    );
+    setActiveWeek(key);
+  };
 
-  if (data.length === 0) return null;
+  if (data.length === 0 && !today) return null;
 
   const values = data.map((item) =>
     metric === "duration" ? (item.total_duration_seconds ?? 0) : item.volume_kg
   );
-  const maxValue = Math.max(...values, 1);
+  const maxValue = Math.max(...values, today?.forecast ?? 0, 1);
   const totalValue = values.reduce((sum, value) => sum + value, 0);
   const weeklyAvg = data.length > 0 ? totalValue / data.length : 0;
   const formatValue =
@@ -84,7 +116,35 @@ export function VolumeBarChart({
     perWeek: t("volume.perWeek"),
   };
   const activeWeekData = data.find((week) => week.week_start === activeWeek);
-  const activeTooltip = activeWeekData ? getTooltip?.(activeWeekData) : null;
+  const todayMetrics = today
+    ? [
+        { label: t("volume.completed"), value: formatValue(today.completed) },
+        { label: t("volume.forecast"), value: formatValue(today.forecast) },
+        {
+          label: t("volume.sets"),
+          value: `${today.completedSets}/${today.totalSets}`,
+        },
+      ]
+    : [];
+  const todayLabel = [
+    t("volume.today"),
+    ...todayMetrics.map(({ label, value }) => `${label}: ${value}`),
+  ].join(", ");
+  const activeTooltip =
+    activeWeek === "today" && today
+      ? { title: t("volume.today"), metrics: todayMetrics }
+      : activeWeekData
+        ? getTooltip?.(activeWeekData)
+        : null;
+
+  // Keep the close button reachable when the chart is partly above the viewport.
+  const tooltipBottom = Math.max(
+    Spacing.lg,
+    Math.min(
+      windowHeight - anchor.y + Spacing.sm,
+      windowHeight - Spacing["5xl"] - 88
+    )
+  );
 
   // Determine label interval (~every 4 weeks)
   const labelEvery = Math.max(1, Math.floor(data.length / 10) * 4 || 4);
@@ -106,8 +166,91 @@ export function VolumeBarChart({
         </Text>
       </View>
 
+      {activeTooltip ? (
+        <Modal
+          transparent
+          visible
+          animationType="none"
+          statusBarTranslucent
+          onRequestClose={() => setActiveWeek(null)}
+        >
+          <View style={styles.overlay}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              accessible={false}
+              onPress={() => setActiveWeek(null)}
+            />
+            <ScrollView
+              accessibilityViewIsModal
+              onAccessibilityEscape={() => setActiveWeek(null)}
+              style={[
+                styles.tooltipPosition,
+                {
+                  left: anchor.x,
+                  width: anchor.width,
+                  bottom: tooltipBottom,
+                  maxHeight: windowHeight - tooltipBottom - Spacing["5xl"],
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.tooltip,
+                  {
+                    backgroundColor: backgroundElevated,
+                    borderColor,
+                  },
+                ]}
+              >
+                <View style={styles.tooltipHeader}>
+                  <Text
+                    style={[
+                      Typography.titleSm,
+                      styles.tooltipTitle,
+                      { color: textColor },
+                    ]}
+                  >
+                    {activeTooltip.title}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("volume.closeTooltip")}
+                    onPress={() => setActiveWeek(null)}
+                    style={styles.closeButton}
+                  >
+                    <IconSymbol name="xmark" size={20} color={textColor} />
+                  </Pressable>
+                </View>
+                <View style={styles.tooltipMetrics}>
+                  {activeTooltip.metrics.map((metric) => (
+                    <View key={metric.label} style={styles.tooltipMetric}>
+                      <Text style={[Typography.micro, { color: textMuted }]}>
+                        {metric.label}
+                      </Text>
+                      <Text
+                        style={[
+                          Typography.bodyMedium,
+                          styles.tooltipValue,
+                          { color: textColor },
+                        ]}
+                      >
+                        {metric.value}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
+      ) : null}
+
       {/* Bars */}
-      <View style={[styles.chartArea, { height: chartHeight }]}>
+      <View
+        ref={chartRef}
+        collapsable={false}
+        style={[styles.chartArea, { height: chartHeight }]}
+      >
         {data.map((week, index) => {
           const isCurrentWeek = index === data.length - 1;
           const isActive = activeWeek === week.week_start;
@@ -122,19 +265,8 @@ export function VolumeBarChart({
               key={week.week_start}
               accessibilityRole={getTooltip ? "button" : undefined}
               accessibilityLabel={getTooltip?.(week).accessibilityLabel}
-              onFocus={() => setActiveWeek(week.week_start)}
-              onBlur={() => setActiveWeek(null)}
-              onHoverIn={() => setActiveWeek(week.week_start)}
-              onHoverOut={() =>
-                setActiveWeek((current) =>
-                  current === week.week_start ? null : current
-                )
-              }
-              onPress={() =>
-                setActiveWeek((current) =>
-                  current === week.week_start ? null : week.week_start
-                )
-              }
+              onHoverIn={() => selectBar(week.week_start)}
+              onPress={() => selectBar(week.week_start)}
               disabled={!getTooltip}
               style={styles.barWrapper}
             >
@@ -157,40 +289,40 @@ export function VolumeBarChart({
             </Pressable>
           );
         })}
-
-        {activeTooltip ? (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.tooltip,
-              {
-                backgroundColor: backgroundElevated,
-                borderColor,
-              },
-            ]}
+        {today ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={todayLabel}
+            onHoverIn={() => selectBar("today")}
+            onPress={() => selectBar("today")}
+            style={[styles.barWrapper, styles.todayBar]}
           >
-            <Text style={[Typography.titleSm, { color: textColor }]}>
-              {activeTooltip.title}
-            </Text>
-            <View style={styles.tooltipMetrics}>
-              {activeTooltip.metrics.map((metric) => (
-                <View key={metric.label} style={styles.tooltipMetric}>
-                  <Text style={[Typography.micro, { color: textMuted }]}>
-                    {metric.label}
-                  </Text>
-                  <Text
-                    style={[
-                      Typography.bodyMedium,
-                      styles.tooltipValue,
-                      { color: textColor },
-                    ]}
-                  >
-                    {metric.value}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
+            {today.forecast > today.completed ? (
+              <View
+                testID="today-forecast"
+                style={[
+                  styles.bar,
+                  styles.forecastBar,
+                  {
+                    height:
+                      ((today.forecast - today.completed) / maxValue) *
+                      chartHeight,
+                    borderColor: successColor,
+                  },
+                ]}
+              />
+            ) : null}
+            <View
+              testID="today-completed"
+              style={[
+                styles.bar,
+                {
+                  height: (today.completed / maxValue) * chartHeight,
+                  backgroundColor: successColor,
+                },
+              ]}
+            />
+          </Pressable>
         ) : null}
       </View>
 
@@ -215,7 +347,34 @@ export function VolumeBarChart({
             </View>
           );
         })}
+        {today ? (
+          <View style={[styles.labelWrapper, styles.todayBar]}>
+            <Text style={[styles.labelText, { color: successColor }]}>
+              {t("volume.today")}
+            </Text>
+          </View>
+        ) : null}
       </View>
+      {today ? (
+        <View style={styles.legend}>
+          <View
+            style={[styles.legendSwatch, { backgroundColor: successColor }]}
+          />
+          <Text style={[styles.labelText, { color: textSecondary }]}>
+            {t("volume.completed")}
+          </Text>
+          <View
+            style={[
+              styles.legendSwatch,
+              styles.forecastBar,
+              { borderColor: successColor },
+            ]}
+          />
+          <Text style={[styles.labelText, { color: textSecondary }]}>
+            {t("volume.remaining")}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -245,18 +404,37 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: Radii.sm,
     borderTopRightRadius: Radii.sm,
   },
+  overlay: { flex: 1 },
+  tooltipPosition: { position: "absolute" },
   tooltip: {
     ...Elevation.md,
-    position: "absolute",
-    top: Spacing.sm,
-    left: Spacing.lg,
-    right: Spacing.lg,
-    zIndex: 1,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
   },
+  tooltipHeader: { flexDirection: "row", alignItems: "center" },
+  tooltipTitle: { flex: 1 },
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayBar: { maxWidth: 48, minWidth: 36, marginLeft: Spacing.sm },
+  forecastBar: {
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    backgroundColor: "transparent",
+  },
+  legend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  legendSwatch: { width: 12, height: 12 },
   tooltipMetrics: {
     flexDirection: "row",
     flexWrap: "wrap",
