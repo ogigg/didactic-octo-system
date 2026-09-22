@@ -17,7 +17,6 @@ export const stats = {
     completed: "Completed",
     forecast: "Forecast total",
     sets: "Sets completed",
-    remaining: "Remaining forecast",
     closeTooltip: "Close chart details",
 
     total: "Total",

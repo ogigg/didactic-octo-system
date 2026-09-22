@@ -76,7 +76,6 @@ export function VolumeBarChart({
 }: VolumeBarChartProps) {
   const { t } = useTranslation("stats");
   const { formatVolume } = useWeightUnit();
-  const successColor = useThemeColor({}, "success");
   const primaryColor = useThemeColor({}, "primary");
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -295,7 +294,7 @@ export function VolumeBarChart({
             accessibilityLabel={todayLabel}
             onHoverIn={() => selectBar("today")}
             onPress={() => selectBar("today")}
-            style={[styles.barWrapper, styles.todayBar]}
+            style={styles.barWrapper}
           >
             {today.forecast > today.completed ? (
               <View
@@ -307,7 +306,7 @@ export function VolumeBarChart({
                     height:
                       ((today.forecast - today.completed) / maxValue) *
                       chartHeight,
-                    borderColor: successColor,
+                    borderColor: primaryColor,
                   },
                 ]}
               />
@@ -316,9 +315,10 @@ export function VolumeBarChart({
               testID="today-completed"
               style={[
                 styles.bar,
+                today.forecast > today.completed ? styles.stackedBar : null,
                 {
                   height: (today.completed / maxValue) * chartHeight,
-                  backgroundColor: successColor,
+                  backgroundColor: primaryColor,
                 },
               ]}
             />
@@ -348,33 +348,20 @@ export function VolumeBarChart({
           );
         })}
         {today ? (
-          <View style={[styles.labelWrapper, styles.todayBar]}>
-            <Text style={[styles.labelText, { color: successColor }]}>
+          <View style={styles.labelWrapper}>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.labelText,
+                styles.todayLabel,
+                { color: textMuted },
+              ]}
+            >
               {t("volume.today")}
             </Text>
           </View>
         ) : null}
       </View>
-      {today ? (
-        <View style={styles.legend}>
-          <View
-            style={[styles.legendSwatch, { backgroundColor: successColor }]}
-          />
-          <Text style={[styles.labelText, { color: textSecondary }]}>
-            {t("volume.completed")}
-          </Text>
-          <View
-            style={[
-              styles.legendSwatch,
-              styles.forecastBar,
-              { borderColor: successColor },
-            ]}
-          />
-          <Text style={[styles.labelText, { color: textSecondary }]}>
-            {t("volume.remaining")}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -421,20 +408,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  todayBar: { maxWidth: 48, minWidth: 36, marginLeft: Spacing.sm },
+  todayLabel: { width: 64, alignSelf: "flex-end", textAlign: "right" },
+  stackedBar: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   forecastBar: {
-    borderWidth: 1.5,
+    borderWidth: 1,
+    opacity: 0.45,
     borderStyle: "dashed",
     backgroundColor: "transparent",
   },
-  legend: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-    flexWrap: "wrap",
-  },
-  legendSwatch: { width: 12, height: 12 },
   tooltipMetrics: {
     flexDirection: "row",
     flexWrap: "wrap",

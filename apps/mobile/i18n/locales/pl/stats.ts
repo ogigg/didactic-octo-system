@@ -17,7 +17,6 @@ export const stats = {
     completed: "Ukończone",
     forecast: "Prognozowana suma",
     sets: "Ukończone serie",
-    remaining: "Pozostała prognoza",
     closeTooltip: "Zamknij szczegóły wykresu",
 
     total: "Razem",
