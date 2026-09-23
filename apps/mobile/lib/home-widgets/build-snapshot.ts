@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { z } from "zod";
+import { z } from "zod";
 
 import type { AppLanguage } from "@/i18n";
 import { generateWorkoutResponseSchema } from "@/lib/api/generate-workout";
@@ -67,7 +67,19 @@ export interface WidgetSnapshotInput {
   lastWorkout: WidgetLastWorkoutInput | null;
 }
 
-const exercisesSchema = generateWorkoutResponseSchema.shape.exercises;
+const generatedExerciseSchema =
+  generateWorkoutResponseSchema.shape.exercises.element;
+
+// The preview and pending swaps save blank set targets as null.
+const savedSetSchema = generatedExerciseSchema.shape.sets.element.extend({
+  target_load_kg: z.number().nullish(),
+  target_reps: z.number().nullish(),
+  target_duration_seconds: z.number().nullish(),
+});
+
+const exercisesSchema = z.array(
+  generatedExerciseSchema.extend({ sets: z.array(savedSetSchema) })
+);
 
 type SourceExercise = z.infer<typeof exercisesSchema>[number];
 

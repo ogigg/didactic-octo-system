@@ -3,6 +3,10 @@ import i18next from "i18next";
 import type { AppLanguage } from "@/i18n";
 import { resources } from "@/i18n/resources";
 import type { PendingWorkout } from "@/lib/api/pending-workouts";
+import {
+  applyPendingExerciseSwap,
+  type PendingPreviewExercise,
+} from "@/lib/pending-exercise-swap";
 
 import {
   buildWidgetSnapshot,
@@ -143,6 +147,65 @@ describe("buildWidgetSnapshot", () => {
 
       expect(snapshot.next.exercises.map((row) => row.name)).toEqual([
         "Exercise swapped",
+      ]);
+    });
+
+    it("uses edits saved by the preview, which store blank targets as null", async () => {
+      const edited: PendingPreviewExercise = {
+        exercise_id: "incline",
+        exercise_name: "Incline press",
+        exercise_type: "weight",
+        image: null,
+        rest_duration_seconds: 90,
+        notes: null,
+        reasoning: null,
+        progression_type: null,
+        previous_display: null,
+        sets: [
+          {
+            set_type: "warmup",
+            target_load_kg: null,
+            target_reps: null,
+            target_duration_seconds: null,
+          },
+          {
+            set_type: "working",
+            target_load_kg: 60,
+            target_reps: 10,
+            target_duration_seconds: null,
+          },
+          {
+            set_type: "working",
+            target_load_kg: null,
+            target_reps: null,
+            target_duration_seconds: null,
+          },
+        ],
+      };
+      const swapped = applyPendingExerciseSwap(edited, {
+        id: "row",
+        name: "Row",
+      });
+      const snapshot = buildWidgetSnapshot(
+        await input({
+          queue: [
+            pendingWorkout({
+              // Round-tripped like the JSONB column, so null keys survive.
+              user_edits: JSON.parse(
+                JSON.stringify({
+                  exercises: [edited, swapped],
+                  edit_types: ["swap_exercise", "edit_set"],
+                  edited_at: "2026-09-22T18:00:00Z",
+                })
+              ),
+            }),
+          ],
+        })
+      );
+
+      expect(snapshot.next.exercises).toEqual([
+        { name: "Incline press", detail: "2 × 10" },
+        { name: "Row", detail: "2 ×" },
       ]);
     });
 
