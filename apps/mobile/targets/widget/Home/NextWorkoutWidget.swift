@@ -108,7 +108,7 @@ struct NextWorkoutWidgetView: View {
   private func footer(_ resolved: HomeWidgetResolved, pill: Bool) -> some View {
     let snapshot = resolved.snapshot
     return HStack {
-      HomeWidgetStreakLabel(text: snapshot.streak.displayInline)
+      HomeWidgetStreakLabel(text: resolved.streak.displayInline)
       Spacer(minLength: 8)
       if pill {
         Text("\(snapshot.next.action) ›")

@@ -11,8 +11,10 @@ import {
 import {
   buildWidgetSnapshot,
   type WidgetSnapshotInput,
+  type WidgetStreakInput,
   type WidgetTranslate,
 } from "../build-snapshot";
+import type { WidgetConsistencyStats } from "../types";
 
 // Wednesday 23 September 2026, 12:00 local time.
 const NOW = new Date(2026, 8, 23, 12, 0, 0);
@@ -94,7 +96,7 @@ async function input(
     queue: [pendingWorkout()],
     activeWorkoutName: null,
     localizeExerciseName: (_id, fallback) => fallback,
-    streak: { currentWeeks: 5, longestWeeks: 8, freezes: 1 },
+    streak: { currentWeeks: 5, longestWeeks: 8, freezes: 1, autoFreezes: 0 },
     qualifyingCompletedAt: [],
     sessionDurations: [],
     totalWorkouts: 48,
@@ -366,32 +368,44 @@ describe("buildWidgetSnapshot", () => {
       async (weeks, title, unit) => {
         const snapshot = buildWidgetSnapshot(
           await input({
-            streak: { currentWeeks: weeks, longestWeeks: 30, freezes: 0 },
+            streak: {
+              currentWeeks: weeks,
+              longestWeeks: 30,
+              freezes: 0,
+              autoFreezes: 0,
+            },
           })
         );
+        const streak = snapshot.summaries[0]!.streak;
 
-        expect(snapshot.streak.title).toBe(title);
-        expect(snapshot.streak.unit).toBe(unit);
-        expect(snapshot.streak.freezes).toBeNull();
+        expect(streak.title).toBe(title);
+        expect(streak.unit).toBe(unit);
+        expect(streak.freezes).toBeNull();
       }
     );
 
     it("lists saved freezes and never reports a longest streak below the current one", async () => {
       const snapshot = buildWidgetSnapshot(
         await input({
-          streak: { currentWeeks: 9, longestWeeks: 4, freezes: 2 },
+          streak: {
+            currentWeeks: 9,
+            longestWeeks: 4,
+            freezes: 2,
+            autoFreezes: 0,
+          },
         })
       );
+      const [current] = snapshot.summaries;
 
-      expect(snapshot.streak.freezes).toBe("2 zamrożenia w zapasie");
-      expect(snapshot.streak.longest).toBe("Najdłuższa: 9 tyg.");
-      expect(snapshot.consistency.longestStreakValue).toBe("9 tyg.");
+      expect(current!.streak.freezes).toBe("2 zamrożenia w zapasie");
+      expect(current!.streak.longest).toBe("Najdłuższa: 9 tyg.");
+      expect(current!.consistency.longestStreakValue).toBe("9 tyg.");
     });
 
     it("starts from zero without streak data", async () => {
       const snapshot = buildWidgetSnapshot(await input({ streak: null }));
 
-      expect(snapshot.streak).toMatchObject({
+      expect(snapshot.summaries[0]!.streak).toMatchObject({
         weeks: 0,
         longestWeeks: 0,
         startTitle: "Zacznij serię",
@@ -430,7 +444,7 @@ describe("buildWidgetSnapshot", () => {
         })
       );
 
-      expect(snapshot.consistency).toMatchObject({
+      expect(snapshot.summaries[0]!.consistency).toMatchObject({
         sessionsShort: 2,
         sessionsShortUnit: "treningi",
         averageShort: "średnio 0,3 w tygodniu",
@@ -455,10 +469,14 @@ describe("buildWidgetSnapshot", () => {
       );
 
       // (95 + 44) minutes over the seven completed weeks.
-      expect(snapshot.trainingTime.averageMinutes).toBe(20);
+      expect(snapshot.summaries[0]!.trainingTime).toEqual({
+        averageMinutes: 20,
+        average: "Średnio 20 min",
+        averageInline: expect.any(String),
+        totalHours: "3,9 h",
+        bestWeek: "97 min",
+      });
       expect(snapshot.trainingTime.weeks[7]?.minutes).toBe(97);
-      expect(snapshot.trainingTime.totalHours).toBe("3,9 h");
-      expect(snapshot.trainingTime.bestWeek).toBe("97 min");
       expect(snapshot.trainingTime.totalWorkoutsCaption).toBe(
         "treningów łącznie"
       );
@@ -474,8 +492,204 @@ describe("buildWidgetSnapshot", () => {
         await input({ sessionDurations }, "en")
       );
 
-      expect(snapshot.trainingTime.totalHours).toBe("3.9 h");
+      expect(snapshot.summaries[0]!.trainingTime.totalHours).toBe("3.9 h");
       expect(snapshot.dayLetters).toEqual(["M", "T", "W", "T", "F", "S", "S"]);
+    });
+  });
+
+  describe("weeks after the snapshot", () => {
+    // Same fixtures as above: the oldest session drops out of each window first.
+    const qualifyingCompletedAt = [
+      "2026-07-10T08:00:00",
+      "2026-08-03T09:35:00",
+      "2026-09-21T08:50:00",
+    ];
+    const sessionDurations = [
+      {
+        started_at: "2026-08-03T08:00:00",
+        completed_at: "2026-08-03T09:35:00",
+      },
+      {
+        started_at: "2026-09-14T08:00:00",
+        completed_at: "2026-09-14T08:44:00",
+      },
+      {
+        started_at: "2026-09-21T08:00:00",
+        completed_at: "2026-09-21T08:50:00",
+      },
+      {
+        started_at: "2026-09-23T07:00:00",
+        completed_at: "2026-09-23T07:47:00",
+      },
+    ];
+
+    function weeksLater(weeks: number): Date {
+      return new Date(2026, 8, 23 + 7 * weeks, 12, 0, 0);
+    }
+
+    function streakInput(
+      overrides: Partial<WidgetStreakInput> = {}
+    ): WidgetStreakInput {
+      return {
+        currentWeeks: 5,
+        longestWeeks: 8,
+        freezes: 0,
+        autoFreezes: 0,
+        ...overrides,
+      };
+    }
+
+    it("has one summary per week until every window is empty", async () => {
+      const snapshot = buildWidgetSnapshot(await input());
+
+      expect(snapshot.summaries.map((summary) => summary.weekStart)).toEqual([
+        "2026-09-21",
+        "2026-09-28",
+        "2026-10-05",
+        "2026-10-12",
+        "2026-10-19",
+        "2026-10-26",
+        "2026-11-02",
+        "2026-11-09",
+        "2026-11-16",
+        "2026-11-23",
+        "2026-11-30",
+        "2026-12-07",
+        "2026-12-14",
+      ]);
+    });
+
+    it.each([1, 3, 8, 12])(
+      "gives the totals of a snapshot built %i weeks later",
+      async (weeks) => {
+        const data = { qualifyingCompletedAt, sessionDurations };
+        const early = buildWidgetSnapshot(await input(data));
+        const later = buildWidgetSnapshot(
+          await input({ ...data, now: weeksLater(weeks) })
+        );
+
+        expect(early.summaries[weeks]!.weekStart).toBe(
+          later.summaries[0]!.weekStart
+        );
+        // Streak values are projected, so only the windowed totals compare.
+        const windowed = ({
+          currentStreakValue: _current,
+          longestStreakValue: _longest,
+          ...totals
+        }: WidgetConsistencyStats) => totals;
+        expect(windowed(early.summaries[weeks]!.consistency)).toEqual(
+          windowed(later.summaries[0]!.consistency)
+        );
+        expect(early.summaries[weeks]!.trainingTime).toEqual(
+          later.summaries[0]!.trainingTime
+        );
+      }
+    );
+
+    it("drops the oldest week from the totals a week later", async () => {
+      const snapshot = buildWidgetSnapshot(
+        await input({ qualifyingCompletedAt, sessionDurations })
+      );
+      const nextWeek = snapshot.summaries[1]!;
+
+      expect(nextWeek.consistency).toMatchObject({
+        sessionsShort: 1,
+        sessionsShortUnit: "trening",
+        averageShort: "średnio 0,1 w tygodniu",
+        sessionsLong: 2,
+        sessionsLongUnit: "treningi",
+      });
+      // The 95-minute week of 3 August leaves the eight-week window.
+      expect(nextWeek.trainingTime).toMatchObject({
+        averageMinutes: 20,
+        totalHours: "2,4 h",
+        bestWeek: "97 min",
+      });
+      expect(snapshot.summaries[8]!.trainingTime).toMatchObject({
+        averageMinutes: 0,
+        totalHours: "0 h",
+        bestWeek: "0 min",
+      });
+    });
+
+    it("keeps a streak through the next week only when this week counts", async () => {
+      const trained = buildWidgetSnapshot(
+        await input({
+          streak: streakInput(),
+          qualifyingCompletedAt: ["2026-09-22T08:00:00"],
+        })
+      );
+      const untrained = buildWidgetSnapshot(
+        await input({ streak: streakInput() })
+      );
+
+      expect(trained.summaries[1]!.streak.title).toBe("5 tygodni serii");
+      expect(trained.summaries[2]!.streak.weeks).toBe(0);
+      expect(trained.summaries[2]!.consistency).toMatchObject({
+        currentStreakValue: "0 tyg.",
+        longestStreakValue: "8 tyg.",
+      });
+      expect(untrained.summaries[0]!.streak.weeks).toBe(5);
+      expect(untrained.summaries[1]!.streak.weeks).toBe(0);
+    });
+
+    it("does not spend earned freezes, which wait for the user", async () => {
+      const snapshot = buildWidgetSnapshot(
+        await input({ streak: streakInput({ freezes: 1 }) })
+      );
+
+      expect(snapshot.summaries[1]!.streak).toMatchObject({
+        weeks: 0,
+        freezes: "1 zamrożenie w zapasie",
+      });
+    });
+
+    it("counts weeks covered by automatic Pro freezes", async () => {
+      const snapshot = buildWidgetSnapshot(
+        await input({
+          streak: streakInput({ freezes: 2, autoFreezes: 2 }),
+          qualifyingCompletedAt: ["2026-09-22T08:00:00"],
+        })
+      );
+      const [, , second, third, fourth] = snapshot.summaries;
+
+      expect(second!.streak).toMatchObject({
+        title: "6 tygodni serii",
+        freezes: "1 zamrożenie w zapasie",
+      });
+      expect(third!.streak).toMatchObject({
+        title: "7 tygodni serii",
+        freezes: null,
+      });
+      // The oldest missed week has no freeze left, so only the two covered
+      // weeks remain in the streak.
+      expect(fourth!.streak.title).toBe("2 tygodnie serii");
+    });
+
+    it("covers this week with a Pro freeze when it had no session", async () => {
+      const snapshot = buildWidgetSnapshot(
+        await input({ streak: streakInput({ freezes: 1, autoFreezes: 1 }) })
+      );
+
+      expect(snapshot.summaries[1]!.streak.weeks).toBe(6);
+    });
+
+    it("raises the longest streak when covered weeks pass it", async () => {
+      const snapshot = buildWidgetSnapshot(
+        await input({
+          streak: streakInput({
+            currentWeeks: 8,
+            freezes: 3,
+            autoFreezes: 3,
+          }),
+          qualifyingCompletedAt: ["2026-09-22T08:00:00"],
+        })
+      );
+
+      expect(snapshot.summaries[3]!.streak).toMatchObject({
+        weeks: 10,
+        longest: "Najdłuższa: 10 tyg.",
+      });
     });
   });
 

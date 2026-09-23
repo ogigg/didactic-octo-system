@@ -13,7 +13,8 @@ struct HomeWidgetSnapshot: Codable {
   let dayLetters: [String]
   let next: NextWorkout
   let week: Week
-  let streak: Streak
+  /// One per week from the snapshot week on; see `HomeWidgetResolved.summary`.
+  let summaries: [WeekSummary]
   let consistency: Consistency
   let trainingTime: TrainingTime
 
@@ -77,19 +78,22 @@ struct HomeWidgetSnapshot: Codable {
     let days: [ActivityDay]
     let label: String
     let windowShort: String
+    let inLastWeeks: String
+    let weeksLong: String
+    let averageLongCaption: String
+    let currentStreakCaption: String
+    let longestStreakCaption: String
+  }
+
+  struct ConsistencyStats: Codable {
     let sessionsShort: Int
     let sessionsShortUnit: String
     let averageShort: String
     let sessionsLong: Int
     let sessionsLongUnit: String
-    let inLastWeeks: String
-    let weeksLong: String
     let averageLongValue: String
-    let averageLongCaption: String
     let currentStreakValue: String
-    let currentStreakCaption: String
     let longestStreakValue: String
-    let longestStreakCaption: String
   }
 
   struct WeekMinutes: Codable {
@@ -110,16 +114,27 @@ struct HomeWidgetSnapshot: Codable {
     let weeksLabel: String
     let minutesUnit: String
     let thisWeek: String
-    let averageMinutes: Int
-    let average: String
-    let averageInline: String
-    let totalHours: String
     let totalCaption: String
-    let bestWeek: String
     let bestWeekCaption: String
     let totalWorkouts: Int?
     let totalWorkoutsCaption: String
     let lastPrefix: String
     let lastWorkout: LastWorkout?
+  }
+
+  struct TrainingTimeStats: Codable {
+    let averageMinutes: Int
+    let average: String
+    let averageInline: String
+    let totalHours: String
+    let bestWeek: String
+  }
+
+  /// Week-dependent values, precomputed by the app for the weeks ahead.
+  struct WeekSummary: Codable {
+    let weekStart: String
+    let streak: Streak
+    let consistency: ConsistencyStats
+    let trainingTime: TrainingTimeStats
   }
 }

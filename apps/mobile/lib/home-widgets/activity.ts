@@ -6,6 +6,8 @@ import type { WidgetActivityDay } from "./types";
 export const CONSISTENCY_WEEKS = 12;
 export const CONSISTENCY_SHORT_WEEKS = 8;
 export const TRAINING_TIME_WEEKS = 8;
+/** Weeks with their own summary. From the last one on, every window is empty. */
+export const SUMMARY_WEEKS = CONSISTENCY_WEEKS + 1;
 
 function parseDates(isoDates: readonly string[]): Date[] {
   return isoDates

@@ -82,34 +82,48 @@ enum HomeWidgetSample {
         thisWeekShort: copy("this wk", "w tym tyg."),
         ringCaptionShort: copy("wk", "tydz.")
       ),
-      streak: .init(
-        weeks: 5,
-        longestWeeks: 8,
-        label: copy("Streak", "Seria"),
-        unit: copy("weeks", "tygodni"),
-        unitShort: copy("wk", "tyg."),
-        title: copy("5 week streak", "5 tygodni serii"),
-        inline: copy("5 wk streak", "5 tyg. serii"),
-        longest: copy("Longest: 8 wk", "Najdłuższa: 8 tyg."),
-        freezes: copy("1 freeze saved", "1 zamrożenie w zapasie"),
-        startTitle: copy("Start a streak", "Zacznij serię")
-      ),
+      summaries: [
+        .init(
+          weekStart: HomeWidgetCalendar.key(for: weekStart),
+          streak: .init(
+            weeks: 5,
+            longestWeeks: 8,
+            label: copy("Streak", "Seria"),
+            unit: copy("weeks", "tygodni"),
+            unitShort: copy("wk", "tyg."),
+            title: copy("5 week streak", "5 tygodni serii"),
+            inline: copy("5 wk streak", "5 tyg. serii"),
+            longest: copy("Longest: 8 wk", "Najdłuższa: 8 tyg."),
+            freezes: copy("1 freeze saved", "1 zamrożenie w zapasie"),
+            startTitle: copy("Start a streak", "Zacznij serię")
+          ),
+          consistency: .init(
+            sessionsShort: 17,
+            sessionsShortUnit: copy("workouts", "treningów"),
+            averageShort: copy("2.1 per week on average", "średnio 2,1 w tygodniu"),
+            sessionsLong: 26,
+            sessionsLongUnit: copy("workouts", "treningów"),
+            averageLongValue: copy("2.2", "2,2"),
+            currentStreakValue: copy("5 wk", "5 tyg."),
+            longestStreakValue: copy("8 wk", "8 tyg.")
+          ),
+          trainingTime: .init(
+            averageMinutes: 99,
+            average: copy("Avg. 99 min", "Średnio 99 min"),
+            averageInline: copy("avg. 99 min", "średnio 99 min"),
+            totalHours: copy("13.2 h", "13,2 h"),
+            bestWeek: "146 min"
+          )
+        ),
+      ],
       consistency: .init(
         days: days,
         label: copy("Consistency", "Regularność"),
         windowShort: copy("Consistency · 8 wk", "Regularność · 8 tyg."),
-        sessionsShort: 17,
-        sessionsShortUnit: copy("workouts", "treningów"),
-        averageShort: copy("2.1 per week on average", "średnio 2,1 w tygodniu"),
-        sessionsLong: 26,
-        sessionsLongUnit: copy("workouts", "treningów"),
         inLastWeeks: copy("in the last 12 weeks", "w ostatnich 12 tygodniach"),
         weeksLong: copy("12 weeks", "12 tygodni"),
-        averageLongValue: copy("2.2", "2,2"),
         averageLongCaption: copy("avg. per week", "średnio w tyg."),
-        currentStreakValue: copy("5 wk", "5 tyg."),
         currentStreakCaption: copy("current streak", "obecna seria"),
-        longestStreakValue: copy("8 wk", "8 tyg."),
         longestStreakCaption: copy("longest streak", "najdłuższa seria")
       ),
       trainingTime: .init(
@@ -119,12 +133,7 @@ enum HomeWidgetSample {
         weeksLabel: copy("8 weeks", "8 tygodni"),
         minutesUnit: "min",
         thisWeek: copy("this week", "w tym tygodniu"),
-        averageMinutes: 99,
-        average: copy("Avg. 99 min", "Średnio 99 min"),
-        averageInline: copy("avg. 99 min", "średnio 99 min"),
-        totalHours: copy("13.2 h", "13,2 h"),
         totalCaption: copy("total in 8 wk", "łącznie w 8 tyg."),
-        bestWeek: "146 min",
         bestWeekCaption: copy("best week", "najlepszy tydzień"),
         totalWorkouts: 48,
         totalWorkoutsCaption: copy("workouts in total", "treningów łącznie"),

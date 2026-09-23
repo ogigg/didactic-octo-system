@@ -72,8 +72,8 @@ enum HomeWidgetCalendar {
 }
 
 /// Resolves the snapshot against the widget's timeline date, so the "today"
-/// marker, future days and a newly started week stay correct even when the app
-/// has not published since.
+/// marker, future days, a newly started week and the totals that go with it
+/// stay correct even when the app has not published since.
 struct HomeWidgetResolved {
   let snapshot: HomeWidgetSnapshot
   let now: Date
@@ -83,6 +83,17 @@ struct HomeWidgetResolved {
   private var isSnapshotWeekCurrent: Bool {
     snapshot.week.weekStart == HomeWidgetCalendar.key(for: currentWeekStart)
   }
+
+  /// The latest summary that has started. Week keys sort like dates; later
+  /// weeks reuse the last one, and a clock set back falls back to the first.
+  var summary: HomeWidgetSnapshot.WeekSummary {
+    let key = HomeWidgetCalendar.key(for: currentWeekStart)
+    return snapshot.summaries.last { $0.weekStart <= key } ?? snapshot.summaries[0]
+  }
+
+  var streak: HomeWidgetSnapshot.Streak { summary.streak }
+  var consistencyStats: HomeWidgetSnapshot.ConsistencyStats { summary.consistency }
+  var trainingTimeStats: HomeWidgetSnapshot.TrainingTimeStats { summary.trainingTime }
 
   var weekDone: Int { isSnapshotWeekCurrent ? snapshot.week.done : 0 }
   var weekTarget: Int { max(1, snapshot.week.target) }

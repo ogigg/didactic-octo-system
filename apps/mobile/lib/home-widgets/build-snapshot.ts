@@ -18,17 +18,21 @@ import {
   CONSISTENCY_SHORT_WEEKS,
   CONSISTENCY_WEEKS,
   countSessionsInWindow,
+  SUMMARY_WEEKS,
   TRAINING_TIME_WEEKS,
 } from "./activity";
 import {
   WIDGET_SNAPSHOT_VERSION,
   type WidgetConsistency,
+  type WidgetConsistencyStats,
   type WidgetExerciseRow,
   type WidgetNextWorkout,
   type WidgetSnapshot,
   type WidgetStreak,
   type WidgetTrainingTime,
+  type WidgetTrainingTimeStats,
   type WidgetWeek,
+  type WidgetWeekSummary,
 } from "./types";
 
 export const MAX_WIDGET_EXERCISES = 6;
@@ -39,6 +43,8 @@ export interface WidgetStreakInput {
   currentWeeks: number;
   longestWeeks: number;
   freezes: number;
+  /** Pro freezes the server applies by itself to missed weeks. */
+  autoFreezes: number;
 }
 
 export interface WidgetLastWorkoutInput {
@@ -227,11 +233,50 @@ function buildWeek(input: WidgetSnapshotInput): WidgetWeek {
   };
 }
 
-function buildStreak(input: WidgetSnapshotInput): WidgetStreak {
-  const { t } = input;
-  const weeks = input.streak?.currentWeeks ?? 0;
-  const longestWeeks = Math.max(input.streak?.longestWeeks ?? 0, weeks);
-  const freezes = input.streak?.freezes ?? 0;
+export interface ProjectedStreak {
+  weeks: number;
+  longestWeeks: number;
+  freezes: number;
+}
+
+/**
+ * Streak the app would report `offset` weeks after the snapshot when nothing
+ * new is logged, following `get_streak_status`: a missed week breaks the
+ * streak unless a Pro freeze covers it automatically, newest week first, and
+ * covered weeks count. Earned freezes wait for the user, so they never apply.
+ */
+export function projectStreak(
+  streak: WidgetStreakInput | null,
+  trainedThisWeek: boolean,
+  offset: number
+): ProjectedStreak {
+  const weeks = streak?.currentWeeks ?? 0;
+  const longestWeeks = Math.max(streak?.longestWeeks ?? 0, weeks);
+  const freezes = streak?.freezes ?? 0;
+  // A week with a session still counts after it ends.
+  const missed = trainedThisWeek ? offset - 1 : offset;
+  if (missed <= 0 || weeks === 0) return { weeks, longestWeeks, freezes };
+
+  const covered = Math.min(streak?.autoFreezes ?? 0, missed);
+  const projected = covered === missed ? weeks + missed : covered;
+  return {
+    weeks: projected,
+    longestWeeks: Math.max(longestWeeks, projected),
+    freezes: freezes - covered,
+  };
+}
+
+/** Same time of day `offset` weeks later, so a DST change keeps the date. */
+function atWeekOffset(now: Date, offset: number): Date {
+  const date = new Date(now.getTime());
+  date.setDate(date.getDate() + 7 * offset);
+  return date;
+}
+
+function buildStreak(
+  t: WidgetTranslate,
+  { weeks, longestWeeks, freezes }: ProjectedStreak
+): WidgetStreak {
   return {
     weeks,
     longestWeeks,
@@ -246,25 +291,37 @@ function buildStreak(input: WidgetSnapshotInput): WidgetStreak {
   };
 }
 
-function buildConsistency(
-  input: WidgetSnapshotInput,
-  streak: WidgetStreak
-): WidgetConsistency {
-  const { t, now, language, qualifyingCompletedAt } = input;
-  const sessionsShort = countSessionsInWindow(
-    qualifyingCompletedAt,
-    now,
-    CONSISTENCY_SHORT_WEEKS
-  );
-  const sessionsLong = countSessionsInWindow(
-    qualifyingCompletedAt,
-    now,
-    CONSISTENCY_WEEKS
-  );
+function buildConsistency(input: WidgetSnapshotInput): WidgetConsistency {
+  const { t, now, qualifyingCompletedAt } = input;
   return {
     days: buildActivityDays(qualifyingCompletedAt, now, CONSISTENCY_WEEKS),
     label: t("consistency.label"),
     windowShort: t("consistency.window", { count: CONSISTENCY_SHORT_WEEKS }),
+    inLastWeeks: t("consistency.inLastWeeks", { count: CONSISTENCY_WEEKS }),
+    weeksLong: t("consistency.weeks", { count: CONSISTENCY_WEEKS }),
+    averageLongCaption: t("consistency.averageCaption"),
+    currentStreakCaption: t("consistency.currentStreakCaption"),
+    longestStreakCaption: t("consistency.longestStreakCaption"),
+  };
+}
+
+function buildConsistencyStats(
+  input: WidgetSnapshotInput,
+  at: Date,
+  streak: WidgetStreak
+): WidgetConsistencyStats {
+  const { t, language, qualifyingCompletedAt } = input;
+  const sessionsShort = countSessionsInWindow(
+    qualifyingCompletedAt,
+    at,
+    CONSISTENCY_SHORT_WEEKS
+  );
+  const sessionsLong = countSessionsInWindow(
+    qualifyingCompletedAt,
+    at,
+    CONSISTENCY_WEEKS
+  );
+  return {
     sessionsShort,
     sessionsShortUnit: t("consistency.sessionsUnit", { count: sessionsShort }),
     averageShort: t("consistency.average", {
@@ -272,32 +329,14 @@ function buildConsistency(
     }),
     sessionsLong,
     sessionsLongUnit: t("consistency.sessionsUnit", { count: sessionsLong }),
-    inLastWeeks: t("consistency.inLastWeeks", { count: CONSISTENCY_WEEKS }),
-    weeksLong: t("consistency.weeks", { count: CONSISTENCY_WEEKS }),
     averageLongValue: formatDecimal(sessionsLong / CONSISTENCY_WEEKS, language),
-    averageLongCaption: t("consistency.averageCaption"),
     currentStreakValue: `${streak.weeks} ${streak.unitShort}`,
-    currentStreakCaption: t("consistency.currentStreakCaption"),
     longestStreakValue: `${streak.longestWeeks} ${streak.unitShort}`,
-    longestStreakCaption: t("consistency.longestStreakCaption"),
   };
 }
 
 function buildTrainingTime(input: WidgetSnapshotInput): WidgetTrainingTime {
-  const { t, now, language } = input;
-  const weeks = buildWeeklyMinutes(
-    input.sessionDurations,
-    now,
-    TRAINING_TIME_WEEKS
-  );
-  const completedWeeks = weeks.slice(0, -1);
-  const averageMinutes = Math.round(
-    completedWeeks.reduce((sum, week) => sum + week.minutes, 0) /
-      Math.max(1, completedWeeks.length)
-  );
-  const totalMinutes = weeks.reduce((sum, week) => sum + week.minutes, 0);
-  const bestMinutes = Math.max(0, ...weeks.map((week) => week.minutes));
-
+  const { t } = input;
   const last = input.lastWorkout;
   const lastStarted = last?.startedAt ? Date.parse(last.startedAt) : NaN;
   const lastCompleted = last?.completedAt ? Date.parse(last.completedAt) : NaN;
@@ -307,20 +346,17 @@ function buildTrainingTime(input: WidgetSnapshotInput): WidgetTrainingTime {
       : null;
 
   return {
-    weeks,
+    weeks: buildWeeklyMinutes(
+      input.sessionDurations,
+      input.now,
+      TRAINING_TIME_WEEKS
+    ),
     label: t("time.label"),
     window: t("time.window", { count: TRAINING_TIME_WEEKS }),
     weeksLabel: t("time.weeks", { count: TRAINING_TIME_WEEKS }),
     minutesUnit: t("time.minutesUnit"),
     thisWeek: t("time.thisWeek"),
-    averageMinutes,
-    average: t("time.average", { count: averageMinutes }),
-    averageInline: t("time.averageInline", { count: averageMinutes }),
-    totalHours: t("time.hours", {
-      value: formatDecimal(totalMinutes / 60, language),
-    }),
     totalCaption: t("time.totalCaption", { count: TRAINING_TIME_WEEKS }),
-    bestWeek: t("time.minutes", { count: bestMinutes }),
     bestWeekCaption: t("time.bestWeekCaption"),
     totalWorkouts: input.totalWorkouts,
     totalWorkoutsCaption: t("time.totalWorkoutsCaption", {
@@ -342,6 +378,53 @@ function buildTrainingTime(input: WidgetSnapshotInput): WidgetTrainingTime {
   };
 }
 
+function buildTrainingTimeStats(
+  input: WidgetSnapshotInput,
+  at: Date
+): WidgetTrainingTimeStats {
+  const { t, language } = input;
+  const weeks = buildWeeklyMinutes(
+    input.sessionDurations,
+    at,
+    TRAINING_TIME_WEEKS
+  );
+  const completedWeeks = weeks.slice(0, -1);
+  const averageMinutes = Math.round(
+    completedWeeks.reduce((sum, week) => sum + week.minutes, 0) /
+      Math.max(1, completedWeeks.length)
+  );
+  const totalMinutes = weeks.reduce((sum, week) => sum + week.minutes, 0);
+  const bestMinutes = Math.max(0, ...weeks.map((week) => week.minutes));
+
+  return {
+    averageMinutes,
+    average: t("time.average", { count: averageMinutes }),
+    averageInline: t("time.averageInline", { count: averageMinutes }),
+    totalHours: t("time.hours", {
+      value: formatDecimal(totalMinutes / 60, language),
+    }),
+    bestWeek: t("time.minutes", { count: bestMinutes }),
+  };
+}
+
+function buildWeekSummary(
+  input: WidgetSnapshotInput,
+  trainedThisWeek: boolean,
+  offset: number
+): WidgetWeekSummary {
+  const at = atWeekOffset(input.now, offset);
+  const streak = buildStreak(
+    input.t,
+    projectStreak(input.streak, trainedThisWeek, offset)
+  );
+  return {
+    weekStart: getCalendarWeekStartKey(at),
+    streak,
+    consistency: buildConsistencyStats(input, at, streak),
+    trainingTime: buildTrainingTimeStats(input, at),
+  };
+}
+
 export function buildWidgetSnapshot(
   input: WidgetSnapshotInput
 ): WidgetSnapshot {
@@ -351,7 +434,7 @@ export function buildWidgetSnapshot(
     : input.setupCompleted
       ? "ready"
       : "setupRequired";
-  const streak = buildStreak(input);
+  const week = buildWeek(input);
 
   return {
     version: WIDGET_SNAPSHOT_VERSION,
@@ -366,9 +449,11 @@ export function buildWidgetSnapshot(
           : null,
     dayLetters: t("dayLetters").split(" "),
     next: buildNextWorkout(input),
-    week: buildWeek(input),
-    streak,
-    consistency: buildConsistency(input, streak),
+    week,
+    summaries: Array.from({ length: SUMMARY_WEEKS }, (_, offset) =>
+      buildWeekSummary(input, week.done > 0, offset)
+    ),
+    consistency: buildConsistency(input),
     trainingTime: buildTrainingTime(input),
   };
 }

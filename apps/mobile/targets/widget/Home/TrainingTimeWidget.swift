@@ -56,7 +56,7 @@ struct TrainingTimeWidgetView: View {
           .font(.system(size: 12))
           .foregroundStyle(.secondary)
         Spacer(minLength: 0)
-        Text(time.average)
+        Text(resolved.trainingTimeStats.average)
           .font(.system(size: 12))
           .foregroundStyle(.secondary)
           .monospacedDigit()
@@ -77,6 +77,7 @@ struct TrainingTimeWidgetView: View {
 
   private func large(_ resolved: HomeWidgetResolved) -> some View {
     let time = resolved.snapshot.trainingTime
+    let stats = resolved.trainingTimeStats
     let weeks = resolved.weeklyMinutes
     return VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .top) {
@@ -85,7 +86,7 @@ struct TrainingTimeWidgetView: View {
           Text(minutesLabel(resolved))
             .font(.system(size: 28, weight: .bold))
             .monospacedDigit()
-          Text("\(time.thisWeek) · \(time.averageInline)")
+          Text("\(time.thisWeek) · \(stats.averageInline)")
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
             .monospacedDigit()
@@ -119,8 +120,8 @@ struct TrainingTimeWidgetView: View {
 
       HomeWidgetHairline()
       HStack(alignment: .top, spacing: 12) {
-        HomeWidgetMetric(value: time.totalHours, caption: time.totalCaption)
-        HomeWidgetMetric(value: time.bestWeek, caption: time.bestWeekCaption)
+        HomeWidgetMetric(value: stats.totalHours, caption: time.totalCaption)
+        HomeWidgetMetric(value: stats.bestWeek, caption: time.bestWeekCaption)
         if let totalWorkouts = time.totalWorkouts {
           HomeWidgetMetric(value: "\(totalWorkouts)", caption: time.totalWorkoutsCaption)
         }
@@ -137,7 +138,7 @@ struct TrainingTimeWidgetView: View {
   }
 
   private func circular(_ resolved: HomeWidgetResolved) -> some View {
-    let average = Double(max(1, resolved.snapshot.trainingTime.averageMinutes))
+    let average = Double(max(1, resolved.trainingTimeStats.averageMinutes))
     return Gauge(value: min(Double(resolved.thisWeekMinutes), average), in: 0...average) {
       EmptyView()
     } currentValueLabel: {

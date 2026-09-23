@@ -10,7 +10,8 @@ enum HomeWidgetStore {
       let json = UserDefaults(suiteName: AppGroupBridge.suiteName)?.string(forKey: snapshotKey),
       let data = json.data(using: .utf8),
       let snapshot = try? JSONDecoder().decode(HomeWidgetSnapshot.self, from: data),
-      snapshot.version == HomeWidgetSnapshot.supportedVersion
+      snapshot.version == HomeWidgetSnapshot.supportedVersion,
+      !snapshot.summaries.isEmpty
     else { return nil }
     return snapshot
   }

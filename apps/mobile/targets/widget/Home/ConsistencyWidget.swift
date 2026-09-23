@@ -29,7 +29,7 @@ struct ConsistencyWidgetView: View {
       let resolved = HomeWidgetResolved(snapshot: snapshot, now: entry.date)
       switch family {
       case .systemLarge, .systemExtraLarge: large(resolved)
-      case .accessoryCircular: circular(snapshot.streak)
+      case .accessoryCircular: circular(resolved.streak)
       default: medium(resolved)
       }
     } else {
@@ -38,26 +38,26 @@ struct ConsistencyWidgetView: View {
   }
 
   private func medium(_ resolved: HomeWidgetResolved) -> some View {
-    let consistency = resolved.snapshot.consistency
+    let stats = resolved.consistencyStats
     return HStack(spacing: 16) {
       VStack(alignment: .leading, spacing: 0) {
-        HomeWidgetEyebrow(text: consistency.windowShort)
+        HomeWidgetEyebrow(text: resolved.snapshot.consistency.windowShort)
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-          Text("\(consistency.sessionsShort)")
+          Text("\(stats.sessionsShort)")
             .font(.system(size: 32, weight: .bold))
             .monospacedDigit()
-          Text(consistency.sessionsShortUnit)
+          Text(stats.sessionsShortUnit)
             .font(.system(size: 15, weight: .semibold))
             .lineLimit(1)
         }
         .padding(.top, 6)
-        Text(consistency.averageShort)
+        Text(stats.averageShort)
           .font(.system(size: 12))
           .foregroundStyle(.secondary)
           .lineLimit(2)
           .padding(.top, 4)
         Spacer(minLength: 0)
-        HomeWidgetStreakLabel(text: resolved.snapshot.streak.displayInline)
+        HomeWidgetStreakLabel(text: resolved.streak.displayInline)
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
@@ -68,16 +68,17 @@ struct ConsistencyWidgetView: View {
   private func large(_ resolved: HomeWidgetResolved) -> some View {
     let snapshot = resolved.snapshot
     let consistency = snapshot.consistency
+    let stats = resolved.consistencyStats
     let weeks = resolved.grid(weeks: 12)
     return VStack(alignment: .leading, spacing: 14) {
       HStack(alignment: .top) {
         VStack(alignment: .leading, spacing: 2) {
           HomeWidgetEyebrow(text: consistency.label)
           HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("\(consistency.sessionsLong)")
+            Text("\(stats.sessionsLong)")
               .font(.system(size: 30, weight: .bold))
               .monospacedDigit()
-            Text(consistency.sessionsLongUnit)
+            Text(stats.sessionsLongUnit)
               .font(.system(size: 15, weight: .semibold))
           }
           Text(consistency.inLastWeeks)
@@ -116,9 +117,9 @@ struct ConsistencyWidgetView: View {
 
       HomeWidgetHairline()
       HStack(alignment: .top, spacing: 12) {
-        HomeWidgetMetric(value: consistency.averageLongValue, caption: consistency.averageLongCaption)
-        HomeWidgetMetric(value: consistency.currentStreakValue, caption: consistency.currentStreakCaption)
-        HomeWidgetMetric(value: consistency.longestStreakValue, caption: consistency.longestStreakCaption)
+        HomeWidgetMetric(value: stats.averageLongValue, caption: consistency.averageLongCaption)
+        HomeWidgetMetric(value: stats.currentStreakValue, caption: consistency.currentStreakCaption)
+        HomeWidgetMetric(value: stats.longestStreakValue, caption: consistency.longestStreakCaption)
       }
       Spacer(minLength: 0)
     }

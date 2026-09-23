@@ -41,15 +41,17 @@ jest.mock("@/hooks/use-workout-queue", () => ({
   useWorkoutQueueData: () => ({ queue: mockQueue, isSuccess: true }),
 }));
 
+let mockStreakStatus: {
+  current_streak_weeks: number;
+  longest_streak_weeks: number;
+  earned_freezes_available: number;
+  pro_freezes_available: number;
+  is_pro_active: boolean;
+  auto_apply_enabled: boolean;
+};
+
 jest.mock("@/hooks/use-streak-protection", () => ({
-  useStreakStatus: () => ({
-    data: {
-      current_streak_weeks: 3,
-      longest_streak_weeks: 6,
-      earned_freezes_available: 1,
-      pro_freezes_available: 0,
-    },
-  }),
+  useStreakStatus: () => ({ data: mockStreakStatus }),
 }));
 
 jest.mock("@/hooks/use-workout-stats", () => ({
@@ -133,6 +135,14 @@ describe("useHomeWidgets", () => {
     mockProfile = { weekly_frequency: "4" };
     mockOnboardingCompleted = true;
     mockQueue = [];
+    mockStreakStatus = {
+      current_streak_weeks: 3,
+      longest_streak_weeks: 6,
+      earned_freezes_available: 1,
+      pro_freezes_available: 0,
+      is_pro_active: false,
+      auto_apply_enabled: true,
+    };
     mockWorkoutState = { isActive: false, workoutName: "", ownerUserId: null };
     appStateListeners = [];
     jest
@@ -156,12 +166,41 @@ describe("useHomeWidgets", () => {
     const [snapshot] = publishedSnapshots();
     expect(snapshot).toMatchObject({
       status: "ready",
-      streak: { weeks: 3, longestWeeks: 6 },
       week: { done: 1, target: 4 },
       trainingTime: { totalWorkouts: 12 },
       next: { state: "empty" },
     });
+    expect(snapshot?.summaries[0]?.streak).toMatchObject({
+      weeks: 3,
+      longestWeeks: 6,
+    });
   });
+
+  it.each([
+    ["applies them automatically", true, true, 4],
+    ["has auto-apply turned off", true, false, 0],
+    ["is not Pro", false, true, 0],
+  ])(
+    "projects the streak with Pro freezes when the account %s",
+    async (_case, isPro, autoApply, weeksAfterMissedWeek) => {
+      mockStreakStatus = {
+        ...mockStreakStatus,
+        earned_freezes_available: 0,
+        pro_freezes_available: 1,
+        is_pro_active: isPro,
+        auto_apply_enabled: autoApply,
+      };
+      renderUseHomeWidgets();
+
+      await waitFor(() =>
+        expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(1)
+      );
+      // This week has a session, so the week after next is the first missed.
+      expect(publishedSnapshots()[0]?.summaries[2]?.streak.weeks).toBe(
+        weeksAfterMissedWeek
+      );
+    }
+  );
 
   it("does not republish identical content", async () => {
     const { rerender } = renderUseHomeWidgets();
@@ -248,8 +287,8 @@ describe("useHomeWidgets", () => {
     expect(publishedSnapshots()[1]).toMatchObject({
       status: "signedOut",
       message: "Sign in to Sweaty to see your workouts",
-      streak: { weeks: 0 },
     });
+    expect(publishedSnapshots()[1]?.summaries[0]?.streak.weeks).toBe(0);
   });
 
   it("waits for auth to initialize before publishing", async () => {

@@ -8,6 +8,7 @@ import type { AppLanguage } from "@/i18n";
  * All copy is rendered by the app so plurals and the in-app language match.
  * Dates are local calendar keys (`YYYY-MM-DD`, weeks start on Monday) so the
  * widget can resolve "today", future days and week rollovers on its own.
+ * Totals that depend on the week come precomputed per week in `summaries`.
  */
 export const WIDGET_SNAPSHOT_VERSION = 1;
 
@@ -78,19 +79,22 @@ export interface WidgetConsistency {
   days: WidgetActivityDay[];
   label: string;
   windowShort: string;
+  inLastWeeks: string;
+  weeksLong: string;
+  averageLongCaption: string;
+  currentStreakCaption: string;
+  longestStreakCaption: string;
+}
+
+export interface WidgetConsistencyStats {
   sessionsShort: number;
   sessionsShortUnit: string;
   averageShort: string;
   sessionsLong: number;
   sessionsLongUnit: string;
-  inLastWeeks: string;
-  weeksLong: string;
   averageLongValue: string;
-  averageLongCaption: string;
   currentStreakValue: string;
-  currentStreakCaption: string;
   longestStreakValue: string;
-  longestStreakCaption: string;
 }
 
 export interface WidgetWeekMinutes {
@@ -112,17 +116,32 @@ export interface WidgetTrainingTime {
   weeksLabel: string;
   minutesUnit: string;
   thisWeek: string;
-  averageMinutes: number;
-  average: string;
-  averageInline: string;
-  totalHours: string;
   totalCaption: string;
-  bestWeek: string;
   bestWeekCaption: string;
   totalWorkouts: number | null;
   totalWorkoutsCaption: string;
   lastPrefix: string;
   lastWorkout: WidgetLastWorkout | null;
+}
+
+export interface WidgetTrainingTimeStats {
+  averageMinutes: number;
+  average: string;
+  averageInline: string;
+  totalHours: string;
+  bestWeek: string;
+}
+
+/**
+ * Values for one week, assuming nothing new is logged after the snapshot, so
+ * the totals keep matching the grid and bars while the app stays closed.
+ */
+export interface WidgetWeekSummary {
+  /** Local Monday of the week these values are for. */
+  weekStart: string;
+  streak: WidgetStreak;
+  consistency: WidgetConsistencyStats;
+  trainingTime: WidgetTrainingTimeStats;
 }
 
 export interface WidgetSnapshot {
@@ -135,7 +154,11 @@ export interface WidgetSnapshot {
   dayLetters: string[];
   next: WidgetNextWorkout;
   week: WidgetWeek;
-  streak: WidgetStreak;
+  /**
+   * One per week, oldest first, starting with the snapshot week. The last one
+   * also applies to every later week, when all windows are empty.
+   */
+  summaries: WidgetWeekSummary[];
   consistency: WidgetConsistency;
   trainingTime: WidgetTrainingTime;
 }

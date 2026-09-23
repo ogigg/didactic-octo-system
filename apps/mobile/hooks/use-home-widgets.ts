@@ -199,9 +199,18 @@ export function useHomeWidgets(): void {
             freezes:
               streakStatus.earned_freezes_available +
               streakStatus.pro_freezes_available,
+            autoFreezes:
+              streakStatus.is_pro_active && streakStatus.auto_apply_enabled
+                ? streakStatus.pro_freezes_available
+                : 0,
           }
         : streakWeeks !== null
-          ? { currentWeeks: streakWeeks, longestWeeks: 0, freezes: 0 }
+          ? {
+              currentWeeks: streakWeeks,
+              longestWeeks: 0,
+              freezes: 0,
+              autoFreezes: 0,
+            }
           : null,
       qualifyingCompletedAt: activity?.qualifyingCompletedAt ?? [],
       sessionDurations: activity?.sessionDurations ?? [],

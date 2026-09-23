@@ -39,7 +39,7 @@ struct StreakWeekWidgetView: View {
       case .accessoryCircular: circular(resolved)
       case .accessoryRectangular: rectangular(resolved)
       case .accessoryInline:
-        Label("\(snapshot.streak.displayInline) · \(resolved.weekProgress)", systemImage: "flame.fill")
+        Label("\(resolved.streak.displayInline) · \(resolved.weekProgress)", systemImage: "flame.fill")
       default: small(resolved)
       }
     } else {
@@ -50,7 +50,7 @@ struct StreakWeekWidgetView: View {
   // MARK: Home Screen
 
   private func small(_ resolved: HomeWidgetResolved) -> some View {
-    let streak = resolved.snapshot.streak
+    let streak = resolved.streak
     return VStack(spacing: 0) {
       ZStack {
         HomeWidgetWeekRing(fraction: resolved.weekFraction, lineWidth: 11)
@@ -77,7 +77,7 @@ struct StreakWeekWidgetView: View {
   }
 
   private func medium(_ resolved: HomeWidgetResolved) -> some View {
-    let streak = resolved.snapshot.streak
+    let streak = resolved.streak
     return HStack(spacing: 16) {
       ZStack {
         HomeWidgetWeekRing(fraction: resolved.weekFraction, lineWidth: 12)
@@ -142,11 +142,12 @@ struct StreakWeekWidgetView: View {
 
   private func rectangular(_ resolved: HomeWidgetResolved) -> some View {
     let snapshot = resolved.snapshot
+    let streak = resolved.streak
     let days = resolved.currentWeekDays
     return VStack(alignment: .leading, spacing: 6) {
       HStack(spacing: 4) {
         Image(systemName: "flame.fill").font(.system(size: 12, weight: .bold))
-        Text("\(snapshot.streak.label) \(snapshot.streak.weeks) \(snapshot.streak.unitShort) · \(resolved.weekProgress)")
+        Text("\(streak.label) \(streak.weeks) \(streak.unitShort) · \(resolved.weekProgress)")
           .font(.system(size: 13, weight: .bold))
           .lineLimit(1)
           .minimumScaleFactor(0.8)
