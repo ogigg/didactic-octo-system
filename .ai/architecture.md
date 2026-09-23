@@ -178,17 +178,20 @@ navigation, safe-area placement, and compact-screen verification.
 ```text
 Queue, profile, streak or workout history changes in the app
 -> useHomeWidgets builds a localized JSON snapshot (next workout, week progress,
-   streak, 12 weeks of training days, 8 weeks of training minutes)
+   12 weeks of training days, 8 weeks of training minutes, and per-week totals
+   and streak precomputed for the next 12 weeks)
 -> modules/home-widgets stores it in the shared App Group and reloads WidgetKit timelines
--> the widget extension renders it, resolving today and week rollovers against
-   its own timeline date
+-> the widget extension renders it, resolving today, week rollovers and the
+   matching per-week totals against its own timeline date
 ```
 
 The app owns all selection logic and copy, so it stays covered by Jest; the
 Swift widgets only lay out the snapshot. Saving a workout, whether online or
 replayed from the offline sync queue, invalidates the same query roots through
 `invalidateAfterWorkoutSave`, which keeps both the app screens and the widget
-snapshot current. Details live in `apps/mobile/README.md`.
+snapshot current. The persisted in-progress workout belongs to the account that
+started it; signing in with another account clears it (after cancelling it on
+the Watch) before the tabs render. Details live in `apps/mobile/README.md`.
 
 ### Workout History Deletion
 

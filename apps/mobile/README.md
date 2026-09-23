@@ -244,7 +244,18 @@ next to the Live Activity:
 - Dates are local calendar keys with Monday-first weeks. The widget resolves
   today, future days and a newly started week against its timeline date and
   refreshes at local midnight, so the week ring and activity grid stay correct
-  while the app is closed; totals catch up the next time the app opens.
+  while the app is closed.
+- Totals that depend on the week (session counts, averages, hours, best week
+  and the streak) come precomputed in `summaries`, one per week for the next
+  12 weeks, as if nothing new is logged. The widget uses the entry for the
+  current week, so the totals keep matching the grid and bars. The projected
+  streak follows `get_streak_status`: a missed week breaks it unless a Pro
+  freeze covers it automatically, and earned freezes wait for the user.
+- An in-progress workout belongs to the account that started it
+  (`ownerUserId` in `stores/workout-store.ts`). When a different account signs
+  in, `lib/active-workout-owner.ts` cancels it on the Watch and clears it
+  before the tabs render, which also ends the Live Activity. The widget only
+  shows a workout owned by the signed-in account.
 - Signed-out users see a sign-in prompt, and accounts that have not finished
   onboarding see a prompt to finish setup. In those states, and for Streak &
   week, a tap has no deep link and just brings the app forward where it was,
