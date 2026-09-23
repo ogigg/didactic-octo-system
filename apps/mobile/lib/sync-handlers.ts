@@ -12,6 +12,7 @@ import { upsertMeasurement } from "@/lib/api/body-measurements";
 import type { MeasurementInput } from "@/lib/api/body-measurements";
 import { syncQueue } from "@/lib/sync-queue";
 import { trackCompletedWorkout } from "@/lib/workout-completion-analytics";
+import { invalidateAfterWorkoutSave } from "@/lib/workout-save-invalidation";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { queryClient } from "@/lib/query-client";
 import { profileKeys } from "@/lib/query-keys";
@@ -79,6 +80,7 @@ async function handleSaveWorkout(
 
   // Count an initially offline workout only once its retry is persisted.
   trackCompletedWorkout(input.summary, input.goalSnapshot);
+  invalidateAfterWorkoutSave(queryClient);
 }
 
 export function registerSyncHandlers(): void {
