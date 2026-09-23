@@ -111,6 +111,7 @@ export function useHomeWidgets(): void {
   const workoutStoreHydrated = useWorkoutStoreHydrated();
   const isWorkoutActive = useWorkoutStore((s) => s.isActive);
   const activeWorkoutName = useWorkoutStore((s) => s.workoutName);
+  const workoutOwnerUserId = useWorkoutStore((s) => s.ownerUserId);
   // Same source the tab layout uses to decide between onboarding and home.
   const onboardingCompleted = useOnboardingStore((s) => s.isCompleted);
 
@@ -183,7 +184,12 @@ export function useHomeWidgets(): void {
       t,
       weeklyFrequency: profile?.weekly_frequency,
       queue: queueQuery.queue,
-      activeWorkoutName: isWorkoutActive ? activeWorkoutName : null,
+      // Auth setup clears another account's workout; this covers the moment
+      // before it runs.
+      activeWorkoutName:
+        isWorkoutActive && user && workoutOwnerUserId === user.id
+          ? activeWorkoutName
+          : null,
       localizeExerciseName: (id, fallback) =>
         exerciseMap.get(id)?.name ?? fallback,
       streak: streakStatus
@@ -264,6 +270,7 @@ export function useHomeWidgets(): void {
     t,
     totalWorkouts,
     user,
+    workoutOwnerUserId,
     workoutStoreHydrated,
   ]);
 

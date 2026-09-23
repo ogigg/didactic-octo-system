@@ -17,7 +17,11 @@ let mockAuth: MockAuth;
 let mockProfile: { weekly_frequency: string };
 let mockOnboardingCompleted: boolean;
 let mockQueue: unknown[];
-let mockWorkoutState: { isActive: boolean; workoutName: string };
+let mockWorkoutState: {
+  isActive: boolean;
+  workoutName: string;
+  ownerUserId: string | null;
+};
 
 jest.mock("@/hooks/use-auth", () => ({
   useAuth: () => mockAuth,
@@ -129,7 +133,7 @@ describe("useHomeWidgets", () => {
     mockProfile = { weekly_frequency: "4" };
     mockOnboardingCompleted = true;
     mockQueue = [];
-    mockWorkoutState = { isActive: false, workoutName: "" };
+    mockWorkoutState = { isActive: false, workoutName: "", ownerUserId: null };
     appStateListeners = [];
     jest
       .spyOn(AppState, "addEventListener")
@@ -192,7 +196,11 @@ describe("useHomeWidgets", () => {
   });
 
   it("publishes an in-progress workout", async () => {
-    mockWorkoutState = { isActive: true, workoutName: "Legs B" };
+    mockWorkoutState = {
+      isActive: true,
+      workoutName: "Legs B",
+      ownerUserId: "user-1",
+    };
     renderUseHomeWidgets();
 
     await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(1));
@@ -200,6 +208,21 @@ describe("useHomeWidgets", () => {
       state: "inProgress",
       title: "Legs B",
       deepLink: "sweaty://workout",
+    });
+  });
+
+  it("never publishes another account's workout", async () => {
+    mockWorkoutState = {
+      isActive: true,
+      workoutName: "Legs B",
+      ownerUserId: "user-2",
+    };
+    renderUseHomeWidgets();
+
+    await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(1));
+    expect(publishedSnapshots()[0]?.next).toMatchObject({
+      state: "empty",
+      deepLink: null,
     });
   });
 

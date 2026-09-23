@@ -44,11 +44,16 @@ jest.mock("@/lib/api/profiles", () => ({
   fetchProfile: jest.fn(),
 }));
 
+jest.mock("@/lib/active-workout-owner", () => ({
+  prepareActiveWorkoutForUser: jest.fn(() => Promise.resolve()),
+}));
+
 import { supabase } from "@/lib/supabase";
 import { flushPostHog } from "@/lib/posthog";
 import { identifyUser, resetUser, trackEvent } from "@/lib/track-event";
 import { useAuthStore } from "../auth-store";
 import { fetchProfile } from "@/lib/api/profiles";
+import { prepareActiveWorkoutForUser } from "@/lib/active-workout-owner";
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 const mockFetchProfile = fetchProfile as jest.MockedFunction<
@@ -62,6 +67,10 @@ const mockIdentifyUser = identifyUser as jest.MockedFunction<
 >;
 const mockResetUser = resetUser as jest.MockedFunction<typeof resetUser>;
 const mockTrackEvent = trackEvent as jest.MockedFunction<typeof trackEvent>;
+const mockPrepareActiveWorkout =
+  prepareActiveWorkoutForUser as jest.MockedFunction<
+    typeof prepareActiveWorkoutForUser
+  >;
 
 function resetStore() {
   useAuthStore.setState({
@@ -454,5 +463,85 @@ describe("profile readiness races", () => {
     expect(useAuthStore.getState().profileStatus).toBe("ready");
     callback("TOKEN_REFRESHED", session);
     expect(mockFetchProfile).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("active workout ownership", () => {
+  let stop: () => void;
+  let callback: (event: string, session: unknown) => void;
+
+  beforeEach(() => {
+    resetStore();
+    jest.clearAllMocks();
+    mockFetchProfile.mockResolvedValue(null);
+    (mockSupabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: null },
+    });
+    (mockSupabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
+      (cb) => {
+        callback = cb;
+        return { data: { subscription: { unsubscribe: jest.fn() } } };
+      }
+    );
+    stop = useAuthStore.getState().initialize();
+  });
+
+  afterEach(() => stop?.());
+
+  async function settle() {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
+
+  it("hands the workout to the signed-in account before loading its profile", async () => {
+    await settle();
+    callback("SIGNED_IN", { user: { id: "user-a" } });
+    await settle();
+
+    expect(mockPrepareActiveWorkout).toHaveBeenCalledWith("user-a");
+    expect(mockPrepareActiveWorkout.mock.invocationCallOrder[0]).toBeLessThan(
+      mockFetchProfile.mock.invocationCallOrder[0]!
+    );
+  });
+
+  it("does not touch the workout without a session", async () => {
+    await settle();
+
+    expect(mockPrepareActiveWorkout).not.toHaveBeenCalled();
+  });
+
+  it("prepares the workout again when another account signs in", async () => {
+    await settle();
+    callback("SIGNED_IN", { user: { id: "user-a" } });
+    await settle();
+    callback("SIGNED_OUT", null);
+    await settle();
+    callback("SIGNED_IN", { user: { id: "user-b" } });
+    await settle();
+
+    expect(mockPrepareActiveWorkout.mock.calls).toEqual([
+      ["user-a"],
+      ["user-b"],
+    ]);
+  });
+
+  it("stops setting up an account that signs out while its workout is prepared", async () => {
+    let finish!: () => void;
+    mockPrepareActiveWorkout.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    await settle();
+    callback("SIGNED_IN", { user: { id: "user-a" } });
+    await settle();
+    callback("SIGNED_OUT", null);
+    await act(async () => finish());
+    await settle();
+
+    expect(mockFetchProfile).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().profileStatus).toBe("ready");
   });
 });
