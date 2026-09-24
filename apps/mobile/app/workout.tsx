@@ -21,6 +21,7 @@ import {
   getExerciseOccurrenceId,
   useWorkoutStore,
 } from "@/stores/workout-store";
+import { getPrimaryMuscleLabel } from "@/lib/exercise-labels";
 import { publishCancelledWorkoutToWatch } from "@/lib/watch-workout-publisher";
 import { trackEvent } from "@/lib/track-event";
 import { useKeepAwake } from "expo-keep-awake";
@@ -453,6 +454,9 @@ export default function WorkoutScreen() {
                               exercise.image ??
                               exerciseMap.get(exercise.id)?.image
                             }
+                            primaryMuscle={getPrimaryMuscleLabel(
+                              exerciseMap.get(exercise.id)
+                            )}
                             onReorder={setReorderExerciseId}
                           />
                         </View>

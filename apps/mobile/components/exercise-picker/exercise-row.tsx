@@ -4,6 +4,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import type { Exercise } from "@/lib/api/exercises";
+import { getPrimaryMuscleLabel } from "@/lib/exercise-labels";
 import { memo, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -31,8 +32,7 @@ export const ExerciseRow = memo(function ExerciseRow({
     onSelect(exercise);
   }, [onSelect, exercise]);
 
-  const primaryMuscle =
-    exercise.primary_muscle_labels[0] ?? exercise.primary_muscles[0] ?? "";
+  const primaryMuscle = getPrimaryMuscleLabel(exercise);
 
   const accessibilityLabel = useMemo(() => {
     const parts = [exercise.name];
