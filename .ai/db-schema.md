@@ -59,6 +59,7 @@ Important columns:
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
 - `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
+- `weight_increments`: optional per-equipment load steps as JSONB keyed by equipment category (`barbell` | `dumbbell` | `machine` | `cable`), each entry shaped `{ "base_kg": number, "micro_kg": number|null }` (e.g. machine with 4 kg pin steps + 1.1 kg magnetic micro-plates). NULL column or missing categories mean auto — the progression engine falls back to equipment-based defaults. Reachable increases for a category are combinations of `n × base_kg + m × micro_kg`; the server-side progression engine uses them so suggested loads are always physically settable.
 - `initial_queue_generated_at`: when the first successful onboarding queue replacement was committed; a null value means the onboarding free retry is still available
 - `queue_generation_request_id`, `queue_generation_started_at`: server-managed claim token and timestamp for the queue replacement currently being generated; claims expire after 15 minutes
 - `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL
@@ -249,6 +250,7 @@ Important columns:
 - `regeneration_count`
 - `regeneration_feedback`: JSON array of manual regeneration attempts and optional user feedback
 - `user_edits`
+- `generation_attempt_id`: server-owned lease for the generation currently replacing this row
 
 Relationships:
 
@@ -260,6 +262,30 @@ Notes:
 - supports a pre-generated workout flow instead of generating only at the moment of use
 - queue replacement generation keeps the current rows untouched while new workouts are generated; `replace_pending_workouts(...)` swaps the full ready queue in one transaction only after every requested workout succeeds
 - `claim_queue_generation(...)` serializes replacements per profile and allows stale claims to be reclaimed after 15 minutes; a completed onboarding queue returns an idempotent already-ready result
+- regeneration claims are owned by a durable `generation_attempts` row; a stale claim is recovered after five minutes and late responses cannot overwrite the recovered row
+
+### `generation_attempts`
+
+Purpose:
+
+- durable request correlation, stage timing, fallback outcome, and recovery state for every workout generation attempt
+
+Important columns:
+
+- `request_id`, `user_id`, `function_name`, `trigger`
+- `pending_workout_id`: optional target slot; queue workers may reserve this UUID before inserting the pending row
+- `status`: `running`, `succeeded`, `succeeded_with_fallback`, `rejected`, `failed`, or `timed_out`
+- `stage`, `stages`: current stage and an append-only JSON array of stage timing/details entries
+- `started_at`, `updated_at`, `finished_at`, `duration_ms`
+- `generation_source`, `fallback_reason`, `error_code`, `error_message`, `final_output`
+
+Notes:
+
+- service-role edge functions create, stage, finish, and commit attempts; admins can read them through RLS
+- `(user_id, request_id)` is unique for parent attempts and `(user_id, request_id, pending_workout_id)` is unique for child/slot attempts, making retries idempotent while allowing queue children to share a request ID
+- `complete_regeneration_attempt(...)` verifies the attempt is still running and owns the target row before atomically saving the generated workout, clearing `user_edits`, and finishing the attempt
+- `finish_generation_attempt(...)` atomically rolls failed, rejected, and timed-out attempts back to `ready` when prior workout data exists (otherwise `failed`) and clears the generation lease
+- `recover_stale_generation_attempts(...)` fences attempts older than five minutes, restores pending rows to `ready` when prior data exists (otherwise `failed`), releases legacy queue leases, and repairs legacy `queued`, `generating`, and `regenerating` rows without an attempt
 
 ### `workout_sessions`
 
@@ -521,9 +547,16 @@ Purpose:
 Important columns:
 
 - `user_id`, `pending_workout_id`: generation context (nullable)
+- `attempt_id`, `request_id`: durable generation correlation (nullable for historical log rows)
 - `function_name`: which edge function triggered the call (`generate-workout`, `generate-next-workout`)
 - `model`: OpenRouter model used
 - `status`: `success`, `parse_error`, `api_error`, or `timeout`
+- `request_settings`: effective model request options (nullable for historical rows)
+- `provider`: provider selected by OpenRouter, when returned
+- `finish_reason`: provider termination reason such as `stop` or `length`
+- `reasoning_tokens`: provider-reported hidden reasoning tokens
+- `cost_usd`: provider-reported request cost in USD
+- `failure_code`: stable application failure category used to explain fallback
 - `request_messages`: full system + user prompt sent to the model
 - `raw_response`: unmodified OpenRouter JSON response
 - `parsed_content`: the JSON parsed out of the model content before app-level enrichment
@@ -533,12 +566,21 @@ Important columns:
 Relationships:
 
 - optionally tied to a profile and a pending workout
+- optionally tied to a durable generation attempt
 
 Notes:
 
 - written exclusively by edge functions via the service role key
 - RLS is enabled with an admin-only SELECT policy; regular users can never read generation logs
 - surfaced in the admin dashboard (`apps/admin`) under Generations
+- nullable diagnostics remain compatible with historical rows; the migration
+  backfills provider, finish reason, reasoning tokens, and cost only when those
+  values are already present in the retained raw response
+
+The admin-only `llm_generation_metrics(...)` RPC aggregates model validity,
+provider latency (average, p50, and p95), linked fallback attempts, token
+usage, and cost in the database. It is `SECURITY INVOKER`, so the existing
+admin-only RLS policies remain the data boundary.
 
 ## Admin Access
 
@@ -559,6 +601,7 @@ auth.users
 
 profiles
   -> pending_workouts
+  -> generation_attempts
   -> strength_baselines
   -> exercise_preferences
   -> body_measurements
@@ -586,6 +629,9 @@ When database-related work touches behavior, also inspect `supabase/migrations` 
 - measurement history RPCs
 - generation allowance / subscription RPCs
 - onboarding completion and queue replacement RPCs (`complete_onboarding`, `claim_queue_generation`, `release_queue_generation`, `replace_pending_workouts`)
+- admin aggregate metrics (`generation_attempt_metrics`) respect the same admin-only attempt read policy
+- model observability aggregates (`llm_generation_metrics`) respect admin-only model-log and attempt RLS
+- generation recovery and fencing RPCs (`claim_generation_attempt`, `record_generation_attempt_stage`, `finish_generation_attempt`, `complete_regeneration_attempt`, `complete_pending_workout_attempt`, `recover_stale_generation_attempts`)
 - streak protection RPCs
 
 Those functions are part of the practical database interface even though they are not tables.

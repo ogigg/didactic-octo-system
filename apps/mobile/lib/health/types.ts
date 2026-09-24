@@ -13,7 +13,8 @@ export interface HealthWorkoutPayload {
 export type HealthPermissionStatus =
   | "granted"
   | "denied"
-  | "skipped"
+  | "not-requested"
+  | "restricted"
   | "unavailable"
   | "unknown";
 

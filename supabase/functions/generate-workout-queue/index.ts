@@ -1,11 +1,20 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
+import {
+  createGenerationTrace,
+  generationFetch,
+  type GenerationTrace,
+} from "../_shared/generation-trace.ts";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import {
+  type ExerciseCatalogEntry,
   type ExercisePreference,
+  fetchExerciseCatalog,
   generateSingleWorkout,
+  GENERATION_BUDGET_MS,
   getFocusAreaForPosition,
   type HistorySession,
+  planQueueCatalogs,
   type ProfileData,
   type QueueContextItem,
   type RecentSessionComment,
@@ -21,6 +30,8 @@ import {
 } from "../_shared/posthog.ts";
 
 type ServiceClient = SupabaseClient<any, "public", any>;
+
+const QUEUE_GENERATION_CONCURRENCY = 2;
 
 // ---------------------------------------------------------------------------
 // Request Schema
@@ -126,6 +137,8 @@ function captureQueueFailureEvent(params: {
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
+  const handlerStartedAt = Date.now();
+  const deadlineAt = handlerStartedAt + GENERATION_BUDGET_MS;
   console.log("[generate-workout-queue] Request received");
 
   if (req.method === "OPTIONS") {
@@ -137,6 +150,14 @@ Deno.serve(async (req: Request) => {
   let queueStartedAtForTelemetry: number | null = null;
   let queueClaimed = false;
   let queueClaimClient: ServiceClient | null = null;
+  let trace: GenerationTrace | undefined;
+  const workoutTraces: {
+    trace: GenerationTrace;
+    source?: string;
+    fallbackReason?: string;
+    output?: unknown;
+  }[] = [];
+  let queueSaved = false;
 
   try {
     // 1. Auth
@@ -146,7 +167,7 @@ Deno.serve(async (req: Request) => {
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
+      { auth: { persistSession: false }, global: { fetch: generationFetch } }
     );
 
     const token = authHeader.replace("Bearer ", "");
@@ -161,7 +182,12 @@ Deno.serve(async (req: Request) => {
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
+      {
+        global: {
+          headers: { Authorization: authHeader },
+          fetch: generationFetch,
+        },
+      }
     );
 
     // 2. Parse request
@@ -177,9 +203,42 @@ Deno.serve(async (req: Request) => {
     }
     const { count: requestedCount, trigger, request_id } = parsed.data;
     const requestId = request_id ?? crypto.randomUUID();
-    const queueStartedAt = Date.now();
+    const queueStartedAt = handlerStartedAt;
     requestIdForTelemetry = requestId;
     queueStartedAtForTelemetry = queueStartedAt;
+    const { error: recoveryError } = await supabaseClient.rpc(
+      "recover_stale_generation_attempts",
+      { p_user_id: user.id }
+    );
+    if (recoveryError) throw recoveryError;
+    trace = await createGenerationTrace(supabaseClient, {
+      deadlineAt,
+      requestId,
+      userId: user.id,
+      functionName: "generate-workout-queue",
+      trigger,
+    });
+    if (trace.claimStatus && trace.claimStatus !== "claimed") {
+      const { data: previous } = await supabaseClient
+        .from("generation_attempts")
+        .select("status")
+        .eq("id", trace.id)
+        .single();
+      const succeeded =
+        previous?.status === "succeeded" ||
+        previous?.status === "succeeded_with_fallback";
+      return jsonResponse(
+        {
+          skipped: succeeded,
+          error: succeeded
+            ? undefined
+            : "generation_already_in_progress_or_finished",
+          request_id: requestId,
+        },
+        succeeded ? 200 : 409
+      );
+    }
+    await trace.stage("context");
 
     console.log(
       `[generate-workout-queue] User ${user.id}: generating up to ${requestedCount} workouts (${trigger})`
@@ -189,7 +248,7 @@ Deno.serve(async (req: Request) => {
     const { data: profile, error: profileError } = await userClient
       .from("profiles")
       .select(
-        "goal, custom_goal, weekly_frequency, gender, training_split, session_duration_minutes, equipment_level, training_style, difficulty_level, training_custom_prompt"
+        "goal, custom_goal, weekly_frequency, gender, training_split, session_duration_minutes, equipment_level, training_style, difficulty_level, training_custom_prompt, weight_increments"
       )
       .eq("id", user.id)
       .single();
@@ -211,6 +270,10 @@ Deno.serve(async (req: Request) => {
         failed_count: requestedCount,
         error_code: "profile_missing",
       });
+      await trace.finish("rejected", {
+        error_code: "profile_missing",
+        error_message: "Complete onboarding first",
+      });
       return errorResponse(
         "Profile not found. Complete onboarding first.",
         400
@@ -231,6 +294,10 @@ Deno.serve(async (req: Request) => {
         startedAt: queueStartedAt,
         trigger,
       });
+      await trace.finish("rejected", {
+        error_code: "preferences_missing",
+        error_message: "Complete training setup first",
+      });
       return errorResponse(
         "Training preferences not set. Complete training setup first.",
         400
@@ -239,54 +306,76 @@ Deno.serve(async (req: Request) => {
 
     const profileGoal = profile.goal ?? "improve_fitness";
 
-    // 4. Fetch strength baselines
-    const { data: baselines } = await userClient
-      .from("strength_baselines")
-      .select("exercise_key, load_kg, reps")
-      .eq("user_id", user.id);
+    // 4-6. These reads do not depend on one another; fetch them together.
+    const [
+      baselinesResult,
+      recentSessionsResult,
+      preferencesResult,
+      commentsResult,
+      exerciseCatalog,
+    ] = await Promise.all([
+      userClient
+        .from("strength_baselines")
+        .select("exercise_key, load_kg, reps")
+        .eq("user_id", user.id),
+      userClient
+        .from("workout_sessions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(4),
+      userClient
+        .from("exercise_preferences")
+        .select("exercise_id, preference")
+        .eq("user_id", user.id),
+      userClient
+        .from("workout_session_comments")
+        .select("comment, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(3),
+      fetchExerciseCatalog(userClient, profile.equipment_level),
+    ]);
 
-    const strengthBaselines: StrengthBaseline[] =
-      (baselines as StrengthBaseline[] | null) ?? [];
-
-    // 5. Fetch recent workout history
-    const { data: recentSessions } = await userClient
-      .from("workout_sessions")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("status", "completed")
-      .order("completed_at", { ascending: false })
-      .limit(4);
-
-    const history: HistorySession[] = [];
-    if (recentSessions?.length) {
-      for (const session of recentSessions) {
-        const { data: detail } = await userClient.rpc(
-          "get_workout_session_detail",
-          { p_session_id: session.id }
-        );
-        if (detail) history.push(detail as HistorySession);
-      }
+    if (baselinesResult.error) {
+      throw new Error("baselinesError: " + baselinesResult.error.message);
+    }
+    if (recentSessionsResult.error) {
+      throw new Error("historyError: " + recentSessionsResult.error.message);
+    }
+    if (preferencesResult.error) {
+      throw new Error("preferencesError: " + preferencesResult.error.message);
+    }
+    if (commentsResult.error) {
+      throw new Error("commentsError: " + commentsResult.error.message);
     }
 
-    // 6. Fetch exercise preferences
-    const { data: prefRows } = await userClient
-      .from("exercise_preferences")
-      .select("exercise_id, preference")
-      .eq("user_id", user.id);
-
+    const strengthBaselines: StrengthBaseline[] =
+      (baselinesResult.data as StrengthBaseline[] | null) ?? [];
     const exercisePreferences: ExercisePreference[] =
-      (prefRows as ExercisePreference[] | null) ?? [];
-
-    // 6b. Fetch last 3 session comments
-    const { data: commentRows } = await userClient
-      .from("workout_session_comments")
-      .select("comment, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(3);
-
+      (preferencesResult.data as ExercisePreference[] | null) ?? [];
     const recentComments: RecentSessionComment[] =
-      (commentRows as RecentSessionComment[] | null) ?? [];
+      (commentsResult.data as RecentSessionComment[] | null) ?? [];
+
+    // Detail RPCs are independent after the session list is known.
+    const historyDetails = await Promise.all(
+      ((recentSessionsResult.data as { id: string }[] | null) ?? []).map(
+        async (session) => {
+          const { data: detail, error: detailError } = await userClient.rpc(
+            "get_workout_session_detail",
+            { p_session_id: session.id }
+          );
+          if (detailError) {
+            throw new Error("history detail: " + detailError.message);
+          }
+          return detail as HistorySession | null;
+        }
+      )
+    );
+    const history = historyDetails.filter(
+      (detail): detail is HistorySession => detail != null
+    );
 
     // 7. The server owns the queue size; the client cannot request more than
     // the user's saved weekly frequency.
@@ -300,6 +389,7 @@ Deno.serve(async (req: Request) => {
 
     // 8. Claim the profile before any slow generation work. The old queue
     // remains visible until a complete replacement is committed.
+    await trace.stage("claim");
     const claimStatus = await claimQueueGeneration(
       supabaseClient,
       user.id,
@@ -308,6 +398,10 @@ Deno.serve(async (req: Request) => {
     );
 
     if (claimStatus === "already_ready") {
+      await trace.finish("rejected", {
+        error_code: "initial_queue_already_ready",
+        error_message: "Initial queue is already ready; no generation required",
+      });
       return jsonResponse({
         success: true,
         skipped: true,
@@ -317,6 +411,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (claimStatus === "in_progress") {
+      await trace.finish("rejected", {
+        error_code: "generation_already_in_progress",
+        error_message: "Another queue request owns the generation claim",
+      });
       captureQueueFailureEvent({
         userId: user.id,
         requestId,
@@ -340,6 +438,7 @@ Deno.serve(async (req: Request) => {
 
     // 9. Check allowance after the claim so concurrent requests cannot both
     // pass a stale allowance read.
+    await trace.stage("allowance");
     if (trigger === "preference_change") {
       const allowance = await checkGenerationAllowance(
         supabaseClient,
@@ -348,6 +447,10 @@ Deno.serve(async (req: Request) => {
       );
 
       if (!allowance.allowed) {
+        await trace.finish("rejected", {
+          error_code: "generation_limit_reached",
+          error_message: "Generation allowance exhausted",
+        });
         console.log(
           `[generate-workout-queue] Limit reached for user ${user.id}: ${allowance.used}/5 used`
         );
@@ -387,116 +490,243 @@ Deno.serve(async (req: Request) => {
       queue_position: i + 1,
       focus_area: getFocusAreaForPosition(profile.training_split, i + 1),
     }));
-
-    // 11. Generate each workout sequentially
+    const durationMinutes = profile.session_duration_minutes ?? 45;
+    const plannedCatalogs: ExerciseCatalogEntry[][] = planQueueCatalogs(
+      exerciseCatalog,
+      exercisePreferences,
+      insertedWorkouts.map(({ focus_area, queue_position }) => ({
+        focus_area,
+        queue_position,
+      })),
+      durationMinutes,
+      profile.training_custom_prompt ?? undefined
+    );
+    const staticQueueContext: QueueContextItem[] = insertedWorkouts.map(
+      ({ focus_area, queue_position }) => ({
+        queue_position,
+        focus_area,
+        workout_data: null,
+      })
+    );
+    const completedQueueContext = new Map<number, QueueContextItem>();
     const results: {
       position: number;
       status: string;
       source?: string;
       error?: string;
     }[] = [];
-    const queueContext: QueueContextItem[] = [];
 
-    for (const pw of insertedWorkouts) {
-      const generationStartedAt = Date.now();
-      console.log(
-        `[generate-workout-queue] Generating ${pw.queue_position}/${count} (focus: ${pw.focus_area})`
+    await trace.stage("generating_queue", {
+      workout_count: count,
+      concurrency: QUEUE_GENERATION_CONCURRENCY,
+      deadline_at: new Date(deadlineAt).toISOString(),
+    });
+
+    interface QueueWorkerOutcome {
+      result: {
+        position: number;
+        status: string;
+        source?: string;
+        error?: string;
+      };
+      row?: GeneratedQueueRow;
+      context?: QueueContextItem;
+    }
+
+    for (
+      let waveStart = 0;
+      waveStart < insertedWorkouts.length;
+      waveStart += QUEUE_GENERATION_CONCURRENCY
+    ) {
+      const wave = insertedWorkouts.slice(
+        waveStart,
+        waveStart + QUEUE_GENERATION_CONCURRENCY
+      );
+      const waveContext = staticQueueContext.map(
+        (item) => completedQueueContext.get(item.queue_position) ?? item
+      );
+      const settled = await Promise.allSettled(
+        wave.map(async (pw): Promise<QueueWorkerOutcome> => {
+          const generationStartedAt = Date.now();
+          console.log(
+            `[generate-workout-queue] Generating ${pw.queue_position}/${count} (focus: ${pw.focus_area})`
+          );
+
+          capturePostHogEvent("workout_generation_started", user.id, {
+            request_id: requestId,
+            workout_id: pw.id,
+            queue_position: pw.queue_position,
+            trigger,
+          });
+
+          const childTrace = await createGenerationTrace(supabaseClient, {
+            deadlineAt,
+            requestId,
+            userId: user.id,
+            pendingWorkoutId: pw.id,
+            functionName: "generate-workout-queue",
+            trigger,
+          });
+          const tracked: (typeof workoutTraces)[number] = { trace: childTrace };
+          workoutTraces.push(tracked);
+          const plannedCatalog =
+            plannedCatalogs[pw.queue_position - 1] ?? exerciseCatalog;
+          await childTrace.stage("queue_slot", {
+            queue_position: pw.queue_position,
+            focus_area: pw.focus_area,
+            candidate_count: plannedCatalog.length,
+          });
+
+          const genResult = await generateSingleWorkout({
+            supabaseClient: userClient,
+            userId: user.id,
+            profile: { ...profile, goal: profileGoal } as ProfileData,
+            trainingSplit: profile.training_split,
+            durationMinutes,
+            equipment: profile.equipment_level,
+            trainingStyle: profile.training_style,
+            difficulty: profile.difficulty_level,
+            customPrompt: profile.training_custom_prompt ?? undefined,
+            focusArea: pw.focus_area ?? undefined,
+            queuePosition: pw.queue_position,
+            strengthBaselines,
+            queueContext: waveContext,
+            history,
+            exercisePreferences:
+              exercisePreferences.length > 0 ? exercisePreferences : undefined,
+            recentComments:
+              recentComments.length > 0 ? recentComments : undefined,
+            catalog: plannedCatalog,
+            deadlineAt,
+            loggingClient: supabaseClient,
+            pendingWorkoutId: pw.id,
+            functionName: "generate-workout-queue",
+            trace: childTrace,
+          });
+          tracked.source = genResult.generationSource;
+          tracked.fallbackReason = genResult.fallbackReason;
+          tracked.output = genResult.data;
+
+          if (!genResult.success || !genResult.data) {
+            await childTrace.finish("failed", {
+              error_code: "generation_failed",
+              error_message: genResult.error ?? "No workout produced",
+            });
+            console.error(
+              `[generate-workout-queue] Failed position ${pw.queue_position}: ${genResult.error}`
+            );
+            captureQueueFailureEvent({
+              userId: user.id,
+              requestId,
+              stage: "generation",
+              error: genResult.error,
+              startedAt: generationStartedAt,
+              trigger,
+              queuePosition: pw.queue_position,
+              workoutId: pw.id,
+            });
+            return {
+              result: {
+                position: pw.queue_position,
+                status: "failed",
+                error: genResult.error,
+              },
+            };
+          }
+
+          await childTrace.stage("awaiting_persistence");
+          const generatedAt = new Date().toISOString();
+          const generationSource = genResult.generationSource ?? "llm";
+          capturePostHogEvent("workout_generation_completed", user.id, {
+            request_id: requestId,
+            workout_id: pw.id,
+            queue_position: pw.queue_position,
+            generation_source: generationSource,
+            generation_time_ms: Math.max(0, Date.now() - generationStartedAt),
+            trigger,
+          });
+
+          const context: QueueContextItem = {
+            queue_position: pw.queue_position,
+            focus_area: pw.focus_area,
+            workout_data: {
+              workout_name: genResult.data.workout_name,
+              exercises: genResult.data.exercises.map((ex) => ({
+                exercise_name: ex.exercise_name,
+                sets: ex.sets.map((s) => ({
+                  target_load_kg: s.target_load_kg,
+                  target_reps: s.target_reps,
+                  target_duration_seconds: s.target_duration_seconds,
+                })),
+              })),
+            },
+          };
+          return {
+            result: {
+              position: pw.queue_position,
+              status: "ready",
+              source: generationSource,
+            },
+            row: {
+              id: pw.id,
+              queue_position: pw.queue_position,
+              status: "ready",
+              focus_area: pw.focus_area,
+              workout_data: genResult.data as unknown as Record<
+                string,
+                unknown
+              >,
+              generation_source: generationSource,
+              generated_at: generatedAt,
+            },
+            context,
+          };
+        })
       );
 
-      capturePostHogEvent("workout_generation_started", user.id, {
-        request_id: requestId,
-        workout_id: pw.id,
-        queue_position: pw.queue_position,
-        trigger,
+      let waveFailed = false;
+      settled.forEach((outcome, index) => {
+        const pw = wave[index];
+        if (outcome.status === "rejected") {
+          waveFailed = true;
+          const error =
+            outcome.reason instanceof Error
+              ? outcome.reason.message
+              : String(outcome.reason);
+          captureQueueFailureEvent({
+            userId: user.id,
+            requestId,
+            stage: "generation",
+            error,
+            startedAt: queueStartedAt,
+            trigger,
+            queuePosition: pw.queue_position,
+            workoutId: pw.id,
+          });
+          results.push({
+            position: pw.queue_position,
+            status: "failed",
+            error,
+          });
+          return;
+        }
+
+        results.push(outcome.value.result);
+        if (outcome.value.row) generatedRows.push(outcome.value.row);
+        if (outcome.value.context) {
+          completedQueueContext.set(
+            outcome.value.context.queue_position,
+            outcome.value.context
+          );
+        }
+        if (outcome.value.result.status !== "ready") waveFailed = true;
       });
 
-      // Generate
-      const genResult = await generateSingleWorkout({
-        supabaseClient: userClient,
-        userId: user.id,
-        profile: { ...profile, goal: profileGoal } as ProfileData,
-        trainingSplit: profile.training_split,
-        durationMinutes: profile.session_duration_minutes ?? 45,
-        equipment: profile.equipment_level,
-        trainingStyle: profile.training_style,
-        difficulty: profile.difficulty_level,
-        customPrompt: profile.training_custom_prompt ?? undefined,
-        focusArea: pw.focus_area ?? undefined,
-        strengthBaselines,
-        queueContext: queueContext.length > 0 ? queueContext : undefined,
-        history,
-        exercisePreferences:
-          exercisePreferences.length > 0 ? exercisePreferences : undefined,
-        recentComments: recentComments.length > 0 ? recentComments : undefined,
-      });
-
-      if (genResult.success && genResult.data) {
-        const generatedAt = new Date().toISOString();
-        const generationSource = genResult.generationSource ?? "llm";
-        generatedRows.push({
-          id: pw.id,
-          queue_position: pw.queue_position,
-          status: "ready",
-          focus_area: pw.focus_area,
-          workout_data: genResult.data as unknown as Record<string, unknown>,
-          generation_source: generationSource,
-          generated_at: generatedAt,
-        });
-
-        capturePostHogEvent("workout_generation_completed", user.id, {
-          request_id: requestId,
-          workout_id: pw.id,
-          queue_position: pw.queue_position,
-          generation_source: generationSource,
-          generation_time_ms: Math.max(0, Date.now() - generationStartedAt),
-          trigger,
-        });
-
-        // Add to queue context for variety in subsequent generations
-        queueContext.push({
-          queue_position: pw.queue_position,
-          focus_area: pw.focus_area,
-          workout_data: {
-            workout_name: genResult.data.workout_name,
-            exercises: genResult.data.exercises.map((ex) => ({
-              exercise_name: ex.exercise_name,
-              sets: ex.sets.map((s) => ({
-                target_load_kg: s.target_load_kg,
-                target_reps: s.target_reps,
-              })),
-            })),
-          },
-        });
-
-        results.push({
-          position: pw.queue_position,
-          status: "ready",
-          source: generationSource,
-        });
-      } else {
-        console.error(
-          `[generate-workout-queue] Failed position ${pw.queue_position}: ${genResult.error}`
-        );
-
-        captureQueueFailureEvent({
-          userId: user.id,
-          requestId,
-          stage: "generation",
-          error: genResult.error,
-          startedAt: generationStartedAt,
-          trigger,
-          queuePosition: pw.queue_position,
-          workoutId: pw.id,
-        });
-
-        results.push({
-          position: pw.queue_position,
-          status: "failed",
-          error: genResult.error,
-        });
-        break;
-      }
+      if (waveFailed) break;
     }
+
+    generatedRows.sort((a, b) => a.queue_position - b.queue_position);
+    results.sort((a, b) => a.position - b.position);
 
     console.log(
       `[generate-workout-queue] Complete for user ${user.id}:`,
@@ -530,6 +760,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    await trace.stage("persistence", { workout_count: generatedRows.length });
     const { error: replaceError } = await supabaseClient.rpc(
       "replace_pending_workouts",
       {
@@ -557,9 +788,31 @@ Deno.serve(async (req: Request) => {
         failed_count: count,
         error_code: "queue_replace_failed",
       });
-      return errorResponse("Failed to save workout queue", 500);
+      await trace.finish("failed", {
+        error_code: "queue_replace_failed",
+        error_message: replaceError.message,
+      });
+      return jsonResponse(
+        { error: "Failed to save workout queue", request_id: requestId },
+        500
+      );
     }
 
+    queueSaved = true;
+    for (const item of workoutTraces) {
+      await item.trace.finish(
+        item.source === "llm" ? "succeeded" : "succeeded_with_fallback",
+        {
+          generation_source: item.source,
+          fallback_reason: item.fallbackReason,
+          final_output: item.output,
+        }
+      );
+    }
+    await trace.finish(
+      fallbackCount ? "succeeded_with_fallback" : "succeeded",
+      { fallback_reason: fallbackCount ? "child_workout_fallback" : undefined }
+    );
     capturePostHogEvent("workout_queue_ready", user.id, {
       request_id: requestId,
       trigger,
@@ -579,9 +832,19 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return jsonResponse({ success: true, count, trigger, results });
+    return jsonResponse({
+      success: true,
+      count,
+      trigger,
+      results,
+      request_id: requestId,
+    });
   } catch (err) {
     console.error("[generate-workout-queue] Unhandled error:", err);
+    await trace?.finish("failed", {
+      error_code: "queue_failed",
+      error_message: err instanceof Error ? err.message : String(err),
+    });
     if (
       userIdForTelemetry &&
       requestIdForTelemetry &&
@@ -600,8 +863,24 @@ Deno.serve(async (req: Request) => {
         error_code: "internal",
       });
     }
-    return errorResponse("Internal server error", 500);
+    return jsonResponse(
+      { error: "Internal server error", request_id: requestIdForTelemetry },
+      500
+    );
   } finally {
+    if (!queueSaved) {
+      for (const item of workoutTraces) {
+        await item.trace.finish("failed", {
+          error_code: "queue_aborted",
+          error_message:
+            "Queue replacement did not commit; previous queue retained",
+        });
+      }
+      await trace?.finish("failed", {
+        error_code: "queue_aborted",
+        error_message: "Queue generation did not complete",
+      });
+    }
     if (
       queueClaimed &&
       queueClaimClient &&

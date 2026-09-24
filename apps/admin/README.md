@@ -7,11 +7,26 @@ project as the mobile app and reuses its auth.
 
 - **Exercises** — list, search, create, edit, delete exercises and upload
   images to the `exercise-media` storage bucket.
-- **Generations** — browse raw LLM request/response traces for every workout
-  generation (`llm_generation_logs`), including reasoning content, parsed
-  output, token usage, and errors. Failed generations retain the request and
-  partial response when available. Working sets generated with a `0` kg load
-  are flagged on the trace detail page.
+- **Generation control room** — monitor generation attempts across the selected
+  time window with outcome, fallback, stale-running, latency, and stage-failure
+  metrics. Filter by outcome, function, user UUID, or request UUID, then open a
+  stage timeline with trace IDs, errors, final output, and linked model logs.
+  The control room can explicitly recover stale running attempts through the
+  admin-only recovery RPC; reads never trigger recovery automatically.
+- **Raw model logs** — `/generations/llm` keeps the original
+  `llm_generation_logs` request/response archive reachable, including reasoning
+  content, parsed output, token usage, provider settings, finish reason, cost,
+  and stable failure code. The page also shows database-side provider latency
+  (average, p50, and p95), model-valid response rate, and linked fallback rate;
+  these metrics respect admin RLS and are not calculated from the current page.
+  Failed generations retain the request and partial response when available.
+  Working sets generated with a `0` kg load are flagged on the trace detail
+  page. A request UUID lookup searches all dates so old traces remain
+  discoverable.
+- **Timing split** — attempt detail pages separate provider model time from
+  queue waiting (`awaiting_persistence`) and the database persistence stage.
+  Missing or legacy timings remain visibly unknown instead of being reported
+  as zero.
 
 ## Setup
 
