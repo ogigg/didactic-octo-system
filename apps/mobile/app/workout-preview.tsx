@@ -54,6 +54,10 @@ import { getWorkingSetLabel } from "@/lib/exercise-set-structure";
 import { applyPendingExerciseSwap } from "@/lib/pending-exercise-swap";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { isPendingWorkoutStale } from "@/lib/pending-workout-recovery";
+import {
+  getProgressionReasonTranslationKey,
+  type ProgressionReasonCode,
+} from "@/lib/progression-reasoning";
 import { trackEvent } from "@/lib/track-event";
 import { estimateWorkoutMinutes } from "@/lib/workout-duration-estimate";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
@@ -80,6 +84,8 @@ interface LocalExercise {
     | "new_exercise"
     | null;
   previous_display?: string | null;
+  progression_reason_code?: ProgressionReasonCode | null;
+  progression_is_deload?: boolean;
 }
 
 interface LocalSet {
@@ -182,6 +188,8 @@ export default function WorkoutPreviewScreen() {
           reasoning: ex.reasoning ?? null,
           progression_type: ex.progression_type ?? null,
           previous_display: ex.previous_display ?? null,
+          progression_reason_code: ex.progression_reason_code ?? null,
+          progression_is_deload: ex.progression_is_deload ?? false,
           sets: ex.sets.map((s) => ({
             set_type: s.set_type,
             target_load_kg: s.target_load_kg ?? null,
@@ -1031,6 +1039,11 @@ function ExerciseCard({
   onOpenPreference,
   t,
 }: ExerciseCardProps) {
+  const progressionReasonKey = getProgressionReasonTranslationKey(
+    exercise.progression_reason_code,
+    exercise.progression_is_deload ?? false
+  );
+
   return (
     <View
       style={[
@@ -1152,6 +1165,10 @@ function ExerciseCard({
           {
             label: t("reasoning.exerciseSelection"),
             text: exercise.reasoning?.exercise_selection,
+          },
+          {
+            label: t("reasoning.progressionAdjustment"),
+            text: progressionReasonKey ? t(progressionReasonKey) : null,
           },
         ]}
       />

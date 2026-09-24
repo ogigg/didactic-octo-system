@@ -7,6 +7,7 @@ import {
 } from "@/lib/exercise-set-structure";
 import type { ExercisePreviousSets } from "@/lib/workout-previous-sets";
 import * as Crypto from "expo-crypto";
+import type { ProgressionReasonCode } from "@/lib/progression-reasoning";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import {
@@ -62,6 +63,8 @@ export interface WorkoutExercise {
     | "maintained"
     | "new_exercise"
     | null;
+  progressionReasonCode?: ProgressionReasonCode | null;
+  progressionIsDeload?: boolean;
 }
 
 export interface RestTimerState {
