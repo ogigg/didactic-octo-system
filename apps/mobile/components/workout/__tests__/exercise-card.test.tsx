@@ -196,4 +196,23 @@ describe("ExerciseCard", () => {
       )
     ).toBeTruthy();
   });
+
+  it("reveals the explicit safety deload reason", () => {
+    const deloadExercise: WorkoutExercise = {
+      ...exercise,
+      progressionType: "maintained",
+      progressionReasonCode: "feedback_too_hard",
+      progressionIsDeload: true,
+    };
+
+    render(<ExerciseCard exercise={deloadExercise} />);
+
+    fireEvent.press(
+      screen.getByRole("button", { name: "reasoning.exerciseAccessibility" })
+    );
+
+    expect(
+      screen.getByText("reasoning.progression.feedbackTooHardDeload")
+    ).toBeTruthy();
+  });
 });

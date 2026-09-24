@@ -120,6 +120,8 @@ describe("mapWorkoutStoreToDb", () => {
     });
 
     expect(result.session.name).toBe("Push Day");
+    expect(result.session.id).toBeTruthy();
+    expect(result.completedAt).toBe("2024-03-22T12:00:00.000Z");
     expect(result.session.warmup).toEqual({
       duration_seconds: 300,
       completed: true,

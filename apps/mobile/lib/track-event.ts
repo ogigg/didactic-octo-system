@@ -296,6 +296,24 @@ export interface EventPayloadMap {
     retryable?: boolean;
     is_offline?: boolean;
   };
+  sync_failed: {
+    diagnostic_reference?: string;
+    operation?: string;
+    recovery_attempt?: number;
+  };
+  sync_recovery_requested: {
+    diagnostic_reference?: string;
+    operation?: string;
+    recovery_attempt?: number;
+  };
+  sync_recovered: {
+    diagnostic_reference?: string;
+    operation?: string;
+    recovery_attempt?: number;
+  };
+  sync_queue_items_dropped: {
+    invalid_count?: number;
+  };
   workout_discarded: {
     workout_session_id?: string;
     completed_sets?: number;
@@ -674,6 +692,22 @@ const ALLOWED_PROPERTY_KEYS: Record<EventName, ReadonlySet<string>> = {
     "retryable",
     "is_offline",
   ]),
+  sync_failed: new Set([
+    "diagnostic_reference",
+    "operation",
+    "recovery_attempt",
+  ]),
+  sync_recovery_requested: new Set([
+    "diagnostic_reference",
+    "operation",
+    "recovery_attempt",
+  ]),
+  sync_recovered: new Set([
+    "diagnostic_reference",
+    "operation",
+    "recovery_attempt",
+  ]),
+  sync_queue_items_dropped: new Set(["invalid_count"]),
   workout_discarded: new Set([
     "workout_session_id",
     "completed_sets",

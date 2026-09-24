@@ -20,6 +20,7 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { AnalyticsScreenTracker } from "@/components/analytics-screen-tracker";
 import { AnimatedSplash } from "@/components/animated-splash";
 import { HomeWidgetsHost } from "@/components/home-widgets-host";
+import { SyncHealthBanner } from "@/components/sync-health-banner";
 import { ToastHost } from "@/components/ui/toast-host";
 import { WatchBridgeHost } from "@/components/watch-bridge-host";
 import { Colors } from "@/constants/theme";
@@ -33,6 +34,7 @@ import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
 import { configureRestTimerNotificationHandler } from "@/lib/rest-timer-notifications";
 import { registerSyncHandlers } from "@/lib/sync-handlers";
+import { bootstrapSyncQueue } from "@/lib/sync-bootstrap";
 import { syncQueue } from "@/lib/sync-queue";
 import { useAuthStore } from "@/stores/auth-store";
 import NetInfo from "@react-native-community/netinfo";
@@ -82,17 +84,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     registerSyncHandlers();
-    syncQueue.processQueue();
+    void bootstrapSyncQueue().catch(() => {
+      console.warn("Unable to initialize sync queue");
+    });
 
     const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
-      if (state.isConnected) {
-        syncQueue.processQueue();
-      }
+      syncQueue.setOnline(state.isConnected === true);
     });
 
     const appStateSub = AppState.addEventListener("change", (nextState) => {
+      syncQueue.setActive(nextState === "active");
       if (nextState === "active") {
-        syncQueue.processQueue();
         flushHealthRetryQueue().catch((error) => {
           console.warn("Health retry queue flush failed:", error);
         });
@@ -110,6 +112,7 @@ export default function RootLayout() {
     );
 
     return () => {
+      syncQueue.setActive(false);
       unsubscribeNetInfo();
       appStateSub.remove();
       appStateSubFlush?.remove();
@@ -276,6 +279,7 @@ export default function RootLayout() {
                 />
               </Stack>
               <ProfileLoadingTransition />
+              <SyncHealthBanner />
               <ToastHost />
               <StatusBar style="auto" />
             </ThemeProvider>

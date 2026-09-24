@@ -81,6 +81,9 @@ function mapResponseToWorkoutExercises(
       reasoning: ex.reasoning ?? null,
       difficultyFeedback: null,
       exerciseType,
+      progressionType: ex.progression_type ?? null,
+      progressionReasonCode: ex.progression_reason_code ?? null,
+      progressionIsDeload: ex.progression_is_deload ?? false,
       sets,
     };
   });

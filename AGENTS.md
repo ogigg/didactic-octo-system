@@ -48,6 +48,13 @@
 
 - If adding Supabase migrations locally, use `supabase db push --local`.
 
+## Linear
+
+- Work is tracked in the Linear team `Sweaty` (key `SWE`); issue IDs look like `SWE-123`.
+- When you start working on a Linear issue, move it to `In Progress` right away, before planning or writing code. This is a standing project rule and needs no extra confirmation.
+- Only move an issue forward from `Backlog` or `Todo`. If it is already `In Review`, `Done`, or `Canceled`, leave the status as is and tell the user.
+- If Linear is not reachable from your session, ask the user to move the issue to `In Progress` manually.
+
 ## Git
 
 - When working on a Linear issue, name the branch `ticket-number-short-description` from `remote/main`.

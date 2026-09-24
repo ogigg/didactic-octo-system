@@ -1,4 +1,9 @@
 export const feedback = {
+  sync: {
+    title: "Problem z synchronizacją danych treningowych",
+    description:
+      "Moje dane treningowe nadal się nie synchronizują.\n\nNumer diagnostyczny: {{reference}}",
+  },
   header: {
     title: "Opinie",
     subtitle: "Pomóż nam ulepszać aplikację, zgłaszając błędy lub pomysły",
