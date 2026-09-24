@@ -59,6 +59,7 @@ Important columns:
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
 - `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
+- `weight_increments`: optional per-equipment load steps as JSONB keyed by equipment category (`barbell` | `dumbbell` | `machine` | `cable`), each entry shaped `{ "base_kg": number, "micro_kg": number|null }` (e.g. machine with 4 kg pin steps + 1.1 kg magnetic micro-plates). NULL column or missing categories mean auto — the progression engine falls back to equipment-based defaults. Reachable increases for a category are combinations of `n × base_kg + m × micro_kg`; the server-side progression engine uses them so suggested loads are always physically settable.
 - `initial_queue_generated_at`: when the first successful onboarding queue replacement was committed; a null value means the onboarding free retry is still available
 - `queue_generation_request_id`, `queue_generation_started_at`: server-managed claim token and timestamp for the queue replacement currently being generated; claims expire after 15 minutes
 - `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL

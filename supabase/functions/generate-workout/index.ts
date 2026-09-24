@@ -435,7 +435,7 @@ Deno.serve(async (req: Request) => {
     await generationTrace.stage("context", { source: "profile" });
     const { data: profile, error: profileError } = await userClient
       .from("profiles")
-      .select("goal, custom_goal, weekly_frequency, gender")
+      .select("goal, custom_goal, weekly_frequency, gender, weight_increments")
       .eq("id", user.id)
       .single();
 

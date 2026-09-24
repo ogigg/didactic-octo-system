@@ -14,6 +14,7 @@ import {
   getPrimaryHistoryLoadKg,
   type ExerciseHistory,
   formatExerciseDuration,
+  type WeightIncrementsByEquipment,
   suggestInitialLoadKg,
 } from "./progression.ts";
 
@@ -209,6 +210,11 @@ export interface ProfileData {
   custom_goal: string | null;
   weekly_frequency: string;
   gender: string | null;
+  /**
+   * User-configured load steps per equipment category, e.g.
+   * { "machine": { "base_kg": 4, "micro_kg": 1.1 } }. Null = auto.
+   */
+  weight_increments?: WeightIncrementsByEquipment | null;
 }
 
 export interface HistorySession {
@@ -1542,6 +1548,7 @@ export async function generateSingleWorkout(
     );
   }
 
+  const increments = profile.weight_increments ?? {};
   for (const ex of enrichedExercises) {
     const hist = historyMap.get(ex.exercise_id);
     const catalogEntry = catalogMap.get(ex.exercise_id);
@@ -1550,7 +1557,9 @@ export async function generateSingleWorkout(
     const result = calculateProgression(
       hist ?? null,
       exEquipment,
-      trainingStyle
+      trainingStyle,
+      new Date(),
+      increments
     );
     if (result) {
       progressionDecisions.push({
