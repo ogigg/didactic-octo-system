@@ -105,15 +105,17 @@ export default function StatisticsScreen() {
                 />
                 <View style={styles.heatmapSummary}>
                   <Text style={[Typography.caption, { color: textSecondary }]}>
-                    {!statsLoading
-                      ? t("heatmap.workoutsThisYear", {
-                          count: totalWorkouts ?? 0,
-                        })
-                      : "—"}
+                    {statsLoading
+                      ? "—"
+                      : totalWorkouts != null
+                        ? t("heatmap.workoutsThisYear", {
+                            count: totalWorkouts,
+                          })
+                        : t("heatmap.workoutsUnavailable")}
                   </Text>
                   <Text style={[Typography.caption, { color: primaryColor }]}>
-                    {!statsLoading
-                      ? t("heatmap.streak", { count: streakWeeks ?? 0 })
+                    {!statsLoading && streakWeeks != null
+                      ? t("heatmap.streak", { count: streakWeeks })
                       : "—"}
                   </Text>
                 </View>

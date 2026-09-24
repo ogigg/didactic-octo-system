@@ -8,6 +8,7 @@ export const stats = {
   },
   heatmap: {
     workoutsThisYear: "{{count}} treningów w tym roku",
+    workoutsUnavailable: "Nie udało się wczytać liczby treningów",
     streak: "{{count}} tygodni z rzędu",
     less: "Mniej",
     more: "Więcej",

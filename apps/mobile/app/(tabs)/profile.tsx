@@ -261,11 +261,22 @@ export default function ProfileScreen() {
                 { color: primary, fontFamily: Fonts?.rounded },
               ]}
             >
-              {statsLoading ? "—" : (totalWorkouts ?? 0)}
+              {statsLoading ? "—" : (totalWorkouts ?? "—")}
             </Text>
             <Text style={[Typography.label, { color: textMuted }]}>
               {t("stats.trainingsCompleted")}
             </Text>
+            {!statsLoading && totalWorkouts == null && (
+              <Text
+                style={[
+                  Typography.caption,
+                  styles.heroError,
+                  { color: textMuted },
+                ]}
+              >
+                {t("stats.loadFailed")}
+              </Text>
+            )}
           </GradientSurface>
 
           {/* Weekly duration chart — soft surface gradient, inline title */}
@@ -434,6 +445,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -1,
     marginBottom: Spacing.xs,
+  },
+  heroError: {
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
   chartCard: {
     padding: Spacing.lg,

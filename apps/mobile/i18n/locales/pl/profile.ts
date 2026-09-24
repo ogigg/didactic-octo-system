@@ -3,6 +3,7 @@ export const profile = {
   subtitle: "Twój trening w skrócie",
   stats: {
     trainingsCompleted: "UKOŃCZONE TRENINGI",
+    loadFailed: "Nie udało się wczytać. Przeciągnij w dół, aby odświeżyć.",
   },
   chart: {
     title: "Tygodniowy czas",
