@@ -5,5 +5,9 @@ import WidgetKit
 struct SweatyWidgetBundle: WidgetBundle {
   var body: some Widget {
     SweatyLiveActivityWidget()
+    NextWorkoutWidget()
+    StreakWeekWidget()
+    ConsistencyWidget()
+    TrainingTimeWidget()
   }
 }

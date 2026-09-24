@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { useAuth } from "@/hooks/use-auth";
 import { useStreakStatus } from "@/hooks/use-streak-protection";
 import { getISOWeekKey } from "@/lib/iso-week";
 import { supabase } from "@/lib/supabase";
@@ -104,9 +105,11 @@ async function fetchWorkoutStatsBase(): Promise<WorkoutStatsFetched> {
 }
 
 export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
+  const { user } = useAuth();
   const { data, isLoading, refetch } = useQuery({
     queryKey: workoutStatsKeys.all,
     queryFn: fetchWorkoutStatsBase,
+    enabled: !!user,
     staleTime: Infinity,
   });
   const streakStatusQuery = useStreakStatus();
