@@ -1,4 +1,8 @@
 const mockNavigate = jest.fn();
+const mockWorkoutStats: { totalWorkouts: number | null; isLoading: boolean } = {
+  totalWorkouts: 0,
+  isLoading: false,
+};
 const mockI18n = {
   on: jest.fn(),
   off: jest.fn(),
@@ -34,8 +38,7 @@ jest.mock("@/hooks/use-tab-bar-clearance", () => ({
 
 jest.mock("@/hooks/use-workout-stats", () => ({
   useWorkoutStats: () => ({
-    totalWorkouts: 0,
-    isLoading: false,
+    ...mockWorkoutStats,
     refetch: jest.fn(() => Promise.resolve()),
   }),
 }));
@@ -92,5 +95,39 @@ describe("Profile account management", () => {
 
     expect(mockNavigate).toHaveBeenCalledWith("/account-settings");
     expect(mockNavigate).not.toHaveBeenCalledWith("/delete-account");
+  });
+});
+
+describe("Profile workout count", () => {
+  beforeEach(() => {
+    mockWorkoutStats.totalWorkouts = 0;
+    mockWorkoutStats.isLoading = false;
+  });
+
+  it("shows a placeholder while the count is loading", () => {
+    mockWorkoutStats.totalWorkouts = null;
+    mockWorkoutStats.isLoading = true;
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByText("—")).toBeTruthy();
+    expect(screen.queryByText("stats.loadFailed")).toBeNull();
+  });
+
+  it("shows zero only when the loaded count is zero", () => {
+    render(<ProfileScreen />);
+
+    expect(screen.getByText("0")).toBeTruthy();
+    expect(screen.queryByText("stats.loadFailed")).toBeNull();
+  });
+
+  it("shows an error instead of zero when the count failed to load", () => {
+    mockWorkoutStats.totalWorkouts = null;
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByText("—")).toBeTruthy();
+    expect(screen.queryByText("0")).toBeNull();
+    expect(screen.getByText("stats.loadFailed")).toBeTruthy();
   });
 });

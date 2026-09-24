@@ -3,6 +3,7 @@ export const profile = {
   subtitle: "Your training at a glance",
   stats: {
     trainingsCompleted: "TRAININGS COMPLETED",
+    loadFailed: "We couldn't load this. Pull down to refresh.",
   },
   chart: {
     title: "Weekly Duration",

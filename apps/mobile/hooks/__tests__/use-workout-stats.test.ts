@@ -1,9 +1,25 @@
-jest.mock("@/lib/supabase", () => ({ supabase: { from: jest.fn() } }));
+const mockFrom = jest.fn();
+const mockUseStreakStatus = jest.fn();
+
+jest.mock("@/lib/supabase", () => ({
+  supabase: { from: (...args: unknown[]) => mockFrom(...args) },
+}));
 jest.mock("@/hooks/use-streak-protection", () => ({
-  useStreakStatus: jest.fn(),
+  useStreakStatus: () => mockUseStreakStatus(),
+}));
+jest.mock("@/hooks/use-auth", () => ({
+  useAuth: () => ({ user: { id: "user-1" } }),
 }));
 
-import { computeStreakWeeks, resolveStreakWeeks } from "../use-workout-stats";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderHook, waitFor } from "@testing-library/react-native";
+import { createElement, type PropsWithChildren } from "react";
+
+import {
+  computeStreakWeeks,
+  resolveStreakWeeks,
+  useWorkoutStats,
+} from "../use-workout-stats";
 
 // Thursday 2026-07-09 12:00 UTC; the current ISO week starts Monday 2026-07-06.
 const now = new Date("2026-07-09T12:00:00Z");
@@ -130,5 +146,111 @@ describe("resolveStreakWeeks", () => {
         hasJustFinishedWorkout: true,
       })
     ).toBe(7);
+  });
+});
+
+interface SupabaseResult<T> {
+  data?: T;
+  count?: number | null;
+  error: { message: string } | null;
+}
+
+function mockWorkoutSessions(
+  countResult: SupabaseResult<null>,
+  datesResult: SupabaseResult<{ completed_at: string }[]>
+) {
+  mockFrom.mockImplementation(() => ({
+    select: (_columns: string, options?: { head?: boolean }) =>
+      options?.head
+        ? { eq: () => Promise.resolve(countResult) }
+        : {
+            eq: () => ({
+              not: () => ({ order: () => Promise.resolve(datesResult) }),
+            }),
+          },
+  }));
+}
+
+const activeQueryClients: QueryClient[] = [];
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { gcTime: Infinity, retry: false } },
+  });
+  activeQueryClients.push(queryClient);
+
+  return function Wrapper({ children }: PropsWithChildren) {
+    return createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
+
+describe("useWorkoutStats", () => {
+  beforeEach(() => {
+    mockUseStreakStatus.mockReturnValue({ data: undefined, isLoading: false });
+  });
+
+  afterEach(() => {
+    activeQueryClients.splice(0).forEach((client) => client.clear());
+    jest.clearAllMocks();
+  });
+
+  it("returns a genuine zero when the user has no completed workouts", async () => {
+    mockWorkoutSessions({ count: 0, error: null }, { data: [], error: null });
+
+    const { result } = renderHook(() => useWorkoutStats(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.totalWorkouts).toBe(0);
+    expect(result.current.streakWeeks).toBe(0);
+  });
+
+  it.each([
+    [
+      "count",
+      { count: null, error: { message: "count failed" } },
+      { data: [], error: null },
+    ],
+    [
+      "history",
+      { count: 4, error: null },
+      { data: undefined, error: { message: "history failed" } },
+    ],
+  ])(
+    "reports a failed %s fetch as unavailable instead of zero",
+    async (_name, countResult, datesResult) => {
+      mockWorkoutSessions(countResult, datesResult);
+
+      const { result } = renderHook(() => useWorkoutStats(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.totalWorkouts).toBeNull();
+      expect(result.current.streakWeeks).toBeNull();
+    }
+  );
+
+  it("still counts a just-finished workout when the history fetch fails", async () => {
+    mockWorkoutSessions(
+      { count: null, error: { message: "count failed" } },
+      { data: undefined, error: { message: "history failed" } }
+    );
+
+    const { result } = renderHook(() => useWorkoutStats(Date.now()), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.totalWorkouts).toBeNull();
+    expect(result.current.streakWeeks).toBe(1);
   });
 });

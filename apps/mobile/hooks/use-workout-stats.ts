@@ -97,6 +97,11 @@ async function fetchWorkoutStatsBase(): Promise<WorkoutStatsFetched> {
       .order("completed_at", { ascending: false }),
   ]);
 
+  // Throw so a failed fetch becomes a query error (keeping any cached value)
+  // instead of a missing count and empty history that read as zero (SWE-124).
+  if (countResult.error) throw countResult.error;
+  if (datesResult.error) throw datesResult.error;
+
   const totalWorkouts = countResult.count ?? null;
   const completedAtDates =
     datesResult.data?.map((r) => r.completed_at as string) ?? [];
@@ -118,10 +123,12 @@ export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
     () =>
       resolveStreakWeeks({
         protectedStreak: streakStatusQuery.data?.current_streak_weeks ?? null,
+        // A just-finished workout still counts for this week when the
+        // history fetch failed.
         localStreak:
-          data != null
+          data != null || currentWorkoutFinishedAtMs !== undefined
             ? computeStreakWeeks(
-                data.completedAtDates,
+                data?.completedAtDates ?? [],
                 currentWorkoutFinishedAtMs
               )
             : null,
