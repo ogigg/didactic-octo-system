@@ -43,6 +43,7 @@
       "./plugins/with-live-activities-plist.cjs",
       "./plugins/with-app-group.cjs",
       "./plugins/with-min-pod-deployment-target.cjs",
+      "./plugins/with-android-release-signing.cjs",
       [
         "expo-splash-screen",
         {
@@ -70,6 +71,14 @@
         {
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
         }
       ]
     ],

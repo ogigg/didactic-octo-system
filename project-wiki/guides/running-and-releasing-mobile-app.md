@@ -55,6 +55,19 @@ The watch companion must include an app icon. That comes from
 `targets/watch/expo-target.config.json` → `icon`. Without it, App Store Connect
 rejects the upload with missing `CFBundleIconName` / watch icon errors.
 
+## Build And Upload To Google Play
+
+From `apps/mobile`, after the one-time Android setup (JDK 17, upload key,
+service account) and the first manual Play Console upload:
+
+```bash
+npm run release:android
+```
+
+The lane uploads a signed AAB to the internal testing track. Setup and the first
+release are described in
+[Releasing with fastlane](../../apps/mobile/README.md#first-google-play-release).
+
 ## Archive Manually In Xcode
 
 Use this fallback when you need to inspect signing or the archive by hand. If
