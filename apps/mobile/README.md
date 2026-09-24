@@ -145,31 +145,43 @@ Keep the downloaded `.p8` in `fastlane/`; `*.p8` is git-ignored and must never
 be committed. The older `fastlane/api-key.json` stored the same key inline:
 save its `key` value as the `.p8` file to migrate.
 
-- A **team key** (Users and Access → Integrations → App Store Connect API →
-  Team Keys) with the Admin role covers everything, including signing.
-- An **individual key** (your name → Edit Profile → Individual API Key) covers
-  TestFlight build numbers and uploads only. Apple does not let individual keys
-  manage certificates or profiles.
+Use a **team key** (Users and Access → Integrations → App Store Connect API →
+Team Keys): the lanes download the App Store profiles, read TestFlight build
+numbers and upload through it. An individual key (your name → Edit Profile →
+Individual API Key) may be refused the profile download.
 
 ### iOS signing
 
-The lanes use Xcode automatic signing rather than `fastlane match`: there is one
-team and no certificate repository to maintain. `xcodebuild
--allowProvisioningUpdates` creates or refreshes the cloud-managed Apple
-Distribution certificate and the App Store profiles for `com.ogig.sweaty`,
-`com.ogig.sweaty.SweatyWatch` and `com.ogig.sweaty.SweatyWidget`.
+The lanes sign only with what team `X6TS5L9ZTL` already has, and they never
+create, repair or revoke certificates or profiles: xcodebuild runs without
+`-allowProvisioningUpdates`, and profiles are fetched read-only. Before the
+native build, the lane:
 
-That requires the Admin role. With a team key, xcodebuild authenticates with
-the key. Otherwise it uses the Apple ID signed in to Xcode → Settings →
-Accounts, which must be an Admin of team `X6TS5L9ZTL`: the App Manager role
-cannot create distribution certificates or profiles.
+1. looks up the team's distribution certificate in the login keychain (it needs
+   the private key);
+2. downloads the existing App Store profiles for `com.ogig.sweaty`,
+   `com.ogig.sweaty.SweatyWidget` and `com.ogig.sweaty.SweatyWatch`. Only
+   profiles that use the certificate from step 1 are accepted;
+3. switches the Release configuration of the generated project to manual
+   signing with that certificate and those profiles.
 
-Automatic signing archives with development profiles and re-signs for the App
-Store on export, so the team needs at least one registered device. If the
-archive fails with `Your team has no devices from which to generate a
-provisioning profile`, register an iPhone (and its paired Apple Watch) in the
-developer portal. `No profiles for '<bundle id>' were found` means the signed-in
-account or key cannot manage profiles for the team.
+The distribution certificate and profiles were created by EAS (their names
+start with `*[expo]`). Apple never hands out a certificate's private key, but
+EAS keeps it. Import the certificate once:
+
+1. From `apps/mobile`, run `npx eas-cli credentials -p ios` with an Expo
+   account that can access the `ogig` project, choose the `production` build
+   profile and download the credentials to `credentials.json`. The
+   distribution certificate lands as a `.p12` under `credentials/`, and
+   `credentials.json` holds its path and password. Both are git-ignored.
+2. Double-click the `.p12` and enter that password to import it into the
+   login keychain, then delete `credentials.json` and `credentials/`.
+
+If a lane stops with `No usable App Store profile for <bundle id>`, that bundle
+ID has no App Store profile made with the imported certificate. Someone with
+access to the developer portal has to create one there (Profiles → App Store
+Connect → the bundle ID → the existing distribution certificate). The lane will
+not do it for you.
 
 ### iOS release commands
 
