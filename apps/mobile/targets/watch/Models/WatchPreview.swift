@@ -22,10 +22,28 @@ extension WorkoutCoordinator {
                     isCompleted: completed || (scenario == "rest" && index == 0),
                     previousDisplay: "20 kg × 12")
             })
+        let rows = WatchExercise(id: "preview-2", catalogExerciseId: "preview-2",
+            name: polish ? "Wiosłowanie sztangą" : "Barbell row",
+            exerciseType: .weight, restDurationSeconds: 120, notes: nil,
+            sets: (0..<4).map { index in
+                WatchSet(id: "preview-row-\(index)", type: .working,
+                    targetLoadKg: 102.5, targetReps: 8, actualLoadKg: 102.5, actualReps: 8,
+                    isCompleted: scenario == "complete" || (scenario == "list" && index < 1))
+            })
+        let plank = WatchExercise(id: "preview-3", catalogExerciseId: "preview-3",
+            name: polish ? "Deska" : "Plank",
+            exerciseType: .time, restDurationSeconds: 60, notes: nil,
+            sets: (0..<3).map { index in
+                WatchSet(id: "preview-plank-\(index)", type: .working, durationSeconds: 45,
+                    isCompleted: scenario == "complete", targetDurationSeconds: 45)
+            })
         snapshot = WatchWorkoutSnapshot(workoutId: "preview", name: polish ? "Trening całego ciała" : "Full body strength",
             status: scenario == "complete" ? .completed : .active,
-            startedAt: .now.addingTimeInterval(-1200), selectedExerciseId: first.id,
-            exercises: [first], weightUnit: "kg")
+            startedAt: .now.addingTimeInterval(-2835),
+            finishedAt: scenario == "complete" ? .now : nil,
+            selectedExerciseId: first.id,
+            exercises: timed ? [first] : [first, rows, plank], weightUnit: "kg",
+            warmup: WatchWarmup(durationSeconds: 300, isCompleted: scenario != "waiting"))
         if scenario == "rest" {
             snapshot?.rest = RestTimerState(id: "preview-rest", exerciseId: first.id,
                 durationSeconds: 90, endDate: .now.addingTimeInterval(75))

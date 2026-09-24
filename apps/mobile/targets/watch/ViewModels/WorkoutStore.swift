@@ -123,7 +123,8 @@ final class WorkoutCoordinator {
     func waitForPendingConnectivityContent() async { await connectivity.waitForPendingContent() }
 
     func apply(_ envelope: WatchSyncEnvelope) {
-        guard envelope.revision >= revision else { return }
+        // Layout fixtures must not be replaced by the paired phone's live workout.
+        guard !isPreview, envelope.revision >= revision else { return }
         // Commit a draft before a phone-driven selection change can move its editor.
         if let editedSetID, let exercise = selectedExercise,
            envelope.snapshot.workoutId == snapshot?.workoutId,

@@ -125,3 +125,13 @@
 "Ready for your next set" = "Czas na kolejną serię";
 "Timer complete" = "Koniec odliczania";
 "Log your set when ready" = "Zapisz serię, gdy skończysz";
+"Warm-up %lld/%lld" = "Rozgrzewka %lld/%lld";
+"Set %lld/%lld" = "Seria %lld/%lld";
+"Next: %@" = "Dalej: %@";
+"Continue" = "Kontynuuj";
+"TIME" = "CZAS";
+"SETS" = "SERIE";
+"VOLUME %@" = "OBJ. %@";
+"Remove %lld seconds" = "Odejmij %lld s";
+"Add %lld seconds" = "Dodaj %lld s";
+"Undo last set" = "Cofnij ostatnią serię";
