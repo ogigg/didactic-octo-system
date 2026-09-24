@@ -35,7 +35,13 @@ private struct ExerciseListView: View {
                 : String(localized: "End workout"),
             primaryRole: .destructive,
             primaryDisabled: coordinator.isFinishing,
-            onPrimary: { endConfirmation = true }
+            onPrimary: {
+                if coordinator.watchSettings.confirmEndWorkout {
+                    endConfirmation = true
+                } else {
+                    coordinator.finishWorkout()
+                }
+            }
         ) {
             VStack(alignment: .leading, spacing: 5) {
                 ScrollView {

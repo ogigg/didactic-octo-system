@@ -92,6 +92,19 @@ rebuild launch-screen assets.
 - Place tests alongside the code they cover when practical.
 - Prefer behavior-oriented tests using accessibility queries.
 
+## Offline save recovery
+
+Failed profile, measurement, and completed-workout writes are retained in the
+AsyncStorage-backed sync queue and hydrated even when the app launches offline.
+The root layout reflects queued writes as syncing or device-only while offline,
+keeps permanently failed items available for an idempotent retry, and offers the
+feedback flow with an anonymous diagnostic reference after a repeated failure.
+Online enqueues drain immediately, retry at bounded backoff deadlines while the
+app is active, and pause scheduled work in the background. Queue records are
+versioned so an older in-flight success cannot remove a newer edit; malformed
+storage entries are dropped individually without discarding valid or dead work.
+A normal successful save does not show status UI.
+
 ## Releasing with fastlane
 
 Release builds are made on a local Mac with [fastlane](https://fastlane.tools)
@@ -201,6 +214,15 @@ Native application.
 - The hydrated phone Zustand store is authoritative. Snapshots carry monotonic
   revisions; the watch caches the snapshot and revision together and overlays
   its persisted pending commands until acknowledgment.
+- Apple Watch preferences are owned by the iPhone and persisted locally for
+  that phone/watch pairing. They are not account data and are not sent to
+  Supabase. Current settings and their independent revision travel as optional
+  additive fields on the workout envelope, which older watch builds ignore.
+- Settings-only changes never replace application context or republish a
+  workout. They use durable `transferUserInfo`, plus `sendMessage` as a latency
+  optimization when the watch is reachable. The phone retains the latest
+  pre-delivery settings message until WatchConnectivity accepts it; ordinary
+  unreachable, unpaired, or not-installed states do not prevent editing.
 - Commands use stable workout, exercise occurrence, set, and rest IDs. The watch
   sends one command at a time through immediate and durable WatchConnectivity
   delivery. The phone serializes application, waits for local persistence, and
@@ -229,6 +251,19 @@ Native application.
   TestFlight validation requires a watch `AppIcon` asset catalog and
   `CFBundleIconName`; `@bacons/apple-targets` generates both from that config
   during prebuild.
+
+Apple Watch settings default to a 10-second rest warning, rest-end and
+set-completion haptics on, 15-second quick rest adjustments, automatic rest
+timer presentation on, staying on the timer when rest ends, skip-rest and
+end-workout confirmations on, and live heart rate and previous-performance
+context visible. The Watch validates and persists these values independently
+from workout state, so completing, cancelling, or clearing a workout does not
+erase them.
+
+These preferences control only the companion's app-generated rest/set feedback
+and workout presentation. They do not affect phone notifications or sounds,
+Digital Crown haptics, watchOS language, weight units, or Watch HealthKit
+recording and ownership.
 
 After changing the target config or adding native files, regenerate and build:
 

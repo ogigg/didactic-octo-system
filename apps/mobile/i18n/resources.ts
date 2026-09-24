@@ -25,6 +25,7 @@ import { deleteAccount } from "./locales/en/delete-account";
 import { accountSettings } from "./locales/en/account-settings";
 import { streakProtection } from "./locales/en/streak-protection";
 import { widgets } from "./locales/en/widgets";
+import { watchSettings } from "./locales/en/watch-settings";
 import { auth as authPl } from "./locales/pl/auth";
 import { common as commonPl } from "./locales/pl/common";
 import { home as homePl } from "./locales/pl/home";
@@ -50,6 +51,7 @@ import { deleteAccount as deleteAccountPl } from "./locales/pl/delete-account";
 import { accountSettings as accountSettingsPl } from "./locales/pl/account-settings";
 import { streakProtection as streakProtectionPl } from "./locales/pl/streak-protection";
 import { widgets as widgetsPl } from "./locales/pl/widgets";
+import { watchSettings as watchSettingsPl } from "./locales/pl/watch-settings";
 
 export const resources = {
   en: {
@@ -79,6 +81,7 @@ export const resources = {
     accountSettings,
     streakProtection,
     widgets,
+    watchSettings,
   },
   pl: {
     onboarding: onboardingPl,
@@ -107,6 +110,7 @@ export const resources = {
     accountSettings: accountSettingsPl,
     streakProtection: streakProtectionPl,
     widgets: widgetsPl,
+    watchSettings: watchSettingsPl,
   },
 } as const;
 

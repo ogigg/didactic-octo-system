@@ -52,8 +52,9 @@
 
 - Work is tracked in the Linear team `Sweaty` (key `SWE`); issue IDs look like `SWE-123`.
 - When you start working on a Linear issue, move it to `In Progress` right away, before planning or writing code. This is a standing project rule and needs no extra confirmation.
+- In the same update, assign the issue to whoever started the work: Damian Radecki (Linear user `Damrad`) or Oskar Gierszewski. That person is the owner of the Linear account your session is connected to, so pass `assignee: "me"`. If the account is neither of them, or you can't tell who it is, ask before assigning. If the issue was assigned to someone else, reassign it and tell the user.
 - Only move an issue forward from `Backlog` or `Todo`. If it is already `In Review`, `Done`, or `Canceled`, leave the status as is and tell the user.
-- If Linear is not reachable from your session, ask the user to move the issue to `In Progress` manually.
+- If Linear is not reachable from your session, ask the user to move the issue to `In Progress` and assign it to themselves manually.
 
 ## Git
 

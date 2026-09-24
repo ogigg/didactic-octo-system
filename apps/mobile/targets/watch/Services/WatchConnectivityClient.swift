@@ -8,6 +8,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     var isReachable = false
     var lastError: String?
     var onEnvelope: ((WatchSyncEnvelope) -> Void)?
+    var onSettings: ((WatchSettingsEnvelope) -> Void)?
     private(set) var outbox: [WatchCommand] = []
     private let outboxKey = "SweatyWatch.commandOutbox"
     private var retryTask: Task<Void, Never>?
@@ -121,6 +122,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     private func consume(_ dictionary: [String: Any]) {
+        // Settings are an independent durable stream. They intentionally do
+        // not acknowledge commands or touch the workout snapshot/outbox.
+        if let settingsEnvelope = WatchSettingsEnvelope(dictionary: dictionary) {
+            onSettings?(settingsEnvelope)
+            return
+        }
         acknowledge(dictionary["acknowledgedCommandIDs"] as? [String] ?? [])
         guard let envelope = WatchSyncEnvelope(dictionary: dictionary) else { return }
         lastError = nil

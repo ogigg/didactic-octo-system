@@ -19,19 +19,20 @@ import type {
 // Store → DB Mapping
 // -----------------------------------------------------------------------------
 
-interface SessionSetWithLog {
+export interface SessionSetWithLog {
   sessionSet: SessionSetInput;
   log: SetLogInput;
 }
 
-interface SessionExerciseWithSets {
+export interface SessionExerciseWithSets {
   sessionExercise: SessionExerciseInput;
   sets: SessionSetWithLog[];
 }
 
-interface WorkoutDbPayload {
-  session: CreateWorkoutSessionInput;
+export interface WorkoutDbPayload {
+  session: CreateWorkoutSessionInput & { id: string };
   exercises: SessionExerciseWithSets[];
+  completedAt: string;
 }
 
 interface MapToDbOptions {
@@ -50,7 +51,8 @@ export function mapWorkoutStoreToDb(
   summary: WorkoutSummary,
   options: MapToDbOptions
 ): WorkoutDbPayload {
-  const session: CreateWorkoutSessionInput = {
+  const session: WorkoutDbPayload["session"] = {
+    id: Crypto.randomUUID(),
     name: summary.workoutName || undefined,
     warmup: summary.warmup
       ? {
@@ -122,7 +124,11 @@ export function mapWorkoutStoreToDb(
     return { sessionExercise, sets };
   });
 
-  return { session, exercises };
+  return {
+    session,
+    exercises,
+    completedAt: new Date(summary.finishedAtMs).toISOString(),
+  };
 }
 
 // -----------------------------------------------------------------------------
