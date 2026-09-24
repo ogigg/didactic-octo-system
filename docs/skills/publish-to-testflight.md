@@ -1,105 +1,54 @@
 ---
 name: publish-to-testflight
-description: Use when the user asks to publish, upload, or ship the iOS app to TestFlight / App Store Connect (e.g. "publish the app to the app store so I can test it", "upload a new build to TestFlight"). Builds the iOS archive locally via xcodebuild and uploads it with fastlane pilot.
+description: Use when the user asks to publish, upload, or ship the iOS app to TestFlight / App Store Connect (e.g. "publish the app to the app store so I can test it", "upload a new build to TestFlight"). Builds the iOS app locally and uploads it with the fastlane `ios beta` lane.
 ---
 
 # Publish iOS App to TestFlight
 
-Build the iOS app locally with `xcodebuild`, then upload the `.ipa` to TestFlight via fastlane. All commands run from `apps/mobile`.
+Run the fastlane `ios beta` lane from `apps/mobile`. It builds locally and uploads to TestFlight without EAS. Setup details live in [Releasing with fastlane](../../apps/mobile/README.md#releasing-with-fastlane).
 
 ## Prerequisites (verify before starting)
 
-- macOS with Xcode installed; signing team is set in the Xcode project (`DEVELOPMENT_TEAM = X6TS5L9ZTL`, bundle ID `com.ogig.sweaty`).
-- `fastlane` installed (`brew install fastlane`).
-- Valid credentials at `apps/mobile/fastlane/api-key.json`. This file is **gitignored** — if missing, ask the user to recreate it. Its `key` field must contain the **full contents** of the `.p8` App Store Connect API key (including the `-----BEGIN PRIVATE KEY-----` lines), NOT a file path. This fastlane version passes `key` directly to `OpenSSL::PKey::EC.new()`; a path string causes "invalid curve name". Required JSON shape:
-
-```json
-{
-  "key_id": "<KEY_ID>",
-  "issuer_id": "<ISSUER_ID>",
-  "key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
-  "in_house": false
-}
-```
-
-- The app record for bundle ID `com.ogig.sweaty` must exist in App Store Connect.
-- Bump the marketing/build version first if needed (build number must be higher than any previously uploaded build).
+- macOS with Xcode, and `bundle install` already run in `apps/mobile`.
+- `apps/mobile/fastlane/.env` sets `ASC_KEY_ID`, plus `ASC_ISSUER_ID` for a team key. The matching `.p8` is at `apps/mobile/fastlane/AuthKey_<ASC_KEY_ID>.p8` or at `ASC_KEY_PATH`. Both files are git-ignored. If they are missing, ask the user to create them. Never commit, print, or paste key contents.
+- `apps/mobile/.env.production.local` holds the production `EXPO_PUBLIC_*` values. The lane refuses to build without a hosted HTTPS Supabase URL and anon key.
+- Signing needs the Admin role: either a team key with Admin access, or an Admin Apple ID signed in to Xcode → Settings → Accounts for team `X6TS5L9ZTL`. An App Manager or individual key can upload but cannot create distribution certificates or profiles.
+- The app record `com.ogig.sweaty` exists in App Store Connect, and the version in `app.json` is still open for new builds.
 
 ## Steps
 
-Run from `apps/mobile/` unless noted.
+1. From `apps/mobile`, run:
 
-### 1. Install pods (skip if `ios/Pods` is up to date)
+   ```bash
+   npm run release:ios
+   ```
 
-```bash
-pod install --project-directory=ios
-```
+   The lane:
+   - validates the config;
+   - sets the build number to the latest TestFlight build + 1;
+   - regenerates `ios/` with `expo prebuild --clean` and `pod install` when the native fingerprint changed;
+   - archives and signs a Release build into `build/ios/Sweaty.ipa`;
+   - checks that the watch app and widget are embedded with matching build numbers;
+   - uploads the IPA to TestFlight.
 
-(or from the repo root: `npx pod-install`.)
+   Add `clean:true` (`bundle exec fastlane ios beta clean:true`) to force a fresh prebuild.
 
-### 2. Archive
+2. Report back:
+   - Tell the user the uploaded build number from the lane output.
+   - Say that processing on Apple's side takes 5–30+ minutes, and that testers are notified automatically once it finishes.
+   - To check processing, use App Store Connect → TestFlight, or `bundle exec fastlane pilot builds`.
 
-```bash
-xcodebuild -workspace ios/Sweaty.xcworkspace -scheme Sweaty \
-  -configuration Release -archivePath build/App.xcarchive archive
-```
-
-This takes several minutes. If it fails on code signing, verify certificates/profiles exist (`security find-identity -v -p codesigning`).
-
-### 3. Export .ipa
-
-An `ExportOptions.plist` already exists at `ios/ExportOptions.plist` (method `app-store-connect`, automatic signing, team `X6TS5L9ZTL`). Recreate it if missing:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>method</key>
-	<string>app-store-connect</string>
-	<key>teamID</key>
-	<string>X6TS5L9ZTL</string>
-	<key>signingStyle</key>
-	<string>automatic</string>
-	<key>uploadSymbols</key>
-	<true/>
-</dict>
-</plist>
-```
-
-Export:
-
-```bash
-xcodebuild -exportArchive \
-  -archivePath build/App.xcarchive \
-  -exportOptionsPlist ios/ExportOptions.plist \
-  -exportPath build/ipa \
-  -allowProvisioningUpdates
-```
-
-### 4. Upload to TestFlight
-
-```bash
-fastlane pilot upload --ipa build/ipa/*.ipa --api_key_path fastlane/api-key.json
-```
-
-### 5. Verify & report
-
-- Upload success means the build is processing on Apple's side; TestFlight availability can lag 5–30+ minutes.
-- Check processing status: `fastlane pilot builds` (or App Store Connect → TestFlight).
-- Report to the user: build number uploaded, expected wait time, and that testers get notified automatically once processed.
+For a signed IPA without uploading, run `bundle exec fastlane ios build build_number:<n>`.
 
 ## Troubleshooting
 
-| Error                                                   | Cause / fix                                                                                            |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `invalid curve name (OpenSSL::PKey::PKeyError)`         | `api-key.json`'s `key` field contains a path instead of key contents. Inline the `.p8` file contents.  |
-| `missing field(s): key`                                 | JSON uses `filepath` instead of `key`; this fastlane version requires inline contents under `key`.     |
-| `Please sign in with an app-specific password`          | No valid API key JSON; create one per Prerequisites (API key preferred over app-specific passwords).   |
-| `Could not determine provider public id from Bundle ID` | App record doesn't exist yet in App Store Connect, or bad credentials.                                 |
-| Signing/export failures                                 | Run with `-allowProvisioningUpdates`; check the Apple ID account in Xcode has the team's certificates. |
-
-## Notes
-
-- Never commit `fastlane/api-key.json` or any `.p8` file (both are gitignored).
-- For fully remote builds without local Xcode, `eas build` + `eas submit` is an alternative — but this repo's documented flow is local xcodebuild + fastlane.
+| Error                                                                    | Cause / fix                                                                                                                    |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `Set ASC_KEY_ID ...` / `App Store Connect API key not found`             | `fastlane/.env` or the `.p8` is missing. See `fastlane/.env.example`.                                                          |
+| `Release JS config is incomplete`                                        | `.env.production.local` lacks production Supabase values.                                                                      |
+| `No Accounts` / `No profiles for 'com.ogig.sweaty' were found`           | Signing has no Admin credentials. Use a team key with Admin access, or sign in to Xcode with an Admin Apple ID.                |
+| fastlane warns that the locale must be UTF-8                             | Harmless (the lane forces UTF-8 for itself and CocoaPods). Add `export LANG=en_US.UTF-8` to the shell profile to silence it.   |
+| `Your team has no devices from which to generate a provisioning profile` | Automatic signing archives with development profiles first. Register an iPhone (and paired Apple Watch) for team `X6TS5L9ZTL`. |
+| Upload rejected for a duplicate or lower build number                    | Another upload raced this one; rerun the lane to pick the next number.                                                         |
+| Upload rejected because the version is closed                            | Bump `version` in `app.json`. The fingerprint change triggers a fresh prebuild.                                                |
+| Missing watch icon / `CFBundleIconName`                                  | `targets/watch/expo-target.config.json` must keep `icon`. Rerun with `clean:true`.                                             |

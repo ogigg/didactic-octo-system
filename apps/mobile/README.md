@@ -46,7 +46,8 @@ npx expo run:ios --device
 - `npx expo run:ios` builds and opens the app in the iOS simulator.
 - `npx expo run:ios --device` builds and opens the app on a connected physical iPhone.
 
-For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mobile-app.md`.
+Store builds are made locally with fastlane; see
+[Releasing with fastlane](#releasing-with-fastlane).
 
 ## Structure
 
@@ -103,6 +104,98 @@ app is active, and pause scheduled work in the background. Queue records are
 versioned so an older in-flight success cannot remove a newer edit; malformed
 storage entries are dropped individually without discarding valid or dead work.
 A normal successful save does not show status UI.
+
+## Releasing with fastlane
+
+Release builds are made on a local Mac with [fastlane](https://fastlane.tools)
+and uploaded straight to App Store Connect; EAS is not involved. The lanes live
+in [`fastlane/Fastfile`](fastlane/Fastfile) and run from `apps/mobile`.
+
+### One-time setup
+
+1. Install Xcode and Ruby 3.x with Bundler (Ruby 3.3 via rbenv works), then
+   install the pinned fastlane and CocoaPods versions:
+
+   ```bash
+   bundle install
+   ```
+
+2. Set `export LANG=en_US.UTF-8` in your shell profile. The lanes force UTF-8
+   for fastlane and CocoaPods themselves, but fastlane still warns at startup
+   without it.
+3. Copy [`fastlane/.env.example`](fastlane/.env.example) to `fastlane/.env`
+   (git-ignored) and fill in the App Store Connect API key.
+4. Put production app config in `.env.production.local` (git-ignored):
+   `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
+   `EXPO_PUBLIC_APP_ENV=production`, the PostHog and Google client IDs. The
+   release build inlines these into the JS bundle (EAS used to inject them).
+   The lanes stop before building when the Supabase values are missing or
+   point at a local server.
+
+### App Store Connect API key
+
+| Variable        | Value                                                                   |
+| --------------- | ----------------------------------------------------------------------- |
+| `ASC_KEY_ID`    | The key ID shown in App Store Connect.                                  |
+| `ASC_ISSUER_ID` | The issuer ID for a team key. Leave it empty for an individual key.     |
+| `ASC_KEY_PATH`  | Optional path to the `.p8`. Defaults to `fastlane/AuthKey_<KEY_ID>.p8`. |
+
+Keep the downloaded `.p8` in `fastlane/`; `*.p8` is git-ignored and must never
+be committed. The older `fastlane/api-key.json` stored the same key inline:
+save its `key` value as the `.p8` file to migrate.
+
+- A **team key** (Users and Access → Integrations → App Store Connect API →
+  Team Keys) with the Admin role covers everything, including signing.
+- An **individual key** (your name → Edit Profile → Individual API Key) covers
+  TestFlight build numbers and uploads only. Apple does not let individual keys
+  manage certificates or profiles.
+
+### iOS signing
+
+The lanes use Xcode automatic signing rather than `fastlane match`: there is one
+team and no certificate repository to maintain. `xcodebuild
+-allowProvisioningUpdates` creates or refreshes the cloud-managed Apple
+Distribution certificate and the App Store profiles for `com.ogig.sweaty`,
+`com.ogig.sweaty.SweatyWatch` and `com.ogig.sweaty.SweatyWidget`.
+
+That requires the Admin role. With a team key, xcodebuild authenticates with
+the key. Otherwise it uses the Apple ID signed in to Xcode → Settings →
+Accounts, which must be an Admin of team `X6TS5L9ZTL`: the App Manager role
+cannot create distribution certificates or profiles.
+
+Automatic signing archives with development profiles and re-signs for the App
+Store on export, so the team needs at least one registered device. If the
+archive fails with `Your team has no devices from which to generate a
+provisioning profile`, register an iPhone (and its paired Apple Watch) in the
+developer portal. `No profiles for '<bundle id>' were found` means the signed-in
+account or key cannot manage profiles for the team.
+
+### Release commands
+
+```bash
+npm run release:ios
+```
+
+Runs `fastlane ios beta`. The lane checks the config, sets the build number to
+the latest TestFlight build + 1 and regenerates `ios/` when needed. It then
+archives a Release build, checks that the IPA contains the watch app and widget
+with matching build numbers, and uploads it to TestFlight. Processing on
+Apple's side takes 5–30 minutes.
+
+```bash
+bundle exec fastlane ios build build_number:42
+```
+
+Builds a signed `build/ios/Sweaty.ipa` without uploading it. Without
+`build_number:` it keeps the build number already in `ios/`.
+
+Before building, both lanes compare an `@expo/fingerprint` hash of the native
+inputs (app config, config plugins, native dependencies, Apple target configs)
+with the one saved in `ios/.fastlane-fingerprint`. They skip
+`expo prebuild --clean` when nothing changed; pass `clean:true` to force it.
+Swift sources under `targets/` are read directly by Xcode and need no prebuild.
+The marketing version comes from `app.json` → `version`; bump it when App Store
+Connect closes the current version.
 
 ## Related Docs
 

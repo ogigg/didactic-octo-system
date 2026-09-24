@@ -1,0 +1,9 @@
+source "https://rubygems.org"
+
+# Release tooling for the Expo app. Run everything through Bundler
+# (`bundle exec fastlane ...`) so every machine uses the same versions.
+gem "fastlane", "~> 2.233"
+
+# The iOS lanes run `pod install` through Bundler, so CocoaPods must be
+# resolvable from this bundle too.
+gem "cocoapods", "~> 1.17"

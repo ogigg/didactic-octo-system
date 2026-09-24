@@ -28,39 +28,39 @@
 
 ## Proposed settings
 
-| Setting or row | Default | Control | What it changes |
-| --- | --- | --- | --- |
-| Companion status | N/A | Informational status card | Paired, installed, and current reachability states; refresh on focus/foreground |
-| Rest ending warning | 10 seconds | Picker: Off / 5 / 10 / 15 / 30 sec | Plays one warning haptic before zero for each rest cycle |
-| Vibrate when rest ends | On | Switch | Plays the existing `.success` haptic once at zero |
-| Quick rest adjustment | 15 seconds | Picker: 10 / 15 / 30 sec | Changes both Watch rest buttons to `−N` and `+N` |
-| Open rest timer after a set | On | Switch | Automatically presents the rest screen after logging a nonfinal set |
-| When rest ends | Stay on timer | Picker: Stay on timer / Open next set | Either preserves the READY action or clears rest and returns to the set logger |
-| Vibrate when a set is logged | On | Switch | Plays the existing `.click` haptic after successful local logging |
-| Confirm before skipping rest | On | Switch | Keeps or removes the second-tap skip confirmation |
-| Confirm before ending workout | On | Switch | Keeps or removes the second-tap workout-end confirmation |
-| Show live heart rate | On | Switch | Shows or hides heart-rate entry points; collection/HealthKit ownership is unchanged |
-| Show previous performance | On | Switch | Shows or hides the LAST TIME card in the set logger |
+| Setting or row                | Default       | Control                               | What it changes                                                                     |
+| ----------------------------- | ------------- | ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Companion status              | N/A           | Informational status card             | Paired, installed, and current reachability states; refresh on focus/foreground     |
+| Rest ending warning           | 10 seconds    | Picker: Off / 5 / 10 / 15 / 30 sec    | Plays one warning haptic before zero for each rest cycle                            |
+| Vibrate when rest ends        | On            | Switch                                | Plays the existing `.success` haptic once at zero                                   |
+| Quick rest adjustment         | 15 seconds    | Picker: 10 / 15 / 30 sec              | Changes both Watch rest buttons to `−N` and `+N`                                    |
+| Open rest timer after a set   | On            | Switch                                | Automatically presents the rest screen after logging a nonfinal set                 |
+| When rest ends                | Stay on timer | Picker: Stay on timer / Open next set | Either preserves the READY action or clears rest and returns to the set logger      |
+| Vibrate when a set is logged  | On            | Switch                                | Plays the existing `.click` haptic after successful local logging                   |
+| Confirm before skipping rest  | On            | Switch                                | Keeps or removes the second-tap skip confirmation                                   |
+| Confirm before ending workout | On            | Switch                                | Keeps or removes the second-tap workout-end confirmation                            |
+| Show live heart rate          | On            | Switch                                | Shows or hides heart-rate entry points; collection/HealthKit ownership is unchanged |
+| Show previous performance     | On            | Switch                                | Shows or hides the LAST TIME card in the set logger                                 |
 
 ### Later, after the underlying capability exists
 
-| Candidate | Why it is deferred |
-| --- | --- |
-| Save Watch workouts to Apple Health | HealthKit ownership currently starts automatically and prevents duplicate workouts; exposing a toggle needs a separate ownership and permission design. |
-| Start a workout from Watch | The current Watch waiting screen requires the phone to create the canonical session. |
-| Keep screen awake / Always On behavior | Requires an explicit battery and extended-runtime policy. |
-| Default set editor field | Useful, but should follow real usage data before adding another persistent preference. |
-| Load adjustment step | Must wait for the kg/lb wire contract so a step never changes the wrong physical amount. |
+| Candidate                              | Why it is deferred                                                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Save Watch workouts to Apple Health    | HealthKit ownership currently starts automatically and prevents duplicate workouts; exposing a toggle needs a separate ownership and permission design. |
+| Start a workout from Watch             | The current Watch waiting screen requires the phone to create the canonical session.                                                                    |
+| Keep screen awake / Always On behavior | Requires an explicit battery and extended-runtime policy.                                                                                               |
+| Default set editor field               | Useful, but should follow real usage data before adding another persistent preference.                                                                  |
+| Load adjustment step                   | Must wait for the kg/lb wire contract so a step never changes the wrong physical amount.                                                                |
 
 ### Do not expose on this screen
 
-| Candidate | Why it would be misleading now |
-| --- | --- |
-| Default rest duration | Rest is prescribed per exercise and adjusted in-session; a Watch-only default would conflict with the canonical workout. |
-| Weight units | The Watch wire types and UI currently assume kg while phone set strings can represent display units; a picker could corrupt round trips for lb users. |
-| Watch language | watchOS uses its own system locale and `en.lproj` / `pl.lproj`. |
-| Sound | The Watch currently uses haptics, not a configurable sound transport. |
-| Global Watch haptics | The two app-haptic controls are intentionally narrow; Digital Crown feedback and system haptics should continue to follow watchOS behavior. |
+| Candidate             | Why it would be misleading now                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default rest duration | Rest is prescribed per exercise and adjusted in-session; a Watch-only default would conflict with the canonical workout.                              |
+| Weight units          | The Watch wire types and UI currently assume kg while phone set strings can represent display units; a picker could corrupt round trips for lb users. |
+| Watch language        | watchOS uses its own system locale and `en.lproj` / `pl.lproj`.                                                                                       |
+| Sound                 | The Watch currently uses haptics, not a configurable sound transport.                                                                                 |
+| Global Watch haptics  | The two app-haptic controls are intentionally narrow; Digital Crown feedback and system haptics should continue to follow watchOS behavior.           |
 
 ---
 
@@ -115,43 +115,43 @@ Persist separate phone high-water marks such as `watch-workout-revision` and `wa
 
 ## File map
 
-| File | Action | Responsibility |
-| --- | --- | --- |
-| `apps/mobile/stores/watch-settings-store.ts` | Create | Versioned local defaults, setters, hydration, and persistence |
-| `apps/mobile/stores/__tests__/watch-settings-store.test.ts` | Create | Defaults, persistence/migration, malformed-state recovery |
-| `apps/mobile/lib/watch-workout-sync.ts` | Modify | Add settings schemas/builders and additive workout-envelope fields |
-| `apps/mobile/lib/watch-workout-publisher.ts` | Modify | Add current settings to workout envelopes and persist workout revision |
-| `apps/mobile/lib/watch-settings-publisher.ts` | Create | Build/version durable settings messages and persist settings revision |
-| `apps/mobile/lib/__tests__/watch-settings-publisher.test.ts` | Create | Durable delivery, coalescing, retry, and monotonic settings revision tests |
-| `apps/mobile/modules/watch-bridge/src/types.ts` | Modify | Add settings snapshot/message and optional additive workout-envelope fields |
-| `apps/mobile/modules/watch-bridge/src/index.ts` | Modify | Expose durable settings send without changing the workout send API |
-| `apps/mobile/modules/watch-bridge/ios/WatchBridgeModule.swift` | Modify | Add `transferUserInfo`/immediate settings delivery; keep one application-context writer |
-| `apps/mobile/modules/watch-bridge/ios/PhoneSessionDelegate.swift` | Modify | Persist/flush one latest workout context and pre-activation settings message |
-| `apps/mobile/hooks/use-watch-bridge.ts` | Modify | Publish canonical workout snapshots and durable settings changes through their correct transports |
-| `apps/mobile/hooks/use-watch-status.ts` | Create | Focus/AppState-aware paired/installed/reachable status |
-| `apps/mobile/components/watch-bridge-host.tsx` | Modify | Ensure publication waits for settings/revision hydration |
-| `apps/mobile/app/watch-settings.tsx` | Create | Status card and accessible setting switches |
-| `apps/mobile/app/__tests__/watch-settings.test.tsx` | Create | Screen/status/toggle behavior tests |
-| `apps/mobile/app/(tabs)/profile.tsx` | Modify | Add Devices section and Apple Watch row |
-| `apps/mobile/app/_layout.tsx` | Modify | Register `/watch-settings` |
-| `apps/mobile/components/ui/icon-symbol.tsx` | Modify | Map a Watch/device icon if the selected SF Symbol is not present |
-| `apps/mobile/i18n/locales/en/watch-settings.ts` | Create | English screen strings |
-| `apps/mobile/i18n/locales/pl/watch-settings.ts` | Create | Polish screen strings |
-| `apps/mobile/i18n/locales/en/profile.ts` | Modify | Devices section and Apple Watch nav label |
-| `apps/mobile/i18n/locales/pl/profile.ts` | Modify | Polish Devices section and Apple Watch nav label |
-| `apps/mobile/i18n/resources.ts` | Modify | Register `watchSettings` in both languages |
-| `apps/mobile/targets/watch/Models/WatchSettings.swift` | Create | Codable settings model, defaults, persistence, schema migration |
-| `apps/mobile/targets/watch/Models/Workout.swift` | Modify | Decode additive settings fields without changing legacy workout payload decoding |
-| `apps/mobile/targets/watch/ViewModels/WorkoutStore.swift` | Modify | Merge workout and settings using independent high-water marks |
-| `apps/mobile/targets/watch/Services/HapticsClient.swift` | Modify | Accept explicit enabled flag for rest/set haptics |
-| `apps/mobile/targets/watch/Services/WatchConnectivityClient.swift` | Modify | Receive and route durable settings user-info independently of workouts |
-| `apps/mobile/targets/watch/Views/RestTimerView.swift` | Modify | Gate only rest-complete haptic |
-| `apps/mobile/targets/watch/Views/ActiveWorkoutView.swift` | Modify | End confirmation and heart-rate visibility |
-| `apps/mobile/targets/watch/Views/ExerciseDetailView.swift` | Modify | Rest presentation, compact running-rest access, and previous-performance visibility |
-| `apps/mobile/lib/__tests__/watch-workout-sync.test.ts` | Modify | New/legacy schema and compatibility tests |
-| `apps/mobile/lib/__tests__/watch-workout-publisher.test.ts` | Modify | Coalescing, revision, idle/active settings publication tests |
-| `apps/mobile/README.md` | Modify | Settings ownership, compatible dual-path transport, build/manual test notes |
-| `.ai/architecture.md` | Modify | Document additive settings data and the separate durable user-info path |
+| File                                                               | Action | Responsibility                                                                                    |
+| ------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------- |
+| `apps/mobile/stores/watch-settings-store.ts`                       | Create | Versioned local defaults, setters, hydration, and persistence                                     |
+| `apps/mobile/stores/__tests__/watch-settings-store.test.ts`        | Create | Defaults, persistence/migration, malformed-state recovery                                         |
+| `apps/mobile/lib/watch-workout-sync.ts`                            | Modify | Add settings schemas/builders and additive workout-envelope fields                                |
+| `apps/mobile/lib/watch-workout-publisher.ts`                       | Modify | Add current settings to workout envelopes and persist workout revision                            |
+| `apps/mobile/lib/watch-settings-publisher.ts`                      | Create | Build/version durable settings messages and persist settings revision                             |
+| `apps/mobile/lib/__tests__/watch-settings-publisher.test.ts`       | Create | Durable delivery, coalescing, retry, and monotonic settings revision tests                        |
+| `apps/mobile/modules/watch-bridge/src/types.ts`                    | Modify | Add settings snapshot/message and optional additive workout-envelope fields                       |
+| `apps/mobile/modules/watch-bridge/src/index.ts`                    | Modify | Expose durable settings send without changing the workout send API                                |
+| `apps/mobile/modules/watch-bridge/ios/WatchBridgeModule.swift`     | Modify | Add `transferUserInfo`/immediate settings delivery; keep one application-context writer           |
+| `apps/mobile/modules/watch-bridge/ios/PhoneSessionDelegate.swift`  | Modify | Persist/flush one latest workout context and pre-activation settings message                      |
+| `apps/mobile/hooks/use-watch-bridge.ts`                            | Modify | Publish canonical workout snapshots and durable settings changes through their correct transports |
+| `apps/mobile/hooks/use-watch-status.ts`                            | Create | Focus/AppState-aware paired/installed/reachable status                                            |
+| `apps/mobile/components/watch-bridge-host.tsx`                     | Modify | Ensure publication waits for settings/revision hydration                                          |
+| `apps/mobile/app/watch-settings.tsx`                               | Create | Status card and accessible setting switches                                                       |
+| `apps/mobile/app/__tests__/watch-settings.test.tsx`                | Create | Screen/status/toggle behavior tests                                                               |
+| `apps/mobile/app/(tabs)/profile.tsx`                               | Modify | Add Devices section and Apple Watch row                                                           |
+| `apps/mobile/app/_layout.tsx`                                      | Modify | Register `/watch-settings`                                                                        |
+| `apps/mobile/components/ui/icon-symbol.tsx`                        | Modify | Map a Watch/device icon if the selected SF Symbol is not present                                  |
+| `apps/mobile/i18n/locales/en/watch-settings.ts`                    | Create | English screen strings                                                                            |
+| `apps/mobile/i18n/locales/pl/watch-settings.ts`                    | Create | Polish screen strings                                                                             |
+| `apps/mobile/i18n/locales/en/profile.ts`                           | Modify | Devices section and Apple Watch nav label                                                         |
+| `apps/mobile/i18n/locales/pl/profile.ts`                           | Modify | Polish Devices section and Apple Watch nav label                                                  |
+| `apps/mobile/i18n/resources.ts`                                    | Modify | Register `watchSettings` in both languages                                                        |
+| `apps/mobile/targets/watch/Models/WatchSettings.swift`             | Create | Codable settings model, defaults, persistence, schema migration                                   |
+| `apps/mobile/targets/watch/Models/Workout.swift`                   | Modify | Decode additive settings fields without changing legacy workout payload decoding                  |
+| `apps/mobile/targets/watch/ViewModels/WorkoutStore.swift`          | Modify | Merge workout and settings using independent high-water marks                                     |
+| `apps/mobile/targets/watch/Services/HapticsClient.swift`           | Modify | Accept explicit enabled flag for rest/set haptics                                                 |
+| `apps/mobile/targets/watch/Services/WatchConnectivityClient.swift` | Modify | Receive and route durable settings user-info independently of workouts                            |
+| `apps/mobile/targets/watch/Views/RestTimerView.swift`              | Modify | Gate only rest-complete haptic                                                                    |
+| `apps/mobile/targets/watch/Views/ActiveWorkoutView.swift`          | Modify | End confirmation and heart-rate visibility                                                        |
+| `apps/mobile/targets/watch/Views/ExerciseDetailView.swift`         | Modify | Rest presentation, compact running-rest access, and previous-performance visibility               |
+| `apps/mobile/lib/__tests__/watch-workout-sync.test.ts`             | Modify | New/legacy schema and compatibility tests                                                         |
+| `apps/mobile/lib/__tests__/watch-workout-publisher.test.ts`        | Modify | Coalescing, revision, idle/active settings publication tests                                      |
+| `apps/mobile/README.md`                                            | Modify | Settings ownership, compatible dual-path transport, build/manual test notes                       |
+| `.ai/architecture.md`                                              | Modify | Document additive settings data and the separate durable user-info path                           |
 
 No migration or `.ai/db-schema.md` change is expected.
 
