@@ -13,13 +13,16 @@ import { WorkoutTopBar } from "@/components/workout/workout-top-bar";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { useWatchBridge } from "@/hooks/use-watch-bridge";
-import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import {
   countLoggedWorkoutSets,
   hasLoggedWorkoutData,
 } from "@/lib/workout-session-state";
-import { useWorkoutStore } from "@/stores/workout-store";
+import {
+  getExerciseOccurrenceId,
+  useWorkoutStore,
+} from "@/stores/workout-store";
+import { publishCancelledWorkoutToWatch } from "@/lib/watch-workout-publisher";
+import { trackEvent } from "@/lib/track-event";
 import { useKeepAwake } from "expo-keep-awake";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,30 +31,21 @@ import {
   Alert,
   Animated,
   Easing,
-  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Reanimated, { LinearTransition } from "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-
-const EXERCISE_LAYOUT_TRANSITION = LinearTransition.springify()
-  .damping(24)
-  .stiffness(220);
 
 export default function WorkoutScreen() {
   const { t } = useTranslation("workout");
   const router = useRouter();
 
-  // iOS Live Activity / Dynamic Island
-  useWorkoutLiveActivity();
-  // Apple Watch companion sync
-  useWatchBridge();
   // Keep the phone display awake while the active workout screen is open.
   useKeepAwake();
 
@@ -59,10 +53,17 @@ export default function WorkoutScreen() {
   const warmup = useWorkoutStore((s) => s.warmup);
   const workoutName = useWorkoutStore((s) => s.workoutName);
   const generationMeta = useWorkoutStore((s) => s.generationMeta);
+  const workoutSessionId = useWorkoutStore((s) => s.workoutSessionId);
+  const workoutSource = useWorkoutStore((s) => s.workoutSource);
+  const workoutId = useWorkoutStore((s) => s.workoutId);
+  const startedAtMs = useWorkoutStore((s) => s.startedAtMs);
   const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
   const reorderExercise = useWorkoutStore((s) => s.reorderExercise);
   const updateWorkoutName = useWorkoutStore((s) => s.updateWorkoutName);
+  const watchSelectedExerciseId = useWorkoutStore(
+    (s) => s.watchSelectedExerciseId
+  );
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
@@ -79,7 +80,7 @@ export default function WorkoutScreen() {
   const exerciseOrderItems = useMemo<ExerciseOrderItem[]>(
     () =>
       exercises.map((exercise) => ({
-        id: exercise.id,
+        id: getExerciseOccurrenceId(exercise),
         name: exerciseMap.get(exercise.id)?.name ?? exercise.name,
         image: exercise.image ?? exerciseMap.get(exercise.id)?.image ?? null,
       })),
@@ -120,7 +121,8 @@ export default function WorkoutScreen() {
         ex.sets.some((s) => !s.isCompleted)
       );
       if (firstIncomplete) {
-        const yOffset = exerciseLayouts.current[firstIncomplete.id];
+        const yOffset =
+          exerciseLayouts.current[getExerciseOccurrenceId(firstIncomplete)];
         if (yOffset !== undefined && yOffset > 0) {
           scrollRef.current?.scrollTo({ y: yOffset, animated: true });
         }
@@ -134,6 +136,16 @@ export default function WorkoutScreen() {
   const handleExerciseLayout = useCallback((exerciseId: string, y: number) => {
     exerciseLayouts.current[exerciseId] = y;
   }, []);
+
+  useEffect(() => {
+    if (!watchSelectedExerciseId) return;
+    const yOffset = exerciseLayouts.current[watchSelectedExerciseId];
+    if (yOffset === undefined) return;
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, yOffset - Spacing.lg),
+      animated: true,
+    });
+  }, [watchSelectedExerciseId]);
 
   const handleAddExercise = useCallback(() => {
     router.push({ pathname: "/exercise-picker", params: { mode: "add" } });
@@ -170,9 +182,45 @@ export default function WorkoutScreen() {
   }, [router]);
 
   const handleFinish = useCallback(() => {
-    const discardWorkout = () => {
-      clearWorkout();
-      router.replace("/(tabs)");
+    const getCompletionRate = () => {
+      const plannedSets = exercises.reduce(
+        (total, exercise) => total + exercise.sets.length,
+        0
+      );
+      const completedSets = exercises.reduce(
+        (total, exercise) =>
+          total +
+          exercise.sets.filter((workoutSet) => workoutSet.isCompleted).length,
+        0
+      );
+      return {
+        plannedSets,
+        completedSets,
+        completionRate:
+          plannedSets > 0 ? Math.round((completedSets / plannedSets) * 100) : 0,
+      };
+    };
+
+    const discardWorkout = async (discardContext: "empty" | "confirmation") => {
+      const metrics = getCompletionRate();
+      trackEvent("workout_discarded", {
+        workout_session_id: workoutSessionId,
+        workout_source: workoutSource,
+        workout_id: workoutId,
+        completed_sets: metrics.completedSets,
+        planned_sets: metrics.plannedSets,
+        completion_rate: metrics.completionRate,
+        duration_seconds: startedAtMs
+          ? Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000))
+          : 0,
+        discard_context: discardContext,
+      });
+      try {
+        await publishCancelledWorkoutToWatch(useWorkoutStore.getState());
+      } finally {
+        clearWorkout({ suppressAbandonment: true });
+        router.replace("/(tabs)");
+      }
     };
     const confirmDiscardWorkout = () => {
       const loggedSets = countLoggedWorkoutSets(exercises);
@@ -186,12 +234,24 @@ export default function WorkoutScreen() {
           {
             text: t("finish.confirmDiscard"),
             style: "destructive",
-            onPress: discardWorkout,
+            onPress: () => void discardWorkout("confirmation"),
           },
         ]
       );
     };
     const finishAndSaveWorkout = () => {
+      const metrics = getCompletionRate();
+      trackEvent("workout_finish_requested", {
+        workout_session_id: workoutSessionId,
+        workout_source: workoutSource,
+        workout_id: workoutId,
+        completed_sets: metrics.completedSets,
+        planned_sets: metrics.plannedSets,
+        completion_rate: metrics.completionRate,
+        duration_seconds: startedAtMs
+          ? Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000))
+          : 0,
+      });
       finishWorkout();
       router.push("/workout-summary");
     };
@@ -203,7 +263,7 @@ export default function WorkoutScreen() {
           text: t("finish.confirmDiscard"),
           style: "destructive",
           isPreferred: true,
-          onPress: discardWorkout,
+          onPress: () => void discardWorkout("empty"),
         },
         {
           text: t("finish.confirmFinish"),
@@ -254,6 +314,10 @@ export default function WorkoutScreen() {
     totalSteps,
     completedSteps,
     warmup,
+    startedAtMs,
+    workoutId,
+    workoutSessionId,
+    workoutSource,
     clearWorkout,
     finishWorkout,
     router,
@@ -265,49 +329,56 @@ export default function WorkoutScreen() {
       <View style={[styles.root, { backgroundColor: background }]}>
         <CelebrationProvider>
           <SafeAreaProvider>
-            <SafeAreaView style={styles.safe}>
-              <WorkoutTopBar
-                workoutName={workoutName}
-                completedSteps={completedSteps}
-                totalSteps={totalSteps}
-                hasWarmup={warmup !== null}
-                onDismiss={handleDismiss}
-                onFinish={handleFinish}
-                onWorkoutNameChange={updateWorkoutName}
-              />
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressTrack,
-                    { backgroundColor: progressTrack },
-                  ]}
-                  accessibilityRole="progressbar"
-                  accessibilityValue={{
-                    min: 0,
-                    max: totalSteps,
-                    now: completedSteps,
-                  }}
-                >
-                  <Animated.View
+            <KeyboardAvoidingView
+              style={styles.safe}
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+            >
+              <SafeAreaView style={styles.safe}>
+                <WorkoutTopBar
+                  workoutName={workoutName}
+                  completedSteps={completedSteps}
+                  totalSteps={totalSteps}
+                  hasWarmup={warmup !== null}
+                  onDismiss={handleDismiss}
+                  onFinish={handleFinish}
+                  onWorkoutNameChange={updateWorkoutName}
+                />
+                <View style={styles.progressBarContainer}>
+                  <View
                     style={[
-                      styles.progressFill,
-                      {
-                        backgroundColor: primary,
-                        width: animatedProgress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ["0%", "100%"],
-                        }),
-                      },
+                      styles.progressTrack,
+                      { backgroundColor: progressTrack },
                     ]}
-                  />
+                    accessibilityRole="progressbar"
+                    accessibilityValue={{
+                      min: 0,
+                      max: totalSteps,
+                      now: completedSteps,
+                    }}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.progressFill,
+                        {
+                          backgroundColor: primary,
+                          width: animatedProgress.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["0%", "100%"],
+                          }),
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
-              </View>
-              <WorkoutTimer />
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <WorkoutTimer />
                 <ScrollView
                   ref={scrollRef}
+                  style={styles.scrollArea}
                   contentContainerStyle={styles.scroll}
-                  keyboardShouldPersistTaps="handled"
+                  keyboardShouldPersistTaps="always"
+                  keyboardDismissMode={
+                    Platform.OS === "ios" ? "interactive" : "on-drag"
+                  }
                   showsVerticalScrollIndicator={false}
                 >
                   {exercises.length === 0 && !warmup ? (
@@ -363,12 +434,11 @@ export default function WorkoutScreen() {
                       />
                       <WarmupCard />
                       {exercises.map((exercise) => (
-                        <Reanimated.View
-                          key={exercise.id}
-                          layout={EXERCISE_LAYOUT_TRANSITION}
+                        <View
+                          key={getExerciseOccurrenceId(exercise)}
                           onLayout={(e) =>
                             handleExerciseLayout(
-                              exercise.id,
+                              getExerciseOccurrenceId(exercise),
                               e.nativeEvent.layout.y
                             )
                           }
@@ -385,7 +455,7 @@ export default function WorkoutScreen() {
                             }
                             onReorder={setReorderExerciseId}
                           />
-                        </Reanimated.View>
+                        </View>
                       ))}
                       <TouchableOpacity
                         style={[
@@ -403,10 +473,10 @@ export default function WorkoutScreen() {
                     </>
                   )}
                 </ScrollView>
-              </TouchableWithoutFeedback>
-              <RestTimerBar />
-            </SafeAreaView>
-            <KeyboardDismissButton />
+                <KeyboardDismissButton />
+                <RestTimerBar />
+              </SafeAreaView>
+            </KeyboardAvoidingView>
             <ExerciseReorderSheet
               visible={reorderExerciseId !== null}
               exercises={exerciseOrderItems}
@@ -424,6 +494,7 @@ export default function WorkoutScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
+  scrollArea: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing["5xl"],

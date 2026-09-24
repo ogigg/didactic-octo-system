@@ -1,0 +1,11 @@
+/* Widget gallery and fallbacks shown before the app publishes data. In-widget
+   copy comes from the app's i18n/locales/pl/widgets.ts via the snapshot. */
+"widget.next.name" = "Następny trening";
+"widget.next.description" = "Zobacz, jaki trening czeka w kolejce i ile potrwa.";
+"widget.streak.name" = "Seria i tydzień";
+"widget.streak.description" = "Miej na oku serię tygodni i postęp w tym tygodniu.";
+"widget.consistency.name" = "Regularność";
+"widget.consistency.description" = "Zobacz dni z treningiem z ostatnich tygodni.";
+"widget.time.name" = "Czas treningu";
+"widget.time.description" = "Porównuj czas treningu z ostatnich tygodni.";
+"widget.status.openApp" = "Otwórz Sweaty, aby zobaczyć plan";

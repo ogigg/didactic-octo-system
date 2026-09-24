@@ -32,6 +32,7 @@ export const workoutStatsKeys = {
 export const calendarKeys = {
   all: ["calendar"] as const,
   entries: () => [...calendarKeys.all, "entries"] as const,
+  streakWeeks: () => [...calendarKeys.all, "streak-weeks"] as const,
 };
 
 export const exerciseMuscleKeys = {
@@ -51,6 +52,7 @@ export const exerciseDetailKeys = {
 
 export const exercisePreferenceKeys = {
   all: ["exercise-preferences"] as const,
+  list: () => [...exercisePreferenceKeys.all, "list"] as const,
   detail: (exerciseId: string) =>
     [...exercisePreferenceKeys.all, exerciseId] as const,
   batch: (exerciseIds: string[]) =>
@@ -92,4 +94,12 @@ export const streakProtectionKeys = {
   all: ["streak-protection"] as const,
   status: (userId: string) =>
     [...streakProtectionKeys.all, "status", userId] as const,
+};
+
+// Nested under roots that saving a workout already invalidates.
+export const homeWidgetKeys = {
+  activityAll: [...workoutStatsKeys.all, "home-widgets"] as const,
+  activity: (fromDateKey: string) =>
+    [...homeWidgetKeys.activityAll, fromDateKey] as const,
+  lastWorkout: () => [...workoutKeys.all, "home-widgets-last"] as const,
 };

@@ -5,6 +5,7 @@ export const exerciseDetail = {
     howTo: "Jak wykonać",
   },
   overview: {
+    seeFullStatistics: "Pełne statystyki",
     records: "Rekordy osobiste",
     recordsHint: "Twoje najlepsze wyniki w tym ćwiczeniu.",
     sessionsCount: "{{count}} sesji",
@@ -24,6 +25,9 @@ export const exerciseDetail = {
     durationTotal: "Łączny czas",
     durationWeeklyAvg: "Śr. tygodniowa",
     perWeek: "/tydz.",
+    weekOf: "Tydzień od {{date}}",
+    chartVolume: "Objętość",
+    chartDuration: "Czas",
     achievedOn: "Osiągnięto {{date}}",
     noDate: "Data niedostępna",
     noData: "Ukończ treningi z tym ćwiczeniem, aby zobaczyć statystyki.",

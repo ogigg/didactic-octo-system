@@ -174,6 +174,7 @@ export async function deleteAllPendingWorkouts(): Promise<void> {
 
 export interface QueueGenerationRequest {
   count: number;
+  request_id?: string;
   preferences: WorkoutGenerationPreferences;
   baselines: { exercise_key: string; load_kg: number | null; reps: number }[];
   trigger: "onboarding" | "preference_change";
@@ -197,7 +198,9 @@ export async function triggerQueueGeneration(
   );
 
   if (error) {
-    const body = data as {
+    const responseBody =
+      data ?? (await error.context?.json?.().catch(() => null));
+    const body = responseBody as {
       error?: string;
       used?: number;
       remaining?: number;
@@ -211,7 +214,10 @@ export async function triggerQueueGeneration(
         tier: body.tier ?? "free",
       });
     }
-    throw new Error(error.message);
+    throw new Error(body?.error ?? error.message);
+  }
+  if (!data?.success && !data?.skipped) {
+    throw new Error("Workout preparation did not complete");
   }
 }
 
@@ -219,11 +225,13 @@ export async function triggerRegeneration(
   pendingWorkoutId: string,
   preferences: WorkoutGenerationPreferences,
   timezoneOffsetMinutes: number,
-  feedback?: string
+  feedback?: string,
+  requestId?: string
 ): Promise<z.infer<typeof generateWorkoutResponseSchema>> {
   const { data, error } = await supabase.functions.invoke("generate-workout", {
     body: {
       pending_workout_id: pendingWorkoutId,
+      request_id: requestId,
       training_split: preferences.training_split,
       duration_minutes: preferences.session_duration_minutes,
       equipment: preferences.equipment,

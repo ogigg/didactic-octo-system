@@ -32,7 +32,14 @@ export const home = {
     completed_other: "{{count}} treningu ukończonego",
   },
   workoutQueue: {
+    preparing:
+      "Przygotowujemy treningi. Obecny plan pozostaje dostępny do czasu ukończenia nowego.",
+    preparationError:
+      "Nie udało się przygotować treningów. Twoje ustawienia i obecne treningi są zachowane. Spróbuj ponownie.",
+    retryPreparation: "Spróbuj ponownie",
+
     title: "Twój plan",
+    loading: "Ładowanie twojego planu...",
     readyCount: "{{ready}}/{{total}}",
     empty: "Brak treningów w kolejce",
     emptySubtitle: "Ukończ onboarding, aby dostać spersonalizowany plan",
@@ -43,7 +50,8 @@ export const home = {
   queueCard: {
     dayLabel: "Dzień {{position}}",
     startWorkout: "Zacznij trening",
-    resumeWorkout: "Wznow trening",
+    resumeWorkout: "Wznów trening",
+    resumeWorkoutHint: "Otwiera trwający trening",
     generating: "Przygotowywanie treningu...",
     regenerating: "Odświeżanie treningu",
     regeneratingSubtitle: "Trening zastępczy jest w drodze.",

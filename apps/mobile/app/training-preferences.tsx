@@ -68,6 +68,15 @@ const UNIT_OPTIONS: { value: WeightUnit; label: string }[] = [
   { value: "lbs", label: "Pounds (lbs)" },
 ];
 
+type TrainingPreferenceField =
+  | "training_split"
+  | "session_duration_minutes"
+  | "equipment_level"
+  | "training_style"
+  | "difficulty_level"
+  | "training_custom_prompt"
+  | "weight_unit";
+
 export default function TrainingPreferencesScreen() {
   const { t } = useTranslation("trainingPreferences");
   const router = useRouter();
@@ -133,7 +142,7 @@ export default function TrainingPreferencesScreen() {
     onSuccess: (prefs) => {
       queryClient.invalidateQueries({ queryKey: profileKeys.all });
 
-      const changedFields = [
+      const changedFields: TrainingPreferenceField[] = [
         profile?.training_split !== prefs.training_split
           ? "training_split"
           : null,
@@ -153,15 +162,17 @@ export default function TrainingPreferencesScreen() {
           ? "training_custom_prompt"
           : null,
         profile?.weight_unit !== prefs.weight_unit ? "weight_unit" : null,
-      ].filter((value): value is string => value !== null);
+      ].filter((value): value is TrainingPreferenceField => value !== null);
 
       const onlyUnitChanged =
         changedFields.length === 1 && changedFields[0] === "weight_unit";
 
-      trackEvent("training_preferences_changed", {
-        changed_fields: changedFields,
-        triggered_queue_rebuild: !onlyUnitChanged,
-      });
+      if (changedFields.length > 0) {
+        trackEvent("training_preferences_changed", {
+          changed_fields: changedFields,
+          triggered_queue_rebuild: !onlyUnitChanged,
+        });
+      }
 
       if (onlyUnitChanged) {
         Alert.alert("", t("success"));

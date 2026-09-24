@@ -57,6 +57,14 @@ jest.mock("@/hooks/use-exercises-query", () => ({
   })),
 }));
 
+jest.mock("@/hooks/use-profile-query", () => ({
+  useProfile: jest.fn(() => ({ data: { weight_unit: "kg" } })),
+}));
+
+jest.mock("@/lib/api/workouts", () => ({
+  fetchPreviousSetDisplays: jest.fn(() => Promise.resolve({})),
+}));
+
 jest.mock("@/stores/workout-templates-store", () => {
   const useWorkoutTemplatesStore = Object.assign(
     jest.fn((selector: (state: MockTemplateState) => unknown) =>
@@ -121,7 +129,13 @@ jest.mock("@/components/ui/gradient-surface", () => {
   };
 });
 
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 
 import WorkoutTemplateScreen from "../workout-template";
 
@@ -196,7 +210,7 @@ describe("WorkoutTemplateScreen", () => {
     expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
-  it("starts the template only once after the explicit start action", () => {
+  it("starts the template only once after the explicit start action", async () => {
     render(<WorkoutTemplateScreen />);
 
     const startButton = screen.getByRole("button", {
@@ -205,6 +219,7 @@ describe("WorkoutTemplateScreen", () => {
     fireEvent.press(startButton);
     fireEvent.press(startButton);
 
+    await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledTimes(1));
     expect(mockStartWorkout).toHaveBeenCalledTimes(1);
     expect(mockStartWorkout).toHaveBeenCalledWith(
       "Push day",
@@ -219,9 +234,15 @@ describe("WorkoutTemplateScreen", () => {
             }),
           ]),
         }),
-      ])
+      ]),
+      undefined,
+      null,
+      {
+        workoutSource: "template",
+        workoutId: "template-1",
+        weightUnit: "kg",
+      }
     );
-    expect(mockRouterReplace).toHaveBeenCalledTimes(1);
     expect(mockRouterReplace).toHaveBeenCalledWith("/workout");
   });
 });

@@ -3,7 +3,15 @@ jest.mock("@/hooks/use-theme-color", () => ({
 }));
 
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
-import { Keyboard, Platform, StyleSheet } from "react-native";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 
 import { KeyboardDismissButton } from "../keyboard-dismiss-button";
 import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
@@ -59,11 +67,11 @@ describe("KeyboardDismissButton", () => {
     jest.restoreAllMocks();
   });
 
-  function showKeyboard(height = 280) {
+  function showKeyboard() {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     act(() => {
-      listeners.get(showEvent)?.({ endCoordinates: { height } });
+      listeners.get(showEvent)?.();
     });
   }
 
@@ -93,11 +101,18 @@ describe("KeyboardDismissButton", () => {
     expect(screen.queryByText("keyboard.done")).toBeNull();
 
     const flattened = StyleSheet.flatten(button.props.style);
-    expect(flattened.left).toBeGreaterThan(0);
-    expect(flattened.right).toBeUndefined();
+    expect(flattened.position).toBeUndefined();
+    expect(flattened.bottom).toBeUndefined();
+    expect(flattened.zIndex).toBeUndefined();
     expect(flattened.width).toBeGreaterThanOrEqual(44);
     expect(flattened.height).toBeGreaterThanOrEqual(44);
-    expect(flattened.bottom).toBe(288);
+
+    const toolbarStyle = StyleSheet.flatten(
+      screen.getByTestId("keyboard-dismiss-toolbar").props.style
+    );
+    expect(toolbarStyle.height).toBeGreaterThanOrEqual(
+      flattened.height + button.props.hitSlop * 2
+    );
   });
 
   it("dismisses the keyboard without changing entered set values", () => {
@@ -154,9 +169,57 @@ describe("KeyboardDismissButton", () => {
       expect.any(Function)
     );
 
-    showKeyboard(320);
+    showKeyboard();
     const button = screen.getByRole("button", { name: "keyboard.dismiss" });
     expect(button).toBeTruthy();
-    expect(StyleSheet.flatten(button.props.style).bottom).toBe(8);
+    expect(StyleSheet.flatten(button.props.style).position).toBeUndefined();
   });
+
+  it.each(["ios", "android"] as const)(
+    "keeps a boundary input tappable beside the in-flow control on %s",
+    (platform) => {
+      Object.defineProperty(Platform, "OS", {
+        configurable: true,
+        value: platform,
+      });
+      const handleBoundaryPress = jest.fn();
+
+      render(
+        <View style={{ height: 120 }}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={platform === "ios" ? "padding" : "height"}
+          >
+            <ScrollView keyboardShouldPersistTaps="always">
+              <TextInput
+                accessibilityLabel="Boundary notes"
+                onPressIn={handleBoundaryPress}
+              />
+            </ScrollView>
+            <KeyboardDismissButton />
+          </KeyboardAvoidingView>
+        </View>
+      );
+      showKeyboard();
+
+      const input = screen.getByLabelText("Boundary notes");
+      const button = screen.getByRole("button", { name: "keyboard.dismiss" });
+      const toolbar = screen.getByTestId("keyboard-dismiss-toolbar");
+
+      fireEvent(input, "pressIn");
+
+      expect(handleBoundaryPress).toHaveBeenCalledTimes(1);
+      expect(Keyboard.dismiss).not.toHaveBeenCalled();
+
+      const buttonStyle = StyleSheet.flatten(button.props.style);
+      const toolbarStyle = StyleSheet.flatten(toolbar.props.style);
+      expect(buttonStyle.position).toBeUndefined();
+      expect(toolbarStyle.height).toBeGreaterThanOrEqual(
+        buttonStyle.height + button.props.hitSlop * 2
+      );
+
+      fireEvent.press(button);
+      expect(Keyboard.dismiss).toHaveBeenCalledTimes(1);
+    }
+  );
 });

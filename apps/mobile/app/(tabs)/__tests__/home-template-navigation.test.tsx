@@ -24,6 +24,10 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
+jest.mock("@/hooks/use-tab-bar-clearance", () => ({
+  useTabBarClearance: () => 104,
+}));
+
 jest.mock("@/hooks/use-profile-query", () => ({
   useProfile: jest.fn(() => ({
     data: { weekly_frequency: 3 },

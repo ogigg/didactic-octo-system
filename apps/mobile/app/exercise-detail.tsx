@@ -9,6 +9,7 @@ import React, {
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Alert,
   LayoutChangeEvent,
   Pressable,
   ScrollView,
@@ -28,11 +29,17 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
+import { ExerciseHistoryEditSheet } from "@/components/history/exercise-history-edit-sheet";
+import { ExerciseHistoryMenu } from "@/components/history/exercise-history-menu";
 import { PeriodSelector } from "@/components/stats/period-selector";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
-import { useExerciseDetail } from "@/hooks/use-exercise-detail-query";
+import {
+  useEditableExerciseHistory,
+  useExerciseDetail,
+} from "@/hooks/use-exercise-detail-query";
 import {
   useRemoveExercisePreference,
   useSetExercisePreference,
@@ -41,11 +48,22 @@ import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
 import { useExercise } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
-import type {
-  ExerciseDetailStats,
-  ExerciseSessionHistory,
+import {
+  useDeleteSessionExercise,
+  useUpdateCompletedSessionExerciseSets,
+} from "@/hooks/use-workout-mutations";
+import {
+  getExerciseWeekMetrics,
+  type ExerciseDetailStats,
 } from "@/lib/api/exercise-detail";
+import type {
+  CompletedExerciseSetInput,
+  EditableExerciseHistory,
+} from "@/lib/api/workouts";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
+import { getExerciseChartProgress } from "@/lib/exercise-chart-progress";
+import { useWorkoutStore } from "@/stores/workout-store";
+import { useToastStore } from "@/stores/toast-store";
 
 type Tab = "overview" | "history" | "howTo";
 
@@ -307,12 +325,16 @@ function SessionRow({
   completedSetsLabel,
   isTimeExercise,
   wu,
+  menuAccessibilityLabel,
+  onOpenMenu,
 }: {
-  session: ExerciseSessionHistory;
+  session: EditableExerciseHistory;
   setLabel: (number: number) => string;
   completedSetsLabel: string;
   isTimeExercise: boolean;
   wu: ReturnType<typeof useWeightUnit>;
+  menuAccessibilityLabel: string;
+  onOpenMenu: () => void;
 }) {
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -326,7 +348,7 @@ function SessionRow({
   return (
     <View style={[styles.sessionRow, { borderBottomColor: border }]}>
       <View style={styles.sessionHeader}>
-        <View style={styles.sessionTitleWrap}>
+        <View style={styles.sessionPrimaryRow}>
           <Text
             style={[
               Typography.titleMd,
@@ -337,14 +359,23 @@ function SessionRow({
           >
             {session.workout_name}
           </Text>
-          <Text style={[Typography.caption, { color: textMuted }]}>
-            {completedSetsLabel}
+          <Text
+            style={[Typography.micro, styles.sessionDate, { color: primary }]}
+          >
+            {formattedDate ?? session.date}
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={menuAccessibilityLabel}
+            hitSlop={8}
+            onPress={onOpenMenu}
+            style={styles.sessionMenuButton}
+          >
+            <IconSymbol name="ellipsis" size={20} color={textSecondary} />
+          </Pressable>
         </View>
-        <Text
-          style={[Typography.micro, styles.sessionDate, { color: primary }]}
-        >
-          {formattedDate ?? session.date}
+        <Text style={[Typography.caption, { color: textMuted }]}>
+          {completedSetsLabel}
         </Text>
       </View>
 
@@ -379,6 +410,8 @@ export default function ExerciseDetailScreen() {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
   const router = useRouter();
   const { t } = useTranslation("exerciseDetail");
+  const { t: tHistory } = useTranslation("history");
+  const showSuccess = useToastStore((state) => state.showSuccess);
   const tString = useCallback(
     (key: string, options?: Record<string, string>) =>
       String(
@@ -399,8 +432,26 @@ export default function ExerciseDetailScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
 
   const wu = useWeightUnit();
+  const workoutActive = useWorkoutStore((state) => state.isActive);
+  const workoutExercises = useWorkoutStore((state) => state.exercises);
+  const workoutWeightUnit = useWorkoutStore((state) => state.weightUnit);
+  const todayProgress = useMemo(
+    () =>
+      workoutActive
+        ? getExerciseChartProgress(
+            workoutExercises,
+            exerciseId ?? "",
+            workoutWeightUnit
+          )
+        : undefined,
+    [workoutActive, workoutExercises, exerciseId, workoutWeightUnit]
+  );
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
   const [prefSheetVisible, setPrefSheetVisible] = useState(false);
+  const [selectedHistory, setSelectedHistory] =
+    useState<EditableExerciseHistory | null>(null);
+  const [historyMenuVisible, setHistoryMenuVisible] = useState(false);
+  const [historyEditorVisible, setHistoryEditorVisible] = useState(false);
   const [pagerWidth, setPagerWidth] = useState(0);
   const [tabHeights, setTabHeights] = useState<Record<Tab, number>>({
     overview: 0,
@@ -424,9 +475,17 @@ export default function ExerciseDetailScreen() {
     isError: detailError,
     refetch: refetchDetail,
   } = useExerciseDetail(exerciseId ?? "");
+  const {
+    data: editableHistory,
+    isLoading: editableHistoryLoading,
+    isError: editableHistoryError,
+    refetch: refetchEditableHistory,
+  } = useEditableExerciseHistory(exerciseId ?? "");
   const { data: preference } = useExercisePreference(exerciseId ?? "");
   const setPreferenceMutation = useSetExercisePreference();
   const removePreferenceMutation = useRemoveExercisePreference();
+  const deleteSessionExerciseMutation = useDeleteSessionExercise();
+  const updateExerciseSetsMutation = useUpdateCompletedSessionExerciseSets();
 
   const sessions = useMemo(
     () =>
@@ -434,6 +493,59 @@ export default function ExerciseDetailScreen() {
         (session) => Array.isArray(session.sets) && session.sets.length > 0
       ),
     [detail?.sessions]
+  );
+
+  const handleDeleteHistory = useCallback(() => {
+    if (!selectedHistory) return;
+    const exerciseName = exercise?.name ?? "";
+
+    Alert.alert(
+      tHistory("detail.deleteExercise.confirmTitle"),
+      tHistory("detail.deleteExercise.confirmMessage", { exerciseName }),
+      [
+        { text: tHistory("detail.deleteExercise.cancel"), style: "cancel" },
+        {
+          text: tHistory("detail.deleteExercise.remove"),
+          style: "destructive",
+          onPress: () =>
+            deleteSessionExerciseMutation.mutate(selectedHistory.id, {
+              onSuccess: () =>
+                showSuccess(tHistory("detail.deleteExercise.success")),
+              onError: () =>
+                Alert.alert(
+                  tHistory("detail.deleteExercise.errorTitle"),
+                  tHistory("detail.deleteExercise.errorMessage")
+                ),
+            }),
+        },
+      ]
+    );
+  }, [
+    deleteSessionExerciseMutation,
+    exercise?.name,
+    selectedHistory,
+    showSuccess,
+    tHistory,
+  ]);
+
+  const handleSaveHistory = useCallback(
+    async (sets: CompletedExerciseSetInput[]) => {
+      if (!selectedHistory) return;
+      try {
+        await updateExerciseSetsMutation.mutateAsync({
+          sessionExerciseId: selectedHistory.id,
+          sets,
+        });
+        showSuccess(tHistory("detail.exerciseEditor.success"));
+      } catch (error) {
+        Alert.alert(
+          tHistory("detail.exerciseEditor.errorTitle"),
+          tHistory("detail.exerciseEditor.errorMessage")
+        );
+        throw error;
+      }
+    },
+    [selectedHistory, showSuccess, tHistory, updateExerciseSetsMutation]
   );
 
   useEffect(() => {
@@ -729,7 +841,7 @@ export default function ExerciseDetailScreen() {
           : week.volume_kg > 0
       ) ?? false;
     const hasTrackedData =
-      hasRecordData || hasVolumeData || sessions.length > 0;
+      hasRecordData || hasVolumeData || sessions.length > 0 || !!todayProgress;
 
     const renderIntro = () =>
       exercise ? (
@@ -887,13 +999,35 @@ export default function ExerciseDetailScreen() {
           </>
         ) : null}
 
-        {hasVolumeData && detail?.volume_weeks ? (
+        {hasVolumeData || todayProgress ? (
           <>
             <Divider />
             <View style={styles.sectionBlock}>
-              <SectionTitle title={t("overview.volume")} />
+              <View style={styles.chartHeader}>
+                <Text
+                  style={[
+                    Typography.titleSm,
+                    styles.chartTitle,
+                    { color: textColor },
+                  ]}
+                >
+                  {t("overview.volume")}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("overview.seeFullStatistics")}
+                  onPress={() => router.push("/statistics")}
+                  style={styles.statisticsLink}
+                >
+                  <Text style={[Typography.caption, { color: primary }]}>
+                    {t("overview.seeFullStatistics")}
+                  </Text>
+                  <IconSymbol name="chevron.right" size={12} color={primary} />
+                </Pressable>
+              </View>
               <VolumeBarChart
-                data={detail.volume_weeks}
+                data={detail?.volume_weeks.slice(-10) ?? []}
+                today={todayProgress}
                 metric={isTimeExercise ? "duration" : "volume"}
                 labels={{
                   total: isTimeExercise
@@ -903,6 +1037,65 @@ export default function ExerciseDetailScreen() {
                     ? t("overview.durationWeeklyAvg")
                     : t("overview.volumeWeeklyAvg"),
                   perWeek: t("overview.perWeek"),
+                }}
+                getTooltip={(week) => {
+                  const title = tString("overview.weekOf", {
+                    date: formatLongDate(week.week_start) ?? week.week_start,
+                  });
+                  const weekMetrics = getExerciseWeekMetrics(
+                    week.week_start,
+                    sessions
+                  );
+                  const metrics = isTimeExercise
+                    ? [
+                        {
+                          label: tString("overview.chartDuration"),
+                          value: formatExerciseDuration(
+                            week.total_duration_seconds ?? 0
+                          ),
+                        },
+                        {
+                          label: tString("overview.bestDuration"),
+                          value: weekMetrics.maxDurationSeconds
+                            ? formatExerciseDuration(
+                                weekMetrics.maxDurationSeconds
+                              )
+                            : "-",
+                        },
+                      ]
+                    : [
+                        {
+                          label: tString("overview.chartVolume"),
+                          value: wu.formatVolume(week.volume_kg),
+                        },
+                        {
+                          label: tString("overview.maxWeight"),
+                          value: weekMetrics.maxWeightKg
+                            ? wu.format(weekMetrics.maxWeightKg)
+                            : "-",
+                        },
+                        {
+                          label: tString("overview.maxReps"),
+                          value: formatValue(weekMetrics.maxReps),
+                        },
+                        {
+                          label: tString("overview.est1rm"),
+                          value: weekMetrics.estimatedOneRepMaxKg
+                            ? wu.format(weekMetrics.estimatedOneRepMaxKg)
+                            : "-",
+                        },
+                      ];
+
+                  return {
+                    title,
+                    metrics,
+                    accessibilityLabel: [
+                      title,
+                      ...metrics.map(
+                        (metric) => `${metric.label}: ${metric.value}`
+                      ),
+                    ].join(", "),
+                  };
                 }}
               />
             </View>
@@ -923,11 +1116,11 @@ export default function ExerciseDetailScreen() {
       );
     }
 
-    if (detailLoading) {
+    if (detailLoading || editableHistoryLoading) {
       return <LoadingPlaceholder />;
     }
 
-    if (detailError) {
+    if (detailError || editableHistoryError) {
       return (
         <ErrorState
           title={t("error.title")}
@@ -935,6 +1128,7 @@ export default function ExerciseDetailScreen() {
           retryLabel={t("error.retry")}
           onRetry={() => {
             refetchDetail();
+            refetchEditableHistory();
           }}
         />
       );
@@ -943,7 +1137,7 @@ export default function ExerciseDetailScreen() {
     const isTimeExercise =
       (detail?.exercise_type ?? exercise?.exercise_type) === "time";
 
-    if (sessions.length === 0) {
+    if (!editableHistory || editableHistory.length === 0) {
       return (
         <View style={styles.emptyState}>
           <Text
@@ -957,9 +1151,9 @@ export default function ExerciseDetailScreen() {
 
     return (
       <View style={styles.sectionStack}>
-        {sessions.map((session) => (
+        {editableHistory.map((session) => (
           <SessionRow
-            key={`${session.date}-${session.workout_name}-${session.sets?.length ?? 0}`}
+            key={session.id}
             session={session}
             setLabel={(number) => t("history.set", { number })}
             completedSetsLabel={t("history.completedSets", {
@@ -967,6 +1161,13 @@ export default function ExerciseDetailScreen() {
             })}
             isTimeExercise={isTimeExercise}
             wu={wu}
+            menuAccessibilityLabel={tHistory("detail.exerciseMenu.open", {
+              exerciseName: exercise?.name ?? session.workout_name,
+            })}
+            onOpenMenu={() => {
+              setSelectedHistory(session);
+              setHistoryMenuVisible(true);
+            }}
           />
         ))}
       </View>
@@ -1161,6 +1362,35 @@ export default function ExerciseDetailScreen() {
               }
             }}
           />
+          <ExerciseHistoryMenu
+            visible={historyMenuVisible}
+            exerciseName={exercise?.name ?? ""}
+            dateLabel={
+              selectedHistory
+                ? (formatLongDate(selectedHistory.date) ?? selectedHistory.date)
+                : ""
+            }
+            setCount={selectedHistory?.sets.length ?? 0}
+            onClose={() => setHistoryMenuVisible(false)}
+            onEdit={() => setHistoryEditorVisible(true)}
+            onDelete={handleDeleteHistory}
+          />
+          <ExerciseHistoryEditSheet
+            visible={historyEditorVisible}
+            exerciseName={exercise?.name ?? ""}
+            workoutName={selectedHistory?.workout_name ?? ""}
+            workoutDate={
+              selectedHistory
+                ? (formatLongDate(selectedHistory.date) ?? selectedHistory.date)
+                : ""
+            }
+            exerciseType={
+              detail?.exercise_type ?? exercise?.exercise_type ?? "weight"
+            }
+            sets={selectedHistory?.sets ?? []}
+            onClose={() => setHistoryEditorVisible(false)}
+            onSave={handleSaveHistory}
+          />
         </SafeAreaView>
       </SafeAreaProvider>
     </View>
@@ -1201,6 +1431,16 @@ const styles = StyleSheet.create({
   },
   sectionBlock: {
     gap: Spacing.lg,
+  },
+  chartHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  chartTitle: { flex: 1 },
+  statisticsLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    minHeight: 44,
+    maxWidth: "50%",
+    flexShrink: 1,
   },
   sectionTitleWrap: {
     gap: 2,
@@ -1315,21 +1555,27 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
   },
   sessionHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.md,
-  },
-  sessionTitleWrap: {
-    flex: 1,
-    minWidth: 0,
     gap: 2,
   },
+  sessionPrimaryRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
   sessionTitle: {
-    flexShrink: 1,
+    flex: 1,
+    minWidth: 0,
   },
   sessionDate: {
     flexShrink: 0,
     textAlign: "right",
+  },
+  sessionMenuButton: {
+    alignItems: "center",
+    height: 24,
+    justifyContent: "center",
+    marginRight: -Spacing.sm,
+    width: 32,
   },
   setList: {
     gap: Spacing.sm,

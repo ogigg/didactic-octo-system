@@ -1,6 +1,7 @@
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useEffect, useRef } from "react";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import { ProBadge } from "@/components/subscription/pro-badge";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSubscription } from "@/hooks/use-subscription";
+import { trackEvent } from "@/lib/track-event";
+import { openSubscriptionManagement } from "@/lib/subscription-management";
 
 interface BenefitItemProps {
   iconName: "bolt.fill" | "chart.xyaxis.line" | "timer" | "scope";
@@ -50,7 +53,7 @@ function BenefitItem({ iconName, title, description }: BenefitItemProps) {
 
 export default function SubscriptionScreen() {
   const { t } = useTranslation("subscription");
-  const { tier, isProActive, weeklyUsage, weeklyLimit, isLoading } =
+  const { isProActive, weeklyUsage, weeklyLimit, isLoading } =
     useSubscription();
 
   const background = useThemeColor({}, "background");
@@ -66,9 +69,37 @@ export default function SubscriptionScreen() {
     weeklyLimit === 0 || !isFinite(weeklyLimit)
       ? 0
       : Math.min(weeklyUsage / weeklyLimit, 1);
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (isLoading || isProActive || hasTrackedView.current) return;
+    hasTrackedView.current = true;
+
+    trackEvent("paywall_viewed", {
+      source: "subscription",
+      used_count: weeklyUsage,
+      limit_count: weeklyLimit,
+    });
+  }, [isLoading, isProActive, weeklyLimit, weeklyUsage]);
 
   function handleUpgrade() {
+    trackEvent("upgrade_tapped", {
+      source: "subscription",
+      used_count: weeklyUsage,
+      limit_count: weeklyLimit,
+    });
     Alert.alert(t("screen.upgradeCta"), t("screen.comingSoon"));
+  }
+
+  async function handleManageSubscription() {
+    try {
+      await openSubscriptionManagement();
+    } catch {
+      Alert.alert(
+        t("screen.management.errorTitle"),
+        t("screen.management.errorMessage")
+      );
+    }
   }
 
   const planTitle = isProActive
@@ -85,7 +116,7 @@ export default function SubscriptionScreen() {
       <SafeAreaView style={styles.safe}>
         {/* Header */}
         <View style={styles.header}>
-          <BackButton accessibilityLabel="Go back" />
+          <BackButton accessibilityLabel={t("screen.backAccessibilityLabel")} />
           <Text
             style={[Typography.titleMd, { color: textColor }]}
             accessibilityRole="header"
@@ -166,6 +197,20 @@ export default function SubscriptionScreen() {
               </>
             )}
           </View>
+
+          {isProActive && (
+            <View style={styles.management}>
+              <Text style={[Typography.body, { color: textSecondary }]}>
+                {t("screen.management.description")}
+              </Text>
+              <Button
+                label={t("screen.management.button")}
+                onPress={() => void handleManageSubscription()}
+                accessibilityLabel={t("screen.management.accessibilityLabel")}
+                variant="secondary"
+              />
+            </View>
+          )}
 
           {/* Benefits */}
           {!isProActive && (
@@ -252,6 +297,10 @@ const styles = StyleSheet.create({
   },
   planDescription: {
     marginBottom: Spacing.xs,
+  },
+  management: {
+    marginTop: Spacing.xl,
+    gap: Spacing.md,
   },
   divider: {
     height: 1,

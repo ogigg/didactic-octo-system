@@ -5,6 +5,7 @@ export const exerciseDetail = {
     howTo: "How To",
   },
   overview: {
+    seeFullStatistics: "See full statistics",
     records: "Personal Records",
     recordsHint: "Your best results for this exercise.",
     sessionsCount: "{{count}} sessions",
@@ -22,6 +23,9 @@ export const exerciseDetail = {
     durationTotal: "Total time",
     durationWeeklyAvg: "Weekly avg",
     perWeek: "/wk",
+    weekOf: "Week of {{date}}",
+    chartVolume: "Volume",
+    chartDuration: "Duration",
     achievedOn: "Hit on {{date}}",
     noDate: "Date unavailable",
     noData: "Complete workouts with this exercise to see stats.",

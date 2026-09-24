@@ -16,10 +16,13 @@ import { Button } from "@/components/ui/button";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
+import { useProfile } from "@/hooks/use-profile-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
+import { buildTemplateWorkoutExercises } from "@/lib/start-template-workout";
+import type { WeightUnit } from "@/lib/unit-conversion";
 import { useWorkoutTemplatesStore } from "@/stores/workout-templates-store";
 import { useWorkoutStore } from "@/stores/workout-store";
-import type { WorkoutExercise } from "@/stores/workout-store";
 
 interface PersistHydrationApi {
   hasHydrated: () => boolean;
@@ -61,6 +64,7 @@ export default function WorkoutTemplateScreen() {
     state.templates.find((item) => item.id === id)
   );
   const isWorkoutActive = useWorkoutStore((state) => state.isActive);
+  const { data: profile } = useProfile();
 
   const exerciseIds = useMemo(
     () => template?.exercises.map((exercise) => exercise.id) ?? [],
@@ -75,40 +79,39 @@ export default function WorkoutTemplateScreen() {
   const warning = useThemeColor({}, "warning");
   const background = useThemeColor({}, "background");
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (!storesHydrated || !template || startInFlightRef.current) return;
-
-    const workoutState = useWorkoutStore.getState();
-    if (workoutState.isActive) return;
+    if (useWorkoutStore.getState().isActive) return;
 
     startInFlightRef.current = true;
     setIsStarting(true);
 
-    const createdAt = Date.now();
-    const exercises: WorkoutExercise[] = template.exercises.map(
-      (exercise, exerciseIndex) => ({
-        id: exercise.id,
-        name: exerciseMap.get(exercise.id)?.name ?? exercise.name,
-        exerciseType: "weight",
-        restDurationSeconds: 90,
-        notes: "",
-        difficultyFeedback: null,
-        sets: Array.from({ length: 3 }, (_, setIndex) => ({
-          id: `set-${exercise.id}-${exerciseIndex}-${setIndex}-${createdAt}`,
-          type: "working",
-          kg: "",
-          reps: "",
-          durationSeconds: null,
-          rpe: null,
-          isCompleted: false,
-          previousDisplay: null,
-        })),
-      })
-    );
+    const weightUnit: WeightUnit = (profile?.weight_unit as WeightUnit) ?? "kg";
+    const previousById = await fetchPreviousSetDisplays(
+      template.exercises.map((exercise) => exercise.id),
+      weightUnit
+    ).catch(() => ({}));
 
-    workoutState.startWorkout(template.name, exercises);
+    // A workout may have been restored or started while history loaded.
+    const workoutState = useWorkoutStore.getState();
+    if (workoutState.isActive) {
+      startInFlightRef.current = false;
+      setIsStarting(false);
+      return;
+    }
+
+    const exercises = buildTemplateWorkoutExercises(template.exercises, {
+      resolveName: (exerciseId, fallback) =>
+        exerciseMap.get(exerciseId)?.name ?? fallback,
+      previousById,
+    });
+    workoutState.startWorkout(template.name, exercises, undefined, null, {
+      workoutSource: "template",
+      workoutId: template.id,
+      weightUnit,
+    });
     router.replace("/workout");
-  }, [exerciseMap, router, storesHydrated, template]);
+  }, [exerciseMap, profile?.weight_unit, router, storesHydrated, template]);
 
   if (!storesHydrated) {
     return (

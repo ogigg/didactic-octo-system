@@ -159,7 +159,8 @@ export default function DeleteAccountScreen() {
         <ScreenHeader
           title={t("header.title")}
           titleStyle={Typography.titleMd}
-          onBack={isPending ? () => {} : undefined}
+          backDisabled={isPending}
+          backAccessibilityLabel={t("accessibility.back")}
         />
 
         <KeyboardAvoidingView
@@ -253,6 +254,48 @@ export default function DeleteAccountScreen() {
               </View>
             </View>
 
+            <View style={styles.section}>
+              <Text
+                style={[
+                  Typography.label,
+                  styles.sectionLabel,
+                  { color: textMuted },
+                ]}
+              >
+                {t("retention.heading")}
+              </Text>
+              <Text
+                style={[
+                  Typography.body,
+                  styles.detailBody,
+                  { color: textSecondary },
+                ]}
+              >
+                {t("retention.body")}
+              </Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text
+                style={[
+                  Typography.label,
+                  styles.sectionLabel,
+                  { color: textMuted },
+                ]}
+              >
+                {t("subscription.heading")}
+              </Text>
+              <Text
+                style={[
+                  Typography.body,
+                  styles.detailBody,
+                  { color: textSecondary },
+                ]}
+              >
+                {t("subscription.body")}
+              </Text>
+            </View>
+
             {/* Confirmation input — friction for an irreversible action. */}
             <View style={styles.section}>
               <Text
@@ -312,8 +355,9 @@ export default function DeleteAccountScreen() {
               label={isPending ? t("cta.deleting") : t("cta.delete")}
               variant="destructive"
               onPress={handleDelete}
-              disabled={!canDelete || isPending}
-              accessibilityLabel={t("cta.delete")}
+              disabled={!canDelete}
+              loading={isPending}
+              accessibilityLabel={t("cta.accessibilityLabel")}
             />
             <Button
               label={t("cta.cancel")}
@@ -384,6 +428,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   confirmHelp: {
+    paddingHorizontal: Spacing.xs,
+  },
+  detailBody: {
     paddingHorizontal: Spacing.xs,
   },
   input: {

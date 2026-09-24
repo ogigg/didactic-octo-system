@@ -1,350 +1,199 @@
-import { useState } from "react";
-import type { Equipment, StrengthBaseline } from "@/stores/onboarding-store";
+import { useEffect, useRef, useState } from "react";
+import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { Radii, Spacing, Typography } from "@/constants/theme";
-import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
-
 import { NUMERIC_ACCESSORY_ID } from "@/components/numeric-keyboard-accessory";
+import { strengthBaselineSchema } from "@/lib/schemas/strength-baseline";
+import type { Equipment, StrengthBaseline } from "@/stores/onboarding-store";
 
-interface BaselineField {
-  exercise_key: string;
-  label: string;
-  hasLoad: boolean;
-  /** If true, show only when equipment allows load exercises */
-  requiresLoadEquipment: boolean;
+const EXERCISES = [
+  "pushups",
+  "pullups",
+  "db_bench",
+  "db_row",
+  "bb_bench",
+  "bb_squat",
+  "deadlift",
+] as const;
+interface Draft {
+  load: string;
+  reps: string;
 }
-
-const BASELINE_FIELDS: BaselineField[] = [
-  {
-    exercise_key: "pushups",
-    label: "Push-ups",
-    hasLoad: false,
-    requiresLoadEquipment: false,
-  },
-  {
-    exercise_key: "pullups",
-    label: "Pull-ups / Chin-ups",
-    hasLoad: false,
-    requiresLoadEquipment: false,
-  },
-  {
-    exercise_key: "db_bench",
-    label: "Dumbbell Bench Press",
-    hasLoad: true,
-    requiresLoadEquipment: true,
-  },
-  {
-    exercise_key: "db_row",
-    label: "Dumbbell Row",
-    hasLoad: true,
-    requiresLoadEquipment: true,
-  },
-  {
-    exercise_key: "bb_bench",
-    label: "Barbell Bench Press",
-    hasLoad: true,
-    requiresLoadEquipment: true,
-  },
-  {
-    exercise_key: "bb_squat",
-    label: "Barbell Squat",
-    hasLoad: true,
-    requiresLoadEquipment: true,
-  },
-  {
-    exercise_key: "deadlift",
-    label: "Deadlift",
-    hasLoad: true,
-    requiresLoadEquipment: true,
-  },
-];
-
 interface StrengthBaselineFormProps {
   equipment: Equipment | null;
   experience: "beginner" | "intermediate" | "advanced" | null;
   baselines: StrengthBaseline[];
   onChange: (baselines: StrengthBaseline[]) => void;
+  onValidityChange?: (valid: boolean) => void;
 }
-
 export function StrengthBaselineForm({
   equipment,
-  experience,
   baselines,
   onChange,
+  onValidityChange,
 }: StrengthBaselineFormProps) {
-  const { label: unitLabel } = useWeightUnit();
-  const textColor = useThemeColor({}, "text");
-  const textSecondary = useThemeColor({}, "textSecondary");
-  const textMuted = useThemeColor({}, "textMuted");
+  const { t } = useTranslation("strengthBaselines");
+  const { label: unitLabel, unit, convert, toKg } = useWeightUnit();
+  const text = useThemeColor({}, "text");
+  const secondary = useThemeColor({}, "textSecondary");
+  const errorColor = useThemeColor({}, "error");
+  const fill = useThemeColor({}, "inputFill");
   const border = useThemeColor({}, "border");
-  const inputFill = useThemeColor({}, "inputFill");
-
-  const showLoadExercises =
-    equipment === "dumbbells" || equipment === "full_gym";
-  const showFullGymOnly = equipment === "full_gym";
-  // Hide pullups for bodyweight beginners (can't do them yet)
-  const hidePullups = equipment === "bodyweight" && experience === "beginner";
-
-  function getBaseline(key: string): StrengthBaseline | undefined {
-    return baselines.find((b) => b.exercise_key === key);
+  const lastEmitted = useRef(baselines);
+  function fromBaselines(rows: StrengthBaseline[]) {
+    return Object.fromEntries(
+      rows.map((row) => [
+        row.exercise_key,
+        {
+          load:
+            row.load_kg === null
+              ? ""
+              : String(Math.round(convert(row.load_kg) * 100) / 100),
+          reps: String(row.reps),
+        },
+      ])
+    );
   }
-
-  function updateBaseline(
-    key: string,
-    field: "load_kg" | "reps",
-    rawValue: string
-  ) {
-    const numericValue = rawValue === "" ? null : Number(rawValue);
-    if (rawValue !== "" && numericValue !== null && isNaN(numericValue)) return;
-
-    const existing = baselines.find((b) => b.exercise_key === key);
-    let updated: StrengthBaseline[];
-    if (existing) {
-      updated = baselines.map((b) =>
-        b.exercise_key === key ? { ...b, [field]: numericValue } : b
-      );
-    } else {
-      updated = [
-        ...baselines,
-        { exercise_key: key, load_kg: null, reps: 0, [field]: numericValue },
-      ];
+  const [drafts, setDrafts] = useState<Record<string, Draft>>(() =>
+    fromBaselines(baselines)
+  );
+  const previousUnit = useRef(unit);
+  useEffect(() => {
+    if (baselines !== lastEmitted.current || unit !== previousUnit.current) {
+      setDrafts(fromBaselines(baselines));
+      lastEmitted.current = baselines;
+      previousUnit.current = unit;
     }
-
-    // Remove entries that have no meaningful data
-    const cleaned = updated.filter((b) => b.load_kg !== null || b.reps !== 0);
-    onChange(cleaned);
-  }
-
-  const visibleFields = BASELINE_FIELDS.filter((f) => {
-    if (f.exercise_key === "pullups" && hidePullups) return false;
-
-    // Bodyweight-only exercises: always show pushups and pullups
-    if (!f.requiresLoadEquipment) return true;
-
-    // Load exercises need dumbbells+
-    if (!showLoadExercises) return false;
-
-    // Barbell and deadlift only for full gym
-    if (
-      (f.exercise_key === "bb_bench" ||
-        f.exercise_key === "bb_squat" ||
-        f.exercise_key === "deadlift") &&
-      !showFullGymOnly
-    ) {
-      return false;
-    }
-
-    return true;
+    // Conversion changes only when unit changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baselines, unit]);
+  const visible = EXERCISES.filter((key) => {
+    if (key === "pushups" || key === "pullups") return true;
+    if (equipment === "full_gym") return true;
+    return equipment === "dumbbells"
+      ? key.startsWith("db_")
+      : equipment === "barbell"
+        ? key.startsWith("bb_") || key === "deadlift"
+        : false;
   });
-
-  // Split into bodyweight and load sections
-  const bodyweightFields = visibleFields.filter((f) => !f.hasLoad);
-  const loadFields = visibleFields.filter((f) => f.hasLoad);
-
+  function parse(key: (typeof EXERCISES)[number], draft: Draft) {
+    const weighted = key !== "pushups" && key !== "pullups";
+    if (!draft.load.trim() && !draft.reps.trim()) return null;
+    return strengthBaselineSchema.safeParse({
+      exercise_key: key,
+      load_kg:
+        weighted && draft.load.trim()
+          ? toKg(Number(draft.load.replace(",", ".")))
+          : null,
+      reps: draft.reps.trim() ? Number(draft.reps) : NaN,
+    });
+  }
+  const valid = visible.every(
+    (key) =>
+      parse(key, drafts[key] ?? { load: "", reps: "" })?.success !== false
+  );
+  useEffect(() => {
+    onValidityChange?.(valid);
+  }, [valid, onValidityChange]);
+  function update(
+    key: (typeof EXERCISES)[number],
+    field: keyof Draft,
+    value: string
+  ) {
+    const next = {
+      ...drafts,
+      [key]: { ...(drafts[key] ?? { load: "", reps: "" }), [field]: value },
+    };
+    setDrafts(next);
+    const rows = visible.flatMap((exercise) => {
+      const parsed = parse(exercise, next[exercise] ?? { load: "", reps: "" });
+      return parsed?.success ? [parsed.data] : [];
+    });
+    lastEmitted.current = rows;
+    onChange(rows);
+  }
   return (
     <View>
-      {bodyweightFields.map((field) => (
-        <BaselineRow
-          key={field.exercise_key}
-          label={field.label}
-          hasLoad={false}
-          loadKg={getBaseline(field.exercise_key)?.load_kg ?? null}
-          reps={getBaseline(field.exercise_key)?.reps ?? 0}
-          onLoadChange={(v) => updateBaseline(field.exercise_key, "load_kg", v)}
-          onRepsChange={(v) => updateBaseline(field.exercise_key, "reps", v)}
-          unitLabel={unitLabel}
-          textColor={textColor}
-          textSecondary={textSecondary}
-          textMuted={textMuted}
-          border={border}
-          inputFill={inputFill}
-        />
-      ))}
-
-      {loadFields.length > 0 && bodyweightFields.length > 0 && (
-        <View style={[styles.sectionDivider, { backgroundColor: border }]} />
-      )}
-
-      {loadFields.length > 0 && (
-        <Text
-          style={[Typography.label, { color: textMuted }, styles.sectionLabel]}
-        >
-          WEIGHTED EXERCISES
-        </Text>
-      )}
-
-      {loadFields.map((field) => (
-        <BaselineRow
-          key={field.exercise_key}
-          label={field.label}
-          hasLoad={true}
-          loadKg={getBaseline(field.exercise_key)?.load_kg ?? null}
-          reps={getBaseline(field.exercise_key)?.reps ?? 0}
-          onLoadChange={(v) => updateBaseline(field.exercise_key, "load_kg", v)}
-          onRepsChange={(v) => updateBaseline(field.exercise_key, "reps", v)}
-          unitLabel={unitLabel}
-          textColor={textColor}
-          textSecondary={textSecondary}
-          textMuted={textMuted}
-          border={border}
-          inputFill={inputFill}
-        />
-      ))}
-    </View>
-  );
-}
-
-interface BaselineRowProps {
-  label: string;
-  hasLoad: boolean;
-  loadKg: number | null;
-  reps: number;
-  onLoadChange: (value: string) => void;
-  onRepsChange: (value: string) => void;
-  unitLabel: string;
-  textColor: string;
-  textSecondary: string;
-  textMuted: string;
-  border: string;
-  inputFill: string;
-}
-
-function BaselineRow({
-  label,
-  hasLoad,
-  loadKg,
-  reps,
-  onLoadChange,
-  onRepsChange,
-  unitLabel,
-  textColor,
-  textSecondary,
-  textMuted,
-  border,
-  inputFill,
-}: BaselineRowProps) {
-  return (
-    <View style={styles.fieldRow}>
-      <Text style={[Typography.body, { color: textColor }, styles.fieldLabel]}>
-        {label}
+      <Text style={[Typography.caption, styles.hint, { color: secondary }]}>
+        {t("form.guidance")}
       </Text>
-      <View style={styles.inputGroup}>
-        {hasLoad && (
-          <>
-            <NumberInput
-              value={loadKg === null ? "" : String(loadKg)}
-              onChange={onLoadChange}
-              placeholder={unitLabel}
-              textColor={textColor}
-              textMuted={textMuted}
-              inputFill={inputFill}
-              border={border}
-              style={styles.loadInput}
-            />
-            <Text style={[Typography.caption, { color: textMuted }]}>×</Text>
-          </>
-        )}
-        <NumberInput
-          value={reps === 0 ? "" : String(reps)}
-          onChange={onRepsChange}
-          placeholder="reps"
-          textColor={textColor}
-          textMuted={textMuted}
-          inputFill={inputFill}
-          border={border}
-          style={styles.repsInput}
-        />
-      </View>
+      {visible.map((key) => {
+        const weighted = key !== "pushups" && key !== "pullups";
+        const draft = drafts[key] ?? { load: "", reps: "" };
+        const invalid = parse(key, draft)?.success === false;
+        return (
+          <View key={key} style={[styles.row, { borderColor: border }]}>
+            <Text style={[Typography.bodyMedium, { color: text }]}>
+              {t(`exercises.${key}`)}
+            </Text>
+            <View style={styles.inputs}>
+              {(weighted
+                ? (["load", "reps"] as const)
+                : (["reps"] as const)
+              ).map((field) => (
+                <View style={styles.field} key={field}>
+                  <Text style={[Typography.caption, { color: secondary }]}>
+                    {field === "load" ? unitLabel : t("form.reps")}
+                  </Text>
+                  <TextInput
+                    value={draft[field]}
+                    onChangeText={(value) => update(key, field, value)}
+                    style={[
+                      styles.input,
+                      {
+                        color: text,
+                        backgroundColor: fill,
+                        borderColor: invalid ? errorColor : border,
+                      },
+                    ]}
+                    keyboardType={
+                      field === "load" ? "decimal-pad" : "number-pad"
+                    }
+                    maxLength={field === "load" ? 7 : 3}
+                    placeholder="—"
+                    placeholderTextColor={secondary}
+                    returnKeyType="done"
+                    inputAccessoryViewID={
+                      Platform.OS === "ios" ? NUMERIC_ACCESSORY_ID : undefined
+                    }
+                    accessibilityLabel={t(
+                      field === "load" ? "form.loadLabel" : "form.repsLabel",
+                      { exercise: t(`exercises.${key}`), unit: unitLabel }
+                    )}
+                  />
+                </View>
+              ))}
+            </View>
+            {invalid && (
+              <Text
+                accessibilityRole="alert"
+                style={[Typography.caption, { color: errorColor }]}
+              >
+                {t(weighted ? "form.pairError" : "form.repsError")}
+              </Text>
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
-
-interface NumberInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  textColor: string;
-  textMuted: string;
-  inputFill: string;
-  border: string;
-  style?: object;
-}
-
-function NumberInput({
-  value,
-  onChange,
-  placeholder,
-  textColor,
-  textMuted,
-  inputFill,
-  border,
-  style,
-}: NumberInputProps) {
-  const [focused, setFocused] = useState(false);
-
-  return (
-    <TextInput
-      style={[
-        styles.numberInput,
-        {
-          backgroundColor: inputFill,
-          color: textColor,
-          borderColor: focused ? border : "transparent",
-        },
-        style,
-      ]}
-      value={value}
-      onChangeText={onChange}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      placeholder={placeholder}
-      placeholderTextColor={textMuted}
-      keyboardType="number-pad"
-      returnKeyType="done"
-      maxLength={5}
-      inputAccessoryViewID={
-        Platform.OS === "ios" ? NUMERIC_ACCESSORY_ID : undefined
-      }
-      accessibilityLabel={`${placeholder} input`}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
-  fieldRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: Spacing.md,
-  },
-  fieldLabel: {
-    flex: 1,
-  },
-  inputGroup: {
-    flexDirection: "row",
-    alignItems: "center",
+  row: {
+    paddingVertical: Spacing.lg,
     gap: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  loadInput: {
-    width: 64,
-  },
-  repsInput: {
-    width: 64,
-  },
-  numberInput: {
+  inputs: { flexDirection: "row", gap: Spacing.lg },
+  field: { flex: 1, gap: Spacing.xs },
+  input: {
+    minHeight: 48,
+    borderWidth: 1,
     borderRadius: Radii.sm,
-    borderWidth: 1.5,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    textAlign: "center",
-    ...Typography.bodyMedium,
+    padding: Spacing.md,
+    ...Typography.body,
   },
-  sectionDivider: {
-    height: 1,
-    marginVertical: Spacing.lg,
-  },
-  sectionLabel: {
-    marginBottom: Spacing.md,
-  },
+  hint: { marginBottom: Spacing.md },
 });

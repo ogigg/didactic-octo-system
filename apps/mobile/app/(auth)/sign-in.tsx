@@ -19,18 +19,27 @@ import { AmbientGlow } from "@/components/ambient-glow";
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Button } from "@/components/ui/button";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { fetchLoginProviderHint } from "@/lib/api/login-provider-hint";
 import {
   type AuthValidationKey,
   type SignInFormData,
   signInSchema,
 } from "@/lib/schemas/auth";
 import { supabase } from "@/lib/supabase";
+import { normalizeAuthError, trackEvent } from "@/lib/track-event";
+
+const PROVIDER_LABELS: Record<string, string> = {
+  apple: "Apple",
+  google: "Google",
+};
 
 export default function SignInScreen() {
   const { t } = useTranslation("auth");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [providerHint, setProviderHint] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const textColor = useThemeColor({}, "text");
@@ -41,6 +50,14 @@ export default function SignInScreen() {
   const errorColor = useThemeColor({}, "error");
   const borderSubtle = useThemeColor({}, "borderSubtle");
   const primarySurface = useThemeColor({}, "primarySurface");
+  const warning = useThemeColor({}, "warning");
+  const warningSurface = useThemeColor(
+    {
+      light: "rgba(255, 172, 48, 0.14)",
+      dark: "rgba(255, 214, 10, 0.14)",
+    },
+    "primarySurface"
+  );
 
   const {
     control,
@@ -52,19 +69,42 @@ export default function SignInScreen() {
 
   async function onSubmit(data: SignInFormData) {
     setAuthError(null);
-    console.log("onSubmit", data);
+    setProviderHint(null);
+    trackEvent("signin_started", { auth_method: "email" });
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
-    console.log("error", error);
     if (error) {
-      setAuthError(
-        error.message.toLowerCase().includes("invalid")
-          ? t("errors.invalidCredentials")
-          : t("errors.generic")
-      );
+      trackEvent("signin_failed", {
+        auth_method: "email",
+        error_code: normalizeAuthError(error),
+        failure_stage: "password",
+      });
+      if (error.message.toLowerCase().includes("invalid")) {
+        let hint: Awaited<ReturnType<typeof fetchLoginProviderHint>> = null;
+        try {
+          hint = await fetchLoginProviderHint(data.email);
+        } catch {
+          hint = null;
+        }
+        const providerLabel = hint?.providers
+          .map((provider) => PROVIDER_LABELS[provider])
+          .find(Boolean);
+        if (hint && !hint.hasPassword && providerLabel) {
+          setProviderHint(
+            t("errors.ssoAccountHint", { provider: providerLabel })
+          );
+        } else {
+          setAuthError(t("errors.invalidCredentials"));
+        }
+      } else {
+        setAuthError(t("errors.generic"));
+      }
+      return;
     }
+
+    trackEvent("user_signed_in", { auth_method: "email" });
     // Success handled by onAuthStateChange → auth store → index.tsx routing
   }
 
@@ -90,6 +130,31 @@ export default function SignInScreen() {
           >
             {t("signIn.subtitle")}
           </Text>
+
+          {providerHint && (
+            <View
+              style={[
+                styles.providerHintBanner,
+                { backgroundColor: warningSurface, borderColor: warning },
+              ]}
+              accessibilityRole="alert"
+            >
+              <IconSymbol
+                name="exclamationmark.triangle.fill"
+                size={20}
+                color={warning}
+              />
+              <Text
+                style={[
+                  Typography.bodyMedium,
+                  styles.providerHintText,
+                  { color: textColor },
+                ]}
+              >
+                {providerHint}
+              </Text>
+            </View>
+          )}
 
           {authError && (
             <View
@@ -254,6 +319,16 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   subtitle: { marginTop: Spacing.xs },
+  providerHintBanner: {
+    alignItems: "flex-start",
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  providerHintText: { flex: 1 },
   errorBanner: {
     borderRadius: Radii.md,
     padding: Spacing.lg,

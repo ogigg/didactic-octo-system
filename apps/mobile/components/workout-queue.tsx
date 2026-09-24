@@ -1,5 +1,11 @@
-import { useCallback } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { WorkoutQueueCard } from "@/components/workout-queue-card";
@@ -24,9 +30,10 @@ import { useRouter } from "expo-router";
 
 interface WorkoutQueueProps {
   queue: PendingWorkout[];
+  isLoading: boolean;
 }
 
-export function WorkoutQueue({ queue }: WorkoutQueueProps) {
+export function WorkoutQueue({ queue, isLoading }: WorkoutQueueProps) {
   const { t } = useTranslation("home");
   const router = useRouter();
 
@@ -36,6 +43,7 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
   const primarySurface = useThemeColor({}, "primarySurface");
 
   const { data: profile } = useProfile();
+  const attemptedInitial = useRef<string | null>(null);
   const onboardingDone = profile?.onboarding_completed ?? false;
 
   const isWorkoutActive = useWorkoutStore((s) => s.isActive);
@@ -103,9 +111,52 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
         custom_prompt: profile.training_custom_prompt,
       },
       baselines: [],
-      trigger: "preference_change",
+      trigger: profile.initial_queue_generated_at
+        ? "preference_change"
+        : "onboarding",
     });
   }, [profile, rebuildQueue, router]);
+
+  const serverPreparing =
+    !!profile?.queue_generation_request_id &&
+    !!profile.queue_generation_started_at &&
+    Date.now() - Date.parse(profile.queue_generation_started_at) <
+      15 * 60 * 1000;
+  const preparing = rebuildQueue.isPending || serverPreparing;
+  useEffect(() => {
+    if (
+      !profile?.id ||
+      !onboardingDone ||
+      profile.initial_queue_generated_at ||
+      serverPreparing ||
+      attemptedInitial.current === profile.id
+    )
+      return;
+    attemptedInitial.current = profile.id;
+    handleBuildQueue();
+  }, [profile, onboardingDone, serverPreparing, handleBuildQueue]);
+
+  if (isLoading || (preparing && queue.length === 0)) {
+    return (
+      <View style={styles.container}>
+        <Text style={[Typography.titleMd, { color: text }]}>
+          {t("workoutQueue.title")}
+        </Text>
+        <View
+          style={styles.loadingContainer}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={t("workoutQueue.loading")}
+          accessibilityState={{ busy: true }}
+        >
+          <ActivityIndicator color={primary} />
+          <Text style={[Typography.body, { color: textMuted }]}>
+            {t("workoutQueue.loading")}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   if (queue.length === 0) {
     if (onboardingDone) {
@@ -117,9 +168,17 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
           <Text style={[Typography.caption, { color: textMuted }]}>
             {t("workoutQueue.emptyReadySubtitle")}
           </Text>
+          {rebuildQueue.isError && (
+            <Text
+              accessibilityRole="alert"
+              style={[Typography.caption, { color: text }]}
+            >
+              {t("workoutQueue.preparationError")}
+            </Text>
+          )}
           <Pressable
             onPress={handleBuildQueue}
-            disabled={rebuildQueue.isPending}
+            disabled={preparing}
             style={({ pressed }) => [
               styles.generateButton,
               {
@@ -154,6 +213,29 @@ export function WorkoutQueue({ queue }: WorkoutQueueProps) {
 
   return (
     <View style={styles.container}>
+      {preparing && (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[Typography.body, { color: textMuted }]}
+        >
+          {t("workoutQueue.preparing")}
+        </Text>
+      )}
+      {rebuildQueue.isError && (
+        <>
+          <Text
+            accessibilityRole="alert"
+            style={[Typography.body, { color: text }]}
+          >
+            {t("workoutQueue.preparationError")}
+          </Text>
+          <Pressable onPress={handleBuildQueue} accessibilityRole="button">
+            <Text style={[Typography.body, { color: primary }]}>
+              {t("workoutQueue.retryPreparation")}
+            </Text>
+          </Pressable>
+        </>
+      )}
       {/* Section header */}
       <View style={styles.headerRow}>
         <Text style={[Typography.titleMd, { color: text }]}>
@@ -212,6 +294,11 @@ const styles = StyleSheet.create({
   },
   cardList: {
     gap: Spacing.md,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing["3xl"],
+    gap: Spacing.sm,
   },
   emptyContainer: {
     alignItems: "center",
