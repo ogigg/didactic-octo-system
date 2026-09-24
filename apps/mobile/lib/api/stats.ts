@@ -38,7 +38,17 @@ export const personalRecordSchema = z.object({
   exercise_id: z.string().uuid(),
   exercise_name: z.string(),
   max_weight_kg: z.number(),
+  max_weight_reps: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
   max_reps: z.number(),
+  max_reps_weight_kg: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
   max_volume_set_kg: z.number(),
   est_1rm_kg: z.number().nullable(),
 });

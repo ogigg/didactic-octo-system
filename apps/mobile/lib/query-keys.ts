@@ -32,6 +32,7 @@ export const workoutStatsKeys = {
 export const calendarKeys = {
   all: ["calendar"] as const,
   entries: () => [...calendarKeys.all, "entries"] as const,
+  streakWeeks: () => [...calendarKeys.all, "streak-weeks"] as const,
 };
 
 export const exerciseMuscleKeys = {
@@ -51,6 +52,7 @@ export const exerciseDetailKeys = {
 
 export const exercisePreferenceKeys = {
   all: ["exercise-preferences"] as const,
+  list: () => [...exercisePreferenceKeys.all, "list"] as const,
   detail: (exerciseId: string) =>
     [...exercisePreferenceKeys.all, exerciseId] as const,
   batch: (exerciseIds: string[]) =>

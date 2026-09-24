@@ -1,19 +1,12 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, View, Text, TextInput } from "react-native";
 
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useLocalizedExerciseMap } from "@/hooks/use-exercises-query";
-
-interface PersonalRecord {
-  exercise_id: string;
-  exercise_name: string;
-  max_weight_kg: number;
-  max_reps: number;
-  max_volume_set_kg: number;
-  est_1rm_kg: number | null;
-}
+import type { PersonalRecord } from "@/lib/api/stats";
 
 interface PRListProps {
   records: PersonalRecord[];
@@ -23,20 +16,33 @@ interface PRListProps {
 interface StatBlockProps {
   value: string;
   label: string;
+  secondaryText?: string;
   valueColor: string;
   labelColor: string;
 }
 
-function StatBlock({ value, label, valueColor, labelColor }: StatBlockProps) {
+function StatBlock({
+  value,
+  label,
+  secondaryText,
+  valueColor,
+  labelColor,
+}: StatBlockProps) {
   return (
     <View style={styles.statBlock}>
       <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: labelColor }]}>{label}</Text>
+      {secondaryText ? (
+        <Text style={[styles.statContext, { color: labelColor }]}>
+          {secondaryText}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
+export function PRList({ records, emptyText }: PRListProps) {
+  const { t } = useTranslation("stats");
   const [query, setQuery] = useState("");
   const { format: fmtWeight } = useWeightUnit();
   const { exerciseMap } = useLocalizedExerciseMap(
@@ -70,16 +76,16 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
         ]}
         value={query}
         onChangeText={setQuery}
-        placeholder="Search exercises"
+        placeholder={t("records.searchPlaceholder")}
         placeholderTextColor={textMuted}
-        accessibilityLabel="Search exercises"
+        accessibilityLabel={t("records.searchPlaceholder")}
         clearButtonMode="while-editing"
       />
 
       {filtered.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={[styles.emptyText, { color: textSecondary }]}>
-            {emptyText}
+            {emptyText ?? t("records.empty")}
           </Text>
         </View>
       ) : (
@@ -107,19 +113,33 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
                 <View style={styles.statsRow}>
                   <StatBlock
                     value={fmtWeight(record.max_weight_kg)}
-                    label="Heaviest"
+                    label={t("records.heaviest")}
+                    secondaryText={
+                      record.max_weight_reps != null
+                        ? t("records.heaviestReps", {
+                            reps: record.max_weight_reps,
+                          })
+                        : undefined
+                    }
                     valueColor={textColor}
                     labelColor={textMuted}
                   />
                   <StatBlock
                     value={String(record.max_reps)}
-                    label="Most Reps"
+                    label={t("records.mostReps")}
+                    secondaryText={
+                      record.max_reps_weight_kg != null
+                        ? t("records.mostRepsWeight", {
+                            weight: fmtWeight(record.max_reps_weight_kg),
+                          })
+                        : undefined
+                    }
                     valueColor={textColor}
                     labelColor={textMuted}
                   />
                   <StatBlock
                     value={fmtWeight(record.max_volume_set_kg)}
-                    label="Best Set"
+                    label={t("records.bestSet")}
                     valueColor={textColor}
                     labelColor={textMuted}
                   />
@@ -129,7 +149,7 @@ export function PRList({ records, emptyText = "No records yet" }: PRListProps) {
                         ? fmtWeight(record.est_1rm_kg)
                         : "\u2014"
                     }
-                    label="Est. 1RM"
+                    label={t("records.est1rm")}
                     valueColor={primaryColor}
                     labelColor={textMuted}
                   />
@@ -173,6 +193,10 @@ const styles = StyleSheet.create({
   statLabel: {
     ...Typography.micro,
     marginTop: 2,
+  },
+  statContext: {
+    ...Typography.micro,
+    marginTop: 1,
   },
   emptyState: {
     alignItems: "center",

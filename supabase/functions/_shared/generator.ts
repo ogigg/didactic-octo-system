@@ -2,8 +2,10 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import {
   calculateProgression,
+  getPrimaryHistoryLoadKg,
   type ExerciseHistory,
   formatExerciseDuration,
+  suggestInitialLoadKg,
 } from "./progression.ts";
 
 // ---------------------------------------------------------------------------
@@ -11,7 +13,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-export const OPENROUTER_MODEL = "z-ai/glm-4.7-flash";
+export const OPENROUTER_MODEL = "deepseek/deepseek-v4-flash-0731";
 export const LLM_TIMEOUT_MS = 15_000;
 
 export const EXERCISE_COUNTS: Record<number, { min: number; max: number }> = {
@@ -21,6 +23,56 @@ export const EXERCISE_COUNTS: Record<number, { min: number; max: number }> = {
   60: { min: 6, max: 9 },
   90: { min: 8, max: 12 },
 };
+
+/** Keep exactly one leading warmup for weight; strip warmups for time. Idempotent. */
+export function normalizeGeneratedExerciseSets<
+  T extends {
+    set_type: "warmup" | "working";
+    target_load_kg?: number;
+    target_reps?: number;
+    target_duration_seconds?: number;
+  },
+>(exerciseType: "weight" | "time", sets: T[]): T[] {
+  const working = sets.filter((set) => set.set_type === "working");
+
+  if (exerciseType === "time") {
+    if (working.length > 0) {
+      return working.map((set) => ({
+        ...set,
+        set_type: "working" as const,
+      }));
+    }
+
+    return [
+      {
+        set_type: "working",
+        target_duration_seconds: 40,
+      } as T,
+    ];
+  }
+
+  const preservedWorking =
+    working.length > 0
+      ? working
+      : ([
+          {
+            set_type: "working",
+            target_load_kg: 0,
+            target_reps: 10,
+          },
+        ] as T[]);
+
+  const firstWarmup = sets.find((set) => set.set_type === "warmup");
+  const warmup = firstWarmup
+    ? { ...firstWarmup, set_type: "warmup" as const }
+    : ({
+        set_type: "warmup",
+        target_load_kg: 0,
+        target_reps: 10,
+      } as T);
+
+  return [warmup, ...preservedWorking];
+}
 
 // ---------------------------------------------------------------------------
 // Zod Schemas
@@ -117,6 +169,7 @@ export const generateWorkoutResponseSchema = z.object({
   ]),
   goal_snapshot: z.enum([
     "build_strength",
+    "build_muscle",
     "lose_weight",
     "improve_fitness",
     "custom",
@@ -220,6 +273,58 @@ export interface GenerateWorkoutParams {
   history?: HistorySession[];
   recentComments?: RecentSessionComment[];
   regenerationFeedback?: string;
+  /** Service-role client used to persist raw LLM traces into llm_generation_logs. */
+  loggingClient?: SupabaseClient;
+  pendingWorkoutId?: string | null;
+  functionName?: string;
+}
+
+interface LlmTrace {
+  status: "success" | "parse_error" | "api_error" | "timeout";
+  requestMessages: { role: string; content: string }[];
+  rawResponse?: unknown;
+  parsedContent?: unknown;
+  reasoningContent?: string | null;
+  errorMessage?: string;
+  durationMs?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+}
+
+async function logLlmGeneration(
+  loggingClient: SupabaseClient | undefined,
+  params: {
+    userId: string;
+    functionName: string;
+    pendingWorkoutId?: string | null;
+    trace: LlmTrace;
+  }
+): Promise<void> {
+  if (!loggingClient) return;
+
+  const { trace } = params;
+  try {
+    await loggingClient.from("llm_generation_logs").insert({
+      user_id: params.userId,
+      pending_workout_id: params.pendingWorkoutId ?? null,
+      function_name: params.functionName,
+      model: OPENROUTER_MODEL,
+      status: trace.status,
+      request_messages: trace.requestMessages,
+      raw_response: trace.rawResponse ?? null,
+      parsed_content: trace.parsedContent ?? null,
+      reasoning_content: trace.reasoningContent ?? null,
+      error_message: trace.errorMessage ?? null,
+      duration_ms: trace.durationMs ?? null,
+      prompt_tokens: trace.promptTokens ?? null,
+      completion_tokens: trace.completionTokens ?? null,
+    });
+  } catch (err) {
+    console.error(
+      "[generator] Failed to persist llm_generation_logs entry:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -289,6 +394,183 @@ function formatBaselines(baselines: StrengthBaseline[]): string {
     lines.join("\n"),
     "Use these as reference points when programming loads. For exercises the user hasn't tested, estimate conservatively based on these numbers and their experience level.",
   ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Helper: Initial Load Validation (new exercises)
+// ---------------------------------------------------------------------------
+
+/** Maps strength-baseline keys to the primary muscles they anchor. */
+const BASELINE_MUSCLES: Record<string, string[]> = {
+  pushups: ["Pectoralis major", "Triceps brachii"],
+  pullups: ["Latissimus dorsi", "Biceps brachii"],
+  db_bench: ["Pectoralis major", "Anterior deltoid"],
+  db_row: ["Latissimus dorsi", "Trapezius"],
+  bb_bench: ["Pectoralis major", "Anterior deltoid"],
+  bb_squat: ["Quadriceps", "Gluteus maximus"],
+  deadlift: ["Erector spinae", "Hamstrings", "Gluteus maximus"],
+};
+
+function findBaselineAnchorLoadKg(
+  catalogEntry: ExerciseCatalogEntry,
+  baselines: StrengthBaseline[]
+): number | null {
+  let bestLoadKg: number | null = null;
+  let bestOverlap = 0;
+  for (const baseline of baselines) {
+    if (!baseline.load_kg || baseline.load_kg <= 0) continue;
+    const overlap = (BASELINE_MUSCLES[baseline.exercise_key] ?? []).filter(
+      (muscle) => catalogEntry.primary_muscles.includes(muscle)
+    ).length;
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestLoadKg = baseline.load_kg;
+    }
+  }
+  return bestOverlap > 0 ? bestLoadKg : null;
+}
+
+function findSimilarExerciseHistory(
+  catalogEntry: ExerciseCatalogEntry,
+  catalogById: Map<string, ExerciseCatalogEntry>,
+  historyByExerciseId: Map<string, ExerciseHistory>,
+  excludeExerciseId: string
+): ExerciseHistory | null {
+  let bestHistory: ExerciseHistory | null = null;
+  let bestOverlap = 0;
+
+  for (const [exerciseId, history] of historyByExerciseId) {
+    if (exerciseId === excludeExerciseId) continue;
+    if (getPrimaryHistoryLoadKg(history) == null) continue;
+
+    const entry = catalogById.get(exerciseId);
+    if (!entry) continue;
+
+    const overlap = entry.primary_muscles.filter((muscle) =>
+      catalogEntry.primary_muscles.includes(muscle)
+    ).length;
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestHistory = history;
+    }
+  }
+  return bestHistory;
+}
+
+function roundToIncrement(kg: number, equipment: string[]): number {
+  const increments: Record<string, number> = {
+    barbell: 2.5,
+    dumbbell: 2,
+    default: 1.25,
+  };
+  const lowered = equipment.map((e) => e.toLowerCase());
+  const increment = lowered.some((e) => e.includes("barbell"))
+    ? increments.barbell
+    : lowered.some((e) => e.includes("dumbbell"))
+      ? increments.dumbbell
+      : increments.default;
+  return Math.floor(kg / increment) * increment;
+}
+
+export interface LoadValidationTarget {
+  exercise_id: string;
+  exercise_type: "weight" | "time";
+  sets: {
+    set_type: "warmup" | "working";
+    target_load_kg?: number;
+    target_reps?: number;
+    target_duration_seconds?: number;
+  }[];
+}
+
+/**
+ * Backend safety net for exercises the user has never trained.
+ *
+ * The LLM proposes initial loads; this pass rejects invalid ones
+ * (missing, zero, negative) on working sets and replaces them with a
+ * deterministic suggestion from suggestInitialLoadKg. Warmup sets get
+ * roughly half the working load. Exercises with progression history are
+ * left untouched — calculateProgression already owns those numbers.
+ *
+ * Returns the number of sets corrected.
+ */
+export function validateAndCorrectLoads(params: {
+  exercises: LoadValidationTarget[];
+  catalogById: Map<string, ExerciseCatalogEntry>;
+  historyByExerciseId: Map<string, ExerciseHistory>;
+  strengthBaselines: StrengthBaseline[];
+  trainingStyle: string;
+}): number {
+  let correctedSets = 0;
+
+  for (const exercise of params.exercises) {
+    if (exercise.exercise_type !== "weight") continue;
+
+    const catalogEntry = params.catalogById.get(exercise.exercise_id);
+    if (!catalogEntry) continue;
+
+    const equipment = catalogEntry.equipment;
+    const isBodyweightOnly =
+      equipment.length > 0 &&
+      equipment.every((e) => {
+        const lowered = e.toLowerCase();
+        return lowered === "bodyweight" || lowered === "body weight";
+      });
+    // Bodyweight exercises legitimately carry no external load.
+    if (isBodyweightOnly) continue;
+
+    const history =
+      params.historyByExerciseId.get(exercise.exercise_id) ?? null;
+    // Exercises with resolvable progression already have deterministic loads.
+    if (
+      calculateProgression(history, equipment, params.trainingStyle) !== null
+    ) {
+      continue;
+    }
+
+    const needsCorrection = exercise.sets.filter(
+      (set) =>
+        set.set_type === "working" &&
+        (set.target_load_kg == null || set.target_load_kg <= 0)
+    );
+    if (needsCorrection.length === 0) continue;
+
+    const similarHistory = findSimilarExerciseHistory(
+      catalogEntry,
+      params.catalogById,
+      params.historyByExerciseId,
+      exercise.exercise_id
+    );
+    const baselineLoadKg = findBaselineAnchorLoadKg(
+      catalogEntry,
+      params.strengthBaselines
+    );
+
+    const suggestedLoadKg = suggestInitialLoadKg({
+      equipment,
+      similarExerciseHistory: similarHistory,
+      baselineLoadKg,
+    });
+
+    for (const set of needsCorrection) {
+      set.target_load_kg = suggestedLoadKg;
+      correctedSets++;
+    }
+
+    const workingLoadKg = suggestedLoadKg;
+    const warmupLoadKg = Math.max(
+      0,
+      roundToIncrement(workingLoadKg * 0.5, equipment)
+    );
+    for (const set of exercise.sets) {
+      if (set.set_type === "warmup" && (set.target_load_kg ?? 0) <= 0) {
+        set.target_load_kg = warmupLoadKg;
+        correctedSets++;
+      }
+    }
+  }
+
+  return correctedSets;
 }
 
 // ---------------------------------------------------------------------------
@@ -471,7 +753,7 @@ Response JSON schema:
         {
           "set_type": "warmup | working",
           // For weight exercises (Type: weight):
-          "target_load_kg": "number — weight in kg",
+          "target_load_kg": "number — weight in kg, must be greater than 0",
           "target_reps": "number — target repetitions",
           // For time exercises (Type: time), use instead:
           "target_duration_seconds": "number — hold duration in seconds"
@@ -513,7 +795,7 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 
   const user = `## User Profile
 - Goal: ${profile.goal}${profile.custom_goal ? ` (${profile.custom_goal})` : ""}
-- Weekly frequency: ${profile.weekly_frequency} days/week
+- Weekly frequency: ${profile.weekly_frequency === "5_plus" ? "5 or more" : profile.weekly_frequency} days/week
 - Gender: ${profile.gender ?? "not specified"}
 
 ## Workout Parameters
@@ -531,10 +813,10 @@ Keep every reasoning field specific, plain-language, and under 35 words. Do not 
 - Tailor set/rep schemes to "${trainingStyle}" style (strength: heavy/low reps, hypertrophy: moderate/8-12 reps, endurance: light/high reps, circuit: varied/minimal rest)
 - Adjust complexity and load for "${difficulty}" level
 - For "${splitLabel}" split, choose an appropriate muscle group focus for today's session
-- Include 1 warmup set per compound exercise (lower weight, higher reps)
+- Include 1 warmup set per weight exercise (lower weight, higher reps). Time exercises should only include working sets.
 - Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)
 - If feedback was "too_hard", maintain or slightly reduce load/duration
-- For new exercises (no history), use moderate starting weights or durations (20-45s for time exercises)
+- For new exercises (no history), every weight-exercise set MUST have a target_load_kg greater than 0 — pick a moderate starting weight (use the user's strength levels as reference). Time exercises use moderate durations (20-45s). Never output 0 kg.
 - Generate a creative, motivating workout name
 - Explain why the chosen muscle groups and each exercise fit today's plan using concise user-facing reasoning
 - For time exercises (Type: time), use target_duration_seconds instead of target_load_kg/target_reps
@@ -609,16 +891,6 @@ export function buildFallbackWorkout(
         };
       }
 
-      const isCompound =
-        ex.primary_muscles.length > 1 ||
-        ["barbell", "dumbbell"].some((eq) =>
-          ex.equipment.some((e) => e.toLowerCase().includes(eq))
-        );
-
-      const warmupSets: z.infer<typeof llmSetSchema>[] = isCompound
-        ? [{ set_type: "warmup" as const, target_load_kg: 0, target_reps: 10 }]
-        : [];
-
       const workingSets: z.infer<typeof llmSetSchema>[] = Array.from(
         { length: scheme.sets },
         () => ({
@@ -630,7 +902,14 @@ export function buildFallbackWorkout(
 
       return {
         exercise_id: ex.id,
-        sets: [...warmupSets, ...workingSets],
+        sets: normalizeGeneratedExerciseSets("weight", [
+          {
+            set_type: "warmup" as const,
+            target_load_kg: 0,
+            target_reps: 10,
+          },
+          ...workingSets,
+        ]),
         rest_duration_seconds: scheme.rest,
         notes: null,
         reasoning: buildDefaultExerciseReasoning({
@@ -778,6 +1057,26 @@ export function determineReplacementFocusArea(
   return "full_body";
 }
 
+export function filterCatalogByPreferences(
+  catalog: ExerciseCatalogEntry[],
+  preferences: ExercisePreference[] | undefined
+): ExerciseCatalogEntry[] {
+  const excludedIds = new Set(
+    (preferences ?? [])
+      .filter((pref) => pref.preference === "hard_dislike")
+      .map((pref) => pref.exercise_id)
+  );
+  if (excludedIds.size === 0) return catalog;
+  const filtered = catalog.filter((e) => !excludedIds.has(e.id));
+  if (!filtered.length) {
+    console.warn(
+      "[generator] All catalog exercises excluded by preferences; ignoring exclusions"
+    );
+    return catalog;
+  }
+  return filtered;
+}
+
 // ---------------------------------------------------------------------------
 // Core: Generate Single Workout
 // ---------------------------------------------------------------------------
@@ -802,20 +1101,30 @@ export async function generateSingleWorkout(
     customPrompt,
     focusArea,
     strengthBaselines,
+    exercisePreferences,
     queueContext,
     history = [],
     recentComments,
     regenerationFeedback,
+    loggingClient,
+    pendingWorkoutId,
+    functionName = "generate-workout",
   } = params;
 
   // Fetch exercise catalog
-  const catalog = await fetchExerciseCatalog(supabaseClient, equipment);
-  if (!catalog.length) {
+  const fullCatalog = await fetchExerciseCatalog(supabaseClient, equipment);
+  if (!fullCatalog.length) {
     return {
       success: false,
       error: "No exercises found for this equipment level",
     };
   }
+
+  // Exclude exercises the user marked as "never show again" (hard_dislike).
+  // This filters the catalog for the prompt, the fallback template, and the
+  // invalid-ID substitution path, and makes the LLM response validation treat
+  // excluded IDs as invalid so they get replaced.
+  const catalog = filterCatalogByPreferences(fullCatalog, exercisePreferences);
   const catalogMap = new Map(catalog.map((e) => [e.id, e]));
 
   // Try LLM generation
@@ -825,6 +1134,10 @@ export async function generateSingleWorkout(
   let workoutData: z.infer<typeof llmResponseSchema>;
 
   if (openrouterKey) {
+    let trace: LlmTrace | null = null;
+    let controller: AbortController | null = null;
+    let requestMessages: LlmTrace["requestMessages"] = [];
+    let llmStartedAt: number | null = null;
     try {
       const prompt = buildPrompt(
         profile,
@@ -843,9 +1156,14 @@ export async function generateSingleWorkout(
         regenerationFeedback
       );
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+      requestMessages = [
+        { role: "system", content: prompt.system },
+        { role: "user", content: prompt.user },
+      ];
 
+      controller = new AbortController();
+      const timeout = setTimeout(() => controller!.abort(), LLM_TIMEOUT_MS);
+      llmStartedAt = Date.now();
       const llmResponse = await fetch(OPENROUTER_URL, {
         method: "POST",
         headers: {
@@ -854,10 +1172,7 @@ export async function generateSingleWorkout(
         },
         body: JSON.stringify({
           model: OPENROUTER_MODEL,
-          messages: [
-            { role: "system", content: prompt.system },
-            { role: "user", content: prompt.user },
-          ],
+          messages: requestMessages,
           response_format: { type: "json_object" },
           temperature: 0.7,
           max_tokens: 2800,
@@ -866,23 +1181,67 @@ export async function generateSingleWorkout(
       });
 
       clearTimeout(timeout);
+      const durationMs = Date.now() - llmStartedAt;
 
       if (!llmResponse.ok) {
         const errorBody = await llmResponse.text();
-        throw new Error(
-          `OpenRouter returned ${llmResponse.status}: ${errorBody.slice(0, 200)}`
-        );
+        trace = {
+          status: "api_error",
+          requestMessages,
+          errorMessage: `OpenRouter returned ${llmResponse.status}: ${errorBody.slice(0, 200)}`,
+          durationMs,
+        };
+        throw new Error(trace.errorMessage!);
       }
 
       const llmJson = await llmResponse.json();
-      console.log("llmJson", llmJson);
-      console.log("llmJson.choices", llmJson.choices);
       const msg = llmJson.choices?.[0]?.message;
       const content = msg?.content || msg?.reasoning;
-      if (!content) throw new Error("Empty LLM response");
 
+      if (!content) {
+        trace = {
+          status: "parse_error",
+          requestMessages,
+          rawResponse: llmJson,
+          reasoningContent: msg?.reasoning ?? null,
+          errorMessage: "Empty LLM response",
+          durationMs,
+          promptTokens: llmJson.usage?.prompt_tokens,
+          completionTokens: llmJson.usage?.completion_tokens,
+        };
+        throw new Error("Empty LLM response");
+      }
+
+      // Keep the response metadata before parsing so malformed or truncated
+      // JSON still has a useful trace in the admin dashboard.
+      trace = {
+        status: "parse_error",
+        requestMessages,
+        rawResponse: llmJson,
+        reasoningContent: msg?.reasoning ?? null,
+        durationMs,
+        promptTokens: llmJson.usage?.prompt_tokens,
+        completionTokens: llmJson.usage?.completion_tokens,
+      };
       const parsedContent = JSON.parse(content);
       workoutData = llmResponseSchema.parse(parsedContent);
+
+      trace = {
+        status: "success",
+        requestMessages,
+        rawResponse: llmJson,
+        parsedContent,
+        reasoningContent: msg?.reasoning ?? null,
+        durationMs,
+        promptTokens: llmJson.usage?.prompt_tokens,
+        completionTokens: llmJson.usage?.completion_tokens,
+      };
+      await logLlmGeneration(loggingClient, {
+        userId,
+        functionName: functionName,
+        pendingWorkoutId,
+        trace,
+      });
 
       // Validate exercise IDs and substitute invalid ones
       let hasSubstitutions = false;
@@ -900,10 +1259,33 @@ export async function generateSingleWorkout(
       }
       if (hasSubstitutions) generationSource = "fallback_substitution";
     } catch (err) {
-      console.error(
-        "[generator] LLM generation failed:",
-        err instanceof Error ? err.message : String(err)
-      );
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error("[generator] LLM generation failed:", errorMessage);
+
+      if (trace) {
+        trace.errorMessage = errorMessage;
+        trace.status = controller?.signal.aborted ? "timeout" : trace.status;
+        await logLlmGeneration(loggingClient, {
+          userId,
+          functionName: functionName,
+          pendingWorkoutId,
+          trace,
+        });
+      } else {
+        await logLlmGeneration(loggingClient, {
+          userId,
+          functionName: functionName,
+          pendingWorkoutId,
+          trace: {
+            status: controller?.signal.aborted ? "timeout" : "parse_error",
+            requestMessages,
+            errorMessage,
+            durationMs:
+              llmStartedAt == null ? undefined : Date.now() - llmStartedAt,
+          },
+        });
+      }
+
       workoutData = buildFallbackWorkout(
         catalog,
         trainingSplit,
@@ -928,17 +1310,18 @@ export async function generateSingleWorkout(
     generationSource = "fallback_template";
   }
 
-  // Enrich with exercise names and types
+  // Enrich with exercise names and types; normalize set structure once type is known.
   const enrichedExercises = workoutData.exercises.map((ex) => {
     const catalogEntry = catalogMap.get(ex.exercise_id);
+    const exerciseType = (catalogEntry?.exercise_type ?? "weight") as
+      | "weight"
+      | "time";
     return {
       exercise_id: ex.exercise_id,
       exercise_name: catalogEntry?.name ?? "Unknown Exercise",
-      exercise_type: (catalogEntry?.exercise_type ?? "weight") as
-        | "weight"
-        | "time",
+      exercise_type: exerciseType,
       image: catalogEntry?.image ?? null,
-      sets: ex.sets,
+      sets: normalizeGeneratedExerciseSets(exerciseType, ex.sets),
       rest_duration_seconds: ex.rest_duration_seconds,
       notes: ex.notes,
       reasoning: ex.reasoning ?? null,
@@ -949,6 +1332,7 @@ export async function generateSingleWorkout(
 
   // Apply progressive overload
   const exerciseIds = enrichedExercises.map((ex) => ex.exercise_id);
+  const historyMap = new Map<string, ExerciseHistory>();
   try {
     const { data: progressionHistory } = await supabaseClient.rpc(
       "get_exercise_progression_history",
@@ -956,47 +1340,69 @@ export async function generateSingleWorkout(
     );
 
     if (progressionHistory?.length) {
-      const historyMap = new Map<string, ExerciseHistory>();
       for (const row of progressionHistory as ExerciseHistory[]) {
         historyMap.set(row.exercise_id, row);
       }
+    }
+  } catch (err) {
+    console.error(
+      "[generator] Progression history fetch failed (non-fatal):",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 
-      for (const ex of enrichedExercises) {
-        const hist = historyMap.get(ex.exercise_id);
-        const catalogEntry = catalogMap.get(ex.exercise_id);
-        const exEquipment = catalogEntry?.equipment ?? [];
+  for (const ex of enrichedExercises) {
+    const hist = historyMap.get(ex.exercise_id);
+    const catalogEntry = catalogMap.get(ex.exercise_id);
+    const exEquipment = catalogEntry?.equipment ?? [];
 
-        const result = calculateProgression(
-          hist ?? null,
-          exEquipment,
-          trainingStyle
-        );
-        if (result) {
-          ex.progression_type = result.progression_type;
-          ex.previous_display = result.previous_display;
+    const result = calculateProgression(
+      hist ?? null,
+      exEquipment,
+      trainingStyle
+    );
+    if (result) {
+      ex.progression_type = result.progression_type;
+      ex.previous_display = result.previous_display;
 
-          // Override working set targets
-          if (result.progression_type !== "new_exercise") {
-            for (const set of ex.sets) {
-              if (set.set_type === "working") {
-                if (result.target_duration_seconds != null) {
-                  set.target_duration_seconds = result.target_duration_seconds;
-                  set.target_load_kg = undefined;
-                  set.target_reps = undefined;
-                } else {
-                  set.target_load_kg = result.target_load_kg ?? 0;
-                  set.target_reps = result.target_reps ?? 1;
-                  set.target_duration_seconds = undefined;
-                }
-              }
+      // Override working set targets
+      if (result.progression_type !== "new_exercise") {
+        for (const set of ex.sets) {
+          if (set.set_type === "working") {
+            if (result.target_duration_seconds != null) {
+              set.target_duration_seconds = result.target_duration_seconds;
+              set.target_load_kg = undefined;
+              set.target_reps = undefined;
+            } else {
+              set.target_load_kg = result.target_load_kg ?? 0;
+              set.target_reps = result.target_reps ?? 1;
+              set.target_duration_seconds = undefined;
             }
           }
         }
       }
     }
+  }
+
+  // Safety net: replace invalid (0/missing) initial loads on new exercises
+  // with deterministic suggestions. Covers both LLM and fallback-template
+  // generation paths.
+  try {
+    const correctedSets = validateAndCorrectLoads({
+      exercises: enrichedExercises,
+      catalogById: catalogMap,
+      historyByExerciseId: historyMap,
+      strengthBaselines: strengthBaselines ?? [],
+      trainingStyle,
+    });
+    if (correctedSets > 0) {
+      console.log(
+        `[generator] Corrected initial loads on ${correctedSets} set(s) for new exercises`
+      );
+    }
   } catch (err) {
     console.error(
-      "[generator] Progression override failed (non-fatal):",
+      "[generator] Initial load validation failed (non-fatal):",
       err instanceof Error ? err.message : String(err)
     );
   }

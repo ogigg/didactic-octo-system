@@ -92,6 +92,11 @@ function createHarness() {
     },
   ]);
 
+  queryClient.setQueryData(calendarKeys.streakWeeks(), {
+    qualifyingCompletedAtDates: ["2026-07-28T11:00:00.000Z"],
+    protectedWeekStarts: ["2026-07-20"],
+  });
+
   function Wrapper({ children }: PropsWithChildren) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -143,6 +148,10 @@ describe("useDeleteWorkoutSession", () => {
     expect(history?.pages[0]).toEqual([retainedWorkout]);
     expect(day).toEqual([retainedWorkout]);
     expect(calendar?.map((entry) => entry.id)).toEqual([retainedId]);
+    expect(queryClient.getQueryData(calendarKeys.streakWeeks())).toEqual({
+      qualifyingCompletedAtDates: ["2026-07-28T11:00:00.000Z"],
+      protectedWeekStarts: ["2026-07-20"],
+    });
     expect(mockCancelWorkoutHealthRetry).toHaveBeenCalledWith(deletedId);
     expect(mockDeleteHealthWorkout).toHaveBeenCalledWith("health-record-id");
     [

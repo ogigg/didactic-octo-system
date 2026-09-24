@@ -31,6 +31,37 @@ describe("trackEvent", () => {
 
   it("does not throw for queue lifecycle events", () => {
     expect(() =>
+      trackEvent("workout_generation_requested", {
+        request_id: "request-1",
+        trigger: "immediate",
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("workout_generation_client_failed", {
+        request_id: "request-1",
+        workout_id: "workout-1",
+        queue_position: 1,
+        error_code: "network",
+        failure_stage: "preferences_update",
+        retryable: true,
+        is_offline: true,
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("workout_queue_client_failed", {
+        request_id: "request-1",
+        count: 4,
+        trigger: "onboarding",
+        error_code: "network",
+        failure_stage: "clear_existing_queue",
+        retryable: true,
+        is_offline: true,
+      })
+    ).not.toThrow();
+
+    expect(() =>
       trackEvent("workout_queue_initialized", {
         count: 4,
         trigger: "onboarding",
@@ -49,9 +80,45 @@ describe("trackEvent", () => {
 
     expect(() =>
       trackEvent("workout_queue_ready", {
+        request_id: "request-1",
+        trigger: "onboarding",
         total_generation_time_ms: 6000,
         count: 4,
         fallback_count: 1,
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("workout_queue_failed", {
+        request_id: "request-1",
+        trigger: "onboarding",
+        count: 4,
+        ready_count: 2,
+        failed_count: 2,
+        error_code: "generation_failed",
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("workout_generation_completed", {
+        request_id: "request-1",
+        workout_id: "workout-1",
+        generation_source: "llm",
+        generation_time_ms: 1500,
+        queue_position: 1,
+        trigger: "onboarding",
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      trackEvent("workout_generation_failed", {
+        request_id: "request-1",
+        workout_id: "workout-1",
+        generation_time_ms: 1500,
+        trigger: "onboarding",
+        error_code: "generation_failed",
+        failure_stage: "generation",
+        retryable: true,
       })
     ).not.toThrow();
   });

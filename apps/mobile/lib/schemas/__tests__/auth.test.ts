@@ -43,14 +43,12 @@ describe("signUpSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects mismatching passwords", () => {
-    const result = signUpSchema.safeParse({
-      email: "user@example.com",
+  it("accepts one password and trims the email", () => {
+    const result = signUpSchema.parse({
+      email: " user@example.com ",
       password: "password123",
-      confirmPassword: "different123",
     });
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0].message).toBe("errors.passwordsMustMatch");
+    expect(result.email).toBe("user@example.com");
   });
 
   it("rejects invalid email", () => {

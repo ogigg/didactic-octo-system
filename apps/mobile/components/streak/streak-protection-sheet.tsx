@@ -1,26 +1,33 @@
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import {
+  AppBottomSheet,
+  type AppBottomSheetHandle,
+} from "@/components/ui/app-bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
+import { Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type {
   StreakProtectionType,
   StreakStatus,
 } from "@/lib/api/streak-protection";
+import {
+  canRestartStreak,
+  formatCoveredWeekRange,
+  getAvailableProtection,
+  shouldOfferProHint,
+} from "@/lib/streak-prompt";
+
+export type StreakSheetPendingAction = "apply" | "restart";
 
 interface StreakProtectionSheetProps {
   visible: boolean;
   status: StreakStatus;
-  isPending: boolean;
+  pendingAction: StreakSheetPendingAction | null;
+  hasError: boolean;
   onApplyProtection: (type: StreakProtectionType) => void;
   onComeback: () => void;
   onAdjustPlan: () => void;
@@ -29,34 +36,11 @@ interface StreakProtectionSheetProps {
   onDismiss: () => void;
 }
 
-interface SheetAction {
-  label: string;
-  variant?: "primary" | "secondary" | "ghost" | "destructive";
-  onPress: () => void;
-}
-
-function getPrimaryProtection(
-  status: StreakStatus
-): StreakProtectionType | null {
-  if (status.prompt_state === "free_earned_freeze") {
-    return "earned_freeze";
-  }
-
-  if (status.prompt_state === "free_lifetime_rescue") {
-    return "lifetime_rescue";
-  }
-
-  if (status.prompt_state === "pro_available_freeze") {
-    return "pro_freeze";
-  }
-
-  return null;
-}
-
 export function StreakProtectionSheet({
   visible,
   status,
-  isPending,
+  pendingAction,
+  hasError,
   onApplyProtection,
   onComeback,
   onAdjustPlan,
@@ -64,210 +48,280 @@ export function StreakProtectionSheet({
   onRestart,
   onDismiss,
 }: StreakProtectionSheetProps) {
-  const { t } = useTranslation("streakProtection");
+  const { t, i18n } = useTranslation("streakProtection");
+  const sheetRef = useRef<AppBottomSheetHandle>(null);
+  // Set before dismissing so the shared onClose can tell "user closed the
+  // sheet" apart from "an action closed the sheet and should run afterwards".
+  const closeActionRef = useRef<(() => void) | null>(null);
+  const [isConfirmingRestart, setIsConfirmingRestart] = useState(false);
 
-  const background = useThemeColor({}, "backgroundElevated");
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
   const border = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
-  const warning = useThemeColor({}, "warning");
+  const errorColor = useThemeColor({}, "error");
+  const destructiveSurface = useThemeColor({}, "destructiveSurface");
 
-  const protectionType = getPrimaryProtection(status);
-  const title = t(`states.${status.prompt_state}.title`);
-  const body = t(`states.${status.prompt_state}.body`, {
-    freezes: status.pro_freezes_available,
+  useEffect(() => {
+    if (!visible) setIsConfirmingRestart(false);
+  }, [visible]);
+
+  // Apply/restart intentionally run while the sheet stays open (unlike the
+  // dismiss-then-act pattern for navigation) so a failed request keeps its
+  // retry surface instead of leaving the user with a bare alert.
+  const isPending = pendingAction !== null;
+  const protectionType = getAvailableProtection(status);
+  const showProHint = shouldOfferProHint(status);
+  const showRestart = canRestartStreak(status);
+  // The covered week only matters when something can actually cover it.
+  const coveredWeekRange = protectionType
+    ? formatCoveredWeekRange(status, i18n.language)
+    : null;
+
+  const title = t(`states.${status.prompt_state}.title`, {
     count: status.current_streak_weeks,
   });
+  const body = t(`states.${status.prompt_state}.body`, {
+    count: status.pro_freezes_available,
+  });
 
-  const actions: SheetAction[] = [];
+  const closeWith = (action?: () => void) => {
+    closeActionRef.current = action ?? null;
+    sheetRef.current?.dismiss();
+  };
 
-  if (protectionType) {
-    actions.push({
-      label:
-        protectionType === "lifetime_rescue"
-          ? t("actions.restoreOnce")
-          : t("actions.useFreeze"),
-      onPress: () => onApplyProtection(protectionType),
-    });
-  } else {
-    actions.push({
-      label:
-        status.prompt_state === "free_comeback"
-          ? t("actions.startComebackChallenge")
-          : t("actions.startComebackWorkout"),
-      onPress: onComeback,
-    });
-  }
+  const handleClosed = () => {
+    const action = closeActionRef.current;
+    closeActionRef.current = null;
+    if (action) {
+      action();
+    } else {
+      onDismiss();
+    }
+  };
 
-  if (
-    status.prompt_state === "free_lifetime_rescue" ||
-    status.prompt_state === "free_comeback"
-  ) {
-    actions.push({
-      label: t("actions.upgrade"),
-      variant: "secondary",
-      onPress: onUpgrade,
-    });
-  } else if (
-    status.prompt_state === "pro_auto_applied" ||
-    status.prompt_state === "pro_comeback" ||
-    status.prompt_state === "at_risk"
-  ) {
-    actions.push({
-      label: t("actions.adjustPlan"),
-      variant: "secondary",
-      onPress: onAdjustPlan,
-    });
-  } else if (protectionType) {
-    actions.push({
-      label: t("actions.startComebackWorkout"),
-      variant: "secondary",
-      onPress: onComeback,
-    });
-  }
+  const primaryActionLabel =
+    protectionType === "lifetime_rescue"
+      ? t("actions.useRestore")
+      : protectionType
+        ? t("actions.useFreeze")
+        : t("actions.startComebackWorkout");
 
-  if (
-    status.prompt_state !== "at_risk" &&
-    status.prompt_state !== "pro_auto_applied"
-  ) {
-    actions.push({
-      label: t("actions.restart"),
-      variant: "ghost",
-      onPress: onRestart,
-    });
-  } else {
-    actions.push({
-      label: t("actions.notNow"),
-      variant: "ghost",
-      onPress: onDismiss,
-    });
-  }
+  const detailLabel =
+    protectionType === "lifetime_rescue"
+      ? t("details.restoreAvailable")
+      : protectionType === "earned_freeze"
+        ? t("details.freezesAvailable", {
+            count: status.earned_freezes_available,
+          })
+        : protectionType === "pro_freeze"
+          ? t("details.freezesAvailable", {
+              count: status.pro_freezes_available,
+            })
+          : null;
 
   return (
-    <Modal
+    <AppBottomSheet
+      ref={sheetRef}
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onDismiss}
-      accessibilityViewIsModal
+      onClose={handleClosed}
+      closeAccessibilityLabel={t("closeSheet")}
+      testID="streak-protection-sheet"
     >
-      <Pressable style={styles.backdrop} onPress={onDismiss}>
-        <Pressable
-          style={[styles.sheet, { backgroundColor: background }, Elevation.md]}
-          onPress={() => {}}
-        >
-          <View style={[styles.handle, { backgroundColor: textMuted }]} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
+        <View style={styles.headerRow}>
+          <View
+            style={[styles.iconContainer, { backgroundColor: primarySurface }]}
+          >
+            <IconSymbol name="flame.fill" size={22} color={primary} />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={[Typography.label, { color: textMuted }]}>
+              {t("eyebrow")}
+            </Text>
+            <Text
+              style={[Typography.titleLg, { color: textColor }]}
+              accessibilityRole="header"
+            >
+              {isConfirmingRestart ? t("restartConfirm.title") : title}
+            </Text>
+          </View>
+        </View>
 
-          <View style={styles.headerRow}>
-            <View
+        <Text style={[Typography.body, styles.body, { color: textSecondary }]}>
+          {isConfirmingRestart ? t("restartConfirm.body") : body}
+        </Text>
+
+        {!isConfirmingRestart && (coveredWeekRange || detailLabel) && (
+          <View style={[styles.details, { borderColor: border }]}>
+            {coveredWeekRange && (
+              <View style={styles.detailRow}>
+                <IconSymbol name="calendar" size={16} color={textMuted} />
+                <Text
+                  style={[
+                    Typography.bodyMedium,
+                    styles.detailText,
+                    { color: textColor },
+                  ]}
+                >
+                  {t("details.coveredWeek", { range: coveredWeekRange })}
+                </Text>
+              </View>
+            )}
+            {detailLabel && (
+              <View style={styles.detailRow}>
+                <IconSymbol
+                  name="checkmark.circle.fill"
+                  size={16}
+                  color={primary}
+                />
+                <Text
+                  style={[
+                    Typography.bodyMedium,
+                    styles.detailText,
+                    { color: textColor },
+                  ]}
+                >
+                  {detailLabel}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {hasError && (
+          <View
+            style={[
+              styles.errorBanner,
+              { backgroundColor: destructiveSurface },
+            ]}
+            accessible
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <IconSymbol
+              name="exclamationmark.triangle.fill"
+              size={16}
+              color={errorColor}
+            />
+            <Text
               style={[
-                styles.iconContainer,
-                {
-                  backgroundColor:
-                    status.prompt_state === "pro_auto_applied"
-                      ? primarySurface
-                      : `${warning}22`,
-                },
+                Typography.bodyMedium,
+                styles.detailText,
+                { color: errorColor },
               ]}
             >
-              <IconSymbol
-                name={
-                  status.prompt_state === "pro_auto_applied"
-                    ? "checkmark.circle.fill"
-                    : "flame.fill"
-                }
-                size={22}
-                color={
-                  status.prompt_state === "pro_auto_applied" ? primary : warning
-                }
-              />
-            </View>
-            <View style={styles.headerText}>
-              <Text style={[Typography.label, { color: textMuted }]}>
-                {t("eyebrow")}
-              </Text>
-              <Text
-                style={[Typography.titleLg, { color: textColor }]}
-                accessibilityRole="header"
-              >
-                {title}
-              </Text>
-            </View>
+              {t("errors.actionFailed")}
+            </Text>
           </View>
+        )}
 
-          <Text
-            style={[Typography.body, styles.body, { color: textSecondary }]}
-          >
-            {body}
-          </Text>
-
-          <View style={[styles.metrics, { borderColor: border }]}>
-            <View style={styles.metricItem}>
-              <Text style={[Typography.titleSm, { color: textColor }]}>
-                {status.current_streak_weeks}
-              </Text>
-              <Text style={[Typography.caption, { color: textMuted }]}>
-                {t("metrics.streakWeeks")}
-              </Text>
-            </View>
-            <View style={[styles.metricDivider, { backgroundColor: border }]} />
-            <View style={styles.metricItem}>
-              <Text style={[Typography.titleSm, { color: textColor }]}>
-                {status.is_pro_active
-                  ? status.pro_freezes_available
-                  : status.earned_freezes_available}
-              </Text>
-              <Text style={[Typography.caption, { color: textMuted }]}>
-                {t("metrics.freezes")}
-              </Text>
-            </View>
-          </View>
-
+        {isConfirmingRestart ? (
           <View style={styles.actions}>
-            {actions.map((action) => (
-              <Button
-                key={action.label}
-                label={action.label}
-                variant={action.variant}
-                disabled={isPending}
-                onPress={action.onPress}
-              />
-            ))}
+            <Button
+              label={t("restartConfirm.confirm")}
+              variant="destructive"
+              loading={pendingAction === "restart"}
+              disabled={isPending}
+              onPress={onRestart}
+            />
+            <Button
+              label={t("restartConfirm.cancel")}
+              variant="ghost"
+              disabled={isPending}
+              onPress={() => setIsConfirmingRestart(false)}
+            />
           </View>
+        ) : (
+          <View style={styles.actions}>
+            {protectionType ? (
+              <>
+                <Button
+                  label={primaryActionLabel}
+                  loading={pendingAction === "apply"}
+                  disabled={isPending}
+                  onPress={() => onApplyProtection(protectionType)}
+                />
+                <Button
+                  label={t("actions.startWorkoutInstead")}
+                  variant="secondary"
+                  disabled={isPending}
+                  onPress={() => closeWith(onComeback)}
+                />
+              </>
+            ) : (
+              <>
+                <Button
+                  label={primaryActionLabel}
+                  disabled={isPending}
+                  onPress={() => closeWith(onComeback)}
+                />
+                {status.prompt_state === "pro_comeback" && (
+                  <Button
+                    label={t("actions.adjustPlan")}
+                    variant="secondary"
+                    disabled={isPending}
+                    onPress={() => closeWith(onAdjustPlan)}
+                  />
+                )}
+              </>
+            )}
 
-          {isPending && (
-            <View style={styles.pendingOverlay} pointerEvents="none">
-              <ActivityIndicator color={primary} />
-            </View>
-          )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+            {showRestart && (
+              <Button
+                label={t("actions.startFresh")}
+                variant="ghost"
+                disabled={isPending}
+                onPress={() => setIsConfirmingRestart(true)}
+              />
+            )}
+
+            <Button
+              label={t("actions.notNow")}
+              variant="ghost"
+              disabled={isPending}
+              onPress={() => closeWith()}
+            />
+          </View>
+        )}
+
+        {!isConfirmingRestart && showProHint && (
+          <View style={styles.proHint}>
+            <Text style={[Typography.caption, { color: textMuted }]}>
+              {t("pro.hint")}
+            </Text>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={t("pro.link")}
+              disabled={isPending}
+              onPress={() => closeWith(onUpgrade)}
+              hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+              style={({ pressed }) => [
+                styles.proLink,
+                pressed && { opacity: Opacity.pressed },
+              ]}
+            >
+              <Text style={[Typography.caption, { color: primary }]}>
+                {t("pro.link")}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
+    </AppBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.42)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    borderTopLeftRadius: Radii.lg,
-    borderTopRightRadius: Radii.lg,
+  content: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xl,
-    paddingTop: Spacing.md,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: Radii.full,
-    alignSelf: "center",
-    marginBottom: Spacing.xl,
   },
   headerRow: {
     flexDirection: "row",
@@ -287,34 +341,47 @@ const styles = StyleSheet.create({
   },
   body: {
     marginTop: Spacing.lg,
-    lineHeight: 21,
+    lineHeight: 22,
   },
-  metrics: {
-    marginTop: Spacing.xl,
+  details: {
+    marginTop: Spacing.lg,
     borderWidth: 1,
     borderRadius: Radii.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  detailRow: {
     flexDirection: "row",
-    minHeight: 64,
-  },
-  metricItem: {
-    flex: 1,
     alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
-  metricDivider: {
-    width: 1,
+  detailText: {
+    flex: 1,
+  },
+  errorBanner: {
+    marginTop: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
   actions: {
     marginTop: Spacing.xl,
     gap: Spacing.sm,
   },
-  pendingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  proHint: {
+    marginTop: Spacing.lg,
+    flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "center",
-    borderTopLeftRadius: Radii.lg,
-    borderTopRightRadius: Radii.lg,
-    backgroundColor: "rgba(255,255,255,0.16)",
+    gap: Spacing.xs,
+  },
+  proLink: {
+    minHeight: 44,
+    justifyContent: "center",
   },
 });

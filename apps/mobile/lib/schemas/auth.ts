@@ -5,16 +5,10 @@ export const signInSchema = z.object({
   password: z.string().min(8, "errors.passwordTooShort"),
 });
 
-export const signUpSchema = z
-  .object({
-    email: z.string().email("errors.invalidEmail"),
-    password: z.string().min(8, "errors.passwordTooShort"),
-    confirmPassword: z.string().min(8, "errors.passwordTooShort"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "errors.passwordsMustMatch",
-    path: ["confirmPassword"],
-  });
+export const signUpSchema = z.object({
+  email: z.string().trim().email("errors.invalidEmail"),
+  password: z.string().min(8, "errors.passwordTooShort"),
+});
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email("errors.invalidEmail"),

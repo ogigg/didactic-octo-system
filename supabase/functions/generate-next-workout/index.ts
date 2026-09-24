@@ -27,6 +27,7 @@ const payloadSchema = z.object({
 
 // Frequency mapping
 const FREQUENCY_MAP: Record<string, number> = {
+  "1": 1,
   "2": 2,
   "3": 3,
   "4": 4,
@@ -240,6 +241,9 @@ Deno.serve(async (req: Request) => {
       exercisePreferences:
         exercisePreferences.length > 0 ? exercisePreferences : undefined,
       recentComments: recentComments.length > 0 ? recentComments : undefined,
+      loggingClient: supabaseClient,
+      pendingWorkoutId: placeholder.id,
+      functionName: "generate-next-workout",
     });
 
     if (!genResult.success || !genResult.data) {

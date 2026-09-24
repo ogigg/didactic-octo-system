@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 
+import { useAuthStore } from "@/stores/auth-store";
 import { supabase } from "@/lib/supabase";
 import { useWorkoutStore } from "@/stores/workout-store";
 
@@ -41,9 +42,20 @@ function parseParams(url: string): Record<string, string> {
   return out;
 }
 
-function applyMarkSetDone(exerciseId: string, setId: string): void {
+export function applyMarkSetDone(exerciseId: string, setId: string): void {
   const { exercises, toggleSetComplete } = useWorkoutStore.getState();
-  const exercise = exercises.find((e) => e.id === exerciseId);
+  // Live Activity state carries the occurrence ID so repeated exercises can be
+  // addressed unambiguously. Keep the canonical catalog-ID fallback for older
+  // activities, but only when that ID identifies one occurrence.
+  const occurrenceMatch = exercises.find(
+    (exercise) => (exercise.occurrenceId ?? exercise.id) === exerciseId
+  );
+  const canonicalMatches = exercises.filter(
+    (exercise) => exercise.id === exerciseId
+  );
+  const exercise =
+    occurrenceMatch ??
+    (canonicalMatches.length === 1 ? canonicalMatches[0] : undefined);
   const set = exercise?.sets.find((s) => s.id === setId);
   // Idempotent: silently no-op for unknown or already-completed sets so a
   // duplicated URL delivery (getInitialURL + 'url' event, or rapid taps from
@@ -106,18 +118,27 @@ export function useDeepLinks(): void {
       handled.add(rawUrl);
 
       const params = parseParams(rawUrl);
+      if (params.error || params.error_code) {
+        router.replace("/auth-link-error");
+        return;
+      }
       if (
-        params.type === "recovery" &&
         params.access_token &&
-        params.refresh_token
+        params.refresh_token &&
+        ["signup", "recovery", "magiclink", "email_change"].includes(
+          params.type
+        )
       ) {
+        const recovery = params.type === "recovery";
+        if (recovery) useAuthStore.setState({ isPasswordRecovery: true });
         const { error } = await supabase.auth.setSession({
           access_token: params.access_token,
           refresh_token: params.refresh_token,
         });
-        if (!error) {
-          router.replace("/reset-password");
-        }
+        if (error) {
+          if (recovery) useAuthStore.setState({ isPasswordRecovery: false });
+          router.replace("/auth-link-error");
+        } else router.replace(recovery ? "/reset-password" : "/");
         return;
       }
 
@@ -139,14 +160,15 @@ export function useDeepLinks(): void {
 
     Linking.getInitialURL()
       .then((url) => {
-        if (url) void process(url);
+        if (url)
+          void process(url).catch(() => router.replace("/auth-link-error"));
       })
       .catch(() => {
         /* getInitialURL is best-effort */
       });
 
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      void process(url);
+      void process(url).catch(() => router.replace("/auth-link-error"));
     });
 
     return () => {

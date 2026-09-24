@@ -11,9 +11,19 @@ interface WorkoutStatsFetched {
   completedAtDates: string[];
 }
 
-function computeStreakWeeks(
+/**
+ * Local fallback for the weekly streak, used before `get_streak_status`
+ * resolves and to reflect a workout that was just saved.
+ *
+ * Known discrepancy (SWE-139): this counts every `completed` session, while
+ * `get_streak_status` only counts sessions with at least one completed set and
+ * also credits weeks covered by a freeze or restore. The server value wins
+ * whenever it is available; see `resolveStreakWeeks`.
+ */
+export function computeStreakWeeks(
   completedAtDates: string[],
-  currentWorkoutFinishedAtMs?: number
+  currentWorkoutFinishedAtMs?: number,
+  now: Date = new Date()
 ): number {
   const weekSet = new Set<string>();
 
@@ -27,7 +37,6 @@ function computeStreakWeeks(
     }
   }
 
-  const now = new Date();
   let streak = 0;
   const cursor = new Date(now);
 
@@ -51,6 +60,28 @@ function computeStreakWeeks(
   return streak;
 }
 
+/**
+ * Prefer the server streak (it applies freezes and restarts). While a freshly
+ * finished workout is not yet reflected server-side, the local streak may be
+ * one week ahead, so take the larger value only in that window.
+ */
+export function resolveStreakWeeks(input: {
+  protectedStreak: number | null;
+  localStreak: number | null;
+  hasJustFinishedWorkout: boolean;
+}): number | null {
+  const { protectedStreak, localStreak, hasJustFinishedWorkout } = input;
+
+  if (hasJustFinishedWorkout) {
+    return Math.max(localStreak ?? 0, protectedStreak ?? 0);
+  }
+
+  return protectedStreak ?? localStreak;
+}
+
+// Total workouts intentionally counts every `completed` session. The streak
+// RPC additionally requires a completed set, so a session finished with zero
+// logged sets raises the total without extending the streak (SWE-139).
 async function fetchWorkoutStatsBase(): Promise<WorkoutStatsFetched> {
   const [countResult, datesResult] = await Promise.all([
     supabase
@@ -80,20 +111,21 @@ export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
   });
   const streakStatusQuery = useStreakStatus();
 
-  const streakWeeks = useMemo(() => {
-    const protectedStreak =
-      streakStatusQuery.data?.current_streak_weeks ?? null;
-    const localStreak =
-      data != null
-        ? computeStreakWeeks(data.completedAtDates, currentWorkoutFinishedAtMs)
-        : null;
-
-    if (currentWorkoutFinishedAtMs !== undefined) {
-      return Math.max(localStreak ?? 0, protectedStreak ?? 0);
-    }
-
-    return protectedStreak ?? localStreak;
-  }, [currentWorkoutFinishedAtMs, data, streakStatusQuery.data]);
+  const streakWeeks = useMemo(
+    () =>
+      resolveStreakWeeks({
+        protectedStreak: streakStatusQuery.data?.current_streak_weeks ?? null,
+        localStreak:
+          data != null
+            ? computeStreakWeeks(
+                data.completedAtDates,
+                currentWorkoutFinishedAtMs
+              )
+            : null,
+        hasJustFinishedWorkout: currentWorkoutFinishedAtMs !== undefined,
+      }),
+    [currentWorkoutFinishedAtMs, data, streakStatusQuery.data]
+  );
 
   return {
     totalWorkouts: data?.totalWorkouts ?? null,

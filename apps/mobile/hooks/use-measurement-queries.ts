@@ -83,7 +83,7 @@ export function useUpsertMeasurement() {
     onError: (_error: unknown, variables) => {
       if (user) {
         syncQueue
-          .enqueue("upsert_measurement", user.id, variables)
+          .enqueue("upsert_measurement", user.id, variables, user.id)
           .catch(console.warn);
       }
     },

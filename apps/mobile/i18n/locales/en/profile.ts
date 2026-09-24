@@ -24,7 +24,7 @@ export const profile = {
     strengthBaselines: "Strength",
     health: "Health",
     feedback: "Feedback",
-    deleteAccount: "Delete Account",
+    accountData: "Account & Data",
   },
   language: {
     label: "Language",

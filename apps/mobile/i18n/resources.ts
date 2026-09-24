@@ -1,3 +1,5 @@
+import { onboarding } from "./locales/en/onboarding";
+import { onboarding as onboardingPl } from "./locales/pl/onboarding";
 import { auth } from "./locales/en/auth";
 import { common } from "./locales/en/common";
 import { home } from "./locales/en/home";
@@ -20,6 +22,7 @@ import { feedback } from "./locales/en/feedback";
 import { subscription } from "./locales/en/subscription";
 import { healthSync } from "./locales/en/health-sync";
 import { deleteAccount } from "./locales/en/delete-account";
+import { accountSettings } from "./locales/en/account-settings";
 import { streakProtection } from "./locales/en/streak-protection";
 import { auth as authPl } from "./locales/pl/auth";
 import { common as commonPl } from "./locales/pl/common";
@@ -43,10 +46,12 @@ import { feedback as feedbackPl } from "./locales/pl/feedback";
 import { subscription as subscriptionPl } from "./locales/pl/subscription";
 import { healthSync as healthSyncPl } from "./locales/pl/health-sync";
 import { deleteAccount as deleteAccountPl } from "./locales/pl/delete-account";
+import { accountSettings as accountSettingsPl } from "./locales/pl/account-settings";
 import { streakProtection as streakProtectionPl } from "./locales/pl/streak-protection";
 
 export const resources = {
   en: {
+    onboarding,
     auth,
     common,
     home,
@@ -69,9 +74,11 @@ export const resources = {
     subscription,
     healthSync,
     deleteAccount,
+    accountSettings,
     streakProtection,
   },
   pl: {
+    onboarding: onboardingPl,
     auth: authPl,
     common: commonPl,
     home: homePl,
@@ -94,6 +101,7 @@ export const resources = {
     subscription: subscriptionPl,
     healthSync: healthSyncPl,
     deleteAccount: deleteAccountPl,
+    accountSettings: accountSettingsPl,
     streakProtection: streakProtectionPl,
   },
 } as const;
