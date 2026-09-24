@@ -34,6 +34,7 @@ interface VolumeBarChartProps {
   data: VolumeWeek[];
   today?: ExerciseChartProgress;
   chartHeight?: number;
+  scrollable?: boolean;
   metric?: "volume" | "duration";
   labels?: {
     total: string;
@@ -71,6 +72,7 @@ export function VolumeBarChart({
   data,
   today,
   chartHeight = 120,
+  scrollable = false,
   metric = "volume",
   labels,
   getTooltip,
@@ -85,6 +87,8 @@ export function VolumeBarChart({
   const textSecondary = useThemeColor({}, "textSecondary");
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const chartRef = useRef<View>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [anchor, setAnchor] = useState<ChartAnchor>({
     x: Spacing.lg,
@@ -247,149 +251,183 @@ export function VolumeBarChart({
         </Modal>
       ) : null}
 
-      {/* Bars */}
       <View
         ref={chartRef}
         collapsable={false}
-        style={[styles.chartArea, { height: chartHeight }]}
+        testID="chart-viewport"
+        onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
       >
-        {data.map((week, index) => {
-          const isActive = activeWeek === week.week_start;
-          const value = values[index] ?? 0;
-          const isEmpty = value === 0;
-          const barHeight = isEmpty
-            ? 3
-            : Math.max(6, (value / maxValue) * chartHeight);
-
-          return (
-            <Pressable
-              key={week.week_start}
-              accessibilityRole={getTooltip ? "button" : undefined}
-              accessibilityLabel={getTooltip?.(week).accessibilityLabel}
-              onHoverIn={() => selectBar(week.week_start)}
-              onPress={() => selectBar(week.week_start)}
-              disabled={!getTooltip}
-              style={styles.barWrapper}
-            >
-              <View
-                style={[
-                  styles.bar,
-                  {
-                    height: barHeight,
-                    backgroundColor: isEmpty ? borderColor : primaryColor,
-                    opacity: activeWeek
-                      ? isActive
-                        ? 1
-                        : 0.35
-                      : isEmpty
-                        ? 1
-                        : 0.6,
-                  },
-                ]}
-              />
-            </Pressable>
-          );
-        })}
-        {today ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={todayLabel}
-            onHoverIn={() => selectBar("today")}
-            onPress={() => selectBar("today")}
-            style={styles.barWrapper}
+        <ScrollView
+          ref={scrollRef}
+          testID="chart-scroll"
+          horizontal
+          scrollEnabled={scrollable}
+          showsHorizontalScrollIndicator={scrollable}
+          onContentSizeChange={() => {
+            if (scrollable) scrollRef.current?.scrollToEnd({ animated: false });
+          }}
+        >
+          <View
+            testID="chart-content"
+            style={{
+              width: scrollable
+                ? Math.max(
+                    viewportWidth,
+                    (data.length + (today ? 1 : 0)) * 36 - 2
+                  )
+                : viewportWidth,
+            }}
           >
-            {today.forecast > today.completed ? (
-              <View
-                testID="today-forecast"
-                style={[
-                  styles.bar,
-                  styles.forecastBar,
-                  {
-                    height:
-                      ((today.forecast - today.completed) / maxValue) *
-                      chartHeight,
-                    borderColor: primaryColor,
-                    opacity: todayOpacity ?? 0.45,
-                  },
-                ]}
-              />
-            ) : null}
-            <View
-              testID="today-completed"
-              style={[
-                styles.bar,
-                styles.completedBar,
-                today.forecast > today.completed ? styles.stackedBar : null,
-                {
-                  height: (today.completed / maxValue) * chartHeight,
-                  borderColor: primaryColor,
-                  borderWidth: today.completed > 0 ? 1 : 0,
-                  opacity: todayOpacity ?? 0.6,
-                },
-              ]}
-            >
-              <Svg
-                width="100%"
-                height="100%"
-                pointerEvents="none"
-                accessible={false}
-              >
-                <Defs>
-                  <Pattern
-                    id={hatchId}
-                    patternUnits="userSpaceOnUse"
-                    width={8}
-                    height={8}
+            {/* Bars */}
+            <View style={[styles.chartArea, { height: chartHeight }]}>
+              {data.map((week, index) => {
+                const isActive = activeWeek === week.week_start;
+                const value = values[index] ?? 0;
+                const isEmpty = value === 0;
+                const barHeight = isEmpty
+                  ? 3
+                  : Math.max(6, (value / maxValue) * chartHeight);
+
+                return (
+                  <Pressable
+                    key={week.week_start}
+                    accessibilityRole={getTooltip ? "button" : undefined}
+                    accessibilityLabel={getTooltip?.(week).accessibilityLabel}
+                    onHoverIn={
+                      scrollable ? undefined : () => selectBar(week.week_start)
+                    }
+                    onPress={() => selectBar(week.week_start)}
+                    disabled={!getTooltip}
+                    style={styles.barWrapper}
                   >
-                    <Path
-                      d="M-2 2L2-2 M0 8L8 0 M6 10L10 6"
-                      stroke={primaryColor}
-                      strokeWidth={1}
+                    <View
+                      style={[
+                        styles.bar,
+                        {
+                          height: barHeight,
+                          backgroundColor: isEmpty ? borderColor : primaryColor,
+                          opacity: activeWeek
+                            ? isActive
+                              ? 1
+                              : 0.35
+                            : isEmpty
+                              ? 1
+                              : 0.6,
+                        },
+                      ]}
                     />
-                  </Pattern>
-                </Defs>
-                <Rect width="100%" height="100%" fill={`url(#${hatchId})`} />
-              </Svg>
-            </View>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {/* Labels row */}
-      <View style={styles.labelsRow}>
-        {data.map((week, index) => {
-          const showLabel = index % labelEvery === 0;
-          const label = showLabel
-            ? getMonthLabel(week.week_start, data[index - 1]?.week_start)
-            : "";
-
-          return (
-            <View key={week.week_start} style={styles.labelWrapper}>
-              {label ? (
-                <Text
-                  style={[styles.labelText, { color: textMuted }]}
-                  numberOfLines={1}
+                  </Pressable>
+                );
+              })}
+              {today ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={todayLabel}
+                  onHoverIn={scrollable ? undefined : () => selectBar("today")}
+                  onPress={() => selectBar("today")}
+                  style={styles.barWrapper}
                 >
-                  {label}
-                </Text>
+                  {today.forecast > today.completed ? (
+                    <View
+                      testID="today-forecast"
+                      style={[
+                        styles.bar,
+                        styles.forecastBar,
+                        {
+                          height:
+                            ((today.forecast - today.completed) / maxValue) *
+                            chartHeight,
+                          borderColor: primaryColor,
+                          opacity: todayOpacity ?? 0.45,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                  <View
+                    testID="today-completed"
+                    style={[
+                      styles.bar,
+                      styles.completedBar,
+                      today.forecast > today.completed
+                        ? styles.stackedBar
+                        : null,
+                      {
+                        height: (today.completed / maxValue) * chartHeight,
+                        borderColor: primaryColor,
+                        borderWidth: today.completed > 0 ? 2 : 0,
+                        opacity: todayOpacity ?? 0.6,
+                      },
+                    ]}
+                  >
+                    <Svg
+                      width="100%"
+                      height="100%"
+                      pointerEvents="none"
+                      accessible={false}
+                    >
+                      <Defs>
+                        <Pattern
+                          id={hatchId}
+                          patternUnits="userSpaceOnUse"
+                          width={8}
+                          height={8}
+                        >
+                          <Path
+                            d="M-2 2L2-2 M0 8L8 0 M6 10L10 6"
+                            stroke={primaryColor}
+                            strokeWidth={2}
+                          />
+                        </Pattern>
+                      </Defs>
+                      <Rect
+                        width="100%"
+                        height="100%"
+                        fill={`url(#${hatchId})`}
+                      />
+                    </Svg>
+                  </View>
+                </Pressable>
               ) : null}
             </View>
-          );
-        })}
-        {today ? (
-          <View style={styles.labelWrapper}>
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.labelText,
-                styles.todayLabel,
-                { color: textMuted },
-              ]}
-            >
-              {t("volume.today")}
-            </Text>
+
+            {/* Labels row */}
+            <View style={styles.labelsRow}>
+              {data.map((week, index) => {
+                const showLabel = scrollable || index % labelEvery === 0;
+                const label = showLabel
+                  ? getMonthLabel(week.week_start, data[index - 1]?.week_start)
+                  : "";
+
+                return (
+                  <View key={week.week_start} style={styles.labelWrapper}>
+                    {label ? (
+                      <Text
+                        style={[styles.labelText, { color: textMuted }]}
+                        numberOfLines={1}
+                      >
+                        {label}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+              {today ? (
+                <View style={styles.labelWrapper}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.labelText,
+                      styles.todayLabel,
+                      { color: textMuted },
+                    ]}
+                  >
+                    {t("volume.today")}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        ) : null}
+        </ScrollView>
       </View>
     </View>
   );
@@ -417,8 +455,8 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: "100%",
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
   },
   overlay: { flex: 1 },
   tooltipPosition: { position: "absolute" },
@@ -440,11 +478,11 @@ const styles = StyleSheet.create({
   todayLabel: { width: 64, alignSelf: "flex-end", textAlign: "right" },
   stackedBar: { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
   completedBar: {
-    borderWidth: 1,
+    borderWidth: 2,
     overflow: "hidden",
   },
   forecastBar: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderStyle: "dashed",
     backgroundColor: "transparent",
   },

@@ -212,6 +212,13 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="exercise-statistics"
+                  options={{
+                    headerShown: false,
+                    presentation: "fullScreenModal",
+                  }}
+                />
+                <Stack.Screen
                   name="statistics"
                   options={{ headerShown: false }}
                 />

@@ -33,6 +33,7 @@ import { ExerciseHistoryEditSheet } from "@/components/history/exercise-history-
 import { ExerciseHistoryMenu } from "@/components/history/exercise-history-menu";
 import { PeriodSelector } from "@/components/stats/period-selector";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ExerciseInsights } from "@/components/stats/exercise-insights";
 import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
@@ -406,7 +407,13 @@ function SessionRow({
   );
 }
 
-export default function ExerciseDetailScreen() {
+interface ExerciseDetailScreenProps {
+  fullStatistics?: boolean;
+}
+
+export default function ExerciseDetailScreen({
+  fullStatistics = false,
+}: ExerciseDetailScreenProps) {
   const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
   const router = useRouter();
   const { t } = useTranslation("exerciseDetail");
@@ -999,6 +1006,13 @@ export default function ExerciseDetailScreen() {
           </>
         ) : null}
 
+        {fullStatistics ? (
+          <>
+            <Divider />
+            <ExerciseInsights sessions={sessions} isTime={isTimeExercise} />
+          </>
+        ) : null}
+
         {hasVolumeData || todayProgress ? (
           <>
             <Divider />
@@ -1013,20 +1027,42 @@ export default function ExerciseDetailScreen() {
                 >
                   {t("overview.volume")}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("overview.seeFullStatistics")}
-                  onPress={() => router.push("/statistics")}
-                  style={styles.statisticsLink}
-                >
-                  <Text style={[Typography.caption, { color: primary }]}>
-                    {t("overview.seeFullStatistics")}
-                  </Text>
-                  <IconSymbol name="chevron.right" size={12} color={primary} />
-                </Pressable>
+                {!fullStatistics ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("overview.seeFullStatistics")}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/exercise-statistics",
+                        params: { exerciseId },
+                      })
+                    }
+                    style={styles.statisticsLink}
+                  >
+                    <Text style={[Typography.caption, { color: primary }]}>
+                      {t("overview.seeFullStatistics")}
+                    </Text>
+                    <IconSymbol
+                      name="chevron.right"
+                      size={12}
+                      color={primary}
+                    />
+                  </Pressable>
+                ) : null}
               </View>
+              {fullStatistics ? (
+                <Text style={[Typography.caption, { color: textSecondary }]}>
+                  {t("overview.statisticsRange")}
+                </Text>
+              ) : null}
               <VolumeBarChart
-                data={detail?.volume_weeks.slice(-10) ?? []}
+                data={
+                  (fullStatistics
+                    ? detail?.volume_weeks
+                    : detail?.volume_weeks.slice(-10)) ?? []
+                }
+                chartHeight={fullStatistics ? 200 : 120}
+                scrollable={fullStatistics}
                 today={todayProgress}
                 metric={isTimeExercise ? "duration" : "volume"}
                 labels={{
@@ -1250,98 +1286,110 @@ export default function ExerciseDetailScreen() {
               </Pressable>
             }
           />
-          <GestureDetector gesture={swipeGesture}>
+          {fullStatistics ? (
             <ScrollView
               contentContainerStyle={styles.scroll}
               showsVerticalScrollIndicator={false}
             >
-              {activeTab == null ? (
-                <LoadingPlaceholder />
-              ) : (
-                <>
-                  <PeriodSelector
-                    selected={activeTab}
-                    onChange={handleTabChange}
-                    periods={tabOptions}
-                    compact
-                  />
+              <Text style={[Typography.titleMd, { color: textColor }]}>
+                {t("overview.statisticsTitle")}
+              </Text>
+              {renderOverview()}
+            </ScrollView>
+          ) : (
+            <GestureDetector gesture={swipeGesture}>
+              <ScrollView
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
+              >
+                {activeTab == null ? (
+                  <LoadingPlaceholder />
+                ) : (
+                  <>
+                    <PeriodSelector
+                      selected={activeTab}
+                      onChange={handleTabChange}
+                      periods={tabOptions}
+                      compact
+                    />
 
-                  <Animated.View
-                    onLayout={handlePagerLayout}
-                    style={[
-                      styles.pagerViewport,
-                      activeTabHeight > 0
-                        ? { minHeight: activeTabHeight }
-                        : null,
-                      activeTabHeight > 0 ? pagerViewportStyle : null,
-                    ]}
-                  >
                     <Animated.View
+                      onLayout={handlePagerLayout}
                       style={[
-                        styles.pagerRow,
-                        pagerWidth > 0
-                          ? { width: pagerWidth * TAB_ORDER.length }
+                        styles.pagerViewport,
+                        activeTabHeight > 0
+                          ? { minHeight: activeTabHeight }
                           : null,
-                        pagerRowStyle,
+                        activeTabHeight > 0 ? pagerViewportStyle : null,
                       ]}
                     >
-                      <View
+                      <Animated.View
                         style={[
-                          styles.pagerPanel,
-                          {
-                            width: pagerWidth || "100%",
-                            minHeight: activeTabHeight || undefined,
-                          },
+                          styles.pagerRow,
+                          pagerWidth > 0
+                            ? { width: pagerWidth * TAB_ORDER.length }
+                            : null,
+                          pagerRowStyle,
                         ]}
                       >
                         <View
-                          onLayout={(event) =>
-                            handleTabPanelLayout("overview", event)
-                          }
+                          style={[
+                            styles.pagerPanel,
+                            {
+                              width: pagerWidth || "100%",
+                              minHeight: activeTabHeight || undefined,
+                            },
+                          ]}
                         >
-                          {renderOverview()}
+                          <View
+                            onLayout={(event) =>
+                              handleTabPanelLayout("overview", event)
+                            }
+                          >
+                            {renderOverview()}
+                          </View>
                         </View>
-                      </View>
-                      <View
-                        style={[
-                          styles.pagerPanel,
-                          {
-                            width: pagerWidth || "100%",
-                            minHeight: activeTabHeight || undefined,
-                          },
-                        ]}
-                      >
                         <View
-                          onLayout={(event) =>
-                            handleTabPanelLayout("history", event)
-                          }
+                          style={[
+                            styles.pagerPanel,
+                            {
+                              width: pagerWidth || "100%",
+                              minHeight: activeTabHeight || undefined,
+                            },
+                          ]}
                         >
-                          {renderHistory()}
+                          <View
+                            onLayout={(event) =>
+                              handleTabPanelLayout("history", event)
+                            }
+                          >
+                            {renderHistory()}
+                          </View>
                         </View>
-                      </View>
-                      <View
-                        style={[
-                          styles.pagerPanel,
-                          {
-                            width: pagerWidth || "100%",
-                            minHeight: activeTabHeight || undefined,
-                          },
-                        ]}
-                      >
                         <View
-                          onLayout={(event) =>
-                            handleTabPanelLayout("howTo", event)
-                          }
+                          style={[
+                            styles.pagerPanel,
+                            {
+                              width: pagerWidth || "100%",
+                              minHeight: activeTabHeight || undefined,
+                            },
+                          ]}
                         >
-                          {renderHowTo()}
+                          <View
+                            onLayout={(event) =>
+                              handleTabPanelLayout("howTo", event)
+                            }
+                          >
+                            {renderHowTo()}
+                          </View>
                         </View>
-                      </View>
+                      </Animated.View>
                     </Animated.View>
-                  </Animated.View>
-                </>
-              )}
-            </ScrollView>
-          </GestureDetector>
+                  </>
+                )}
+              </ScrollView>
+            </GestureDetector>
+          )}
           <ExercisePreferenceSheet
             visible={prefSheetVisible}
             exerciseName={exercise?.name ?? ""}
