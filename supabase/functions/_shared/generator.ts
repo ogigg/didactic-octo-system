@@ -14,8 +14,6 @@ import {
   getPrimaryHistoryLoadKg,
   type ExerciseHistory,
   formatExerciseDuration,
-  INCREMENT_EQUIPMENT_KEYS,
-  type IncrementEquipmentKey,
   type WeightIncrementsByEquipment,
   suggestInitialLoadKg,
 } from "./progression.ts";
@@ -755,53 +753,6 @@ function formatRegenerationFeedback(feedback: string | undefined): string {
     "## Regeneration Feedback",
     "The user is replacing the current pending workout and specifically asked for this change. Prioritize it when it does not conflict with safety, available equipment, or the exercise catalog.",
     trimmed.replace(/"/g, "'"),
-  ].join("\n");
-}
-
-/**
- * Explains which load jumps are physically reachable for this user so the LLM
- * never suggests an increase the gym cannot produce (e.g. +0.5kg on a machine
- * with 4kg steps and 1.1kg micro-plates).
- */
-export function formatWeightIncrementRule(
-  profile: Pick<ProfileData, "weight_increments">
-): string {
-  const configured = INCREMENT_EQUIPMENT_KEYS.map((key) => ({
-    key,
-    value: profile.weight_increments?.[key],
-  })).filter(
-    (
-      entry
-    ): entry is {
-      key: IncrementEquipmentKey;
-      value: NonNullable<typeof entry.value>;
-    } => entry.value?.base_kg != null && entry.value.base_kg > 0
-  );
-
-  if (configured.length === 0) {
-    return `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase by 2.5-5kg (or +10-15s for time exercises)`;
-  }
-
-  const categoryRules = configured.map(({ key, value }) => {
-    const base = value.base_kg;
-    const micro = value.micro_kg;
-    if (micro != null && micro > 0) {
-      const maxMicroSteps = Math.max(0, Math.floor(base / micro - 1e-9));
-      const examples: string[] = [];
-      for (let n = 0; n <= 2 && examples.length < 6; n++) {
-        for (let m = n === 0 ? 1 : 0; m <= maxMicroSteps; m++) {
-          examples.push(`+${Math.round((n * base + m * micro) * 100) / 100}kg`);
-        }
-      }
-      return `- ${key} exercises: only jumps of multiples of ${base}kg combined with up to ${maxMicroSteps} × ${micro}kg micro-plates are reachable. Reachable increases include ${examples.join(", ")}, and further combinations of these steps.`;
-    }
-    return `- ${key} exercises: only jumps that are exact multiples of ${base}kg are reachable.`;
-  });
-
-  return [
-    `- Progressive overload: if user completed previous load and feedback was "ok" or "too_easy", increase the load (or +10-15s for time exercises)`,
-    ...categoryRules,
-    `- NEVER suggest a load increase that is not reachable with the steps listed above.`,
   ].join("\n");
 }
 
