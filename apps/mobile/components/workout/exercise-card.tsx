@@ -46,6 +46,8 @@ interface ExerciseCardProps {
   exercise: WorkoutExercise;
   displayName?: string;
   image?: ExerciseImageData;
+  /** Localized primary muscle, shown under the exercise name. */
+  primaryMuscle?: string | null;
   onReorder?: (exerciseId: string) => void;
 }
 
@@ -53,6 +55,7 @@ export function ExerciseCard({
   exercise,
   displayName,
   image,
+  primaryMuscle,
   onReorder,
 }: ExerciseCardProps) {
   const { t } = useTranslation("workout");
@@ -259,7 +262,9 @@ export function ExerciseCard({
         <Pressable
           onPress={handleExercisePress}
           accessibilityRole="link"
-          accessibilityLabel={exerciseName}
+          accessibilityLabel={
+            primaryMuscle ? `${exerciseName}, ${primaryMuscle}` : exerciseName
+          }
           style={styles.exerciseName}
         >
           <Text
@@ -268,6 +273,14 @@ export function ExerciseCard({
           >
             {exerciseName}
           </Text>
+          {primaryMuscle ? (
+            <Text
+              style={[Typography.caption, { color: textSecondary }]}
+              numberOfLines={1}
+            >
+              {primaryMuscle}
+            </Text>
+          ) : null}
         </Pressable>
         <ProgressionPill type={exercise.progressionType} />
         <Pressable

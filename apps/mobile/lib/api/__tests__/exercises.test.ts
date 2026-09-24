@@ -7,6 +7,9 @@ jest.mock("@/lib/supabase", () => ({
   },
 }));
 
+import fs from "fs";
+import path from "path";
+
 import { supabase } from "@/lib/supabase";
 import exerciseCatalog from "../../../../../supabase/data/exercises.json";
 import {
@@ -52,6 +55,30 @@ function mockRpc(data: unknown, error: unknown = null) {
 }
 
 describe("exercise catalog", () => {
+  it("has a Polish label for every primary muscle", () => {
+    const migrationsDir = path.join(
+      __dirname,
+      "../../../../../supabase/migrations"
+    );
+    const migrations = fs
+      .readdirSync(migrationsDir)
+      .filter((file) => file.endsWith(".sql"))
+      .map((file) => fs.readFileSync(path.join(migrationsDir, file), "utf8"))
+      .join("\n");
+    const polishMuscles = new Set(
+      [...migrations.matchAll(/\('muscle',\s*'([^']+)',\s*'pl'/g)].map(
+        (match) => match[1]
+      )
+    );
+    const catalogMuscles = new Set(
+      exerciseCatalog.flatMap((exercise) => exercise.primary_muscles ?? [])
+    );
+
+    expect(
+      [...catalogMuscles].filter((muscle) => !polishMuscles.has(muscle))
+    ).toEqual([]);
+  });
+
   it("tracks plank by duration by default", () => {
     const plank = exerciseCatalog.find(
       (exercise) => exercise.external_id === "curated-plank"

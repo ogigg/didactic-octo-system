@@ -145,6 +145,24 @@ describe("ExerciseCard", () => {
     });
   });
 
+  it("shows the primary muscle under the exercise name", () => {
+    render(
+      <ExerciseCard exercise={exercise} primaryMuscle="Klatka piersiowa" />
+    );
+
+    expect(screen.getByText("Klatka piersiowa")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Bench Press, Klatka piersiowa" })
+    ).toBeTruthy();
+  });
+
+  it("leaves out the muscle caption when the exercise has none", () => {
+    render(<ExerciseCard exercise={exercise} primaryMuscle={null} />);
+
+    expect(screen.getByRole("link", { name: "Bench Press" })).toBeTruthy();
+    expect(screen.queryByText("Klatka piersiowa")).toBeNull();
+  });
+
   it("moves keyboard focus from reps to the next set row", () => {
     const exerciseWithTwoSets: WorkoutExercise = {
       ...exercise,
