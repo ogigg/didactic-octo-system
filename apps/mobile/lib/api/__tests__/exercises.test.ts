@@ -7,9 +7,6 @@ jest.mock("@/lib/supabase", () => ({
   },
 }));
 
-import fs from "fs";
-import path from "path";
-
 import { supabase } from "@/lib/supabase";
 import exerciseCatalog from "../../../../../supabase/data/exercises.json";
 import {
@@ -18,6 +15,19 @@ import {
   fetchExerciseFilterOptions,
   fetchExercises,
 } from "../exercises";
+
+// The app's tsconfig has no Node types (CI doesn't have the generated
+// expo-env.d.ts), so type the few Node built-ins this file reads by hand.
+declare const __dirname: string;
+interface NodeFs {
+  readdirSync(path: string): string[];
+  readFileSync(path: string, encoding: "utf8"): string;
+}
+interface NodePath {
+  join(...parts: string[]): string;
+}
+const fs = jest.requireActual<NodeFs>("fs");
+const path = jest.requireActual<NodePath>("path");
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
