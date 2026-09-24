@@ -1,3 +1,4 @@
+import { ProfileLoadingTransition } from "@/components/auth/profile-loading-transition";
 import "@/i18n";
 import {
   DarkTheme,
@@ -8,7 +9,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppState, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -16,12 +17,18 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
+import { AnalyticsScreenTracker } from "@/components/analytics-screen-tracker";
+import { AnimatedSplash } from "@/components/animated-splash";
+import { HomeWidgetsHost } from "@/components/home-widgets-host";
 import { SyncHealthBanner } from "@/components/sync-health-banner";
 import { ToastHost } from "@/components/ui/toast-host";
+import { WatchBridgeHost } from "@/components/watch-bridge-host";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useDeepLinkAuthGuard } from "@/hooks/use-deep-link-auth-guard";
 import { useDeepLinks } from "@/hooks/use-deep-links";
 import { useLiveActivityActions } from "@/hooks/use-live-activity-actions";
+import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
 import { flushHealthRetryQueue } from "@/lib/health";
 import { flushPostHog } from "@/lib/posthog";
 import { queryClient } from "@/lib/query-client";
@@ -39,16 +46,32 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+/**
+ * The Live Activity host must be inside QueryClientProvider because it resolves
+ * localized exercise names through TanStack Query. It is intentionally mounted
+ * at the root so route changes cannot tear down an active workout activity.
+ */
+function WorkoutLiveActivityHost() {
+  useWorkoutLiveActivity();
+  return null;
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { t } = useTranslation("common");
   const colors = Colors[colorScheme ?? "light"];
   const initialize = useAuthStore((s) => s.initialize);
   const isInitialized = useAuthStore((s) => s.isInitialized);
+  const [splashDone, setSplashDone] = useState(false);
+  const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   // Global handler for sweaty:// deep links (e.g. Live Activity "Mark set done").
   // Registered at the root so it fires regardless of the active route.
   useDeepLinks();
+
+  // Widget and Live Activity links open root-stack screens directly; route
+  // signed-out users to sign-in instead of an empty screen.
+  useDeepLinkAuthGuard();
 
   // Drain background-safe Live Activity actions (Skip Rest, Adjust Rest, …)
   // queued in the shared App Group by widget App Intents.
@@ -58,12 +81,6 @@ export default function RootLayout() {
     const unsubscribe = initialize();
     return unsubscribe;
   }, [initialize]);
-
-  useEffect(() => {
-    if (isInitialized) {
-      SplashScreen.hideAsync();
-    }
-  }, [isInitialized]);
 
   useEffect(() => {
     registerSyncHandlers();
@@ -120,7 +137,11 @@ export default function RootLayout() {
         <View style={[styles.root, { backgroundColor: colors.background }]}>
           <AmbientGlow variant="hero" />
           <QueryClientProvider client={queryClient}>
+            <WorkoutLiveActivityHost />
+            <WatchBridgeHost />
+            <HomeWidgetsHost />
             <ThemeProvider value={theme}>
+              <AnalyticsScreenTracker />
               <Stack
                 screenOptions={{
                   contentStyle: styles.transparent,
@@ -182,11 +203,26 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="workout-template"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="exercise-detail"
                   options={{
                     presentation: "fullScreenModal",
                     headerShown: false,
                     gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="auth-link-error"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="exercise-statistics"
+                  options={{
+                    headerShown: false,
+                    presentation: "fullScreenModal",
                   }}
                 />
                 <Stack.Screen
@@ -222,15 +258,34 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="account-settings"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="export-history"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="change-password"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="delete-account"
                   options={{ headerShown: false }}
                 />
               </Stack>
+              <ProfileLoadingTransition />
               <SyncHealthBanner />
               <ToastHost />
               <StatusBar style="auto" />
             </ThemeProvider>
           </QueryClientProvider>
+          {!splashDone && (
+            <AnimatedSplash
+              appReady={isInitialized}
+              onFinish={handleSplashFinish}
+            />
+          )}
         </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>

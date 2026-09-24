@@ -1,3 +1,4 @@
+import { strengthBaselinesSchema } from "@/lib/schemas/strength-baseline";
 import { supabase } from "@/lib/supabase";
 import { z } from "zod";
 
@@ -41,11 +42,13 @@ export async function fetchStrengthBaselines(): Promise<StrengthBaseline[]> {
   }
 
   const parsed = z.array(baselineSchema).parse(data);
-  return parsed.map((b) => ({
-    exercise_key: b.exercise_key,
-    load_kg: b.load_kg,
-    reps: b.reps,
-  }));
+  return strengthBaselinesSchema.parse(
+    parsed.map((b) => ({
+      exercise_key: b.exercise_key,
+      load_kg: b.load_kg,
+      reps: b.reps,
+    }))
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -64,30 +67,9 @@ export async function saveStrengthBaselines(
     throw new Error(authError?.message ?? "Not authenticated");
   }
 
-  // Delete existing and upsert new
-  const { error: deleteError } = await supabase
-    .from("strength_baselines")
-    .delete()
-    .eq("user_id", user.id);
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
-  }
-
-  if (baselines.length === 0) return;
-
-  const rows = baselines.map((b) => ({
-    user_id: user.id,
-    exercise_key: b.exercise_key,
-    load_kg: b.load_kg,
-    reps: b.reps,
-  }));
-
-  const { error: insertError } = await supabase
-    .from("strength_baselines")
-    .insert(rows);
-
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
+  const { error } = await supabase.rpc("save_strength_baselines", {
+    p_baselines: strengthBaselinesSchema.parse(baselines),
+    p_expected_user_id: user.id,
+  });
+  if (error) throw new Error(error.message);
 }

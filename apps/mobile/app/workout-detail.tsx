@@ -1,5 +1,7 @@
 import { AmbientGlow } from "@/components/ambient-glow";
 import { MuscleDistributionCard } from "@/components/history/muscle-distribution-card";
+import { ExerciseHistoryEditSheet } from "@/components/history/exercise-history-edit-sheet";
+import { ExerciseHistoryMenu } from "@/components/history/exercise-history-menu";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -10,6 +12,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   useDeleteSessionExercise,
   useDeleteWorkoutSession,
+  useUpdateCompletedSessionExerciseSets,
 } from "@/hooks/use-workout-mutations";
 import { useWorkoutDetail } from "@/hooks/use-workout-queries";
 import { useCommentsForSession } from "@/hooks/use-workout-session-comments";
@@ -17,7 +20,12 @@ import {
   useCatalogLabels,
   useLocalizedExerciseMap,
 } from "@/hooks/use-exercises-query";
-import type { WorkoutDetail } from "@/lib/api/workouts";
+import type {
+  CompletedExerciseSetInput,
+  EditableExerciseSet,
+  WorkoutDetail,
+  WorkoutDetailExercise,
+} from "@/lib/api/workouts";
 import { aggregateMuscleDistribution } from "@/lib/muscle-distribution";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { useToastStore } from "@/stores/toast-store";
@@ -27,7 +35,7 @@ import {
 } from "@/lib/workout-deletion-logger";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -106,13 +114,17 @@ export default function WorkoutDetailScreen() {
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const border = useThemeColor({}, "border");
   const success = useThemeColor({}, "success");
-  const error = useThemeColor({}, "error");
   const textDisabled = useThemeColor({}, "textDisabled");
 
   const wu = useWeightUnit();
   const { data: detail, isLoading } = useWorkoutDetail(id ?? "");
   const deleteSessionExerciseMutation = useDeleteSessionExercise();
   const deleteWorkoutSessionMutation = useDeleteWorkoutSession();
+  const updateExerciseSetsMutation = useUpdateCompletedSessionExerciseSets();
+  const [selectedExercise, setSelectedExercise] =
+    useState<WorkoutDetailExercise | null>(null);
+  const [exerciseMenuVisible, setExerciseMenuVisible] = useState(false);
+  const [exerciseEditorVisible, setExerciseEditorVisible] = useState(false);
   const { data: sessionComments } = useCommentsForSession(id ?? null);
   const detailExerciseIds = useMemo(
     () => detail?.exercises.map((exercise) => exercise.exercise_id) ?? [],
@@ -133,6 +145,9 @@ export default function WorkoutDetailScreen() {
             style: "destructive",
             onPress: () =>
               deleteSessionExerciseMutation.mutate(sessionExerciseId, {
+                onSuccess: () => {
+                  showSuccess(t("detail.deleteExercise.success"));
+                },
                 onError: () => {
                   Alert.alert(
                     t("detail.deleteExercise.errorTitle"),
@@ -144,7 +159,28 @@ export default function WorkoutDetailScreen() {
         ]
       );
     },
-    [deleteSessionExerciseMutation, t]
+    [deleteSessionExerciseMutation, showSuccess, t]
+  );
+
+  const handleSaveExercise = useCallback(
+    async (sets: CompletedExerciseSetInput[]) => {
+      if (!selectedExercise) return;
+
+      try {
+        await updateExerciseSetsMutation.mutateAsync({
+          sessionExerciseId: selectedExercise.id,
+          sets,
+        });
+        showSuccess(t("detail.exerciseEditor.success"));
+      } catch (error) {
+        Alert.alert(
+          t("detail.exerciseEditor.errorTitle"),
+          t("detail.exerciseEditor.errorMessage")
+        );
+        throw error;
+      }
+    },
+    [selectedExercise, showSuccess, t, updateExerciseSetsMutation]
   );
 
   const handleDeleteWorkout = useCallback(() => {
@@ -357,23 +393,20 @@ export default function WorkoutDetailScreen() {
                   </Text>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={t(
-                      "detail.deleteExercise.accessibilityLabel",
-                      {
-                        exerciseName:
-                          exerciseMap.get(ex.exercise_id)?.name ??
-                          ex.exercise_name,
-                      }
-                    )}
-                    disabled={deleteSessionExerciseMutation.isPending}
-                    hitSlop={8}
-                    onPress={() =>
-                      handleDeleteExercise(
-                        ex.id,
+                    accessibilityLabel={t("detail.exerciseMenu.open", {
+                      exerciseName:
                         exerciseMap.get(ex.exercise_id)?.name ??
-                          ex.exercise_name
-                      )
+                        ex.exercise_name,
+                    })}
+                    disabled={
+                      deleteSessionExerciseMutation.isPending ||
+                      updateExerciseSetsMutation.isPending
                     }
+                    hitSlop={8}
+                    onPress={() => {
+                      setSelectedExercise(ex);
+                      setExerciseMenuVisible(true);
+                    }}
                     style={[
                       styles.deleteExerciseButton,
                       deleteSessionExerciseMutation.isPending
@@ -381,7 +414,11 @@ export default function WorkoutDetailScreen() {
                         : null,
                     ]}
                   >
-                    <IconSymbol name="trash" size={16} color={error} />
+                    <IconSymbol
+                      name="ellipsis"
+                      size={20}
+                      color={textSecondary}
+                    />
                   </Pressable>
                 </View>
 
@@ -507,6 +544,66 @@ export default function WorkoutDetailScreen() {
             variant="destructive"
           />
         </ScrollView>
+
+        <ExerciseHistoryMenu
+          visible={exerciseMenuVisible}
+          exerciseName={
+            selectedExercise
+              ? (exerciseMap.get(selectedExercise.exercise_id)?.name ??
+                selectedExercise.exercise_name)
+              : ""
+          }
+          dateLabel={formatDate(
+            detail.completed_at,
+            i18n.resolvedLanguage ?? i18n.language
+          )}
+          setCount={
+            selectedExercise?.sets.filter((set) => set.log?.completed).length ??
+            0
+          }
+          onClose={() => setExerciseMenuVisible(false)}
+          onEdit={() => setExerciseEditorVisible(true)}
+          onDelete={() => {
+            if (!selectedExercise) return;
+            handleDeleteExercise(
+              selectedExercise.id,
+              exerciseMap.get(selectedExercise.exercise_id)?.name ??
+                selectedExercise.exercise_name
+            );
+          }}
+        />
+        <ExerciseHistoryEditSheet
+          visible={exerciseEditorVisible}
+          exerciseName={
+            selectedExercise
+              ? (exerciseMap.get(selectedExercise.exercise_id)?.name ??
+                selectedExercise.exercise_name)
+              : ""
+          }
+          workoutName={detail?.name ?? t("detail.fallbackName")}
+          workoutDate={formatDate(
+            detail?.completed_at ?? null,
+            i18n.resolvedLanguage ?? i18n.language
+          )}
+          exerciseType={selectedExercise?.exercise_type ?? "weight"}
+          sets={
+            selectedExercise?.sets
+              .filter((set) => set.log?.completed)
+              .map(
+                (set): EditableExerciseSet => ({
+                  id: set.id,
+                  set_number: set.set_number,
+                  set_type: set.set_type,
+                  load_kg: set.log?.actual_load_kg ?? null,
+                  reps: set.log?.actual_reps ?? null,
+                  duration_seconds: set.log?.actual_duration_seconds ?? null,
+                  rpe: set.log?.rpe ?? null,
+                })
+              ) ?? []
+          }
+          onClose={() => setExerciseEditorVisible(false)}
+          onSave={handleSaveExercise}
+        />
       </SafeAreaView>
     </View>
   );

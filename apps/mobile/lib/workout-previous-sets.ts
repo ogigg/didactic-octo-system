@@ -5,6 +5,12 @@ export interface PreviousSetValue {
   display: string;
 }
 
+/** Previous history channels for one exercise occurrence. */
+export interface ExercisePreviousSets {
+  warmup: string | null;
+  working: PreviousSetValue[];
+}
+
 export function formatPreviousWeightSet(
   loadKg: number | null | undefined,
   reps: number | null | undefined,

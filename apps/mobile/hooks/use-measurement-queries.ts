@@ -87,7 +87,8 @@ export function useUpsertMeasurement() {
           .enqueue(
             "upsert_measurement",
             createMeasurementSyncIdentity(user.id, variables),
-            variables
+            variables,
+            user.id
           )
           .catch(console.warn);
       }

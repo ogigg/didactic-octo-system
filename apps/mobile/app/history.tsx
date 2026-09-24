@@ -1,6 +1,7 @@
 import { AmbientGlow } from "@/components/ambient-glow";
 import { WorkoutHistoryCard } from "@/components/history/workout-history-card";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
@@ -9,12 +10,13 @@ import {
 } from "@/hooks/use-workout-queries";
 import type { WorkoutHistoryItem } from "@/lib/api/workouts";
 import { isValidDateKey } from "@/lib/local-day-bounds";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -51,7 +53,6 @@ export default function HistoryScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
   const primary = useThemeColor({}, "primary");
   const background = useThemeColor({}, "background");
-  const border = useThemeColor({}, "border");
 
   const infinite = useWorkoutHistory({ enabled: !isDayMode });
   const dayQuery = useWorkoutHistoryForDay(dayFilter ?? "");
@@ -142,6 +143,21 @@ export default function HistoryScreen() {
           title={headerTitle}
           numberOfLines={isDayMode ? 2 : 1}
           backAccessibilityLabel={t("header.back")}
+          rightElement={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("header.export")}
+              hitSlop={8}
+              onPress={() => router.push("/export-history" as Href)}
+              style={styles.headerAction}
+            >
+              <IconSymbol
+                name="square.and.arrow.up"
+                size={20}
+                color={primary}
+              />
+            </Pressable>
+          }
         />
 
         <FlatList
@@ -197,5 +213,11 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: Spacing.xl,
     alignItems: "center",
+  },
+  headerAction: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

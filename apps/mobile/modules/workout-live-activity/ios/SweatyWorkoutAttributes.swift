@@ -13,11 +13,92 @@ struct SweatyWorkoutAttributes: ActivityAttributes {
     /// 1-based index within the exercise (compact island "1/4")
     var currentSetNumber: Int
     var totalSets: Int
+    /// Completed exercise sets across the whole workout.
+    var completedSets: Int
+    var totalWorkoutSets: Int
     var workoutName: String
     var workoutStartedAt: Date
+    /// True for the final state sent while the workout is being completed.
+    /// The widget uses this to render a completion state before dismissal.
+    var isWorkoutComplete: Bool
     /// Non-nil only while rest timer is running
     var restStartedAt: Date?
     var restEndsAt: Date?
+
+    private enum CodingKeys: String, CodingKey {
+      case exerciseName
+      case setDisplay
+      case proposalDisplay
+      case exerciseId
+      case setId
+      case currentSetNumber
+      case totalSets
+      case completedSets
+      case totalWorkoutSets
+      case workoutName
+      case workoutStartedAt
+      case isWorkoutComplete
+      case restStartedAt
+      case restEndsAt
+    }
+
+    init(
+      exerciseName: String,
+      setDisplay: String,
+      proposalDisplay: String,
+      exerciseId: String,
+      setId: String,
+      currentSetNumber: Int,
+      totalSets: Int,
+      completedSets: Int,
+      totalWorkoutSets: Int,
+      workoutName: String,
+      workoutStartedAt: Date,
+      isWorkoutComplete: Bool,
+      restStartedAt: Date?,
+      restEndsAt: Date?
+    ) {
+      self.exerciseName = exerciseName
+      self.setDisplay = setDisplay
+      self.proposalDisplay = proposalDisplay
+      self.exerciseId = exerciseId
+      self.setId = setId
+      self.currentSetNumber = currentSetNumber
+      self.totalSets = totalSets
+      self.completedSets = completedSets
+      self.totalWorkoutSets = totalWorkoutSets
+      self.workoutName = workoutName
+      self.workoutStartedAt = workoutStartedAt
+      self.isWorkoutComplete = isWorkoutComplete
+      self.restStartedAt = restStartedAt
+      self.restEndsAt = restEndsAt
+    }
+
+    /// Keep activities created by older binaries decodable after adding the
+    /// completion marker. ActivityKit may restore their prior ContentState
+    /// payload without the new key, so a synthesized decoder would otherwise
+    /// discard the activity before the app can reconcile it.
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      exerciseName = try container.decode(String.self, forKey: .exerciseName)
+      setDisplay = try container.decode(String.self, forKey: .setDisplay)
+      proposalDisplay = try container.decode(String.self, forKey: .proposalDisplay)
+      exerciseId = try container.decode(String.self, forKey: .exerciseId)
+      setId = try container.decode(String.self, forKey: .setId)
+      currentSetNumber = try container.decode(Int.self, forKey: .currentSetNumber)
+      totalSets = try container.decode(Int.self, forKey: .totalSets)
+      completedSets =
+        try container.decodeIfPresent(Int.self, forKey: .completedSets)
+        ?? max(0, currentSetNumber - 1)
+      totalWorkoutSets =
+        try container.decodeIfPresent(Int.self, forKey: .totalWorkoutSets)
+        ?? totalSets
+      workoutName = try container.decode(String.self, forKey: .workoutName)
+      workoutStartedAt = try container.decode(Date.self, forKey: .workoutStartedAt)
+      isWorkoutComplete = try container.decodeIfPresent(Bool.self, forKey: .isWorkoutComplete) ?? false
+      restStartedAt = try container.decodeIfPresent(Date.self, forKey: .restStartedAt)
+      restEndsAt = try container.decodeIfPresent(Date.self, forKey: .restEndsAt)
+    }
   }
 
   var workoutId: String

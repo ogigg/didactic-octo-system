@@ -1,88 +1,121 @@
 import SwiftUI
 
 struct ExerciseDetailView: View {
-    @Environment(WorkoutStore.self) private var store
-    @Environment(WatchConnectivityClient.self) private var connectivity
-    @Environment(HealthKitClient.self) private var healthKit
+    @Environment(WorkoutCoordinator.self) private var coordinator
 
-    @State private var loadKg: Double = 0
-    @State private var reps: Int = 0
+    @Environment(\.dynamicTypeSize) private var textSize
+
+    private var selectedExercise: WatchExercise? { coordinator.selectedExercise }
+    private var currentSet: WatchSet? { coordinator.currentSet }
+    private var isTimed: Bool { selectedExercise?.exerciseType == .time }
+    private var isTimedSetStarted: Bool { coordinator.timedSetEnd != nil }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 6) {
-                if let exercise = store.currentExercise {
-                    // Header
-                    HStack {
-                        Text(exercise.name)
-                            .font(.headline)
-                            .lineLimit(2)
-                        Spacer()
-                        if let hr = healthKit.heartRate {
-                            Label("\(hr)", systemImage: "heart.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.red)
-                        }
-                    }
+        WatchScreen(
+            title: headerTitle,
+            onBack: { coordinator.navigate(.exerciseList) },
+            headerAction: .details,
+            primaryTitle: primaryTitle,
+            primaryTint: WatchTheme.primary,
+            primaryDisabled: coordinator.isFinishing,
+            onPrimary: primaryAction
+        ) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let exercise = selectedExercise, currentSet != nil {
+                    Text(exercise.name)
+                        .font(textSize > .large ? .headline : .system(size: 13, weight: .semibold))
+                        .lineLimit(textSize > .large ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .frame(height: textSize > .large ? nil : 32, alignment: .top)
 
-                    Text("Exercise \(store.exerciseProgress) · Set \(store.setProgress)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-
-                    if let previous = exercise.previousDisplay {
-                        Text("Previous: \(previous)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Divider()
-
-                    // Weight picker
-                    SetLoggerView(loadKg: $loadKg, reps: $reps)
-
-                    // Done button
-                    Button {
-                        completeCurrentSet()
-                    } label: {
-                        Text("Done")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .tint(.green)
+                    SetLoggerView()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: textSize > .large ? nil : 38)
                 } else {
-                    Text("Workout complete!")
+                    Text(String(localized: "No set is ready"))
                         .font(.headline)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
             }
-            .padding(.horizontal)
-        }
-        .onChange(of: store.currentSet) { _, newSet in
-            if let set = newSet {
-                loadKg = set.targetLoadKg ?? 0
-                reps = set.targetReps ?? 0
-            }
-        }
-        .onAppear {
-            if let set = store.currentSet {
-                loadKg = set.targetLoadKg ?? 0
-                reps = set.targetReps ?? 0
-            }
         }
     }
 
-    private func completeCurrentSet() {
-        guard let exercise = store.currentExercise else { return }
-
-        let completion = store.completeSet(
-            exerciseId: exercise.id,
-            setIndex: store.currentSetIndex,
-            loadKg: loadKg,
-            reps: reps
-        )
-        connectivity.sendSetCompletion(completion)
-        HapticsClient.setCompleted()
-
-        // Start rest timer then advance
-        store.startRest(durationSeconds: exercise.restDurationSeconds)
-        store.advanceToNextSet()
+    private var headerTitle: String {
+        guard let exercise = selectedExercise, let set = currentSet else { return String(localized: "Workout") }
+        let number = setIndexLabel(exercise: exercise, set: set)
+        return set.type == .warmup ? watchLocalizedFormat("%@ warm-up", number) : number
     }
+
+    private var primaryTitle: String {
+        guard currentSet != nil else { return String(localized: "Exercise complete") }
+        if isTimed, !isTimedSetStarted { return String(localized: "Start timer") }
+        return String(localized: "Log set")
+    }
+
+    private func primaryAction() {
+        guard currentSet != nil else { return }
+        if isTimed, !isTimedSetStarted {
+            coordinator.startTimedSet()
+        } else {
+            coordinator.completeCurrentSet()
+        }
+    }
+
+    private func setIndexLabel(exercise: WatchExercise, set: WatchSet) -> String {
+        let index = (exercise.sets.firstIndex(where: { $0.id == set.id }) ?? 0) + 1
+        return watchLocalizedFormat("%lld/%lld", index, exercise.sets.count)
+    }
+
+}
+
+struct ExerciseCompleteView: View {
+    @Environment(WorkoutCoordinator.self) private var coordinator
+    @State private var finishConfirmation = false
+
+    var body: some View {
+        WatchScreen(
+            title: String(localized: "Complete"),
+            onBack: { coordinator.navigate(.exerciseList) },
+            headerAction: .details,
+            primaryTitle: coordinator.hasNextExercise
+                ? String(localized: "Start next exercise")
+                : String(localized: "Finish workout"),
+            primaryTint: WatchTheme.success,
+            primaryRole: coordinator.hasNextExercise ? nil : .destructive,
+            onPrimary: {
+                if coordinator.hasNextExercise {
+                    coordinator.showNextExercise()
+                } else {
+                    finishConfirmation = true
+                }
+            }
+        ) {
+            VStack(spacing: 4) {
+                Text(coordinator.selectedExercise?.name ?? String(localized: "Exercise complete"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(height: 32)
+                Label(watchLocalizedFormat("%lld sets", coordinator.selectedExercise?.sets.filter(\.isCompleted).count ?? 0), systemImage: "checkmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(WatchTheme.success)
+            }
+            .frame(maxWidth: .infinity)
+
+        }
+        .confirmationDialog(
+            String(localized: "Finish workout?"),
+            isPresented: $finishConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Finish workout"), role: .destructive) {
+                coordinator.finishWorkout()
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text("You can still review this workout on your iPhone")
+        }
+    }
+
 }

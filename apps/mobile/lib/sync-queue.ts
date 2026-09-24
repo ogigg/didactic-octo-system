@@ -9,6 +9,8 @@ const MAX_BACKOFF_MS = 60_000;
 
 const syncQueueItemSchema = z
   .object({
+    // Legacy entries predate per-account ownership; they are never replayed.
+    ownerId: z.string().min(1).optional(),
     id: z.string().min(1),
     operation: z.string().min(1),
     payload: z.unknown(),
@@ -26,6 +28,8 @@ const syncQueueItemSchema = z
   });
 
 export interface SyncQueueItem {
+  /** Account that queued the write. Null only for legacy, pre-ownership items. */
+  ownerId: string | null;
   id: string;
   operation: string;
   payload: unknown;
@@ -108,6 +112,7 @@ function parseQueue(raw: string): ParsedQueue {
     }
 
     items.push({
+      ownerId: parsed.ownerId ?? null,
       id: parsed.id,
       operation: parsed.operation,
       payload: parsed.payload,
@@ -139,6 +144,20 @@ export class SyncQueue {
   private recoveredReference: string | undefined;
   private snapshot = SAVED_SNAPSHOT;
   private listeners = new Set<SyncHealthListener>();
+  private activeUserId: string | null = null;
+
+  /** Set the only account whose queued writes may be replayed or surfaced. */
+  setActiveUser(userId: string | null): void {
+    if (this.activeUserId === userId) return;
+    this.activeUserId = userId;
+    this.recoveredReference = undefined;
+    if (!userId) this.clearRetryTimer();
+    this.publishHealth();
+  }
+
+  private isActiveOwner(item: SyncQueueItem): boolean {
+    return item.ownerId !== null && item.ownerId === this.activeUserId;
+  }
 
   registerHandler(operation: string, handler: SyncHandler): void {
     this.handlers.set(operation, handler);
@@ -206,13 +225,19 @@ export class SyncQueue {
   async enqueue(
     operation: string,
     id: string,
-    payload: unknown
+    payload: unknown,
+    ownerId?: string
   ): Promise<void> {
     await this.hydrate();
+    const owner = ownerId ?? this.activeUserId;
+    if (!owner) {
+      throw new Error("Cannot queue a sync operation without an active user");
+    }
     const now = Date.now();
 
     const existingIndex = this.items.findIndex(
-      (item) => item.id === id && item.operation === operation
+      (item) =>
+        item.ownerId === owner && item.id === id && item.operation === operation
     );
 
     if (existingIndex !== -1) {
@@ -228,6 +253,7 @@ export class SyncQueue {
       };
     } else {
       this.items.push({
+        ownerId: owner,
         id,
         operation,
         payload,
@@ -250,7 +276,7 @@ export class SyncQueue {
   processQueue(): Promise<void> {
     this.processRequested = true;
 
-    if (!this.isOnline || !this.isActive) {
+    if (!this.isOnline || !this.isActive || !this.activeUserId) {
       return Promise.resolve();
     }
 
@@ -283,7 +309,7 @@ export class SyncQueue {
   async getDeadItems(): Promise<SyncQueueItem[]> {
     await this.hydrate();
     return this.items
-      .filter((item) => item.status === "dead")
+      .filter((item) => item.status === "dead" && this.isActiveOwner(item))
       .map((item) => ({ ...item }));
   }
 
@@ -292,7 +318,8 @@ export class SyncQueue {
     let changed = false;
 
     for (const item of this.items) {
-      if (item.status === "dead") {
+      // Never revive another account's write, or a legacy ownerless one.
+      if (item.status === "dead" && this.isActiveOwner(item)) {
         item.status = "pending";
         item.retryCount = 0;
         item.nextRetryAt = 0;
@@ -349,24 +376,46 @@ export class SyncQueue {
   private async drainRequestedPasses(): Promise<void> {
     await this.hydrate();
 
-    while (this.processRequested && this.isOnline && this.isActive) {
+    while (
+      this.processRequested &&
+      this.isOnline &&
+      this.isActive &&
+      this.activeUserId
+    ) {
       this.processRequested = false;
       await this.processPass();
     }
   }
 
   private async processPass(): Promise<void> {
+    const activeUserId = this.activeUserId;
+    if (!activeUserId) return;
     const now = Date.now();
+    let changed = false;
+
+    // Legacy writes without an owner could belong to any account that used
+    // this device. Keep them out of replay instead of guessing.
+    for (const item of this.items) {
+      if (item.status === "pending" && item.ownerId === null) {
+        item.status = "dead";
+        changed = true;
+      }
+    }
+
     const candidates = this.items.filter(
       (item) =>
         item.status === "pending" &&
+        item.ownerId === activeUserId &&
         item.nextRetryAt <= now &&
         this.handlers.has(item.operation)
     );
-    let changed = false;
 
     for (const item of candidates) {
-      if (!this.isOnline || !this.isActive) {
+      if (
+        !this.isOnline ||
+        !this.isActive ||
+        this.activeUserId !== activeUserId
+      ) {
         this.processRequested = true;
         break;
       }
@@ -437,13 +486,15 @@ export class SyncQueue {
 
   private scheduleNextRetry(): void {
     this.clearRetryTimer();
-    if (!this.loaded || !this.isOnline || !this.isActive) return;
+    if (!this.loaded || !this.isOnline || !this.isActive || !this.activeUserId)
+      return;
 
     const now = Date.now();
     const nextRetryAt = this.items.reduce<number | undefined>(
       (earliest, item) => {
         if (
           item.status !== "pending" ||
+          !this.isActiveOwner(item) ||
           !this.handlers.has(item.operation) ||
           item.nextRetryAt <= 0
         ) {
@@ -474,8 +525,10 @@ export class SyncQueue {
   }
 
   private publishHealth(): void {
-    const failed = this.items.filter((item) => item.status === "dead");
-    const pendingCount = this.items.length - failed.length;
+    // Only the signed-in account's writes are surfaced to the person using it.
+    const owned = this.items.filter((item) => this.isActiveOwner(item));
+    const failed = owned.filter((item) => item.status === "dead");
+    const pendingCount = owned.length - failed.length;
     const firstFailed = failed[0];
 
     let state: SyncHealthSnapshot["state"] = "saved";

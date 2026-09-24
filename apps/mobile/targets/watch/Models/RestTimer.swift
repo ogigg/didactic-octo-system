@@ -1,18 +1,19 @@
 import Foundation
 
-struct RestTimerState: Codable {
-    let startedAt: Date
-    let durationSeconds: Int
+struct RestTimerState: Codable, Equatable {
+    var id: String
+    var exerciseId: String
+    var durationSeconds: Int
+    var endDate: Date?
+    var pausedRemainingSeconds: Double?
 
-    var endAt: Date {
-        startedAt.addingTimeInterval(TimeInterval(durationSeconds))
+    func remainingSeconds(at date: Date = .now) -> Int {
+        if let pausedRemainingSeconds {
+            return max(0, Int(pausedRemainingSeconds.rounded(.up)))
+        }
+        guard let endDate else { return 0 }
+        return max(0, Int(endDate.timeIntervalSince(date).rounded(.up)))
     }
 
-    func remainingSeconds(now: Date = .now) -> Int {
-        max(0, Int(endAt.timeIntervalSince(now)))
-    }
-
-    func isActive(now: Date = .now) -> Bool {
-        remainingSeconds(now: now) > 0
-    }
+    var isPaused: Bool { pausedRemainingSeconds != nil }
 }

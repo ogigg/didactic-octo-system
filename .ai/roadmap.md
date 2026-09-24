@@ -16,19 +16,19 @@
 
 These are ordered by **impact vs. leverage on what already exists** (`set_logs`, exercises media fields, Edge Functions, i18n).
 
-| Priority  | Theme                                   | Why now                                                                                                                                       |
-| --------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P1**    | **Progress charts & trends**            | Strength per exercise, weekly volume/tonnage over time — `set_logs` already holds the series; mostly presentation + queries.                  |
-| **P1**    | **Exercise instruction library**        | Surface `instructions`, `image_url`, `video_url` on exercise detail — high UX value, minimal schema work.                                     |
-| **P2**    | **Workout templates & favorites**       | Save a generated workout to re-run; favorite exercises so generation can bias toward them — strong retention.                                 |
-| **P2**    | **lb/kg toggle & more locales**         | i18n infrastructure exists; unit preference affects copy and inputs everywhere weights appear.                                                |
-| **P3**    | **AI coach chat**                       | Same LLM pipeline, new surface — “why this exercise?”, “what should I focus on?” with session/history context. Larger product + cost surface. |
-| **P3**    | **Consistency / streaks (private)**     | Lightweight accountability without full social; pairs well with analytics.                                                                    |
-| **Later** | **Superset & circuit support**          | Great for gym efficiency; requires workout model + logger + AI output shape changes.                                                          |
-| **Later** | **Deload week intelligence**            | Signals from RPE, reps, feedback — needs reliable heuristics and UX for “planned easy week”.                                                  |
-| **Later** | **Body measurements & progress photos** | Profile already hints (“Measures”); needs storage, privacy, and UI scope.                                                                     |
-| **Later** | **Social & sharing**                    | Share summaries / groups — policy, moderation, and positioning beyond MVP’s “no sharing”.                                                     |
-| **Later** | **Wearables (HealthKit / Google Fit)**  | HR export, calories — platform APIs and background behavior; can inform intensity later.                                                      |
+| Priority  | Theme                                   | Why now                                                                                                                                                |
+| --------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **P1**    | **Progress charts & trends**            | Strength per exercise, weekly volume/tonnage over time — `set_logs` already holds the series; mostly presentation + queries.                           |
+| **P1**    | **Exercise instruction library**        | Surface `instructions`, `image_url`, `video_url` on exercise detail — high UX value, minimal schema work.                                              |
+| **P2**    | **Workout templates & favorites**       | Save a generated workout to review and re-run with an explicit start action; favorite exercises so generation can bias toward them — strong retention. |
+| **P2**    | **lb/kg toggle & more locales**         | i18n infrastructure exists; unit preference affects copy and inputs everywhere weights appear.                                                         |
+| **P3**    | **AI coach chat**                       | Same LLM pipeline, new surface — “why this exercise?”, “what should I focus on?” with session/history context. Larger product + cost surface.          |
+| **P3**    | **Consistency / streaks (private)**     | Lightweight accountability without full social; pairs well with analytics.                                                                             |
+| **Later** | **Superset & circuit support**          | Great for gym efficiency; requires workout model + logger + AI output shape changes.                                                                   |
+| **Later** | **Deload week intelligence**            | Signals from RPE, reps, feedback — needs reliable heuristics and UX for “planned easy week”.                                                           |
+| **Later** | **Body measurements & progress photos** | Profile already hints (“Measures”); needs storage, privacy, and UI scope.                                                                              |
+| **Later** | **Social & sharing**                    | Share summaries / groups — policy, moderation, and positioning beyond MVP’s “no sharing”.                                                              |
+| **Later** | **Wearables (HealthKit / Google Fit)**  | HR export, calories — platform APIs and background behavior; can inform intensity later.                                                               |
 
 ---
 

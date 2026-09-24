@@ -9,9 +9,13 @@ import {
   getNextUp,
   getRestTimerProgress,
 } from "@/lib/rest-timer";
-import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
+import {
+  getExerciseOccurrenceId,
+  useWorkoutStore,
+  type WorkoutExercise,
+} from "@/stores/workout-store";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   Platform,
@@ -86,6 +90,12 @@ export function RestTimerSheet({ onClose }: RestTimerSheetProps) {
     return () => clearInterval(interval);
   }, []);
 
+  // Keep the last known timer around so the sheet can keep rendering its
+  // content while it animates out after the timer finishes or is skipped.
+  const lastTimerRef = useRef(restTimer);
+  if (restTimer) lastTimerRef.current = restTimer;
+  const activeTimer = restTimer ?? lastTimerRef.current;
+
   const translateY = useSharedValue(screenHeight);
   const backdropOpacity = useSharedValue(0);
 
@@ -114,6 +124,12 @@ export function RestTimerSheet({ onClose }: RestTimerSheetProps) {
       }
     );
   }, [backdropOpacity, translateY, screenHeight, reducedMotion, onClose]);
+
+  // The bar clears the timer when it hits zero; play the exit animation
+  // instead of disappearing instantly.
+  useEffect(() => {
+    if (!restTimer) requestClose();
+  }, [restTimer, requestClose]);
 
   const panGesture = useMemo(
     () =>
@@ -144,12 +160,15 @@ export function RestTimerSheet({ onClose }: RestTimerSheetProps) {
   }));
 
   const exerciseIds = useMemo(() => {
-    if (!restTimer) return [];
-    const ids = [restTimer.exerciseId];
-    const nextUp = getNextUp(exercises, restTimer.exerciseId);
+    if (!activeTimer) return [];
+    const restingExercise = exercises.find(
+      (exercise) => getExerciseOccurrenceId(exercise) === activeTimer.exerciseId
+    );
+    const ids = restingExercise ? [restingExercise.id] : [];
+    const nextUp = getNextUp(exercises, activeTimer.exerciseId);
     if (nextUp.kind === "exercise") ids.push(nextUp.exercise.id);
     return ids;
-  }, [exercises, restTimer]);
+  }, [exercises, activeTimer]);
   const { exerciseMap } = useLocalizedExerciseMap(exerciseIds);
 
   const localizedName = useCallback(
@@ -175,19 +194,22 @@ export function RestTimerSheet({ onClose }: RestTimerSheetProps) {
     skipRestTimer();
   }, [skipRestTimer]);
 
-  // The bar clears the timer when it hits zero; render an empty modal for the
-  // single frame before the parent unmounts this sheet.
-  if (!restTimer) return null;
+  // The timer can already be gone while the sheet animates out; fall back to
+  // the last known timer so the content stays frozen during the exit.
+  if (!activeTimer) return null;
 
-  const exercise = exercises.find((ex) => ex.id === restTimer.exerciseId);
+  const exercise = exercises.find(
+    (item) => getExerciseOccurrenceId(item) === activeTimer.exerciseId
+  );
   const { durationSeconds, remainingSeconds, progress } = getRestTimerProgress(
-    restTimer.startedAtMs,
-    restTimer.durationSeconds,
-    now
+    activeTimer.startedAtMs,
+    activeTimer.durationSeconds,
+    now,
+    activeTimer.pausedRemainingSeconds
   );
   const display = formatRestCountdown(remainingSeconds);
   const isAlmostDone = remainingSeconds <= 5;
-  const nextUp = getNextUp(exercises, restTimer.exerciseId);
+  const nextUp = getNextUp(exercises, activeTimer.exerciseId);
   const nextUpText = describeNextUp();
 
   function describeNextUp(): string {

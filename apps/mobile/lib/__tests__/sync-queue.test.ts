@@ -20,6 +20,7 @@ function createStoredItem(
   overrides: Partial<SyncQueueItem> = {}
 ): SyncQueueItem {
   return {
+    ownerId: "test-user",
     id: "id-1",
     operation: "op",
     payload: {},
@@ -62,6 +63,7 @@ describe("SyncQueue", () => {
       return Promise.resolve();
     });
     queue = new SyncQueue();
+    queue.setActiveUser("test-user");
   });
 
   afterEach(() => {
@@ -332,6 +334,7 @@ describe("SyncQueue", () => {
     it("preserves valid and dead legacy entries when a sibling is malformed", async () => {
       storedQueue = JSON.stringify([
         {
+          ownerId: "test-user",
           id: "valid",
           operation: "op",
           payload: { safe: true },
@@ -343,6 +346,7 @@ describe("SyncQueue", () => {
         },
         { operation: "op", payload: { malformed: true } },
         {
+          ownerId: "test-user",
           id: "dead",
           operation: "op",
           payload: { preserved: true },
@@ -421,6 +425,67 @@ describe("SyncQueue", () => {
 
       expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith("sync-queue");
       expect(queue.getHealthSnapshot().state).toBe("saved");
+    });
+  });
+  describe("account ownership", () => {
+    it("does not replay or surface another account's item", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      queue.registerHandler("op", handler);
+
+      await queue.enqueue("op", "id-1", {}, "other-user");
+      await queue.processQueue();
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(readStoredItems()[0]).toMatchObject({
+        ownerId: "other-user",
+        status: "pending",
+      });
+      expect(queue.getHealthSnapshot().state).toBe("saved");
+    });
+
+    it("replays an item once its owner signs back in", async () => {
+      const handler = jest.fn().mockResolvedValue(undefined);
+      queue.registerHandler("op", handler);
+      await queue.enqueue("op", "id-1", { a: 1 }, "other-user");
+      await queue.processQueue();
+      expect(handler).not.toHaveBeenCalled();
+
+      queue.setActiveUser("other-user");
+      await queue.processQueue();
+
+      expect(handler).toHaveBeenCalledWith(
+        { a: 1 },
+        expect.objectContaining({ ownerId: "other-user" })
+      );
+      expect(readStoredItems()).toHaveLength(0);
+    });
+
+    it("marks legacy ownerless items dead and never revives them", async () => {
+      const legacy: Partial<SyncQueueItem> = createStoredItem();
+      delete legacy.ownerId;
+      storedQueue = JSON.stringify([legacy]);
+      queue = new SyncQueue();
+      queue.setActiveUser("test-user");
+      const handler = jest.fn().mockResolvedValue(undefined);
+      queue.registerHandler("op", handler);
+
+      await queue.processQueue();
+      await queue.retryDeadItems();
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(readStoredItems()[0]).toMatchObject({
+        ownerId: null,
+        status: "dead",
+      });
+      expect(await queue.getDeadItems()).toHaveLength(0);
+    });
+
+    it("rejects an enqueue without an active or explicit owner", async () => {
+      queue.setActiveUser(null);
+
+      await expect(queue.enqueue("op", "id-1", {})).rejects.toThrow(
+        "Cannot queue a sync operation without an active user"
+      );
     });
   });
 });

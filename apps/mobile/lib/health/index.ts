@@ -4,7 +4,10 @@ import { updateWorkoutSession } from "@/lib/api/workouts";
 
 import {
   getCachedPermissionStatus,
+  getHealthSyncPreference,
+  isHealthSyncEnabled,
   setCachedPermissionStatus,
+  setHealthSyncEnabled,
 } from "./permissions";
 import { drainQueue, enqueueRetry } from "./retry-queue";
 import type {
@@ -20,12 +23,19 @@ export type {
   HealthWriteResult,
   HeartRateSample,
 } from "./types";
-export { getCachedPermissionStatus, setCachedPermissionStatus };
+export {
+  getCachedPermissionStatus,
+  getHealthSyncPreference,
+  isHealthSyncEnabled,
+  setCachedPermissionStatus,
+  setHealthSyncEnabled,
+};
 export { cancelRetry as cancelWorkoutHealthRetry } from "./retry-queue";
 
 /**
- * Returns true when a native Health integration is available for this
- * platform. Web, Expo Go, and unsupported OSes return false.
+ * Returns true when this OS has a native Health integration. Device-level
+ * support (for example, HealthKit on iPhone versus iPad) is checked
+ * asynchronously by `getCurrentHealthPermissionStatus`.
  */
 export function isHealthSyncAvailable(): boolean {
   return Platform.OS === "ios" || Platform.OS === "android";
@@ -35,15 +45,37 @@ export async function requestHealthPermissions(): Promise<HealthPermissionStatus
   if (Platform.OS === "ios") {
     const { requestPermissionsIOS } = await import("./ios");
     const result = await requestPermissionsIOS();
-    await setCachedPermissionStatus(result);
+    if (result !== "unknown") await setCachedPermissionStatus(result);
+    await setHealthSyncEnabled(true);
     return result;
   }
   if (Platform.OS === "android") {
     const { requestPermissionsAndroid } = await import("./android");
     const result = await requestPermissionsAndroid();
     await setCachedPermissionStatus(result);
+    await setHealthSyncEnabled(true);
     return result;
   }
+  await setCachedPermissionStatus("unavailable");
+  return "unavailable";
+}
+
+/**
+ * Reads the platform's current authorization state. On iOS this queries
+ * HealthKit directly so permission changes made outside the app are reflected.
+ */
+export async function getCurrentHealthPermissionStatus(): Promise<HealthPermissionStatus> {
+  if (Platform.OS === "ios") {
+    const { getPermissionStatusIOS } = await import("./ios");
+    const result = await getPermissionStatusIOS();
+    if (result !== "unknown") await setCachedPermissionStatus(result);
+    return result;
+  }
+
+  if (Platform.OS === "android") {
+    return getCachedPermissionStatus();
+  }
+
   await setCachedPermissionStatus("unavailable");
   return "unavailable";
 }
@@ -97,14 +129,16 @@ export async function deleteWorkout(
  * store. Never throws. On success, patches the row with the external record
  * ID. On failure, enqueues for a one-shot foreground retry.
  *
- * Assumes the caller has already checked `getCachedPermissionStatus()` is
- * `"granted"` — this function is a no-op otherwise.
+ * Requires both the user's app-level sync preference and native authorization
+ * to be enabled. This function is a no-op otherwise.
  */
 export async function syncWorkoutToHealth(
   sessionId: string,
   payload: HealthWorkoutPayload
 ): Promise<void> {
   if (!isHealthSyncAvailable()) return;
+
+  if (!(await isHealthSyncEnabled())) return;
 
   const status = await getCachedPermissionStatus();
   if (status !== "granted") return;
@@ -134,6 +168,7 @@ export async function syncWorkoutToHealth(
  */
 export async function flushHealthRetryQueue(): Promise<void> {
   if (!isHealthSyncAvailable()) return;
+  if (!(await isHealthSyncEnabled())) return;
 
   const status = await getCachedPermissionStatus();
   if (status !== "granted") return;

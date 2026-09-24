@@ -31,6 +31,7 @@ describe("bootstrapSyncQueue", () => {
     mockAsyncStorage.getItem.mockResolvedValueOnce(
       JSON.stringify([
         {
+          ownerId: "user-1",
           id: "session-1",
           operation: "save_workout",
           payload: { locallyPreserved: true },
@@ -46,6 +47,7 @@ describe("bootstrapSyncQueue", () => {
       isConnected: false,
     } as Awaited<ReturnType<typeof NetInfo.fetch>>);
     const queue = new SyncQueue();
+    queue.setActiveUser("user-1");
     const handler = jest.fn().mockResolvedValue(undefined);
     queue.registerHandler("save_workout", handler);
 
@@ -65,6 +67,7 @@ describe("bootstrapSyncQueue", () => {
     mockAsyncStorage.getItem.mockResolvedValueOnce(
       JSON.stringify([
         {
+          ownerId: "user-1",
           id: "session-1",
           operation: "save_workout",
           payload: { locallyPreserved: true },
@@ -80,6 +83,7 @@ describe("bootstrapSyncQueue", () => {
       isConnected: true,
     } as Awaited<ReturnType<typeof NetInfo.fetch>>);
     const queue = new SyncQueue();
+    queue.setActiveUser("user-1");
     const handler = jest.fn().mockResolvedValue(undefined);
     queue.registerHandler("save_workout", handler);
 

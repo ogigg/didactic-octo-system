@@ -21,6 +21,7 @@ import { ListGroup, ListRow } from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
+import { useTabBarClearance } from "@/hooks/use-tab-bar-clearance";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
@@ -46,6 +47,7 @@ type IconName =
   | "globe"
   | "megaphone.fill"
   | "star.fill"
+  | "person.fill"
   | "heart.text.square";
 
 interface NavItem {
@@ -59,6 +61,7 @@ interface NavItem {
     | "nav.strengthBaselines"
     | "nav.health"
     | "nav.subscription"
+    | "nav.accountData"
     | "nav.feedback";
   route?: Href;
 }
@@ -111,6 +114,11 @@ const ACCOUNT_ITEMS: NavItem[] = [
     route: "/subscription",
   },
   {
+    icon: "person.fill",
+    labelKey: "nav.accountData",
+    route: "/account-settings",
+  },
+  {
     icon: "megaphone.fill",
     labelKey: "nav.feedback",
     route: "/feedback",
@@ -137,11 +145,11 @@ export default function ProfileScreen() {
   }
 
   const primary = useThemeColor({}, "primary");
+  const tabBarClearance = useTabBarClearance();
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
-  const errorColor = useThemeColor({}, "error");
   const primaryContainer = useThemeColor({}, "primaryContainer");
   const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
@@ -217,7 +225,10 @@ export default function ProfileScreen() {
       <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: tabBarClearance },
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -380,27 +391,6 @@ export default function ProfileScreen() {
             accessibilityLabel={tAuth("logout.button")}
             style={styles.logoutButton}
           />
-
-          {/* Danger zone — irreversible account deletion. */}
-          <Pressable
-            onPress={() => router.navigate("/delete-account" as Href)}
-            accessibilityRole="button"
-            accessibilityLabel={t("nav.deleteAccount")}
-            style={({ pressed }) => [
-              styles.deleteAccountButton,
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <Text
-              style={[
-                Typography.body,
-                styles.deleteAccountLabel,
-                { color: errorColor },
-              ]}
-            >
-              {t("nav.deleteAccount")}
-            </Text>
-          </Pressable>
         </ScrollView>
       </SafeAreaView>
     </TabScreen>
@@ -412,7 +402,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing["2xl"],
-    paddingBottom: Spacing["3xl"],
     gap: Spacing.xl,
   },
   headerBlock: {
@@ -460,14 +449,6 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: Spacing.md,
-  },
-  deleteAccountButton: {
-    alignSelf: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-  },
-  deleteAccountLabel: {
-    textAlign: "center",
   },
   languageToggle: {
     flexDirection: "row",

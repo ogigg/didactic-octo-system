@@ -36,7 +36,12 @@ export interface WorkoutDbPayload {
 }
 
 interface MapToDbOptions {
-  goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+  goalSnapshot:
+    | "build_strength"
+    | "build_muscle"
+    | "lose_weight"
+    | "improve_fitness"
+    | "custom";
   customGoalSnapshot?: string;
   generationSource?: "llm" | "fallback_template" | "fallback_substitution";
   weightUnit?: WeightUnit;
@@ -85,7 +90,8 @@ export function mapWorkoutStoreToDb(
           id: Crypto.randomUUID(),
           set_number: setIndex + 1,
           set_type: set.type,
-          target_duration_seconds: set.durationSeconds ?? undefined,
+          target_duration_seconds:
+            set.plannedDurationSeconds ?? set.durationSeconds ?? undefined,
         };
         log = {
           actual_duration_seconds: set.isCompleted
@@ -99,8 +105,8 @@ export function mapWorkoutStoreToDb(
           id: Crypto.randomUUID(),
           set_number: setIndex + 1,
           set_type: set.type,
-          target_load_kg: parseLoadKg(set.kg, unit),
-          target_reps: parseReps(set.reps),
+          target_load_kg: parseLoadKg(set.plannedKg ?? set.kg, unit),
+          target_reps: parseReps(set.plannedReps ?? set.reps),
         };
         log = {
           actual_load_kg: set.isCompleted

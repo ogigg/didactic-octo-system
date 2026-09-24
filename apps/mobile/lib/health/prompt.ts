@@ -2,10 +2,11 @@ import { Alert, Platform } from "react-native";
 import { getFixedT } from "i18next";
 
 import {
-  getCachedPermissionStatus,
+  getCurrentHealthPermissionStatus,
+  getHealthSyncPreference,
   isHealthSyncAvailable,
   requestHealthPermissions,
-  setCachedPermissionStatus,
+  setHealthSyncEnabled,
   syncWorkoutToHealth,
 } from "./index";
 import type { HealthWorkoutPayload } from "./types";
@@ -24,14 +25,19 @@ export async function promptAndSyncWorkout(
 ): Promise<void> {
   if (!isHealthSyncAvailable()) return;
 
-  let status = await getCachedPermissionStatus();
+  const syncPreference = await getHealthSyncPreference();
+  if (syncPreference === false) return;
 
-  if (status === "unknown") {
+  let status = await getCurrentHealthPermissionStatus();
+
+  if (status === "unavailable" || status === "restricted") return;
+
+  if (status === "unknown" || status === "not-requested") {
     const allowed = await askUser();
     if (allowed) {
       status = await requestHealthPermissions();
     } else {
-      await setCachedPermissionStatus("skipped");
+      await setHealthSyncEnabled(false);
       return;
     }
   }

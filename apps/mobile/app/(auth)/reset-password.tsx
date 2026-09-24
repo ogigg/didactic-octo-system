@@ -25,6 +25,7 @@ import {
   type ResetPasswordFormData,
   resetPasswordSchema,
 } from "@/lib/schemas/auth";
+import { useAuthStore } from "@/stores/auth-store";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 
 export default function ResetPasswordScreen() {
@@ -60,6 +61,7 @@ export default function ResetPasswordScreen() {
       return;
     }
 
+    useAuthStore.getState().finishPasswordRecovery();
     // Navigate based on onboarding state
     if (isAuthenticated && isCompleted) {
       router.replace("/(tabs)");

@@ -1,3 +1,5 @@
+const mockRouterPush = jest.fn();
+const mockVolumeBarChart = jest.fn((_props: unknown) => null);
 const mockUseExerciseDetail = jest.fn();
 const mockUseExercise = jest.fn();
 const mockUseExercisePreference = jest.fn();
@@ -6,7 +8,7 @@ const mockUseRemoveExercisePreference = jest.fn();
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: jest.fn(() => ({ exerciseId: "exercise-1" })),
-  useRouter: jest.fn(() => ({ push: jest.fn(), back: jest.fn() })),
+  useRouter: jest.fn(() => ({ push: mockRouterPush, back: jest.fn() })),
 }));
 
 jest.mock("react-i18next", () => ({
@@ -24,12 +26,28 @@ jest.mock("@/hooks/use-theme-color", () => ({
 jest.mock("@/hooks/use-weight-unit", () => ({
   useWeightUnit: jest.fn(() => ({
     format: (value: number) => `${value}kg`,
+    formatVolume: (value: number) => `${value}kg`,
     formatSpaced: (value: number) => `${value} kg`,
   })),
 }));
 
 jest.mock("@/hooks/use-exercise-detail-query", () => ({
   useExerciseDetail: (...args: unknown[]) => mockUseExerciseDetail(...args),
+  useEditableExerciseHistory: jest.fn(() => ({
+    data: [],
+    isLoading: false,
+  })),
+}));
+
+jest.mock("@/hooks/use-workout-mutations", () => ({
+  useDeleteSessionExercise: jest.fn(() => ({ mutate: jest.fn() })),
+  useUpdateCompletedSessionExerciseSets: jest.fn(() => ({
+    mutate: jest.fn(),
+  })),
+}));
+
+jest.mock("@/stores/toast-store", () => ({
+  useToastStore: jest.fn(() => jest.fn()),
 }));
 
 jest.mock("@/hooks/use-exercises-query", () => ({
@@ -58,8 +76,16 @@ jest.mock("@/components/exercise/exercise-preference-sheet", () => ({
   ExercisePreferenceSheet: () => null,
 }));
 
+jest.mock("@/components/history/exercise-history-menu", () => ({
+  ExerciseHistoryMenu: () => null,
+}));
+
+jest.mock("@/components/history/exercise-history-edit-sheet", () => ({
+  ExerciseHistoryEditSheet: () => null,
+}));
+
 jest.mock("@/components/stats/volume-bar-chart", () => ({
-  VolumeBarChart: () => null,
+  VolumeBarChart: (props: unknown) => mockVolumeBarChart(props),
 }));
 
 jest.mock("@/components/ui/back-button", () => ({
@@ -114,9 +140,12 @@ jest.mock("react-native-safe-area-context", () => {
   };
 });
 
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
+
+import { useWorkoutStore } from "@/stores/workout-store";
 
 import ExerciseDetailScreen from "../exercise-detail";
+import ExerciseStatisticsScreen from "../exercise-statistics";
 
 const emptyRecords = {
   max_weight_kg: 0,
@@ -188,6 +217,7 @@ function expectTabNotSelected(label: string) {
 describe("ExerciseDetailScreen default tab", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    useWorkoutStore.setState({ isActive: false, exercises: [] });
 
     mockUseExercise.mockReturnValue({
       data: exerciseFixture,
@@ -198,6 +228,157 @@ describe("ExerciseDetailScreen default tab", () => {
     mockUseExercisePreference.mockReturnValue({ data: null });
     mockUseSetExercisePreference.mockReturnValue({ mutate: jest.fn() });
     mockUseRemoveExercisePreference.mockReturnValue({ mutate: jest.fn() });
+  });
+
+  it("updates today's chart from checked sets even without historical volume", () => {
+    mockDetailQuery({ sessions: [] });
+    useWorkoutStore.setState({
+      isActive: true,
+      weightUnit: "kg",
+      exercises: [
+        {
+          id: "exercise-1",
+          name: "Bench",
+          exerciseType: "weight",
+          notes: "",
+          restDurationSeconds: 60,
+          difficultyFeedback: null,
+          sets: [true, true, false].map((isCompleted, index) => ({
+            id: String(index),
+            type: "working",
+            kg: "20",
+            reps: "5",
+            durationSeconds: null,
+            rpe: null,
+            isCompleted,
+            previousDisplay: null,
+          })),
+        },
+      ],
+    });
+    render(<ExerciseDetailScreen />);
+    fireEvent.press(screen.getByRole("button", { name: "tabs.overview" }));
+    expect(mockVolumeBarChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        today: {
+          completed: 200,
+          forecast: 300,
+          completedSets: 2,
+          totalSets: 3,
+        },
+      })
+    );
+    act(() =>
+      useWorkoutStore.setState((state) => ({
+        exercises: state.exercises.map((exercise) => ({
+          ...exercise,
+          sets: exercise.sets.map((set) => ({ ...set, isCompleted: true })),
+        })),
+      }))
+    );
+    expect(mockVolumeBarChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        today: {
+          completed: 300,
+          forecast: 300,
+          completedSets: 3,
+          totalSets: 3,
+        },
+      })
+    );
+    act(() => useWorkoutStore.setState({ isActive: false, exercises: [] }));
+    expect(screen.getByText("overview.emptyTitle")).toBeTruthy();
+  });
+
+  it("limits the preview to the ten latest weekly entries", () => {
+    const weeks = Array.from({ length: 14 }, (_, index) => ({
+      week_start: new Date(Date.UTC(2026, 0, 5 + index * 7))
+        .toISOString()
+        .slice(0, 10),
+      volume_kg: 100 + index,
+    }));
+    mockDetailQuery({ sessions: [] });
+    const query = mockUseExerciseDetail();
+    mockUseExerciseDetail.mockReturnValue({
+      ...query,
+      data: { ...query.data, volume_weeks: weeks },
+    });
+    render(<ExerciseDetailScreen />);
+    fireEvent.press(screen.getByRole("button", { name: "tabs.overview" }));
+    expect(mockVolumeBarChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: weeks.slice(-10) })
+    );
+    fireEvent.press(
+      screen.getByRole("button", { name: "overview.seeFullStatistics" })
+    );
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: "/exercise-statistics",
+      params: { exerciseId: "exercise-1" },
+    });
+  });
+
+  it("shows all available weeks on the dedicated exercise statistics screen", () => {
+    const weeks = Array.from({ length: 20 }, (_, index) => ({
+      week_start: new Date(Date.UTC(2026, 0, 5 + index * 7))
+        .toISOString()
+        .slice(0, 10),
+      volume_kg: 100 + index,
+    }));
+    mockDetailQuery({ sessions: [] });
+    const query = mockUseExerciseDetail();
+    mockUseExerciseDetail.mockReturnValue({
+      ...query,
+      data: { ...query.data, volume_weeks: weeks },
+    });
+    render(<ExerciseStatisticsScreen />);
+    expect(mockUseExerciseDetail).toHaveBeenCalledWith("exercise-1");
+    expect(screen.getByText("overview.statisticsTitle")).toBeTruthy();
+    expect(screen.getByText("insights.title")).toBeTruthy();
+    expect(screen.getByText("insights.frequency")).toBeTruthy();
+    expect(screen.getByText("overview.statisticsRange")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "tabs.howTo" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "overview.seeFullStatistics" })
+    ).toBeNull();
+    expect(mockVolumeBarChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: weeks,
+        chartHeight: 200,
+        scrollable: true,
+      })
+    );
+  });
+
+  it("renders populated insights only on the full statistics screen", () => {
+    mockDetailQuery({
+      sessions: Array.from({ length: 10 }, (_, index) => ({
+        date: `2026-08-${String(20 - index).padStart(2, "0")}`,
+        workout_name: "Workout",
+        sets: [
+          { set_number: 1, load_kg: 60, reps: index < 5 ? 12 : 8, rpe: null },
+        ],
+      })),
+    });
+    const { unmount } = render(<ExerciseDetailScreen />);
+    expect(screen.queryByText("insights.title")).toBeNull();
+    unmount();
+    render(<ExerciseStatisticsScreen />);
+    expect(screen.getByText("insights.repProgress")).toBeTruthy();
+    expect(screen.getByText("insights.previousFive")).toBeTruthy();
+    expect(screen.getByText("480kg")).toBeTruthy();
+    expect(screen.getByText("720kg")).toBeTruthy();
+    expect(screen.getByText('insights.change:{"value":"+50%"}')).toBeTruthy();
+  });
+
+  it("shows an empty state and an error with retry on the full statistics screen", () => {
+    mockDetailQuery({ sessions: [] });
+    const { rerender } = render(<ExerciseStatisticsScreen />);
+    expect(screen.getByText("overview.emptyTitle")).toBeTruthy();
+    mockDetailQuery({ isError: true });
+    rerender(<ExerciseStatisticsScreen />);
+    const refetch = mockUseExerciseDetail().refetch;
+    fireEvent.press(screen.getByRole("button", { name: "error.retry" }));
+    expect(refetch).toHaveBeenCalled();
   });
 
   it("defaults to How To when the exercise has no execution history", () => {

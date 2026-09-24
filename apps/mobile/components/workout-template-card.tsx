@@ -3,6 +3,7 @@ import { Spacing, Typography } from "@/constants/theme";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import type { WorkoutTemplate } from "@/stores/workout-templates-store";
 import { Pressable, StyleSheet, Text } from "react-native";
+import { useTranslation } from "react-i18next";
 
 const CARD_WIDTH = 156;
 const CARD_MIN_HEIGHT = 96;
@@ -16,6 +17,7 @@ export function WorkoutTemplateCard({
   template,
   onPress,
 }: WorkoutTemplateCardProps) {
+  const { t } = useTranslation("home");
   const textColor = useThemeColor({}, "text");
   const textMuted = useThemeColor({}, "textMuted");
 
@@ -26,7 +28,9 @@ export function WorkoutTemplateCard({
       onPress={onPress}
       style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
       accessibilityRole="button"
-      accessibilityLabel={`Start ${template.name}`}
+      accessibilityLabel={t("myWorkouts.reviewTemplate", {
+        name: template.name,
+      })}
     >
       <GradientSurface
         variant="surface"
@@ -47,9 +51,7 @@ export function WorkoutTemplateCard({
             styles.exerciseCount,
           ]}
         >
-          {exerciseCount === 1
-            ? `${exerciseCount} exercise`
-            : `${exerciseCount} exercises`}
+          {t("myWorkouts.exerciseCount", { count: exerciseCount })}
         </Text>
       </GradientSurface>
     </Pressable>
