@@ -95,3 +95,11 @@ export const streakProtectionKeys = {
   status: (userId: string) =>
     [...streakProtectionKeys.all, "status", userId] as const,
 };
+
+// Nested under roots that saving a workout already invalidates.
+export const homeWidgetKeys = {
+  activityAll: [...workoutStatsKeys.all, "home-widgets"] as const,
+  activity: (fromDateKey: string) =>
+    [...homeWidgetKeys.activityAll, fromDateKey] as const,
+  lastWorkout: () => [...workoutKeys.all, "home-widgets-last"] as const,
+};

@@ -55,6 +55,7 @@ import { applyPendingExerciseSwap } from "@/lib/pending-exercise-swap";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
 import { isPendingWorkoutStale } from "@/lib/pending-workout-recovery";
 import { trackEvent } from "@/lib/track-event";
+import { estimateWorkoutMinutes } from "@/lib/workout-duration-estimate";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
 import type { WorkoutExerciseReasoning } from "@/stores/workout-store";
@@ -86,25 +87,6 @@ interface LocalSet {
   target_load_kg: number | null;
   target_reps: number | null;
   target_duration_seconds?: number | null;
-}
-
-interface LocalWarmup {
-  duration_seconds: number;
-}
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-function estimateMinutes(
-  exercises: LocalExercise[],
-  warmup: LocalWarmup | null
-): number {
-  const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
-  const avgRest =
-    exercises.length > 0 ? exercises[0].rest_duration_seconds : 90;
-  const exerciseSeconds = totalSets * 45 + (totalSets - 1) * avgRest;
-  return Math.round((exerciseSeconds + (warmup?.duration_seconds ?? 0)) / 60);
 }
 
 // -----------------------------------------------------------------------------
@@ -505,7 +487,7 @@ export default function WorkoutPreviewScreen() {
   }
 
   const warmup = workout.workout_data.warmup;
-  const estimatedMinutes = estimateMinutes(localExercises, warmup);
+  const estimatedMinutes = estimateWorkoutMinutes(localExercises, warmup);
   const regenerable = regenerationEligibility.canRegenerate && !isRegenerating;
   const canEdit = isEditing && !isRegenerating;
   const showFooter =

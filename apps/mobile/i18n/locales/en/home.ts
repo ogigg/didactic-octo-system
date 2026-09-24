@@ -49,6 +49,7 @@ export const home = {
     dayLabel: "Day {{position}}",
     startWorkout: "Start Workout",
     resumeWorkout: "Resume Workout",
+    resumeWorkoutHint: "Opens your workout in progress",
     generating: "Preparing your workout...",
     regenerating: "Refreshing workout",
     regeneratingSubtitle: "Your replacement workout is on the way.",

@@ -5,6 +5,7 @@ export const exerciseDetail = {
     howTo: "How To",
   },
   overview: {
+    seeFullStatistics: "See full statistics",
     records: "Personal Records",
     recordsHint: "Your best results for this exercise.",
     sessionsCount: "{{count}} sessions",

@@ -70,6 +70,7 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
 - Account deletion is available through Profile → Account & Data. Active subscribers are warned before continuing and can open the official Apple or Google Play subscription-management destination; if that destination is unavailable, the app tries the platform's official support page and then shows a localized error.
 - Password management is available through Profile → Account & Data. Signed-in OAuth users can add email/password sign-in without replacing their existing identity, while password users can change their password. Secure password changes use provider reauthentication for Apple on iOS and Supabase's email nonce flow otherwise.
+- Exercise details preview the latest 10 weekly volume (or duration) entries from the trailing 52 weeks, grouped into one bar per week with logged results. Weeks without logged results are omitted. The preview total and weekly average cover only those displayed weeks. The header links to the existing overall Statistics screen (all workouts, not filtered to the current exercise). Chart bars use a subtle 2-point corner radius, with a flat join between completed load and forecast. Historical bars have uniform emphasis until selected. Selecting Today highlights both its completed and forecast portions; selecting a historical week dims Today. All bars have square bottom corners. They add a separate Today bar while the exercise is in the active workout. The Today bar matches the width and blue color of historical bars, without a legend. A blue outline with diagonal hatching shows checked sets; the subtle dashed segment adds the current targets of unchecked sets to the forecast. Edits and check/uncheck actions update it immediately, including offline. The Today tooltip includes completed load, forecast total, and checked/total set counts. Historical totals and weekly averages exclude this in-progress workout; finishing it moves its logged results into history. Chart tooltips float above the bars and close with the X button, an outside tap, or the platform back/escape action.
 - Workout history export is available from the History header and through Profile → Account & Data. Users can export completed workouts from the last 7, 30, or 90 days, or all time. JSON and CSV omit internal IDs, generation metadata, planned targets, and other implementation fields; JSON keeps a clean nested training record while CSV provides one row per set. PDF creates a localized training report with summary metrics, a weekly-frequency bar chart, workout-volume line chart, set-completion donut chart, recent workout detail, and all-time strength PRs. The header shows the selected date range. Weekly bars cover up to eight weeks within that range; boundary weeks include only selected workouts. The volume chart and workout table show the latest eight sessions. Volume changes are shown without interpreting them as progress. Reports respect the user's kg/lb preference. Optional duration is included in data exports only for timed exercise results. Files are created in the app cache and handed to the device share menu.
 - Pending workout generation is server-owned. Queue reads automatically recover generation rows stuck in `queued`, `generating`, or `regenerating` for more than five minutes through `recover_stale_generation_attempts`, then refetch the authoritative queue. Regeneration failures keep the current plan visible, show a localized error and server reference ID when available, and offer retry when the server marks the error retryable.
 - Deletion does not cancel store billing. After the 14-day grace period, the implemented purge deletes `auth.users` and cascades through user-owned app data in the database. The repository implements no separate legal/security retention archive; Apple or Google purchase and billing records remain governed by those providers.
@@ -203,3 +204,75 @@ xcodebuild -project Sweaty.xcodeproj -target SweatyWidget \
 Because `SweatyWorkoutAttributes.swift` is compiled independently into the app
 and widget targets, its two checked-in copies must remain field-for-field
 identical.
+
+## iOS Home Screen and Lock Screen widgets
+
+The WidgetKit extension in `targets/widget` also hosts four static widgets
+next to the Live Activity:
+
+| Widget        | Families                                                         | Tap opens                                   |
+| ------------- | ---------------------------------------------------------------- | ------------------------------------------- |
+| Next workout  | small, medium, large; Lock Screen rectangular, circular, inline  | the workout preview, or the running workout |
+| Streak & week | small, medium; Lock Screen circular, rectangular, inline         | the app where it was                        |
+| Consistency   | medium (8-week grid), large (12-week grid); Lock Screen circular | history                                     |
+| Training time | medium, large; Lock Screen circular                              | statistics                                  |
+
+- `components/home-widgets-host.tsx` is mounted in the root layout (iOS only).
+  It checks `WidgetCenter` for placed widgets on launch and on every resume;
+  without any it clears the stored snapshot and skips the widget queries.
+  With widgets it runs `hooks/use-home-widgets.ts`, which builds a JSON
+  snapshot with `lib/home-widgets/build-snapshot.ts` from the queue,
+  onboarding state, streak status and two lightweight queries (qualifying
+  sessions for 12 weeks, session durations for 8 weeks), then hands it to
+  `modules/home-widgets`.
+- The module stores the snapshot in the `group.com.ogig.sweaty` App Group under
+  `homeWidgets.snapshot.v1` and calls `WidgetCenter.reloadAllTimelines()`.
+  Publishing is debounced and skipped when the content has not changed; it is
+  retried after a failure and repeated on every resume so the widget recovers
+  on its own. Saved exercise edits are validated with Zod, and a snapshot that
+  fails to build is skipped rather than breaking the app.
+- `lib/query-client.ts` wires TanStack's `focusManager` to `AppState`, so stale
+  queries (the widget's included) refetch when the app returns to the
+  foreground.
+- The contract is `lib/home-widgets/types.ts`, mirrored in
+  `targets/widget/Home/HomeWidgetSnapshot.swift`. Bump the version and the
+  storage key on both sides for breaking changes; the key is also duplicated in
+  `modules/home-widgets/ios/HomeWidgetsModule.swift` and
+  `targets/widget/Home/HomeWidgetStore.swift`.
+- Widget copy lives in `i18n/locales/{en,pl}/widgets.ts`. The app renders it
+  into the snapshot, so plurals and the in-app language apply. Only the widget
+  gallery names and descriptions and the "open the app" fallback live in
+  `targets/widget/{en,pl}.lproj/Localizable.strings`.
+- Dates are local calendar keys with Monday-first weeks. The widget resolves
+  today, future days and a newly started week against its timeline date and
+  refreshes at local midnight, so the week ring and activity grid stay correct
+  while the app is closed.
+- Totals that depend on the week (session counts, averages, hours, best week
+  and the streak) come precomputed in `summaries`, one per week for the next
+  12 weeks, as if nothing new is logged. The widget uses the entry for the
+  current week, so the totals keep matching the grid and bars. The projected
+  streak follows `get_streak_status`: a missed week breaks it unless a Pro
+  freeze covers it automatically, and earned freezes wait for the user.
+- An in-progress workout belongs to the account that started it
+  (`ownerUserId` in `stores/workout-store.ts`). When a different account signs
+  in, `lib/active-workout-owner.ts` cancels it on the Watch and clears it
+  before the tabs render, which also ends the Live Activity. The widget only
+  shows a workout owned by the signed-in account.
+- Signed-out users see a sign-in prompt, and accounts that have not finished
+  onboarding see a prompt to finish setup. In those states, and for Streak &
+  week, a tap has no deep link and just brings the app forward where it was,
+  so it never stacks a second sign-in or home screen.
+- Widget and Live Activity links open root-stack screens such as `workout`,
+  `workout-preview`, `history` and `statistics`, which sit outside the route
+  groups' auth checks. `hooks/use-deep-link-auth-guard.ts`, mounted in the root
+  layout, sends signed-out users from any root-stack screen except the public
+  ones and the self-guarded `(auth)`, `(tabs)` and `(onboarding)` groups back
+  to sign-in. It uses `dismissTo`, so an open sign-in screen is reused. This
+  covers a widget that still shows data from before sign-out and a session
+  that ends on a settings screen, such as after scheduling account deletion.
+- Widget colors come from `targets/widget/expo-target.config.json`
+  (`widgetAccent` and `widgetBackground` use `{ "light", "dark" }`); prebuild
+  rewrites `targets/widget/Assets.xcassets` from that config.
+
+After changing the widget sources or target configuration, rebuild the
+extension with the Live Activity commands above.

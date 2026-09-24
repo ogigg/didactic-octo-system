@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Describe the current system structure, main data flows, and boundary-level technical decisions.
-> **Last reviewed:** 2026-08-13
+> **Last reviewed:** 2026-09-23
 
 ## Scope Of This Document
 
@@ -172,6 +172,26 @@ WatchConnectivity background drain. Rest alerts are owned by the coordinator,
 independent of the visible screen, with a local-notification fallback. The
 [watch interface standard](../docs/styles/watch-interface.md) defines shared
 navigation, safe-area placement, and compact-screen verification.
+
+### Home Screen And Lock Screen Widgets
+
+```text
+Queue, profile, streak or workout history changes in the app
+-> useHomeWidgets builds a localized JSON snapshot (next workout, week progress,
+   12 weeks of training days, 8 weeks of training minutes, and per-week totals
+   and streak precomputed for the next 12 weeks)
+-> modules/home-widgets stores it in the shared App Group and reloads WidgetKit timelines
+-> the widget extension renders it, resolving today, week rollovers and the
+   matching per-week totals against its own timeline date
+```
+
+The app owns all selection logic and copy, so it stays covered by Jest; the
+Swift widgets only lay out the snapshot. Saving a workout, whether online or
+replayed from the offline sync queue, invalidates the same query roots through
+`invalidateAfterWorkoutSave`, which keeps both the app screens and the widget
+snapshot current. The persisted in-progress workout belongs to the account that
+started it; signing in with another account clears it (after cancelling it on
+the Watch) before the tabs render. Details live in `apps/mobile/README.md`.
 
 ### Workout History Deletion
 
