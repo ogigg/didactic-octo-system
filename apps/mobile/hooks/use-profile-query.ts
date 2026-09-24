@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -13,11 +13,20 @@ const profileSchema = z.object({
   id: z.string().uuid(),
   gender: z.enum(["male", "female", "prefer_not_to_say"]).nullable(),
   goal: z
-    .enum(["build_strength", "lose_weight", "improve_fitness", "custom"])
+    .enum([
+      "build_strength",
+      "build_muscle",
+      "lose_weight",
+      "improve_fitness",
+      "custom",
+    ])
     .nullable(),
   custom_goal: z.string().nullable(),
-  weekly_frequency: z.enum(["2", "3", "4", "5_plus"]).nullable(),
+  weekly_frequency: z.enum(["1", "2", "3", "4", "5_plus"]).nullable(),
   onboarding_completed: z.boolean(),
+  initial_queue_generated_at: z.string().nullable().optional(),
+  queue_generation_request_id: z.string().nullable().optional(),
+  queue_generation_started_at: z.string().nullable().optional(),
   training_split: z
     .enum(["full_body", "upper_lower", "push_pull_legs"])
     .nullable(),
@@ -55,6 +64,7 @@ export type Profile = z.infer<typeof profileSchema>;
 
 export function useProfile() {
   const { user } = useAuth();
+  const preparing = useIsMutating({ mutationKey: ["queue-generation"] }) > 0;
 
   return useQuery({
     queryKey: profileKeys.detail(user?.id ?? ""),
@@ -69,5 +79,14 @@ export function useProfile() {
       return profileSchema.parse(data);
     },
     enabled: !!user,
+    refetchInterval: (query) => {
+      const profile = query.state.data;
+      const active =
+        profile?.queue_generation_request_id &&
+        profile.queue_generation_started_at &&
+        Date.now() - Date.parse(profile.queue_generation_started_at) <
+          15 * 60 * 1000;
+      return preparing || active ? 3000 : false;
+    },
   });
 }

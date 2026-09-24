@@ -21,6 +21,7 @@ import { ListGroup, ListRow } from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
+import { useTabBarClearance } from "@/hooks/use-tab-bar-clearance";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
@@ -144,6 +145,7 @@ export default function ProfileScreen() {
   }
 
   const primary = useThemeColor({}, "primary");
+  const tabBarClearance = useTabBarClearance();
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
@@ -223,7 +225,10 @@ export default function ProfileScreen() {
       <AmbientGlow variant="subtle" />
       <SafeAreaView style={styles.safe}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: tabBarClearance },
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -397,7 +402,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing["2xl"],
-    paddingBottom: Spacing["3xl"],
     gap: Spacing.xl,
   },
   headerBlock: {

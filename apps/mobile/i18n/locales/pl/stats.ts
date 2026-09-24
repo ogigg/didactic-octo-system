@@ -13,6 +13,12 @@ export const stats = {
     more: "Więcej",
   },
   volume: {
+    today: "Dzisiaj",
+    completed: "Ukończone",
+    forecast: "Prognozowana suma",
+    sets: "Ukończone serie",
+    closeTooltip: "Zamknij szczegóły wykresu",
+
     total: "Razem",
     weeklyAvg: "Śr. tygodniowa",
     perWeek: "/tydz.",

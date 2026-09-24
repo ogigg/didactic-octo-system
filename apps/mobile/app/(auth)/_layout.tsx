@@ -1,5 +1,6 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useSegments } from "expo-router";
 
+import { ProfileGate } from "@/components/auth/profile-gate";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -8,10 +9,22 @@ import { useOnboardingStore } from "@/stores/onboarding-store";
 export default function AuthLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
-  const { isAuthenticated, isInitialized } = useAuth();
+  const { isAuthenticated, isInitialized, profileStatus, isPasswordRecovery } =
+    useAuth();
   const { isCompleted, getNextUnfinishedStep } = useOnboardingStore();
 
-  if (isInitialized && isAuthenticated) {
+  const segments = useSegments();
+  const recoveryRoute = (segments as string[]).includes("reset-password");
+  if (isPasswordRecovery && !recoveryRoute)
+    return <Redirect href="/(auth)/reset-password" />;
+  if (
+    !recoveryRoute &&
+    (profileStatus === "error" ||
+      (isAuthenticated && profileStatus !== "ready"))
+  )
+    return <ProfileGate />;
+
+  if (isInitialized && isAuthenticated && !recoveryRoute) {
     if (!isCompleted) {
       const nextStep = getNextUnfinishedStep();
       const target =

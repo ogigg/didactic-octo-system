@@ -6,6 +6,7 @@ import {
   normalizeSetsForExerciseType,
 } from "@/lib/exercise-set-structure";
 import type { ExercisePreviousSets } from "@/lib/workout-previous-sets";
+import * as Crypto from "expo-crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import {
@@ -13,13 +14,18 @@ import {
   persist,
   subscribeWithSelector,
 } from "zustand/middleware";
+import { trackEvent } from "@/lib/track-event";
+import type { WeightUnit } from "@/lib/unit-conversion";
 
 export interface WorkoutSet {
   id: string;
   type: "warmup" | "working";
   kg: string;
   reps: string;
+  plannedKg?: string | null;
+  plannedReps?: string | null;
   durationSeconds: number | null;
+  plannedDurationSeconds?: number | null;
   rpe: number | null;
   isCompleted: boolean;
   previousDisplay: string | null;
@@ -66,14 +72,38 @@ export interface RestTimerState {
   pausedRemainingSeconds?: number;
 }
 
+export interface HealthWorkoutFallback {
+  startedAtMs: number;
+  finishedAtMs: number;
+  sessionId?: string;
+  started?: boolean;
+}
+
 export interface GenerationMeta {
   generationSource: "llm" | "fallback_template" | "fallback_substitution";
-  goalSnapshot: "build_strength" | "lose_weight" | "improve_fitness" | "custom";
+  goalSnapshot:
+    | "build_strength"
+    | "build_muscle"
+    | "lose_weight"
+    | "improve_fitness"
+    | "custom";
   customGoalSnapshot: string | null;
   reasoning?: WorkoutReasoning | null;
 }
 
+export type WorkoutSource = "queued_ai" | "manual" | "template" | "comeback";
+
+export interface WorkoutStartOptions {
+  workoutSource?: WorkoutSource;
+  workoutId?: string | null;
+  wasEdited?: boolean;
+  editCount?: number;
+  weightUnit?: WeightUnit;
+}
+
 interface WorkoutState {
+  /** Account the persisted workout belongs to. Null means no account has claimed it. */
+  ownerUserId: string | null;
   isActive: boolean;
   workoutName: string;
   warmup: WorkoutWarmup | null;
@@ -82,8 +112,20 @@ interface WorkoutState {
   restTimer: RestTimerState | null;
   completedWorkoutSummary: WorkoutSummary | null;
   generationMeta: GenerationMeta | null;
+  workoutSessionId: string | null;
+  workoutSource: WorkoutSource | null;
+  workoutId: string | null;
+  workoutWasEdited: boolean;
+  workoutEditCount: number;
+  firstSetLogged: boolean;
+  progressReached50: boolean;
   watchSelectedExerciseId: string | null;
   healthWorkoutOwnedByWatch: boolean;
+  weightUnit: WeightUnit;
+  healthWorkoutSavedIDs: Record<string, string>;
+  healthWorkoutFailedIDs: Record<string, true>;
+  healthWorkoutPendingIDs: Record<string, true>;
+  healthWorkoutFallbacks: Record<string, HealthWorkoutFallback>;
 }
 
 export interface WorkoutSummary {
@@ -94,6 +136,17 @@ export interface WorkoutSummary {
   finishedAtMs: number;
   healthWorkoutRecordedOnWatch?: boolean;
   healthWorkoutUUID?: string;
+  healthWorkoutOwnedByWatch?: boolean;
+  healthWorkoutSavePending?: boolean;
+  healthWorkoutFailed?: boolean;
+  weightUnit?: WeightUnit;
+  watchWorkoutId?: string | null;
+  workoutSessionId?: string | null;
+  workoutSource?: WorkoutSource | null;
+  workoutId?: string | null;
+  generationSource?: GenerationMeta["generationSource"] | null;
+  wasEdited?: boolean;
+  editCount?: number;
 }
 
 interface WorkoutActions {
@@ -101,13 +154,39 @@ interface WorkoutActions {
     name: string,
     exercises: WorkoutExercise[],
     generationMeta?: GenerationMeta,
-    warmup?: WorkoutWarmup | null
+    warmup?: WorkoutWarmup | null,
+    options?: WorkoutStartOptions
   ) => void;
-  finishWorkout: (healthWorkoutUUID?: string) => void;
+  finishWorkout: (healthWorkoutUUID?: string, finishedAtMs?: number) => void;
   setWatchSelectedExercise: (exerciseId: string | null) => void;
-  markHealthWorkoutOwnedByWatch: () => void;
-  clearWorkout: () => void;
-  toggleSetComplete: (exerciseId: string, setId: string) => void;
+  setWeightUnit: (weightUnit: WeightUnit) => void;
+  markHealthWorkoutOwnedByWatch: (workoutId?: string) => void;
+  markHealthWorkoutSaved: (
+    workoutId: string,
+    healthWorkoutUUID: string
+  ) => void;
+  markHealthWorkoutFailed: (workoutId: string) => void;
+  recordHealthWorkoutSession: (workoutId: string, sessionId: string) => void;
+  markHealthWorkoutFallbackStarted: (workoutId: string) => void;
+  clearWorkout: (options?: { suppressAbandonment?: boolean }) => void;
+  /** Claims the persisted workout, discarding one that belongs to another account. */
+  prepareForUser: (userId: string) => void;
+  completeSet: (
+    exerciseId: string,
+    setId: string,
+    values?: {
+      kg?: string;
+      reps?: string;
+      durationSeconds?: number;
+      restId?: string;
+      startedAtMs?: number;
+    }
+  ) => void;
+  toggleSetComplete: (
+    exerciseId: string,
+    setId: string,
+    options?: { restId?: string; startedAtMs?: number }
+  ) => void;
   updateSetField: (
     exerciseId: string,
     setId: string,
@@ -121,6 +200,7 @@ interface WorkoutActions {
   ) => void;
   updateSetRpe: (exerciseId: string, setId: string, rpe: number | null) => void;
   toggleWarmupComplete: () => void;
+  setWarmupComplete: (isCompleted: boolean) => void;
   addSet: (exerciseId: string) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   updateNotes: (exerciseId: string, notes: string) => void;
@@ -138,7 +218,18 @@ interface WorkoutActions {
     },
     previous?: ExercisePreviousSets
   ) => void;
-  startRestTimer: (exerciseId: string) => void;
+  startRestTimer: (
+    exerciseId: string,
+    options?: { restId?: string; startedAtMs?: number }
+  ) => void;
+  reconcileRestTimer: (input: {
+    restId: string;
+    exerciseId?: string;
+    durationSeconds?: number;
+    endDate?: string | null;
+    pausedRemainingSeconds?: number | null;
+    deltaSeconds?: number;
+  }) => void;
   adjustRestTimer: (deltaSeconds: number) => void;
   pauseRestTimer: () => void;
   resumeRestTimer: () => void;
@@ -168,6 +259,7 @@ interface WorkoutActions {
 }
 
 const initialState: WorkoutState = {
+  ownerUserId: null,
   isActive: false,
   workoutName: "",
   warmup: null,
@@ -176,9 +268,68 @@ const initialState: WorkoutState = {
   restTimer: null,
   completedWorkoutSummary: null,
   generationMeta: null,
+  workoutSessionId: null,
+  workoutSource: null,
+  workoutId: null,
+  workoutWasEdited: false,
+  workoutEditCount: 0,
+  firstSetLogged: false,
+  progressReached50: false,
   watchSelectedExerciseId: null,
   healthWorkoutOwnedByWatch: false,
+  weightUnit: "kg",
+  healthWorkoutSavedIDs: {},
+  healthWorkoutFailedIDs: {},
+  healthWorkoutPendingIDs: {},
+  healthWorkoutFallbacks: {},
 };
+
+/** Idle state that keeps the owner and the Health export records. */
+function clearedWorkoutState(state: WorkoutState): WorkoutState {
+  return {
+    ...initialState,
+    ownerUserId: state.ownerUserId,
+    healthWorkoutSavedIDs: state.healthWorkoutSavedIDs,
+    healthWorkoutFailedIDs: state.healthWorkoutFailedIDs,
+    healthWorkoutPendingIDs: state.healthWorkoutPendingIDs,
+    healthWorkoutFallbacks: state.healthWorkoutFallbacks,
+  };
+}
+
+export function isOwnedByAnotherUser(
+  state: Pick<WorkoutState, "ownerUserId">,
+  userId: string
+): boolean {
+  return state.ownerUserId !== null && state.ownerUserId !== userId;
+}
+
+let markHydrationSettled = () => {};
+const hydrationSettled = new Promise<void>((resolve) => {
+  markHydrationSettled = resolve;
+});
+
+let persistenceTail = Promise.resolve();
+let latestPersistenceWrite: Promise<void> = Promise.resolve();
+
+const trackedAsyncStorage = {
+  getItem: (name: string) => AsyncStorage.getItem(name),
+  setItem: (name: string, value: string) => {
+    const write = persistenceTail.then(() => AsyncStorage.setItem(name, value));
+    persistenceTail = write.catch(() => undefined);
+    latestPersistenceWrite = write;
+    return write;
+  },
+  removeItem: (name: string) => {
+    const write = persistenceTail.then(() => AsyncStorage.removeItem(name));
+    persistenceTail = write.catch(() => undefined);
+    latestPersistenceWrite = write;
+    return write;
+  },
+};
+
+export function waitForWorkoutStorePersistence(): Promise<void> {
+  return latestPersistenceWrite;
+}
 
 let setCounter = 0;
 let occurrenceCounter = 0;
@@ -195,6 +346,134 @@ function generateOccurrenceId(): string {
 
 function generateRestTimerId(): string {
   return `rest-${Date.now()}-${generateSetId()}`;
+}
+
+function generateWorkoutSessionId(): string {
+  const generated = Crypto.randomUUID?.();
+  return (
+    generated ||
+    `workout-session-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+}
+
+function seedPlannedSetFields(set: WorkoutSet): WorkoutSet {
+  return {
+    ...set,
+    plannedKg: set.plannedKg === undefined ? set.kg : set.plannedKg,
+    plannedReps: set.plannedReps === undefined ? set.reps : set.plannedReps,
+    plannedDurationSeconds:
+      set.plannedDurationSeconds === undefined
+        ? set.durationSeconds
+        : set.plannedDurationSeconds,
+  };
+}
+
+function watchWorkoutId(startedAtMs: number | null): string | null {
+  return startedAtMs === null ? null : `workout-${startedAtMs}`;
+}
+
+function hasLoggedSetData(workoutSet: WorkoutSet): boolean {
+  // Planned load/reps/duration are already populated for generated workouts;
+  // only completion or an explicit RPE indicates user-logged set data.
+  return workoutSet.isCompleted || workoutSet.rpe !== null;
+}
+
+function getWorkoutMetrics(state: WorkoutState): {
+  completedSets: number;
+  plannedSets: number;
+  completionRate: number;
+  durationSeconds: number;
+} {
+  const plannedSets = state.exercises.reduce(
+    (total, exercise) => total + exercise.sets.length,
+    0
+  );
+  const completedSets = state.exercises.reduce(
+    (total, exercise) =>
+      total +
+      exercise.sets.filter((workoutSet) => workoutSet.isCompleted).length,
+    0
+  );
+  const completionRate =
+    plannedSets > 0 ? Math.round((completedSets / plannedSets) * 100) : 0;
+  const durationSeconds = state.startedAtMs
+    ? Math.max(0, Math.floor((Date.now() - state.startedAtMs) / 1000))
+    : 0;
+
+  return { completedSets, plannedSets, completionRate, durationSeconds };
+}
+
+function trackStaleAbandonment(state: WorkoutState): void {
+  if (!state.isActive || !state.workoutSessionId || !state.startedAtMs) return;
+
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - state.startedAtMs) / 1000)
+  );
+  const staleAfterSeconds = 24 * 60 * 60;
+  if (elapsedSeconds < staleAfterSeconds) return;
+
+  const metrics = getWorkoutMetrics(state);
+  trackEvent("workout_abandoned", {
+    workout_session_id: state.workoutSessionId,
+    workout_source: state.workoutSource,
+    workout_id: state.workoutId,
+    completed_sets: metrics.completedSets,
+    completion_rate: metrics.completionRate,
+    duration_seconds: elapsedSeconds,
+    elapsed_seconds: elapsedSeconds,
+    stale_after_hours: 24,
+  });
+}
+
+function trackFirstSetIfNeeded(
+  get: () => WorkoutState,
+  set: (next: Partial<WorkoutState>) => void
+): void {
+  const state = get();
+  if (!state.isActive || state.firstSetLogged || !state.workoutSessionId)
+    return;
+  const hasLoggedSet = state.exercises.some((exercise) =>
+    exercise.sets.some(hasLoggedSetData)
+  );
+  if (!hasLoggedSet) return;
+
+  const secondsSinceStart = state.startedAtMs
+    ? Math.max(0, Math.floor((Date.now() - state.startedAtMs) / 1000))
+    : 0;
+  set({ firstSetLogged: true });
+  trackEvent("workout_first_set_logged", {
+    workout_session_id: state.workoutSessionId,
+    seconds_since_start: secondsSinceStart,
+  });
+}
+
+function trackProgressIfNeeded(
+  get: () => WorkoutState,
+  set: (next: Partial<WorkoutState>) => void
+): void {
+  const state = get();
+  if (!state.isActive || state.progressReached50 || !state.workoutSessionId)
+    return;
+  const metrics = getWorkoutMetrics(state);
+  if (
+    metrics.plannedSets === 0 ||
+    metrics.completedSets / metrics.plannedSets < 0.5
+  ) {
+    return;
+  }
+
+  const secondsSinceStart = state.startedAtMs
+    ? Math.max(0, Math.floor((Date.now() - state.startedAtMs) / 1000))
+    : 0;
+  set({ progressReached50: true });
+  trackEvent("workout_progress_reached", {
+    workout_session_id: state.workoutSessionId,
+    progress_percent: 50,
+    completed_sets: metrics.completedSets,
+    total_sets: metrics.plannedSets,
+    seconds_since_start: secondsSinceStart,
+  });
 }
 
 export function getExerciseOccurrenceId(exercise: WorkoutExercise): string {
@@ -294,7 +573,9 @@ export function migratePersistedWorkoutExercisesFromV0(
     return {
       ...exercise,
       exerciseType,
-      sets: normalizeSetsForExerciseType(exerciseType, exercise.sets),
+      sets: normalizeSetsForExerciseType(exerciseType, exercise.sets).map(
+        seedPlannedSetFields
+      ),
     };
   });
 }
@@ -305,7 +586,22 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
       (set, get) => ({
         ...initialState,
 
-        startWorkout: (name, exercises, generationMeta, warmup = null) =>
+        startWorkout: (
+          name,
+          exercises,
+          generationMeta,
+          warmup = null,
+          options
+        ) => {
+          const previousState = get();
+          trackStaleAbandonment(previousState);
+          const workoutSessionId = generateWorkoutSessionId();
+          const workoutSource =
+            options?.workoutSource ?? (generationMeta ? "queued_ai" : "manual");
+          const workoutId = options?.workoutId ?? null;
+          const wasEdited = options?.wasEdited ?? false;
+          const editCount = options?.editCount ?? 0;
+
           set({
             isActive: true,
             workoutName: name,
@@ -313,89 +609,375 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             exercises: exercises.map((exercise) => ({
               ...exercise,
               occurrenceId: exercise.occurrenceId ?? generateOccurrenceId(),
+              sets: exercise.sets.map(seedPlannedSetFields),
             })),
             startedAtMs: Date.now(),
             restTimer: null,
             completedWorkoutSummary: null,
             generationMeta: generationMeta ?? null,
+            workoutSessionId,
+            workoutSource,
+            workoutId,
+            workoutWasEdited: wasEdited,
+            workoutEditCount: editCount,
+            firstSetLogged: false,
+            progressReached50: false,
             watchSelectedExerciseId: null,
             healthWorkoutOwnedByWatch: false,
-          }),
+            weightUnit: options?.weightUnit ?? previousState.weightUnit ?? "kg",
+          });
 
-        finishWorkout: (healthWorkoutUUID) => {
+          const plannedSetCount = exercises.reduce(
+            (total, exercise) => total + exercise.sets.length,
+            0
+          );
+          trackEvent("workout_started", {
+            workout_session_id: workoutSessionId,
+            workout_source: workoutSource,
+            workout_id: workoutId,
+            generation_source: generationMeta?.generationSource ?? null,
+            exercise_count: exercises.length,
+            planned_set_count: plannedSetCount,
+            has_warmup: warmup !== null,
+            was_edited: wasEdited,
+            edit_count: editCount,
+          });
+        },
+
+        finishWorkout: (healthWorkoutUUID, finishedAtMs) => {
           const {
             workoutName,
             warmup,
             exercises,
             startedAtMs,
             healthWorkoutOwnedByWatch,
+            healthWorkoutSavedIDs,
+            healthWorkoutFailedIDs,
+            weightUnit,
           } = get();
-          const now = Date.now();
+          const now = finishedAtMs ?? Date.now();
+          const currentWatchWorkoutId = watchWorkoutId(startedAtMs);
+          const savedUUID =
+            healthWorkoutUUID ??
+            (currentWatchWorkoutId
+              ? healthWorkoutSavedIDs[currentWatchWorkoutId]
+              : undefined);
+          const healthWorkoutFailed = currentWatchWorkoutId
+            ? healthWorkoutFailedIDs[currentWatchWorkoutId] === true
+            : false;
+          const healthWorkoutFallbacks = currentWatchWorkoutId
+            ? {
+                ...get().healthWorkoutFallbacks,
+                ...(healthWorkoutOwnedByWatch &&
+                savedUUID === undefined &&
+                !healthWorkoutFailed
+                  ? {
+                      [currentWatchWorkoutId]: {
+                        startedAtMs: startedAtMs ?? now,
+                        finishedAtMs: now,
+                      },
+                    }
+                  : {}),
+              }
+            : get().healthWorkoutFallbacks;
           set({
             isActive: false,
             restTimer: null,
             completedWorkoutSummary: {
               workoutName,
               warmup,
-              durationMs: startedAtMs ? now - startedAtMs : 0,
+              durationMs: startedAtMs ? Math.max(0, now - startedAtMs) : 0,
               exercises,
               finishedAtMs: now,
-              healthWorkoutRecordedOnWatch:
-                healthWorkoutOwnedByWatch || healthWorkoutUUID !== undefined,
-              healthWorkoutUUID,
+              healthWorkoutRecordedOnWatch: savedUUID !== undefined,
+              healthWorkoutUUID: savedUUID,
+              healthWorkoutOwnedByWatch,
+              healthWorkoutSavePending:
+                healthWorkoutOwnedByWatch &&
+                savedUUID === undefined &&
+                !healthWorkoutFailed,
+              healthWorkoutFailed,
+              weightUnit,
+              watchWorkoutId: currentWatchWorkoutId,
+              workoutSessionId: get().workoutSessionId,
+              workoutSource: get().workoutSource,
+              workoutId: get().workoutId,
+              generationSource: get().generationMeta?.generationSource ?? null,
+              wasEdited: get().workoutWasEdited,
+              editCount: get().workoutEditCount,
             },
+            healthWorkoutSavedIDs:
+              healthWorkoutUUID && currentWatchWorkoutId
+                ? {
+                    ...healthWorkoutSavedIDs,
+                    [currentWatchWorkoutId]: healthWorkoutUUID,
+                  }
+                : healthWorkoutSavedIDs,
+            healthWorkoutFallbacks,
           });
         },
 
         setWatchSelectedExercise: (watchSelectedExerciseId) =>
           set({ watchSelectedExerciseId }),
 
-        markHealthWorkoutOwnedByWatch: () =>
-          set({ healthWorkoutOwnedByWatch: true }),
+        setWeightUnit: (weightUnit) => set({ weightUnit }),
 
-        clearWorkout: () => set(initialState),
+        markHealthWorkoutOwnedByWatch: (workoutId) =>
+          set((state) => {
+            const id = workoutId ?? watchWorkoutId(state.startedAtMs);
+            return {
+              healthWorkoutOwnedByWatch: true,
+              healthWorkoutPendingIDs: id
+                ? { ...state.healthWorkoutPendingIDs, [id]: true }
+                : state.healthWorkoutPendingIDs,
+            };
+          }),
 
-        toggleSetComplete: (exerciseId, setId) => {
-          const { exercises } = get();
-          const exercise = resolveExerciseOccurrence(exercises, exerciseId);
-          const targetSet = exercise?.sets.find((s) => s.id === setId);
-          const willComplete = targetSet ? !targetSet.isCompleted : false;
+        markHealthWorkoutSaved: (workoutId, healthWorkoutUUID) =>
+          set((state) => {
+            const healthWorkoutSavedIDs = {
+              ...state.healthWorkoutSavedIDs,
+              [workoutId]: healthWorkoutUUID,
+            };
+            const matchesSummary =
+              state.completedWorkoutSummary?.watchWorkoutId === workoutId ||
+              state.completedWorkoutSummary?.workoutId === workoutId;
+            return {
+              healthWorkoutSavedIDs,
+              healthWorkoutPendingIDs: Object.fromEntries(
+                Object.entries(state.healthWorkoutPendingIDs).filter(
+                  ([id]) => id !== workoutId
+                )
+              ),
+              healthWorkoutFallbacks: Object.fromEntries(
+                Object.entries(state.healthWorkoutFallbacks).filter(
+                  ([id]) => id !== workoutId
+                )
+              ),
+              healthWorkoutFailedIDs: Object.fromEntries(
+                Object.entries(state.healthWorkoutFailedIDs).filter(
+                  ([id]) => id !== workoutId
+                )
+              ),
+              completedWorkoutSummary: matchesSummary
+                ? {
+                    ...state.completedWorkoutSummary!,
+                    healthWorkoutRecordedOnWatch: true,
+                    healthWorkoutUUID,
+                    healthWorkoutSavePending: false,
+                    healthWorkoutFailed: false,
+                  }
+                : state.completedWorkoutSummary,
+            };
+          }),
 
-          set({
-            exercises: updateExerciseSets(exercises, exerciseId, (sets) =>
-              sets.map((s) =>
-                s.id === setId ? { ...s, isCompleted: !s.isCompleted } : s
-              )
-            ),
-          });
+        markHealthWorkoutFailed: (workoutId) =>
+          set((state) => {
+            if (state.healthWorkoutSavedIDs[workoutId] !== undefined) {
+              return state;
+            }
+            const matchesSummary =
+              state.completedWorkoutSummary?.watchWorkoutId === workoutId ||
+              state.completedWorkoutSummary?.workoutId === workoutId;
+            return {
+              healthWorkoutPendingIDs: Object.fromEntries(
+                Object.entries(state.healthWorkoutPendingIDs).filter(
+                  ([id]) => id !== workoutId
+                )
+              ),
+              healthWorkoutFailedIDs: {
+                ...state.healthWorkoutFailedIDs,
+                [workoutId]: true,
+              },
+              healthWorkoutFallbacks:
+                state.healthWorkoutFallbacks[workoutId] !== undefined
+                  ? state.healthWorkoutFallbacks
+                  : state.completedWorkoutSummary && matchesSummary
+                    ? {
+                        ...state.healthWorkoutFallbacks,
+                        [workoutId]: {
+                          startedAtMs:
+                            state.completedWorkoutSummary.finishedAtMs -
+                            state.completedWorkoutSummary.durationMs,
+                          finishedAtMs:
+                            state.completedWorkoutSummary.finishedAtMs,
+                        },
+                      }
+                    : state.healthWorkoutFallbacks,
+              completedWorkoutSummary: matchesSummary
+                ? {
+                    ...state.completedWorkoutSummary!,
+                    healthWorkoutRecordedOnWatch: false,
+                    healthWorkoutSavePending: false,
+                    healthWorkoutFailed: true,
+                  }
+                : state.completedWorkoutSummary,
+            };
+          }),
 
-          if (willComplete && exercise) {
-            get().startRestTimer(exerciseId);
+        recordHealthWorkoutSession: (workoutId, sessionId) =>
+          set((state) => {
+            const summary = state.completedWorkoutSummary;
+            const fallback = state.healthWorkoutFallbacks[workoutId];
+            return {
+              healthWorkoutFallbacks: {
+                ...state.healthWorkoutFallbacks,
+                [workoutId]: {
+                  startedAtMs:
+                    fallback?.startedAtMs ??
+                    (summary
+                      ? summary.finishedAtMs - summary.durationMs
+                      : Date.now()),
+                  finishedAtMs:
+                    fallback?.finishedAtMs ??
+                    summary?.finishedAtMs ??
+                    Date.now(),
+                  sessionId,
+                  started: fallback?.started ?? false,
+                },
+              },
+            };
+          }),
+
+        markHealthWorkoutFallbackStarted: (workoutId) =>
+          set((state) => {
+            const fallback = state.healthWorkoutFallbacks[workoutId];
+            if (!fallback || fallback.started) return state;
+            return {
+              healthWorkoutFallbacks: {
+                ...state.healthWorkoutFallbacks,
+                [workoutId]: { ...fallback, started: true },
+              },
+            };
+          }),
+
+        clearWorkout: (options) => {
+          if (!options?.suppressAbandonment) {
+            trackStaleAbandonment(get());
           }
+          set(clearedWorkoutState(get()));
         },
 
-        updateSetField: (exerciseId, setId, field, value) =>
+        prepareForUser: (userId) => {
+          const state = get();
+          if (state.ownerUserId === userId) return;
+          // Unowned data predates ownership or is a fresh install, so the first
+          // account keeps it instead of losing a workout in progress.
+          const discard =
+            isOwnedByAnotherUser(state, userId) &&
+            (state.isActive || state.completedWorkoutSummary !== null);
+          // No abandonment event: analytics already identify the new account.
+          set(
+            discard
+              ? { ...clearedWorkoutState(state), ownerUserId: userId }
+              : { ownerUserId: userId }
+          );
+        },
+
+        completeSet: (exerciseId, setId, values) => {
+          const state = get();
+          const exercise = resolveExerciseOccurrence(
+            state.exercises,
+            exerciseId
+          );
+          const targetSet = exercise?.sets.find((item) => item.id === setId);
+          if (!exercise || !targetSet || targetSet.isCompleted) return;
+
+          const occurrenceId = getExerciseOccurrenceId(exercise);
+          const nextSet = {
+            ...targetSet,
+            ...(values?.kg !== undefined ? { kg: values.kg } : {}),
+            ...(values?.reps !== undefined ? { reps: values.reps } : {}),
+            ...(values?.durationSeconds !== undefined
+              ? { durationSeconds: values.durationSeconds }
+              : {}),
+            isCompleted: true,
+          };
+          set({
+            exercises: state.exercises.map((item) =>
+              item === exercise
+                ? {
+                    ...item,
+                    sets: item.sets.map((setItem) =>
+                      setItem.id === setId ? nextSet : setItem
+                    ),
+                  }
+                : item
+            ),
+            restTimer: {
+              id: values?.restId ?? generateRestTimerId(),
+              exerciseId: occurrenceId,
+              startedAtMs:
+                values?.startedAtMs !== undefined &&
+                Number.isFinite(values.startedAtMs)
+                  ? values.startedAtMs
+                  : Date.now(),
+              durationSeconds: exercise.restDurationSeconds,
+            },
+          });
+          trackFirstSetIfNeeded(get, (next) => set(next));
+          trackProgressIfNeeded(get, (next) => set(next));
+        },
+
+        toggleSetComplete: (exerciseId, setId, options) => {
+          const state = get();
+          const exercise = resolveExerciseOccurrence(
+            state.exercises,
+            exerciseId
+          );
+          const targetSet = exercise?.sets.find((s) => s.id === setId);
+          if (!exercise || !targetSet) return;
+
+          const willComplete = !targetSet.isCompleted;
+          const restTimer = willComplete
+            ? {
+                id: options?.restId ?? generateRestTimerId(),
+                exerciseId: getExerciseOccurrenceId(exercise),
+                startedAtMs: options?.startedAtMs ?? Date.now(),
+                durationSeconds: exercise.restDurationSeconds,
+              }
+            : state.restTimer;
+
+          set({
+            exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
+              sets.map((s) =>
+                s.id === setId ? { ...s, isCompleted: willComplete } : s
+              )
+            ),
+            restTimer,
+          });
+          trackFirstSetIfNeeded(get, (next) => set(next));
+          trackProgressIfNeeded(get, (next) => set(next));
+        },
+
+        updateSetField: (exerciseId, setId, field, value) => {
           set((state) => ({
             exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
               sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s))
             ),
-          })),
+          }));
+          trackFirstSetIfNeeded(get, (next) => set(next));
+        },
 
-        updateSetDuration: (exerciseId, setId, durationSeconds) =>
+        updateSetDuration: (exerciseId, setId, durationSeconds) => {
           set((state) => ({
             exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
               sets.map((s) => (s.id === setId ? { ...s, durationSeconds } : s))
             ),
-          })),
+          }));
+          trackFirstSetIfNeeded(get, (next) => set(next));
+        },
 
-        updateSetRpe: (exerciseId, setId, rpe) =>
+        updateSetRpe: (exerciseId, setId, rpe) => {
           set((state) => ({
             exercises: updateExerciseSets(state.exercises, exerciseId, (sets) =>
               sets.map((s) => (s.id === setId ? { ...s, rpe } : s))
             ),
-          })),
+          }));
+          trackFirstSetIfNeeded(get, (next) => set(next));
+        },
 
-        toggleWarmupComplete: () =>
+        toggleWarmupComplete: () => {
           set((state) => ({
             warmup: state.warmup
               ? {
@@ -403,7 +985,16 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
                   isCompleted: !state.warmup.isCompleted,
                 }
               : null,
-          })),
+          }));
+          trackProgressIfNeeded(get, (next) => set(next));
+        },
+
+        setWarmupComplete: (isCompleted) => {
+          set((state) => ({
+            warmup: state.warmup ? { ...state.warmup, isCompleted } : null,
+          }));
+          trackProgressIfNeeded(get, (next) => set(next));
+        },
 
         addSet: (exerciseId) =>
           set((state) => ({
@@ -491,7 +1082,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
             };
           }),
 
-        startRestTimer: (exerciseId) => {
+        startRestTimer: (exerciseId, options) => {
           const exercise = resolveExerciseOccurrence(
             get().exercises,
             exerciseId
@@ -499,13 +1090,113 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           if (!exercise) return;
           set({
             restTimer: {
-              id: generateRestTimerId(),
+              id: options?.restId ?? generateRestTimerId(),
               exerciseId: getExerciseOccurrenceId(exercise),
-              startedAtMs: Date.now(),
+              startedAtMs: options?.startedAtMs ?? Date.now(),
               durationSeconds: exercise.restDurationSeconds,
             },
           });
         },
+
+        reconcileRestTimer: (input) =>
+          set((state) => {
+            const rest = state.restTimer;
+            if (!rest || rest.id !== input.restId) return state;
+
+            const durationSeconds = Math.max(
+              1,
+              input.durationSeconds ?? rest.durationSeconds
+            );
+            const now = Date.now();
+            const pausedRemainingSeconds = input.pausedRemainingSeconds;
+
+            if (
+              pausedRemainingSeconds !== undefined &&
+              pausedRemainingSeconds !== null
+            ) {
+              const remaining = Math.min(
+                durationSeconds,
+                Math.max(0, pausedRemainingSeconds)
+              );
+              return {
+                restTimer: {
+                  ...rest,
+                  exerciseId: input.exerciseId ?? rest.exerciseId,
+                  durationSeconds,
+                  startedAtMs: now - (durationSeconds - remaining) * 1000,
+                  pausedRemainingSeconds: remaining,
+                },
+              };
+            }
+
+            if (input.endDate) {
+              const endDateMs = Date.parse(input.endDate);
+              if (Number.isFinite(endDateMs)) {
+                return {
+                  restTimer: {
+                    ...rest,
+                    exerciseId: input.exerciseId ?? rest.exerciseId,
+                    durationSeconds,
+                    startedAtMs: endDateMs - durationSeconds * 1000,
+                    pausedRemainingSeconds: undefined,
+                  },
+                };
+              }
+            }
+
+            if (input.pausedRemainingSeconds === null) {
+              const remaining = Math.min(
+                durationSeconds,
+                Math.max(0, rest.pausedRemainingSeconds ?? durationSeconds)
+              );
+              return {
+                restTimer: {
+                  ...rest,
+                  exerciseId: input.exerciseId ?? rest.exerciseId,
+                  durationSeconds,
+                  startedAtMs: now - (durationSeconds - remaining) * 1000,
+                  pausedRemainingSeconds: undefined,
+                },
+              };
+            }
+
+            if (input.deltaSeconds !== undefined) {
+              const remaining =
+                rest.pausedRemainingSeconds ??
+                Math.min(
+                  rest.durationSeconds,
+                  Math.max(
+                    0,
+                    rest.durationSeconds - (now - rest.startedAtMs) / 1000
+                  )
+                );
+              const nextRemaining = Math.min(
+                600,
+                Math.max(0, remaining + input.deltaSeconds)
+              );
+              const nextDuration = Math.max(durationSeconds, nextRemaining);
+              return {
+                restTimer: {
+                  ...rest,
+                  exerciseId: input.exerciseId ?? rest.exerciseId,
+                  durationSeconds: nextDuration,
+                  startedAtMs: now - (nextDuration - nextRemaining) * 1000,
+                  pausedRemainingSeconds:
+                    rest.pausedRemainingSeconds === undefined
+                      ? undefined
+                      : nextRemaining,
+                },
+              };
+            }
+
+            return {
+              restTimer: {
+                ...rest,
+                exerciseId: input.exerciseId ?? rest.exerciseId,
+                durationSeconds,
+              },
+            };
+          }),
 
         adjustRestTimer: (deltaSeconds) =>
           set((state) => {
@@ -656,7 +1347,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
       {
         name: "active-workout-storage",
         version: 1,
-        storage: createJSONStorage(() => AsyncStorage),
+        storage: createJSONStorage(() => trackedAsyncStorage),
         migrate: (persistedState, version) => {
           if (!persistedState || typeof persistedState !== "object") {
             return persistedState as WorkoutState;
@@ -675,48 +1366,79 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           return state;
         },
         onRehydrateStorage: () => (state, error) => {
-          if (error) {
-            console.warn("[workout-store] hydration failed, resetting:", error);
-            state?.clearWorkout();
-          } else if (state) {
-            // Migrate hydrated exercises to ensure new fields exist
-            state.warmup = state.warmup ?? null;
-            state.watchSelectedExerciseId =
-              state.watchSelectedExerciseId ?? null;
-            state.healthWorkoutOwnedByWatch =
-              state.healthWorkoutOwnedByWatch ?? false;
-            state.exercises = state.exercises.map((ex) => ({
-              ...ex,
-              occurrenceId: ex.occurrenceId ?? generateOccurrenceId(),
-              exerciseType: ex.exerciseType ?? "weight",
-              reasoning: ex.reasoning ?? null,
-              sets: ex.sets.map((s) => ({
-                ...s,
-                durationSeconds: s.durationSeconds ?? null,
-              })),
-            }));
-            if (state.restTimer) {
-              const occurrence = resolveExerciseOccurrence(
-                state.exercises,
-                state.restTimer.exerciseId
+          try {
+            if (error) {
+              console.warn(
+                "[workout-store] hydration failed, resetting:",
+                error
               );
-              state.restTimer = {
-                ...state.restTimer,
-                id: state.restTimer.id ?? generateRestTimerId(),
-                exerciseId: occurrence
-                  ? getExerciseOccurrenceId(occurrence)
-                  : state.restTimer.exerciseId,
-              };
+              state?.clearWorkout();
+            } else if (state) {
+              // Migrate hydrated exercises to ensure new fields exist
+              state.ownerUserId = state.ownerUserId ?? null;
+              state.warmup = state.warmup ?? null;
+              state.watchSelectedExerciseId =
+                state.watchSelectedExerciseId ?? null;
+              state.healthWorkoutOwnedByWatch =
+                state.healthWorkoutOwnedByWatch ?? false;
+              state.weightUnit = state.weightUnit ?? "kg";
+              state.healthWorkoutSavedIDs = state.healthWorkoutSavedIDs ?? {};
+              state.healthWorkoutFailedIDs = state.healthWorkoutFailedIDs ?? {};
+              state.healthWorkoutPendingIDs =
+                state.healthWorkoutPendingIDs ?? {};
+              state.healthWorkoutFallbacks = state.healthWorkoutFallbacks ?? {};
+              state.workoutSessionId = state.workoutSessionId ?? null;
+              state.workoutSource = state.workoutSource ?? null;
+              state.workoutId = state.workoutId ?? null;
+              state.workoutWasEdited = state.workoutWasEdited ?? false;
+              state.workoutEditCount = state.workoutEditCount ?? 0;
+              state.firstSetLogged = state.firstSetLogged ?? false;
+              state.progressReached50 = state.progressReached50 ?? false;
+              state.exercises = state.exercises.map((ex) => ({
+                ...ex,
+                occurrenceId: ex.occurrenceId ?? generateOccurrenceId(),
+                exerciseType: ex.exerciseType ?? "weight",
+                reasoning: ex.reasoning ?? null,
+                sets: ex.sets.map((s) => ({
+                  ...seedPlannedSetFields(s),
+                  durationSeconds: s.durationSeconds ?? null,
+                })),
+              }));
+              if (state.restTimer) {
+                const occurrence = resolveExerciseOccurrence(
+                  state.exercises,
+                  state.restTimer.exerciseId
+                );
+                state.restTimer = {
+                  ...state.restTimer,
+                  id: state.restTimer.id ?? generateRestTimerId(),
+                  exerciseId: occurrence
+                    ? getExerciseOccurrenceId(occurrence)
+                    : state.restTimer.exerciseId,
+                };
+              }
+              state.generationMeta = state.generationMeta
+                ? {
+                    ...state.generationMeta,
+                    reasoning: state.generationMeta.reasoning ?? null,
+                  }
+                : null;
             }
-            state.generationMeta = state.generationMeta
-              ? {
-                  ...state.generationMeta,
-                  reasoning: state.generationMeta.reasoning ?? null,
-                }
-              : null;
+          } finally {
+            // Settles on failure too, so account setup never waits forever.
+            markHydrationSettled();
           }
         },
       }
     )
   )
 );
+
+/** Resolves once persisted state is restored, including when that fails. */
+export function waitForWorkoutStoreHydration(): Promise<void> {
+  // `persist` is absent under the Jest middleware mock.
+  const persistApi = useWorkoutStore.persist;
+  return !persistApi || persistApi.hasHydrated()
+    ? Promise.resolve()
+    : hydrationSettled;
+}

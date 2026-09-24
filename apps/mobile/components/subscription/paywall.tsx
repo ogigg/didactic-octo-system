@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -6,6 +7,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { usePaywallStore } from "@/stores/paywall-store";
+import { trackEvent } from "@/lib/track-event";
 
 interface BenefitRowProps {
   iconName: "bolt.fill" | "chart.xyaxis.line" | "timer" | "scope";
@@ -29,7 +31,7 @@ function BenefitRow({ iconName, label }: BenefitRowProps) {
 
 export function Paywall() {
   const { t } = useTranslation("subscription");
-  const { isOpen, usedCount, limitCount, close } = usePaywallStore();
+  const { isOpen, usedCount, limitCount, source, close } = usePaywallStore();
 
   const background = useThemeColor({}, "backgroundElevated");
   const textMuted = useThemeColor({}, "textMuted");
@@ -37,8 +39,41 @@ export function Paywall() {
   const textColor = useThemeColor({}, "text");
   const border = useThemeColor({}, "border");
   const primary = useThemeColor({}, "primary");
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      wasOpen.current = false;
+      return;
+    }
+    if (wasOpen.current) return;
+    wasOpen.current = true;
+
+    trackEvent("paywall_viewed", {
+      source,
+      used_count: usedCount,
+      limit_count: limitCount,
+    });
+  }, [isOpen, limitCount, source, usedCount]);
+
+  function handleDismiss() {
+    if (!isOpen) return;
+    trackEvent("paywall_dismissed", {
+      source,
+      used_count: usedCount,
+      limit_count: limitCount,
+    });
+    wasOpen.current = false;
+    close();
+  }
 
   function handleUpgrade() {
+    trackEvent("upgrade_tapped", {
+      source,
+      used_count: usedCount,
+      limit_count: limitCount,
+    });
+    wasOpen.current = false;
     close();
     Alert.alert(t("paywall.upgradeCta"), t("paywall.comingSoon"));
   }
@@ -48,10 +83,10 @@ export function Paywall() {
       visible={isOpen}
       transparent
       animationType="fade"
-      onRequestClose={close}
+      onRequestClose={handleDismiss}
       accessibilityViewIsModal
     >
-      <Pressable style={styles.backdrop} onPress={close}>
+      <Pressable style={styles.backdrop} onPress={handleDismiss}>
         <Pressable
           style={[styles.sheet, { backgroundColor: background }, Elevation.md]}
           onPress={() => {}}
@@ -104,7 +139,7 @@ export function Paywall() {
 
           {/* Dismiss */}
           <Pressable
-            onPress={close}
+            onPress={handleDismiss}
             accessibilityRole="button"
             accessibilityLabel={t("paywall.dismiss")}
             hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}

@@ -77,5 +77,14 @@ export const workoutPreview = {
     regeneratingTitle: "Refreshing this plan",
     regeneratingMessage:
       "This workout is being replaced now. The updated version will appear automatically when it is ready.",
+    regenerationFailedTitle: "We couldn't refresh this plan",
+    regenerationFailedMessage:
+      "Your current workout is still safe. Try again, or wait a moment if generation is still in progress.",
+    recoveryFailedTitle: "We couldn't refresh the workout status",
+    recoveryFailedMessage:
+      "We couldn't recover this stuck workout. Check your connection and try again.",
+    referenceId: "Reference: {{id}}",
+    retryRegeneration: "Try again",
+    retryRecovery: "Refresh status",
   },
 } as const;

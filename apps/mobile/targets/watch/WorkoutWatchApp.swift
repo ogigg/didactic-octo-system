@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 
 func watchLocalizedFormat(
     _ key: String,
@@ -22,13 +23,32 @@ func watchLocalizedFormat(
 
 @main
 struct WorkoutWatchApp: App {
-    @State private var coordinator = WorkoutCoordinator()
+    @WKApplicationDelegateAdaptor(WorkoutRecoveryDelegate.self) private var recoveryDelegate
+    @State private var coordinator: WorkoutCoordinator
+
+    init() {
+        let coordinator = WorkoutCoordinator()
+        _coordinator = State(initialValue: coordinator)
+        WorkoutRecoveryDelegate.coordinator = coordinator
+    }
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(coordinator)
                 .preferredColorScheme(.dark)
+                .transformEnvironment(\.dynamicTypeSize) { size in
+                    #if DEBUG
+                    if coordinator.isPreview, ProcessInfo.processInfo.arguments.contains("--large-text") {
+                        size = .accessibility2
+                    }
+                    #endif
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { coordinator.start(); coordinator.connectivity.requestState() }
+                    else { coordinator.saveEditor() }
+                }
         }
         .backgroundTask(.watchConnectivity) {
             await coordinator.waitForPendingConnectivityContent()
@@ -42,4 +62,17 @@ enum WatchTheme {
     static let primary = Color(red: 0.353, green: 0.682, blue: 0.878)
     static let success = Color(red: 0.188, green: 0.820, blue: 0.345)
     static let gold = Color(red: 1.0, green: 0.773, blue: 0.239)
+}
+
+@MainActor
+final class WorkoutRecoveryDelegate: NSObject, WKApplicationDelegate {
+    static weak var coordinator: WorkoutCoordinator?
+
+    func handleActiveWorkoutRecovery() {
+        Task { @MainActor in
+            guard let coordinator = Self.coordinator else { return }
+            _ = await coordinator.health.recoverActiveWorkoutSession()
+            coordinator.start()
+        }
+    }
 }

@@ -15,6 +15,8 @@ struct ActiveWorkoutView: View {
             HeartRateView()
         case .exerciseComplete:
             ExerciseCompleteView()
+        case .details:
+            WorkoutDetailsView()
         }
     }
 }
@@ -24,144 +26,145 @@ private struct ExerciseListView: View {
     @State private var endConfirmation = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(
-                            coordinator.snapshot?.name
-                                ?? String(localized: "Workout")
-                        )
-                            .font(.headline)
-                            .lineLimit(2)
-                        Text(
-                            watchLocalizedFormat(
-                                "%lld/%lld sets",
-                                coordinator.completedSetCount,
-                                coordinator.totalSetCount
-                            )
-                        )
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    HeartRateButton()
-                }
+        WatchScreen(
+            title: String(localized: "Workout"),
+            contentScrolls: true,
+            headerAction: .details,
+            primaryTitle: coordinator.isFinishing
+                ? String(localized: "Saving")
+                : String(localized: "End workout"),
+            primaryRole: .destructive,
+            primaryDisabled: coordinator.isFinishing,
+            onPrimary: { endConfirmation = true }
+        ) {
+            VStack(alignment: .leading, spacing: 5) {
+                ScrollView {
+                    LazyVStack(spacing: 5) {
+                        warmupRow
 
-                ForEach(coordinator.snapshot?.exercises ?? []) { exercise in
-                    Button {
-                        coordinator.selectExercise(exercise.id)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(
-                                systemName: exercise.sets.allSatisfy(\.isCompleted)
-                                    ? "checkmark.circle.fill"
-                                    : exercise.id == coordinator.selectedExercise?.id
-                                        ? "circle.inset.filled"
-                                        : "circle"
-                            )
-                            .foregroundStyle(
-                                exercise.sets.allSatisfy(\.isCompleted)
-                                    ? WatchTheme.success : WatchTheme.primary
-                            )
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(exercise.name)
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .lineLimit(3)
-                                    .multilineTextAlignment(.leading)
-                                Text(exerciseSummary(exercise))
+                        ForEach(coordinator.snapshot?.exercises ?? []) { exercise in
+                            Button {
+                                coordinator.selectExercise(exercise.id)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: statusSymbol(for: exercise))
+                                        .foregroundStyle(statusColor(for: exercise))
+                                        .frame(width: 20)
+                                        .accessibilityHidden(true)
+
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(exercise.name)
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .lineLimit(2)
+                                            .multilineTextAlignment(.leading)
+                                        Text(exerciseSummary(exercise))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer(minLength: 2)
+                                    Text(
+                                        watchLocalizedFormat(
+                                            "%lld/%lld",
+                                            exercise.sets.filter(\.isCompleted).count,
+                                            exercise.sets.count
+                                        )
+                                    )
                                     .font(.caption2)
+                                    .monospacedDigit()
                                     .foregroundStyle(.secondary)
+                                }
+                                .frame(minHeight: 42)
                             }
-                            Spacer()
-                            Text(
-                                "\(exercise.sets.filter(\.isCompleted).count)/\(exercise.sets.count)"
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 6)
+                            .background(
+                                WatchTheme.surface,
+                                in: RoundedRectangle(cornerRadius: 9)
                             )
-                            .font(.caption2)
-                            .monospacedDigit()
+                            .accessibilityLabel(
+                                watchLocalizedFormat(
+                                    "%@, %lld of %lld sets complete",
+                                    exercise.name,
+                                    exercise.sets.filter(\.isCompleted).count,
+                                    exercise.sets.count
+                                )
+                            )
                         }
                     }
-                    .buttonStyle(.plain)
-                    .padding(8)
-                    .background(WatchTheme.surface, in: RoundedRectangle(cornerRadius: 11))
-                    .accessibilityLabel(
+                }
+                .scrollIndicators(.hidden)
+                .frame(maxHeight: .infinity)
+            }
+        }
+        .confirmationDialog(
+            String(localized: "End workout?"),
+            isPresented: $endConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "End workout"), role: .destructive) {
+                coordinator.finishWorkout()
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text("You can still review this workout on your iPhone")
+        }
+    }
+
+    @ViewBuilder
+    private var warmupRow: some View {
+        if let warmup = coordinator.snapshot?.warmup {
+            Button {
+                coordinator.setWarmupComplete(!warmup.isCompleted)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(
+                        systemName: warmup.isCompleted
+                            ? "checkmark.circle.fill"
+                            : "circle"
+                    )
+                    .foregroundStyle(
+                        warmup.isCompleted ? WatchTheme.success : WatchTheme.primary
+                    )
+                    Text(String(localized: "Warm-up"))
+                        .font(.caption)
+                    Spacer()
+                    Text(
                         watchLocalizedFormat(
-                            "%@, %lld of %lld sets complete",
-                            exercise.name,
-                            exercise.sets.filter(\.isCompleted).count,
-                            exercise.sets.count
+                            "%lld min",
+                            Int((warmup.durationSeconds + 59) / 60)
                         )
                     )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 }
-
-                Button(role: endConfirmation ? .destructive : nil) {
-                    if endConfirmation {
-                        coordinator.finishWorkout()
-                    } else {
-                        endConfirmation = true
-                    }
-                } label: {
-                    Text(
-                        endConfirmation
-                            ? String(localized: "Tap again to end")
-                            : String(localized: "End workout")
-                    )
-                }
-                .frame(maxWidth: .infinity)
+                .frame(minHeight: 28)
             }
-            .padding(.horizontal, 6)
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                warmup.isCompleted
+                    ? String(localized: "Warm-up complete")
+                    : String(localized: "Mark warm-up complete")
+            )
         }
+    }
+
+    private func statusSymbol(for exercise: WatchExercise) -> String {
+        if exercise.sets.allSatisfy(\.isCompleted) { return "checkmark.circle.fill" }
+        if exercise.id == coordinator.selectedExercise?.id { return "circle.inset.filled" }
+        return "circle"
+    }
+
+    private func statusColor(for exercise: WatchExercise) -> Color {
+        exercise.sets.allSatisfy(\.isCompleted) ? WatchTheme.success : WatchTheme.primary
     }
 
     private func exerciseSummary(_ exercise: WatchExercise) -> String {
-        guard let set = exercise.sets.first else {
-            return String(localized: "No sets")
-        }
-        let reps = Int(set.targetReps ?? 0)
-        if exercise.exerciseType == .time {
-            return watchLocalizedFormat(
-                "%lld sets · %lld seconds",
-                exercise.sets.count,
-                set.durationSeconds ?? 0
-            )
-        }
-        if let load = set.targetLoadKg {
-            return watchLocalizedFormat(
-                "%lld × %lld · %@ kg",
-                exercise.sets.count,
-                reps,
-                load.formatted()
-            )
-        }
-        return watchLocalizedFormat(
-            "%lld × %lld",
-            exercise.sets.count,
-            reps
-        )
-    }
-}
-
-struct HeartRateButton: View {
-    @Environment(WorkoutCoordinator.self) private var coordinator
-
-    var body: some View {
-        Button {
-            coordinator.screen = .heartRate
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: "heart.fill")
-                Text(coordinator.health.heartRate.map(String.init) ?? "—")
-                    .monospacedDigit()
-            }
-            .font(.caption)
-            .foregroundStyle(.red)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(
-            coordinator.health.heartRate.map {
-                watchLocalizedFormat("Heart rate %lld beats per minute", $0)
-            } ?? String(localized: "Heart rate unavailable")
-        )
+        guard !exercise.sets.isEmpty else { return String(localized: "No sets") }
+        let kind = exercise.exerciseType == .time
+            ? String(localized: "Timed")
+            : String(localized: "Strength")
+        return watchLocalizedFormat("%lld sets · %@", exercise.sets.count, kind)
     }
 }

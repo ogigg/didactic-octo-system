@@ -31,8 +31,10 @@ export const healthSync = {
     title: "Health Integration",
     status: {
       connected: "Connected",
+      syncOff: "Sync Off",
       notConnected: "Not Connected",
-      skipped: "Declined",
+      notRequested: "Not Requested",
+      restricted: "Restricted",
       unavailable: "Not Available",
       unknown: "Not Set Up",
     },
@@ -41,6 +43,18 @@ export const healthSync = {
     descriptionAndroid: "Sweaty syncs completed workouts to Health Connect.",
     connectButton: "Connect",
     openSettingsButton: "Open Settings",
+    recoveryButton: "How to Enable Access",
+    recoveryTitle: "Enable Apple Health Access",
+    recoveryInstructions:
+      "Open the Health app, tap your profile picture, then tap Apps under Privacy. Select Sweaty and turn on the health categories you want to share.",
+    recoveryDismiss: "Got It",
+    recoveryHint:
+      "Apple Health permissions are managed in the Health app. Tap above for the exact steps.",
+    recoveryHintAndroid: "Grant permissions in Health Connect to enable sync.",
+    restrictedHint:
+      "Apple Health is restricted on this iPhone. If this is a managed device, contact your administrator.",
+    nativeAccessRetainedHint:
+      "Sync is off in Sweaty. Apple Health access remains unchanged, and you can reconnect at any time.",
     resetButton: "Disconnect",
     resetConfirmTitle: "Disconnect Health?",
     resetConfirmMessage:

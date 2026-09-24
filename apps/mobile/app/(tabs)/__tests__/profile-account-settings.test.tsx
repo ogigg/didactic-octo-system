@@ -28,6 +28,10 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
+jest.mock("@/hooks/use-tab-bar-clearance", () => ({
+  useTabBarClearance: () => 104,
+}));
+
 jest.mock("@/hooks/use-workout-stats", () => ({
   useWorkoutStats: () => ({
     totalWorkouts: 0,

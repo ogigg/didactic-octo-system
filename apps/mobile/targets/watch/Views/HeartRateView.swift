@@ -4,69 +4,36 @@ struct HeartRateView: View {
     @Environment(WorkoutCoordinator.self) private var coordinator
 
     var body: some View {
-        VStack(spacing: 9) {
-            HStack {
-                Button {
-                    coordinator.screen =
-                        coordinator.snapshot?.rest == nil ? .activeSet : .rest
-                } label: {
-                    Image(systemName: "chevron.left")
+        let _ = coordinator.now
+        let heartRate = coordinator.health.heartRate
+        WatchScreen(title: String(localized: "Heart rate"),
+            onBack: { coordinator.goBack() }, headerAction: .details) {
+            VStack(spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Image(systemName: "heart.fill").font(.caption).foregroundStyle(.red)
+                    Text(heartRate.map(String.init) ?? "—")
+                        .font(.system(size: 38, weight: .light, design: .rounded))
+                        .monospacedDigit()
+                    Text("BPM").font(.caption2).foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                Spacer()
-                Text("LIVE")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(WatchTheme.primary)
-            }
-
-            Image(systemName: "heart.fill")
-                .font(.title2)
-                .foregroundStyle(.red)
-                .symbolEffect(.pulse, isActive: coordinator.health.heartRate != nil)
-
-            Text(coordinator.health.heartRate.map(String.init) ?? "—")
-                .font(.system(size: 48, weight: .light, design: .rounded))
-                .monospacedDigit()
-                .accessibilityLabel(
-                    coordinator.health.heartRate.map {
-                        watchLocalizedFormat("%lld beats per minute", $0)
-                    } ?? String(localized: "Heart rate unavailable")
-                )
-
-            Text("BPM")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-            if let current = coordinator.health.heartRate,
-                let previous = coordinator.heartRateAtLastSet
-            {
-                let delta = current - previous
-                Text(
-                    delta == 0
-                        ? String(localized: "No change since last set")
-                        : watchLocalizedFormat(
-                            "%@%lld BPM since last set",
-                            delta > 0 ? "+" : "",
-                            delta
-                        )
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            } else {
-                Text("Recovery trend appears after you log a set.")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(heartRate.map { watchLocalizedFormat("%lld beats per minute", $0) }
+                    ?? String(localized: "Heart rate unavailable"))
+                Text(heartRate == nil ? String(localized: "Waiting for a reading") : String(localized: "LIVE"))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                if let current = heartRate, let previous = coordinator.heartRateAtLastSet {
+                    Text(watchLocalizedFormat("%@%lld BPM since last set", current >= previous ? "+" : "", current - previous))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
             }
-
-            Button("Back to workout") {
-                coordinator.screen =
-                    coordinator.snapshot?.rest == nil ? .activeSet : .rest
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(WatchTheme.primary)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 4)
         }
-        .padding(.horizontal, 8)
     }
 }

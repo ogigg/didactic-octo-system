@@ -12,3 +12,12 @@ export function containsProfanity(text: string): boolean {
     return false; // fail open — don't block the user on filter errors
   }
 }
+
+export function isValidCustomGoal(value: string | null): boolean {
+  const text = value?.trim() ?? "";
+  return (
+    text.length >= 5 &&
+    text.length <= MAX_CUSTOM_GOAL_LENGTH &&
+    !containsProfanity(text)
+  );
+}

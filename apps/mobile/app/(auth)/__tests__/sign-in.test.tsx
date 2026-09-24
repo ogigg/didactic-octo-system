@@ -8,6 +8,9 @@ jest.mock("@/lib/supabase", () => ({
     },
   },
 }));
+jest.mock("@/lib/api/login-provider-hint", () => ({
+  fetchLoginProviderHint: jest.fn(),
+}));
 jest.mock("@/components/auth/apple-sign-in-button", () => ({
   AppleSignInButton: () => null,
 }));
@@ -29,12 +32,15 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import { supabase } from "@/lib/supabase";
+import { fetchLoginProviderHint } from "@/lib/api/login-provider-hint";
 import SignInScreen from "../sign-in";
 
 const mockSignIn = supabase.auth.signInWithPassword as jest.Mock;
+const mockFetchHint = fetchLoginProviderHint as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFetchHint.mockResolvedValue(null);
 });
 
 describe("SignInScreen", () => {
@@ -106,5 +112,80 @@ describe("SignInScreen", () => {
     await waitFor(() => {
       expect(screen.getByText("Invalid email or password")).toBeTruthy();
     });
+  });
+
+  it("shows Apple hint when account has no password", async () => {
+    mockSignIn.mockResolvedValue({
+      error: { message: "Invalid login credentials" },
+    });
+    mockFetchHint.mockResolvedValue({
+      providers: ["apple"],
+      hasPassword: false,
+    });
+
+    render(<SignInScreen />);
+
+    fireEvent.changeText(screen.getByLabelText("Email"), "user@example.com");
+    fireEvent.changeText(screen.getByLabelText("Password"), "wrongpassword");
+    fireEvent.press(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/previously used to log in with Apple/)
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText("Invalid email or password")).toBeNull();
+  });
+
+  it("shows generic error when account also has a password", async () => {
+    mockSignIn.mockResolvedValue({
+      error: { message: "Invalid login credentials" },
+    });
+    mockFetchHint.mockResolvedValue({
+      providers: ["apple"],
+      hasPassword: true,
+    });
+
+    render(<SignInScreen />);
+
+    fireEvent.changeText(screen.getByLabelText("Email"), "user@example.com");
+    fireEvent.changeText(screen.getByLabelText("Password"), "wrongpassword");
+    fireEvent.press(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Invalid email or password")).toBeTruthy();
+    });
+  });
+
+  it("falls back to generic error when hint lookup fails", async () => {
+    mockSignIn.mockResolvedValue({
+      error: { message: "Invalid login credentials" },
+    });
+    mockFetchHint.mockRejectedValue(new Error("network down"));
+
+    render(<SignInScreen />);
+
+    fireEvent.changeText(screen.getByLabelText("Email"), "user@example.com");
+    fireEvent.changeText(screen.getByLabelText("Password"), "wrongpassword");
+    fireEvent.press(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Invalid email or password")).toBeTruthy();
+    });
+  });
+
+  it("does not call hint lookup on successful sign in", async () => {
+    mockSignIn.mockResolvedValue({ error: null });
+
+    render(<SignInScreen />);
+
+    fireEvent.changeText(screen.getByLabelText("Email"), "user@example.com");
+    fireEvent.changeText(screen.getByLabelText("Password"), "password123");
+    fireEvent.press(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockSignIn).toHaveBeenCalled();
+    });
+    expect(mockFetchHint).not.toHaveBeenCalled();
   });
 });

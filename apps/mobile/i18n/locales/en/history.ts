@@ -1,6 +1,7 @@
 export const history = {
   header: {
     back: "Back",
+    export: "Export workout history",
   },
   title: "History",
   dayTitle: "Workouts on {{date}}",
@@ -38,6 +39,49 @@ export const history = {
     comments: {
       title: "Your notes",
     },
+    exerciseMenu: {
+      close: "Close exercise actions",
+      preview: "{{date}} · {{count}} sets",
+      edit: "Edit",
+      delete: "Delete",
+      open: "Edit or delete {{exerciseName}}",
+    },
+    exerciseEditor: {
+      title: "Edit {{exerciseName}}",
+      workoutContext: "{{workoutName}} · {{workoutDate}}",
+      subtitle:
+        "Changes update your history, records, and future recommendations.",
+      close: "Close exercise editor",
+      set: "Set",
+      seconds: "Seconds",
+      reps: "Reps",
+      durationForSet: "Seconds for set {{number}}",
+      weightForSet: "{{unit}} for set {{number}}",
+      repsForSet: "Reps for set {{number}}",
+      rpeForSet: "RPE for set {{number}}",
+      removeSet: "Remove set {{number}}",
+      removeSetTitle: "Remove this series?",
+      removeSetMessage:
+        "Series {{number}} contains logged data. It will be removed when you save your changes.",
+      cancel: "Cancel",
+      remove: "Remove",
+      addSet: "Add set",
+      save: "Save changes",
+      discardTitle: "Discard changes?",
+      discardMessage: "You have unsaved changes to this exercise.",
+      keepEditing: "Keep editing",
+      discardChanges: "Discard",
+      atLeastOneSet: "Keep at least one set, or delete the exercise instead.",
+      invalidRpe: "RPE must be between 1 and 10.",
+      positiveHint: "Value > 0",
+      rpeHint: "Whole number 1–10",
+      invalidDuration: "Enter a duration greater than 0 seconds for every set.",
+      invalidWeightSet:
+        "Enter a weight greater than 0 and at least 1 rep for every set.",
+      errorTitle: "Could not update exercise",
+      errorMessage: "Your changes were not saved. Try again in a moment.",
+      success: "Exercise history updated.",
+    },
     deleteExercise: {
       accessibilityLabel: "Remove {{exerciseName}} from this workout",
       confirmTitle: "Remove exercise?",
@@ -47,6 +91,7 @@ export const history = {
       remove: "Remove",
       errorTitle: "Could not remove exercise",
       errorMessage: "Try again in a moment.",
+      success: "Exercise deleted from your history.",
     },
     deleteWorkout: {
       accessibilityLabel: "Delete this workout",

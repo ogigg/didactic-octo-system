@@ -4,7 +4,43 @@ export const exerciseDetail = {
     history: "Historia",
     howTo: "Jak wykonać",
   },
+  insights: {
+    title: "Ostatnie postępy",
+    scope:
+      "Na podstawie {{count}} ostatnich zapisanych wykonań ćwiczenia (maksymalnie 50).",
+    durationProgress: "Najdłuższy czas serii",
+    repProgress: "Powtórzenia przy tym samym ciężarze",
+    repChange: "{{previous}} → {{recent}} powt. przy {{weight}}",
+    durationHint:
+      "Najlepsza seria z ostatniej sesji w porównaniu z poprzednią sesją z zapisanym czasem.",
+    repHint:
+      "Najwięcej powtórzeń przy największym wspólnym ciężarze: ostatnia sesja i najbliższa wcześniejsza z tym samym ciężarem.",
+    needDuration: "Zapisz czas w dwóch sesjach, aby porównać najlepszą serię.",
+    needMatchingLoad:
+      "Wykonaj ćwiczenie ponownie z tym samym ciężarem, aby porównać powtórzenia.",
+    durationComparison: "Średni czas na sesję",
+    volumeComparison: "Średnia objętość na sesję",
+    previousFive: "Poprzednie 5 sesji",
+    latestFive: "Ostatnie 5 sesji",
+    change: "Zmiana: {{value}}",
+    comparisonHint:
+      "Porównanie dwóch grup po pięć zapisanych sesji. Liczba serii i cele mogą się różnić.",
+    needTen:
+      "Liczba sesji brakujących do porównania dwóch grup po pięć: {{count}}.",
+    frequency: "Częstotliwość treningów",
+    lastDays: "Ostatnie {{count}} dni",
+    trainingDays: "Dni treningowe: {{value}}",
+    notYet: "Brak ukończonych sesji.",
+    lastToday: "Ostatni trening: dzisiaj.",
+    lastTrained: "Dni od ostatniego treningu: {{count}}",
+    limitedHistory:
+      "Wartości z ≥ to minimum — dostępnych jest tylko 50 ostatnich sesji.",
+  },
   overview: {
+    statisticsTitle: "Statystyki ćwiczenia",
+    statisticsRange:
+      "Tygodniowe sumy z ostatnich 52 tygodni. Tygodnie bez zapisanych wyników są pomijane.",
+    seeFullStatistics: "Pełne statystyki",
     records: "Rekordy osobiste",
     recordsHint: "Twoje najlepsze wyniki w tym ćwiczeniu.",
     sessionsCount: "{{count}} sesji",
