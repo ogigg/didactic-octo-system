@@ -42,6 +42,7 @@
       "./plugins/with-ios-object-version.cjs",
       "./plugins/with-live-activities-plist.cjs",
       "./plugins/with-app-group.cjs",
+      "./plugins/with-min-pod-deployment-target.cjs",
       [
         "expo-splash-screen",
         {
