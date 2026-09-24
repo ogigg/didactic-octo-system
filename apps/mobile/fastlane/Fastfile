@@ -94,6 +94,13 @@ end
 # locally they come from apps/mobile/.env.production.local (git-ignored).
 def check_release_js_env!
   env_files = EXPO_RELEASE_ENV_FILES.map { |name| File.join(APP_ROOT, name) }.select { |path| File.exist?(path) }
+  # Dotenv would run $(...) command substitutions, which Expo's loader leaves as
+  # literal text in the bundle, so reject them instead of parsing.
+  env_files.each do |path|
+    if File.foreach(path).any? { |line| !line.lstrip.start_with?("#") && line.include?("$(") }
+      UI.user_error!("#{File.basename(path)} uses $(...) substitution, which Expo does not expand; use literal values")
+    end
+  end
   env = Dotenv.parse(*env_files).merge(ENV.to_h)
 
   url = env["EXPO_PUBLIC_SUPABASE_URL"].to_s.strip
@@ -123,6 +130,21 @@ def check_release_js_env!
 end
 
 # --- iOS helpers --------------------------------------------------------------
+
+# @bacons/apple-targets rewrites the git-tracked targets/*/Assets.xcassets
+# Contents.json files without a trailing newline on every prebuild. Put the
+# newline back where that is the only difference from the committed file, so a
+# release leaves git clean while real color or icon changes stay visible.
+def ios_restore_target_asset_newlines
+  Dir.glob(File.join(APP_ROOT, "targets", "*", "Assets.xcassets", "**", "Contents.json")).each do |path|
+    contents = File.read(path)
+    next if contents.end_with?("\n")
+
+    relative = path.delete_prefix("#{APP_ROOT}/")
+    committed, status = Open3.capture2("git", "show", "HEAD:./#{relative}", chdir: APP_ROOT, err: File::NULL)
+    File.write(path, committed) if status.success? && committed == "#{contents}\n"
+  end
+end
 
 def ios_asc_key_path
   custom = ENV["ASC_KEY_PATH"].to_s.strip
@@ -161,7 +183,7 @@ def ios_next_build_number(api_key)
   version = JSON.parse(File.read(File.join(APP_ROOT, "app.json"))).dig("expo", "version")
   latest = [version, nil].map do |filter|
     number = latest_testflight_build_number(api_key: api_key, version: filter, initial_build_number: 0)
-    Integer(number.to_s, exception: false) ||
+    Integer(number.to_s, 10, exception: false) ||
       UI.user_error!("TestFlight build number '#{number}' is not an integer; pass build_number: to `ios build` instead")
   end
   latest.max + 1
@@ -230,7 +252,7 @@ platform :ios do
   desc "Build a signed App Store IPA into build/ios without uploading it"
   desc "Options: build_number:<n> sets the build number, clean:true forces expo prebuild"
   lane :build do |options|
-    build_number = options[:build_number] && Integer(options[:build_number].to_s)
+    build_number = options[:build_number] && Integer(options[:build_number].to_s, 10)
     check_release_js_env!
     ios_build_ipa(api_key: ios_asc_api_key(required: false), build_number: build_number, clean: options[:clean])
   end
@@ -253,6 +275,7 @@ platform :ios do
 
   private_lane :ios_build_ipa do |options|
     prepare_native_project(:ios, clean: options[:clean], required_paths: ["Sweaty.xcworkspace", "Pods"]) do
+      ios_restore_target_asset_newlines
       Dir.chdir(IOS_DIR) { sh("bundle", "exec", "pod", "install") }
     end
     ios_set_build_number(options[:build_number]) if options[:build_number]
