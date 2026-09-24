@@ -108,8 +108,9 @@ A normal successful save does not show status UI.
 ## Releasing with fastlane
 
 Release builds are made on a local Mac with [fastlane](https://fastlane.tools)
-and uploaded straight to App Store Connect; EAS is not involved. The lanes live
-in [`fastlane/Fastfile`](fastlane/Fastfile) and run from `apps/mobile`.
+and uploaded straight to App Store Connect and Google Play; EAS is not involved.
+The lanes live in [`fastlane/Fastfile`](fastlane/Fastfile) and run from
+`apps/mobile`.
 
 ### One-time setup
 
@@ -170,7 +171,7 @@ provisioning profile`, register an iPhone (and its paired Apple Watch) in the
 developer portal. `No profiles for '<bundle id>' were found` means the signed-in
 account or key cannot manage profiles for the team.
 
-### Release commands
+### iOS release commands
 
 ```bash
 npm run release:ios
@@ -196,6 +197,80 @@ with the one saved in `ios/.fastlane-fingerprint`. They skip
 Swift sources under `targets/` are read directly by Xcode and need no prebuild.
 The marketing version comes from `app.json` → `version`; bump it when App Store
 Connect closes the current version.
+
+### Android setup
+
+The Android lanes build a signed release AAB with Gradle and upload it to the
+Play Console internal testing track. They need:
+
+1. **JDK 17.** React Native 0.81's Gradle build does not run on newer JDKs.
+   Install it with `brew install openjdk@17`. When `JAVA_HOME` points at
+   another version, the lanes switch to the JDK 17 that
+   `/usr/libexec/java_home -v 17` finds.
+2. **The Android SDK.** `ANDROID_HOME` defaults to Android Studio's
+   `~/Library/Android/sdk`.
+3. **An upload key.** Generate it once and keep a backup outside the
+   repository, because Play accepts only builds signed with it:
+
+   ```bash
+   keytool -genkeypair -v -keystore fastlane/sweaty-upload.keystore \
+     -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+   Copy [`fastlane/keystore.properties.example`](fastlane/keystore.properties.example)
+   to `fastlane/keystore.properties` and fill in the passwords. `*.keystore`
+   and `keystore.properties` are git-ignored. `SWEATY_UPLOAD_*` env vars
+   override the file, for example on CI.
+   [`plugins/with-android-release-signing.cjs`](plugins/with-android-release-signing.cjs)
+   wires the key into the generated `android/app/build.gradle`. Without a key,
+   release builds keep the debug signing, and the lanes refuse to run.
+
+4. **A Google Play service account** with release permissions:
+   1. In Google Cloud (the project linked to the Play developer account), create
+      a service account and download a JSON key.
+   2. In Play Console → Users and permissions, invite the service account's
+      email and grant **Release to testing tracks** for Sweaty.
+   3. Save the key as `fastlane/google-play-service-account.json`
+      (git-ignored), or point `PLAY_JSON_KEY_PATH` at it.
+
+### First Google Play release
+
+Google Play only accepts API uploads once the app exists and has a first
+build.
+
+1. Create the app `com.ogig.sweaty` in Play Console.
+2. Build the first bundle locally:
+
+   ```bash
+   bundle exec fastlane android build version_code:1
+   ```
+
+3. Upload `android/app/build/outputs/bundle/release/app-release.aab` by hand
+   to the internal testing track. Play Console then enrolls the app in Play App
+   Signing: Google keeps the app signing key, and the upload key above stays
+   yours.
+4. Roll that release out to internal testers, then set
+   `PLAY_RELEASE_STATUS=completed` in `fastlane/.env`. Until the app has a
+   release, Play accepts only `draft` uploads, which is the lane's default.
+
+After that, from `apps/mobile`:
+
+```bash
+npm run release:android
+```
+
+This runs `fastlane android beta`. It checks the service account, upload key
+and JS config, and sets `versionCode` to the highest code on any Play track +
+
+1. It regenerates `android/` when the native fingerprint changed, builds the
+   AAB, confirms it is not debug-signed, and uploads it to internal testing
+   without store metadata.
+   `bundle exec fastlane android build version_code:<n>` builds without
+   uploading. The version code reaches Gradle as `-Psweaty.versionCode`, so the
+   generated project is not edited.
+
+The app requires Android 8.0 (API 26) or later: `react-native-health-connect`
+needs it, so `expo-build-properties` in `app.json` sets `minSdkVersion: 26`.
 
 ## Related Docs
 

@@ -23,6 +23,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "release:ios": "bundle exec fastlane ios beta",
+    "release:android": "bundle exec fastlane android beta",
     "postinstall": "ln -sf ../../../node_modules/react-native node_modules/react-native || true"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
     "expo-audio": "~1.1.1",
     "expo-auth-session": "~7.0.10",
     "expo-blur": "~15.0.8",
+    "expo-build-properties": "~1.0.10",
     "expo-constants": "~18.0.9",
     "expo-crypto": "~15.0.8",
     "expo-file-system": "~19.0.21",

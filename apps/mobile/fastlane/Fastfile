@@ -296,3 +296,184 @@ platform :ios do
     ipa
   end
 end
+
+# --- Android helpers ------------------------------------------------------------
+#
+# Ready but not in regular use yet. To release, plug in:
+# - the upload key: fastlane/keystore.properties (from keystore.properties.example)
+#   or SWEATY_UPLOAD_* env vars;
+# - the Play service account key: fastlane/google-play-service-account.json
+#   or PLAY_JSON_KEY_PATH;
+# - PLAY_RELEASE_STATUS=completed after the first release made by hand.
+# Full steps: apps/mobile/README.md -> "Android setup" / "First Google Play release".
+
+ANDROID_DIR = File.join(APP_ROOT, "android")
+ANDROID_PACKAGE = "com.ogig.sweaty"
+
+# Upload key sources, mirrored from plugins/with-android-release-signing.cjs:
+# each SWEATY_UPLOAD_* env var wins over its fastlane/keystore.properties key.
+ANDROID_UPLOAD_KEY_FIELDS = {
+  "SWEATY_UPLOAD_STORE_FILE" => "storeFile",
+  "SWEATY_UPLOAD_STORE_PASSWORD" => "storePassword",
+  "SWEATY_UPLOAD_KEY_ALIAS" => "keyAlias",
+  "SWEATY_UPLOAD_KEY_PASSWORD" => "keyPassword"
+}.freeze
+
+# .properties reader matching java.util.Properties for single-line entries:
+# `=`, `:` or whitespace separators, # and ! comments, backslash escapes.
+def read_java_properties(path)
+  unescape = lambda do |text|
+    text.gsub(/\\(.)/) { { "t" => "\t", "n" => "\n", "r" => "\r", "f" => "\f" }.fetch(Regexp.last_match(1), Regexp.last_match(1)) }
+  end
+  File.readlines(path, chomp: true).each_with_object({}) do |line, props|
+    line = line.lstrip
+    next if line.empty? || line.start_with?("#", "!")
+
+    key, value = line.match(/\A((?:\\.|[^\s=:\\])*)\s*[=:]?\s*(.*)\z/).captures
+    props[unescape.call(key)] = unescape.call(value)
+  end
+end
+
+# Release AABs must be signed with the Play upload key. Gradle quietly falls
+# back to the debug key when nothing is configured, so check before building.
+def android_check_upload_key!
+  props_file = File.join(FASTLANE_DIR, "keystore.properties")
+  props = File.exist?(props_file) ? read_java_properties(props_file) : {}
+  values = ANDROID_UPLOAD_KEY_FIELDS.to_h do |env_name, prop|
+    from_env = ENV[env_name].to_s.strip
+    [prop, from_env.empty? ? props[prop].to_s.strip : from_env]
+  end
+
+  missing = values.select { |_, value| value.empty? }.keys
+  unless missing.empty?
+    UI.user_error!("Android upload key is not configured (missing #{missing.join(', ')}). " \
+                   "Copy fastlane/keystore.properties.example to fastlane/keystore.properties " \
+                   "or set SWEATY_UPLOAD_*; see README -> Releasing with fastlane.")
+  end
+  keystore = File.expand_path(values["storeFile"], FASTLANE_DIR)
+  UI.user_error!("Android upload keystore not found at #{keystore}") unless File.exist?(keystore)
+end
+
+def java_major_version(java_home)
+  release = File.join(java_home.to_s, "release")
+  return nil unless File.exist?(release)
+
+  File.read(release)[/^JAVA_VERSION="(\d+)/, 1]&.to_i
+end
+
+# React Native 0.81's Gradle build needs JDK 17. Picks it up from
+# /usr/libexec/java_home when JAVA_HOME points elsewhere, and defaults
+# ANDROID_HOME to Android Studio's SDK location.
+def android_prepare_toolchain!
+  unless java_major_version(ENV["JAVA_HOME"]) == 17
+    jdk17, status = Open3.capture2("/usr/libexec/java_home", "-v", "17", err: File::NULL)
+    jdk17 = jdk17.strip
+    unless status.success? && java_major_version(jdk17) == 17
+      UI.user_error!("Android builds need JDK 17 (brew install openjdk@17), then point JAVA_HOME at it")
+    end
+    UI.important("Using JDK 17 at #{jdk17} (JAVA_HOME was #{ENV['JAVA_HOME'] || 'unset'})")
+    ENV["JAVA_HOME"] = jdk17
+  end
+
+  return unless ENV["ANDROID_HOME"].to_s.strip.empty?
+
+  sdk = File.expand_path("~/Library/Android/sdk")
+  UI.user_error!("Set ANDROID_HOME to the Android SDK directory") unless File.directory?(sdk)
+  UI.message("Using the Android SDK at #{sdk}")
+  ENV["ANDROID_HOME"] = sdk
+end
+
+def android_play_json_key!
+  custom = ENV["PLAY_JSON_KEY_PATH"].to_s.strip
+  path = File.expand_path(custom.empty? ? File.join("fastlane", "google-play-service-account.json") : custom, APP_ROOT)
+  unless File.exist?(path)
+    UI.user_error!("Google Play service account key not found at #{path}; see README -> Releasing with fastlane")
+  end
+  path
+end
+
+# versionCode must be unique across every Play track, so take the highest one.
+# A single read-only edit lists all tracks, including closed testing ones.
+def android_next_version_code(json_key)
+  require "supply"
+  client = Supply::Client.make_from_config(params: { json_key: json_key, timeout: 300 })
+  client.begin_edit(package_name: ANDROID_PACKAGE)
+  codes = client.tracks.flat_map do |track|
+    (track.releases || []).flat_map { |release| release.version_codes || [] }
+  end
+  client.abort_current_edit
+  (codes.map(&:to_i).max || 0) + 1
+rescue OpenSSL::PKey::PKeyError => e
+  UI.user_error!("#{json_key} is not a valid Google service account key (#{e.message})")
+rescue FastlaneCore::Interface::FastlaneError => e
+  UI.user_error!("Could not read version codes from Google Play: #{e.message}\n" \
+                 "If #{ANDROID_PACKAGE} has no release yet, upload the first AAB by hand " \
+                 "(bundle exec fastlane android build version_code:1).")
+end
+
+# Fails when the bundle carries the debug certificate instead of the upload key.
+def android_verify_aab!(aab_path)
+  keytool = File.join(ENV.fetch("JAVA_HOME"), "bin", "keytool")
+  output, status = Open3.capture2e(keytool, "-printcert", "-jarfile", aab_path)
+  UI.user_error!("Could not read the signature of #{aab_path}:\n#{output}") unless status.success?
+  owner = output[/^Owner: (.*)$/, 1]
+  UI.user_error!("#{aab_path} is not signed:\n#{output}") unless owner
+  UI.user_error!("#{aab_path} is signed with the debug key") if owner.include?("CN=Android Debug")
+  UI.success("AAB signed by #{owner}")
+end
+
+# --- Android lanes ----------------------------------------------------------------
+
+platform :android do
+  desc "Build a signed release AAB into android/app/build/outputs/bundle/release without uploading it"
+  desc "Options: version_code:<n> sets versionCode, clean:true forces expo prebuild"
+  lane :build do |options|
+    version_code = options[:version_code] && Integer(options[:version_code].to_s, 10)
+    android_check_upload_key!
+    check_release_js_env!
+    android_build_aab(version_code: version_code, clean: options[:clean])
+  end
+
+  desc "Build a signed AAB and upload it to the Play internal testing track (versionCode = highest on Play + 1)"
+  desc "Options: clean:true forces expo prebuild"
+  lane :beta do |options|
+    json_key = android_play_json_key!
+    android_check_upload_key!
+    android_prepare_toolchain!
+    check_release_js_env!
+    version_code = android_next_version_code(json_key)
+    aab = android_build_aab(version_code: version_code, clean: options[:clean])
+    release_status = ENV["PLAY_RELEASE_STATUS"].to_s.strip
+    upload_to_play_store(
+      package_name: ANDROID_PACKAGE,
+      json_key: json_key,
+      track: "internal",
+      aab: aab,
+      # Play only accepts drafts until the app has its first release.
+      release_status: release_status.empty? ? "draft" : release_status,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+    UI.success("Uploaded versionCode #{version_code} to the internal testing track")
+  end
+
+  private_lane :android_build_aab do |options|
+    android_prepare_toolchain!
+    prepare_native_project(:android, clean: options[:clean], required_paths: ["gradlew"])
+
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: ANDROID_DIR,
+      # Read by plugins/with-android-release-signing.cjs.
+      properties: options[:version_code] ? { "sweaty.versionCode" => options[:version_code] } : {}
+    )
+    aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    UI.user_error!("Gradle did not produce an AAB") unless aab && File.exist?(aab)
+    android_verify_aab!(aab)
+    aab
+  end
+end
