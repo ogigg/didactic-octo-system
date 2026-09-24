@@ -50,7 +50,8 @@ export const home = {
   queueCard: {
     dayLabel: "Dzień {{position}}",
     startWorkout: "Zacznij trening",
-    resumeWorkout: "Wznow trening",
+    resumeWorkout: "Wznów trening",
+    resumeWorkoutHint: "Otwiera trwający trening",
     generating: "Przygotowywanie treningu...",
     regenerating: "Odświeżanie treningu",
     regeneratingSubtitle: "Trening zastępczy jest w drodze.",

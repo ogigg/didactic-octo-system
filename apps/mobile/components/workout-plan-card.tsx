@@ -1,9 +1,10 @@
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
+import { Fonts, Opacity, Radii, Spacing, Typography } from "@/constants/theme";
 import { Button } from "@/components/ui/button";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface Exercise {
   name: string;
@@ -34,6 +35,7 @@ export function WorkoutPlanCard({
   isActive = false,
   startedAtMs,
 }: WorkoutPlanCardProps) {
+  const { t } = useTranslation("home");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
@@ -50,86 +52,109 @@ export function WorkoutPlanCard({
   }, [isActive]);
 
   const elapsed = isActive && startedAtMs ? now - startedAtMs : 0;
+  const ctaLabel = isActive
+    ? t("queueCard.resumeWorkout")
+    : t("queueCard.startWorkout");
 
   return (
-    <GradientSurface
-      variant="accent"
-      radius="lg"
-      bordered
-      style={styles.container}
+    // The whole card is one tap target; the inner Button is visual only so a
+    // tap never fires twice and screen readers see a single action.
+    <Pressable
+      onPress={onStartWorkout}
+      style={({ pressed }) => ({ opacity: pressed ? Opacity.pressed : 1 })}
+      accessibilityRole="button"
+      accessibilityLabel={ctaLabel}
+      accessibilityHint={
+        isActive ? t("queueCard.resumeWorkoutHint") : undefined
+      }
     >
-      <View style={styles.headerRow}>
-        <View style={styles.eyebrowRow}>
-          <View
-            style={[
-              styles.eyebrowDot,
-              { backgroundColor: isActive ? success : primary },
-            ]}
-          />
-          <Text
-            style={[Typography.label, { color: isActive ? success : primary }]}
-          >
-            {isActive ? "IN PROGRESS" : "NEXT UP"}
-          </Text>
-        </View>
-        {isActive && (
-          <Text style={[styles.timerText, { color: success }]}>
-            {formatElapsed(elapsed)}
-          </Text>
-        )}
-      </View>
-
-      <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>
-        {title}
-      </Text>
-
-      <View style={styles.exerciseList}>
-        {exercises.slice(0, 3).map((exercise, index) => (
-          <View
-            key={index}
-            style={[
-              styles.exerciseRow,
-              index > 0 && {
-                borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: borderSubtle,
-              },
-            ]}
-          >
+      <GradientSurface
+        variant="accent"
+        radius="lg"
+        bordered
+        style={styles.container}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.eyebrowRow}>
+            <View
+              style={[
+                styles.eyebrowDot,
+                { backgroundColor: isActive ? success : primary },
+              ]}
+            />
             <Text
-              style={[Typography.body, { color: textColor, flex: 1 }]}
-              numberOfLines={1}
+              style={[
+                Typography.label,
+                { color: isActive ? success : primary },
+              ]}
             >
-              {exercise.name}
+              {isActive ? "IN PROGRESS" : "NEXT UP"}
             </Text>
+          </View>
+          {isActive && (
+            <Text style={[styles.timerText, { color: success }]}>
+              {formatElapsed(elapsed)}
+            </Text>
+          )}
+        </View>
+
+        <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>
+          {title}
+        </Text>
+
+        <View style={styles.exerciseList}>
+          {exercises.slice(0, 3).map((exercise, index) => (
+            <View
+              key={index}
+              style={[
+                styles.exerciseRow,
+                index > 0 && {
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: borderSubtle,
+                },
+              ]}
+            >
+              <Text
+                style={[Typography.body, { color: textColor, flex: 1 }]}
+                numberOfLines={1}
+              >
+                {exercise.name}
+              </Text>
+              <Text
+                style={[
+                  Typography.caption,
+                  { color: textSecondary, fontVariant: ["tabular-nums"] },
+                ]}
+              >
+                {exercise.sets}×{exercise.reps}
+              </Text>
+            </View>
+          ))}
+          {exercises.length > 3 ? (
             <Text
               style={[
                 Typography.caption,
-                { color: textSecondary, fontVariant: ["tabular-nums"] },
+                { color: textMuted, marginTop: Spacing.sm },
               ]}
             >
-              {exercise.sets}×{exercise.reps}
+              +{exercises.length - 3} more
             </Text>
-          </View>
-        ))}
-        {exercises.length > 3 ? (
-          <Text
-            style={[
-              Typography.caption,
-              { color: textMuted, marginTop: Spacing.sm },
-            ]}
-          >
-            +{exercises.length - 3} more
-          </Text>
-        ) : null}
-      </View>
+          ) : null}
+        </View>
 
-      <Button
-        variant={isActive ? "success" : "primary"}
-        label={isActive ? "Resume Workout" : "Start Workout"}
-        onPress={onStartWorkout}
-        accessibilityLabel={isActive ? "Resume workout" : "Start workout"}
-      />
-    </GradientSurface>
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Button
+            variant={isActive ? "success" : "primary"}
+            label={ctaLabel}
+            onPress={onStartWorkout}
+          />
+        </View>
+      </GradientSurface>
+    </Pressable>
   );
 }
 

@@ -47,6 +47,13 @@ describe("Polish locale resources", () => {
     expect(resources.pl.deleteAccount.retention.body).toContain(
       "dane aplikacji należące do użytkownika"
     );
+    expect(resources.pl.widgets.status.signedOut).toBe(
+      "Zaloguj się w Sweaty, aby zobaczyć swoje treningi"
+    );
+    expect(resources.pl.widgets.dayLetters).toBe("P W Ś C P S N");
+    expect(resources.pl.widgets.streak.freezes_many).toBe(
+      "{{count}} zamrożeń w zapasie"
+    );
   });
 
   it("contains every English translation key", () => {

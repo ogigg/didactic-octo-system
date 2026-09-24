@@ -1,6 +1,7 @@
 import { Session } from "@supabase/supabase-js";
 import { create } from "zustand";
 
+import { prepareActiveWorkoutForUser } from "@/lib/active-workout-owner";
 import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 import { syncQueue } from "@/lib/sync-queue";
@@ -112,6 +113,8 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => {
       }
       if (disposed || request !== transition) return;
       useOnboardingStore.getState().prepareForUser(userId);
+      await prepareActiveWorkoutForUser(userId);
+      if (disposed || request !== transition) return;
       // Supabase auth events run under its session lock. Defer network work.
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       if (disposed || request !== transition) return;

@@ -638,3 +638,98 @@ describe("watch workout state", () => {
     });
   });
 });
+
+describe("workout ownership", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useWorkoutStore.getState().clearWorkout({ suppressAbandonment: true });
+    useWorkoutStore.setState({ ownerUserId: null });
+  });
+
+  function startWorkoutFor(ownerUserId: string | null) {
+    useWorkoutStore.getState().startWorkout("Push day", [baseExercise]);
+    useWorkoutStore.setState({ ownerUserId });
+    jest.clearAllMocks();
+  }
+
+  it("lets the first account claim an unowned workout without clearing it", () => {
+    startWorkoutFor(null);
+
+    useWorkoutStore.getState().prepareForUser("user-a");
+
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-a",
+      isActive: true,
+      workoutName: "Push day",
+    });
+  });
+
+  it("keeps the workout for the account that owns it", () => {
+    startWorkoutFor("user-a");
+    const before = useWorkoutStore.getState();
+
+    useWorkoutStore.getState().prepareForUser("user-a");
+
+    expect(useWorkoutStore.getState()).toBe(before);
+  });
+
+  it("clears another account's workout without an abandonment event", () => {
+    startWorkoutFor("user-a");
+    useWorkoutStore.setState({
+      startedAtMs: Date.now() - 2 * DAY_MS,
+      healthWorkoutSavedIDs: { "watch-1": "health-1" },
+    });
+
+    useWorkoutStore.getState().prepareForUser("user-b");
+
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-b",
+      isActive: false,
+      workoutName: "",
+      exercises: [],
+      startedAtMs: null,
+      healthWorkoutSavedIDs: { "watch-1": "health-1" },
+    });
+    expect(trackEvent).not.toHaveBeenCalledWith(
+      "workout_abandoned",
+      expect.anything()
+    );
+  });
+
+  it("clears another account's unsaved workout summary", () => {
+    startWorkoutFor("user-a");
+    useWorkoutStore.getState().finishWorkout();
+    expect(useWorkoutStore.getState().completedWorkoutSummary).not.toBeNull();
+
+    useWorkoutStore.getState().prepareForUser("user-b");
+
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-b",
+      completedWorkoutSummary: null,
+    });
+  });
+
+  it("only changes the owner when the store is idle", () => {
+    useWorkoutStore.setState({ ownerUserId: "user-a", weightUnit: "lbs" });
+
+    useWorkoutStore.getState().prepareForUser("user-b");
+
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-b",
+      weightUnit: "lbs",
+    });
+  });
+
+  it("keeps the owner when a workout is cleared", () => {
+    startWorkoutFor("user-a");
+
+    useWorkoutStore.getState().clearWorkout();
+
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-a",
+      isActive: false,
+    });
+  });
+});

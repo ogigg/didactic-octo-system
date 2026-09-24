@@ -50,6 +50,7 @@ import {
   logWorkoutDeletionError,
   logWorkoutDeletionTrace,
 } from "@/lib/workout-deletion-logger";
+import { invalidateAfterWorkoutSave } from "@/lib/workout-save-invalidation";
 
 interface SaveWorkoutInput {
   summary: WorkoutSummary;
@@ -193,11 +194,7 @@ export function useSaveCompletedWorkout() {
       };
     },
     onSuccess: (saved, variables) => {
-      queryClient.invalidateQueries({ queryKey: workoutKeys.all });
-      queryClient.invalidateQueries({ queryKey: calendarKeys.all });
-      queryClient.invalidateQueries({ queryKey: workoutStatsKeys.all });
-      queryClient.invalidateQueries({ queryKey: statsKeys.all });
-      queryClient.invalidateQueries({ queryKey: streakProtectionKeys.all });
+      invalidateAfterWorkoutSave(queryClient);
 
       // Mirror to Apple Health / Health Connect (write-only, best-effort).
       // Prompts the user on first run, no-ops if denied or unavailable.

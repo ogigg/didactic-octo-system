@@ -19,10 +19,12 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { AnalyticsScreenTracker } from "@/components/analytics-screen-tracker";
 import { AnimatedSplash } from "@/components/animated-splash";
+import { HomeWidgetsHost } from "@/components/home-widgets-host";
 import { ToastHost } from "@/components/ui/toast-host";
 import { WatchBridgeHost } from "@/components/watch-bridge-host";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useDeepLinkAuthGuard } from "@/hooks/use-deep-link-auth-guard";
 import { useDeepLinks } from "@/hooks/use-deep-links";
 import { useLiveActivityActions } from "@/hooks/use-live-activity-actions";
 import { useWorkoutLiveActivity } from "@/hooks/use-workout-live-activity";
@@ -64,6 +66,10 @@ export default function RootLayout() {
   // Global handler for sweaty:// deep links (e.g. Live Activity "Mark set done").
   // Registered at the root so it fires regardless of the active route.
   useDeepLinks();
+
+  // Widget and Live Activity links open root-stack screens directly; route
+  // signed-out users to sign-in instead of an empty screen.
+  useDeepLinkAuthGuard();
 
   // Drain background-safe Live Activity actions (Skip Rest, Adjust Rest, …)
   // queued in the shared App Group by widget App Intents.
@@ -130,6 +136,7 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <WorkoutLiveActivityHost />
             <WatchBridgeHost />
+            <HomeWidgetsHost />
             <ThemeProvider value={theme}>
               <AnalyticsScreenTracker />
               <Stack
