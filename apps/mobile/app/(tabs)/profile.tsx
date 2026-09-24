@@ -21,6 +21,7 @@ import { ListGroup, ListRow } from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
+import { useManualRefresh } from "@/hooks/use-manual-refresh";
 import { useTabBarClearance } from "@/hooks/use-tab-bar-clearance";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
@@ -174,8 +175,6 @@ export default function ProfileScreen() {
     refetch: refetchWeekly,
   } = useWeeklyDurations(12);
 
-  const [refreshing, setRefreshing] = useState(false);
-
   useEffect(() => {
     const updateLanguage = () => setSelectedLanguage(getCurrentLanguage());
 
@@ -194,11 +193,12 @@ export default function ProfileScreen() {
     });
   }, []);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refetchStats(), refetchWeekly()]);
-    setRefreshing(false);
-  }, [refetchStats, refetchWeekly]);
+  const { refreshing, onRefresh } = useManualRefresh(
+    useCallback(
+      () => Promise.all([refetchStats(), refetchWeekly()]),
+      [refetchStats, refetchWeekly]
+    )
+  );
 
   const maxMinutes = weeklyLoading
     ? 0

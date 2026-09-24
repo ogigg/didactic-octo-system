@@ -26,6 +26,7 @@ import { GradientSurface } from "@/components/ui/gradient-surface";
 import { SectionHeader } from "@/components/ui/section-header";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Radii, Spacing, Typography } from "@/constants/theme";
+import { useManualRefresh } from "@/hooks/use-manual-refresh";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useTabBarClearance } from "@/hooks/use-tab-bar-clearance";
 import {
@@ -109,17 +110,13 @@ export default function HomeScreen() {
   const startPendingWorkout = useStartPendingWorkout();
   const isPaywallOpen = usePaywallStore((s) => s.isOpen);
   const showSuccessToast = useToastStore((s) => s.showSuccess);
-  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [locallyHiddenPromptState, setLocallyHiddenPromptState] =
     useState<StreakPromptState | null>(null);
   const [streakActionError, setStreakActionError] = useState(false);
   const shownPromptRef = useRef<string | null>(null);
   const earnedFreezeTrackedRef = useRef(false);
-  const handleRefresh = useCallback(async () => {
-    setIsManualRefreshing(true);
-    await refetch();
-    setIsManualRefreshing(false);
-  }, [refetch]);
+  const { refreshing: isManualRefreshing, onRefresh: handleRefresh } =
+    useManualRefresh(refetch);
   const frequency = useMemo(() => {
     return getTargetQueueCount(profile?.weekly_frequency);
   }, [profile?.weekly_frequency]);

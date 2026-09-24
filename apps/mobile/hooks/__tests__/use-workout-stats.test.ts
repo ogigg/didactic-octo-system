@@ -12,7 +12,7 @@ jest.mock("@/hooks/use-auth", () => ({
 }));
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react-native";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { createElement, type PropsWithChildren } from "react";
 
 import {
@@ -252,5 +252,67 @@ describe("useWorkoutStats", () => {
 
     expect(result.current.totalWorkouts).toBeNull();
     expect(result.current.streakWeeks).toBe(1);
+  });
+
+  it("reports the count as loaded while the streak is still loading", async () => {
+    mockUseStreakStatus.mockReturnValue({ data: undefined, isLoading: true });
+    mockWorkoutSessions({ count: 5, error: null }, { data: [], error: null });
+
+    const { result } = renderHook(() => useWorkoutStats(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isTotalLoading).toBe(false));
+
+    expect(result.current.totalWorkouts).toBe(5);
+    expect(result.current.isStreakLoading).toBe(true);
+    expect(result.current.isLoading).toBe(true);
+  });
+
+  it("replaces a failed count with real data after a successful refetch", async () => {
+    mockWorkoutSessions(
+      { count: null, error: { message: "count failed" } },
+      { data: [], error: null }
+    );
+
+    const { result } = renderHook(() => useWorkoutStats(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalWorkouts).toBeNull();
+
+    mockWorkoutSessions({ count: 7, error: null }, { data: [], error: null });
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    await waitFor(() => expect(result.current.totalWorkouts).toBe(7));
+  });
+
+  it("keeps the last good count when a refetch fails", async () => {
+    mockWorkoutSessions({ count: 4, error: null }, { data: [], error: null });
+
+    const { result, rerender } = renderHook(() => useWorkoutStats(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.totalWorkouts).toBe(4));
+    const fetchCountBefore = mockFrom.mock.calls.length;
+
+    mockWorkoutSessions(
+      { count: null, error: { message: "count failed" } },
+      { data: [], error: null }
+    );
+    await act(async () => {
+      await result.current.refetch();
+    });
+    // Query observers notify on a later tick, so render again to read the
+    // settled state instead of the value from before the refetch.
+    rerender(undefined);
+
+    expect(mockFrom.mock.calls.length).toBeGreaterThan(fetchCountBefore);
+    expect(result.current.totalWorkouts).toBe(4);
+    expect(result.current.isLoading).toBe(false);
   });
 });
