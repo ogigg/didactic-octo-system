@@ -102,6 +102,8 @@ export interface WorkoutStartOptions {
 }
 
 interface WorkoutState {
+  /** Account the persisted workout belongs to. Null means no account has claimed it. */
+  ownerUserId: string | null;
   isActive: boolean;
   workoutName: string;
   warmup: WorkoutWarmup | null;
@@ -167,6 +169,8 @@ interface WorkoutActions {
   recordHealthWorkoutSession: (workoutId: string, sessionId: string) => void;
   markHealthWorkoutFallbackStarted: (workoutId: string) => void;
   clearWorkout: (options?: { suppressAbandonment?: boolean }) => void;
+  /** Claims the persisted workout, discarding one that belongs to another account. */
+  prepareForUser: (userId: string) => void;
   completeSet: (
     exerciseId: string,
     setId: string,
@@ -255,6 +259,7 @@ interface WorkoutActions {
 }
 
 const initialState: WorkoutState = {
+  ownerUserId: null,
   isActive: false,
   workoutName: "",
   warmup: null,
@@ -278,6 +283,30 @@ const initialState: WorkoutState = {
   healthWorkoutPendingIDs: {},
   healthWorkoutFallbacks: {},
 };
+
+/** Idle state that keeps the owner and the Health export records. */
+function clearedWorkoutState(state: WorkoutState): WorkoutState {
+  return {
+    ...initialState,
+    ownerUserId: state.ownerUserId,
+    healthWorkoutSavedIDs: state.healthWorkoutSavedIDs,
+    healthWorkoutFailedIDs: state.healthWorkoutFailedIDs,
+    healthWorkoutPendingIDs: state.healthWorkoutPendingIDs,
+    healthWorkoutFallbacks: state.healthWorkoutFallbacks,
+  };
+}
+
+export function isOwnedByAnotherUser(
+  state: Pick<WorkoutState, "ownerUserId">,
+  userId: string
+): boolean {
+  return state.ownerUserId !== null && state.ownerUserId !== userId;
+}
+
+let markHydrationSettled = () => {};
+const hydrationSettled = new Promise<void>((resolve) => {
+  markHydrationSettled = resolve;
+});
 
 let persistenceTail = Promise.resolve();
 let latestPersistenceWrite: Promise<void> = Promise.resolve();
@@ -826,19 +855,23 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           if (!options?.suppressAbandonment) {
             trackStaleAbandonment(get());
           }
-          const {
-            healthWorkoutSavedIDs,
-            healthWorkoutFailedIDs,
-            healthWorkoutPendingIDs,
-            healthWorkoutFallbacks,
-          } = get();
-          set({
-            ...initialState,
-            healthWorkoutSavedIDs,
-            healthWorkoutFailedIDs,
-            healthWorkoutPendingIDs,
-            healthWorkoutFallbacks,
-          });
+          set(clearedWorkoutState(get()));
+        },
+
+        prepareForUser: (userId) => {
+          const state = get();
+          if (state.ownerUserId === userId) return;
+          // Unowned data predates ownership or is a fresh install, so the first
+          // account keeps it instead of losing a workout in progress.
+          const discard =
+            isOwnedByAnotherUser(state, userId) &&
+            (state.isActive || state.completedWorkoutSummary !== null);
+          // No abandonment event: analytics already identify the new account.
+          set(
+            discard
+              ? { ...clearedWorkoutState(state), ownerUserId: userId }
+              : { ownerUserId: userId }
+          );
         },
 
         completeSet: (exerciseId, setId, values) => {
@@ -1333,60 +1366,79 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
           return state;
         },
         onRehydrateStorage: () => (state, error) => {
-          if (error) {
-            console.warn("[workout-store] hydration failed, resetting:", error);
-            state?.clearWorkout();
-          } else if (state) {
-            // Migrate hydrated exercises to ensure new fields exist
-            state.warmup = state.warmup ?? null;
-            state.watchSelectedExerciseId =
-              state.watchSelectedExerciseId ?? null;
-            state.healthWorkoutOwnedByWatch =
-              state.healthWorkoutOwnedByWatch ?? false;
-            state.weightUnit = state.weightUnit ?? "kg";
-            state.healthWorkoutSavedIDs = state.healthWorkoutSavedIDs ?? {};
-            state.healthWorkoutFailedIDs = state.healthWorkoutFailedIDs ?? {};
-            state.healthWorkoutPendingIDs = state.healthWorkoutPendingIDs ?? {};
-            state.healthWorkoutFallbacks = state.healthWorkoutFallbacks ?? {};
-            state.workoutSessionId = state.workoutSessionId ?? null;
-            state.workoutSource = state.workoutSource ?? null;
-            state.workoutId = state.workoutId ?? null;
-            state.workoutWasEdited = state.workoutWasEdited ?? false;
-            state.workoutEditCount = state.workoutEditCount ?? 0;
-            state.firstSetLogged = state.firstSetLogged ?? false;
-            state.progressReached50 = state.progressReached50 ?? false;
-            state.exercises = state.exercises.map((ex) => ({
-              ...ex,
-              occurrenceId: ex.occurrenceId ?? generateOccurrenceId(),
-              exerciseType: ex.exerciseType ?? "weight",
-              reasoning: ex.reasoning ?? null,
-              sets: ex.sets.map((s) => ({
-                ...seedPlannedSetFields(s),
-                durationSeconds: s.durationSeconds ?? null,
-              })),
-            }));
-            if (state.restTimer) {
-              const occurrence = resolveExerciseOccurrence(
-                state.exercises,
-                state.restTimer.exerciseId
+          try {
+            if (error) {
+              console.warn(
+                "[workout-store] hydration failed, resetting:",
+                error
               );
-              state.restTimer = {
-                ...state.restTimer,
-                id: state.restTimer.id ?? generateRestTimerId(),
-                exerciseId: occurrence
-                  ? getExerciseOccurrenceId(occurrence)
-                  : state.restTimer.exerciseId,
-              };
+              state?.clearWorkout();
+            } else if (state) {
+              // Migrate hydrated exercises to ensure new fields exist
+              state.ownerUserId = state.ownerUserId ?? null;
+              state.warmup = state.warmup ?? null;
+              state.watchSelectedExerciseId =
+                state.watchSelectedExerciseId ?? null;
+              state.healthWorkoutOwnedByWatch =
+                state.healthWorkoutOwnedByWatch ?? false;
+              state.weightUnit = state.weightUnit ?? "kg";
+              state.healthWorkoutSavedIDs = state.healthWorkoutSavedIDs ?? {};
+              state.healthWorkoutFailedIDs = state.healthWorkoutFailedIDs ?? {};
+              state.healthWorkoutPendingIDs =
+                state.healthWorkoutPendingIDs ?? {};
+              state.healthWorkoutFallbacks = state.healthWorkoutFallbacks ?? {};
+              state.workoutSessionId = state.workoutSessionId ?? null;
+              state.workoutSource = state.workoutSource ?? null;
+              state.workoutId = state.workoutId ?? null;
+              state.workoutWasEdited = state.workoutWasEdited ?? false;
+              state.workoutEditCount = state.workoutEditCount ?? 0;
+              state.firstSetLogged = state.firstSetLogged ?? false;
+              state.progressReached50 = state.progressReached50 ?? false;
+              state.exercises = state.exercises.map((ex) => ({
+                ...ex,
+                occurrenceId: ex.occurrenceId ?? generateOccurrenceId(),
+                exerciseType: ex.exerciseType ?? "weight",
+                reasoning: ex.reasoning ?? null,
+                sets: ex.sets.map((s) => ({
+                  ...seedPlannedSetFields(s),
+                  durationSeconds: s.durationSeconds ?? null,
+                })),
+              }));
+              if (state.restTimer) {
+                const occurrence = resolveExerciseOccurrence(
+                  state.exercises,
+                  state.restTimer.exerciseId
+                );
+                state.restTimer = {
+                  ...state.restTimer,
+                  id: state.restTimer.id ?? generateRestTimerId(),
+                  exerciseId: occurrence
+                    ? getExerciseOccurrenceId(occurrence)
+                    : state.restTimer.exerciseId,
+                };
+              }
+              state.generationMeta = state.generationMeta
+                ? {
+                    ...state.generationMeta,
+                    reasoning: state.generationMeta.reasoning ?? null,
+                  }
+                : null;
             }
-            state.generationMeta = state.generationMeta
-              ? {
-                  ...state.generationMeta,
-                  reasoning: state.generationMeta.reasoning ?? null,
-                }
-              : null;
+          } finally {
+            // Settles on failure too, so account setup never waits forever.
+            markHydrationSettled();
           }
         },
       }
     )
   )
 );
+
+/** Resolves once persisted state is restored, including when that fails. */
+export function waitForWorkoutStoreHydration(): Promise<void> {
+  // `persist` is absent under the Jest middleware mock.
+  const persistApi = useWorkoutStore.persist;
+  return !persistApi || persistApi.hasHydrated()
+    ? Promise.resolve()
+    : hydrationSettled;
+}
