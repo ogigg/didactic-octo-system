@@ -52,3 +52,7 @@ fastlane/test_output
 fastlane/keystore.properties
 fastlane/*.json
 *.keystore
+
+# EAS credentials download (see README -> "iOS signing")
+credentials.json
+credentials/
