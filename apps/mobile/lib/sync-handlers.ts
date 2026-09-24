@@ -1,4 +1,7 @@
-import { mapWorkoutStoreToDb } from "@/lib/api/workout-mappers";
+import {
+  mapWorkoutStoreToDb,
+  type WorkoutDbPayload,
+} from "@/lib/api/workout-mappers";
 import {
   createWorkoutSession,
   updateWorkoutSession,
@@ -10,7 +13,7 @@ import { upsertProfile } from "@/lib/api/profiles";
 import type { OnboardingData } from "@/lib/api/profiles";
 import { upsertMeasurement } from "@/lib/api/body-measurements";
 import type { MeasurementInput } from "@/lib/api/body-measurements";
-import { syncQueue } from "@/lib/sync-queue";
+import { syncQueue, type SyncQueueItem } from "@/lib/sync-queue";
 import { trackCompletedWorkout } from "@/lib/workout-completion-analytics";
 import { invalidateAfterWorkoutSave } from "@/lib/workout-save-invalidation";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -21,16 +24,71 @@ import { supabase } from "@/lib/supabase";
 import type { WeightUnit } from "@/lib/unit-conversion";
 import type { WorkoutSummary } from "@/stores/workout-store";
 
-interface SaveWorkoutPayload {
+type GoalSnapshot =
+  | "build_strength"
+  | "build_muscle"
+  | "lose_weight"
+  | "improve_fitness"
+  | "custom";
+
+interface LegacySaveWorkoutPayload {
   summary: WorkoutSummary;
-  goalSnapshot:
-    | "build_strength"
-    | "build_muscle"
-    | "lose_weight"
-    | "improve_fitness"
-    | "custom";
+  goalSnapshot: GoalSnapshot;
   customGoalSnapshot?: string;
   weightUnit?: WeightUnit;
+}
+
+/**
+ * Queued workout write with stable IDs frozen before the first attempt. The
+ * summary and goal travel along so completion analytics can still be sent
+ * once an initially failed save is replayed.
+ */
+export type QueuedSaveWorkoutPayload = WorkoutDbPayload & {
+  summary?: WorkoutSummary;
+  goalSnapshot?: GoalSnapshot;
+};
+
+function isWorkoutDbPayload(
+  payload: unknown
+): payload is QueuedSaveWorkoutPayload {
+  if (!payload || typeof payload !== "object") return false;
+  const candidate = payload as Partial<WorkoutDbPayload>;
+  return (
+    typeof candidate.session?.id === "string" &&
+    typeof candidate.completedAt === "string" &&
+    Array.isArray(candidate.exercises)
+  );
+}
+
+function migrateLegacySaveWorkoutPayload(
+  payload: unknown,
+  item: SyncQueueItem
+): QueuedSaveWorkoutPayload {
+  if (isWorkoutDbPayload(payload)) return payload;
+
+  const legacy = payload as LegacySaveWorkoutPayload;
+  const migrated: QueuedSaveWorkoutPayload = {
+    ...mapWorkoutStoreToDb(legacy.summary, {
+      goalSnapshot: legacy.goalSnapshot,
+      customGoalSnapshot: legacy.customGoalSnapshot,
+      weightUnit: legacy.weightUnit,
+    }),
+    summary: legacy.summary,
+    goalSnapshot: legacy.goalSnapshot,
+  };
+
+  // Freeze generated identifiers before the first recovery attempt. If a
+  // partial write fails, the persisted queue item remains safe to replay.
+  item.id = migrated.session.id;
+  item.payload = migrated;
+  return migrated;
+}
+
+function requireOwner(item: SyncQueueItem): string {
+  if (!item.ownerId) {
+    throw new Error("Queued write has no owning account");
+  }
+  return item.ownerId;
 }
 
 async function ensureActiveUser(ownerId: string): Promise<void> {
@@ -45,15 +103,11 @@ async function ensureActiveUser(ownerId: string): Promise<void> {
 
 async function handleSaveWorkout(
   payload: unknown,
-  ownerId: string
+  item: SyncQueueItem
 ): Promise<void> {
+  const ownerId = requireOwner(item);
   await ensureActiveUser(ownerId);
-  const input = payload as SaveWorkoutPayload;
-  const dbPayload = mapWorkoutStoreToDb(input.summary, {
-    goalSnapshot: input.goalSnapshot,
-    customGoalSnapshot: input.customGoalSnapshot,
-    weightUnit: input.weightUnit,
-  });
+  const dbPayload = migrateLegacySaveWorkoutPayload(payload, item);
 
   const session = await createWorkoutSession(dbPayload.session, ownerId);
 
@@ -75,16 +129,19 @@ async function handleSaveWorkout(
   await ensureActiveUser(ownerId);
   await updateWorkoutSession(session.id, {
     status: "completed",
-    completed_at: new Date(input.summary.finishedAtMs).toISOString(),
+    completed_at: dbPayload.completedAt,
   });
 
   // Count an initially offline workout only once its retry is persisted.
-  trackCompletedWorkout(input.summary, input.goalSnapshot);
+  if (dbPayload.summary && dbPayload.goalSnapshot) {
+    trackCompletedWorkout(dbPayload.summary, dbPayload.goalSnapshot);
+  }
   invalidateAfterWorkoutSave(queryClient);
 }
 
 export function registerSyncHandlers(): void {
-  syncQueue.registerHandler("upsert_profile", async (payload, ownerId) => {
+  syncQueue.registerHandler("upsert_profile", async (payload, item) => {
+    const ownerId = requireOwner(item);
     await ensureActiveUser(ownerId);
     await upsertProfile(payload as OnboardingData, ownerId);
     if (useOnboardingStore.getState().ownerUserId === ownerId) {
@@ -97,7 +154,8 @@ export function registerSyncHandlers(): void {
   syncQueue.registerHandler("save_workout", handleSaveWorkout);
   syncQueue.registerHandler(
     "upsert_measurement",
-    async (payload: unknown, ownerId: string) => {
+    async (payload: unknown, item: SyncQueueItem) => {
+      const ownerId = requireOwner(item);
       await ensureActiveUser(ownerId);
       const { loggedAt, fields, originalLoggedAt } = payload as {
         loggedAt: string;
