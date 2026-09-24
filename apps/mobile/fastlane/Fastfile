@@ -220,7 +220,7 @@ end
 # Returns bundle ID => profile name.
 def ios_app_store_profiles!(api_key)
   IOS_SIGNED_TARGETS.values.to_h do |bundle_id|
-    path = begin
+    begin
       get_provisioning_profile(
         api_key: api_key,
         app_identifier: bundle_id,
@@ -233,6 +233,8 @@ def ios_app_store_profiles!(api_key)
                      "It must exist in the developer portal and use the distribution certificate in your " \
                      "keychain. The lanes never create profiles; see README -> \"iOS signing\".")
     end
+    # The action returns the profile UUID; the file path is in the lane context.
+    path = Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::SIGH_PROFILE_PATH]
     [bundle_id, FastlaneCore::ProvisioningProfile.name(path)]
   end
 end

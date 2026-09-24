@@ -171,11 +171,11 @@ EAS keeps it. Import the certificate once:
 
 1. From `apps/mobile`, run `npx eas-cli credentials -p ios` with an Expo
    account that can access the `ogig` project, choose the `production` build
-   profile and download the credentials to `credentials.json`. This writes
-   `credentials/ios/dist-cert.p12`, and its password goes into
-   `credentials.json`. Both are git-ignored.
-2. Double-click the `.p12` to import it into the login keychain, then delete
-   `credentials.json` and `credentials/`.
+   profile and download the credentials to `credentials.json`. The
+   distribution certificate lands as a `.p12` under `credentials/`, and
+   `credentials.json` holds its path and password. Both are git-ignored.
+2. Double-click the `.p12` and enter that password to import it into the
+   login keychain, then delete `credentials.json` and `credentials/`.
 
 If a lane stops with `No usable App Store profile for <bundle id>`, that bundle
 ID has no App Store profile made with the imported certificate. Someone with
