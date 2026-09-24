@@ -88,9 +88,75 @@ const HIGH_RPE_THRESHOLD = 9;
 const TIME_INCREMENT_TOO_EASY = 15;
 const TIME_INCREMENT_OK = 10;
 
+/** Guard against runaway combo lists in getAchievableIncrements. */
+const MAX_BASE_STEPS = 20;
+
+/**
+ * User-configurable load increments for one equipment category, e.g. a
+ * pin-loaded machine with 4 kg steps plus 1.1 kg magnetic micro-plates.
+ * Null fields mean "auto".
+ */
+export interface WeightIncrements {
+  base_kg: number | null;
+  micro_kg: number | null;
+}
+
+/** Equipment categories users can configure increments for. */
+export const INCREMENT_EQUIPMENT_KEYS = [
+  "barbell",
+  "dumbbell",
+  "machine",
+  "cable",
+] as const;
+
+export type IncrementEquipmentKey = (typeof INCREMENT_EQUIPMENT_KEYS)[number];
+
+/** Per-equipment increment settings, keyed by equipment category. */
+export type WeightIncrementsByEquipment = Partial<
+  Record<IncrementEquipmentKey, WeightIncrements>
+>;
+
+/** Conservative starting-load anchors per equipment family (kg). */
+const INITIAL_LOAD_DEFAULTS: {
+  match: (equipment: string[]) => boolean;
+  defaultKg: number;
+  minKg: number;
+}[] = [
+  {
+    match: (eq) => eq.some((e) => e.toLowerCase().includes("barbell")),
+    defaultKg: 30,
+    minKg: 20, // empty Olympic bar
+  },
+  {
+    match: (eq) => eq.some((e) => e.toLowerCase().includes("dumbbell")),
+    defaultKg: 10,
+    minKg: 4,
+  },
+  {
+    match: (eq) =>
+      eq.some(
+        (e) =>
+          e.toLowerCase().includes("machine") ||
+          e.toLowerCase().includes("cable")
+      ),
+    defaultKg: 15,
+    minKg: 5,
+  },
+];
+
+const FALLBACK_INITIAL_LOAD = { defaultKg: 10, minKg: 5 };
+/** Fraction of a similar exercise's primary load used as the starting point. */
+const SIMILAR_EXERCISE_FACTOR = 0.75;
+/** Fraction of a matched strength-baseline load used as the starting point. */
+const BASELINE_FACTOR = 0.4;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 function getWeightIncrement(equipment: string[]): number {
   const lowered = equipment.map((e) => e.toLowerCase());
@@ -99,6 +165,71 @@ function getWeightIncrement(equipment: string[]): number {
   if (lowered.some((e) => e === "bodyweight")) return 0;
   // cable, machine, other
   return 1.25;
+}
+
+/**
+ * Maps an exercise's catalog equipment tags to the configurable category.
+ * Returns null for bodyweight/unknown equipment (always auto).
+ */
+export function getIncrementEquipmentKey(
+  equipment: string[]
+): IncrementEquipmentKey | null {
+  const lowered = equipment.map((e) => e.toLowerCase());
+  if (lowered.some((e) => e.includes("barbell"))) return "barbell";
+  if (lowered.some((e) => e.includes("dumbbell"))) return "dumbbell";
+  if (lowered.some((e) => e.includes("machine"))) return "machine";
+  if (lowered.some((e) => e.includes("cable"))) return "cable";
+  return null;
+}
+
+/**
+ * All positive load deltas reachable with the user's increments:
+ * n × base + m × micro for n >= 1 and every useful m.
+ * E.g. base 4kg + micro 1.1kg → [1.1, 2.2, 3.3, 4, 5.1, 6.2, 7.3, 8, ...]
+ */
+export function getAchievableIncrements(
+  increments: WeightIncrements
+): number[] {
+  const base = increments.base_kg ?? 0;
+  const micro =
+    increments.micro_kg != null && increments.micro_kg > 0
+      ? increments.micro_kg
+      : null;
+  if (base <= 0) return [];
+
+  const maxMicroSteps = micro
+    ? Math.max(0, Math.floor(base / micro - 1e-9))
+    : 0;
+
+  const deltas = new Set<number>();
+  for (let n = 0; n <= MAX_BASE_STEPS; n++) {
+    for (let m = 0; m <= maxMicroSteps; m++) {
+      if (n === 0 && m === 0) continue;
+      deltas.add(round2(n * base + m * (micro ?? 0)));
+    }
+  }
+  return [...deltas].sort((a, b) => a - b);
+}
+
+/**
+ * Smallest reachable delta that is at least minJumpKg; falls back to the
+ * equipment-based default when the user has no custom increments for this
+ * category or no reachable delta satisfies the minimum.
+ */
+export function pickWeightIncrement(
+  equipment: string[],
+  incrementsByEquipment: WeightIncrementsByEquipment | null | undefined,
+  minJumpKg: number
+): number {
+  const key = getIncrementEquipmentKey(equipment);
+  const increments = key ? incrementsByEquipment?.[key] : undefined;
+  if (increments?.base_kg != null && increments.base_kg > 0) {
+    const match = getAchievableIncrements(increments).find(
+      (delta) => delta >= minJumpKg - 1e-9
+    );
+    if (match != null) return match;
+  }
+  return getWeightIncrement(equipment);
 }
 
 function isBodyweight(equipment: string[]): boolean {
@@ -246,7 +377,8 @@ export function calculateProgression(
   history: ExerciseHistory | null,
   equipment: string[],
   trainingStyle: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  incrementsByEquipment?: WeightIncrementsByEquipment | null
 ): ProgressionResult | null {
   if (!history || !history.working_sets?.length) {
     return null; // new exercise — keep LLM suggestion
@@ -259,6 +391,10 @@ export function calculateProgression(
 
   const exerciseId = history.exercise_id;
   const range = REP_RANGES[trainingStyle] ?? DEFAULT_REP_RANGE;
+  const equipmentKey = getIncrementEquipmentKey(equipment);
+  const configuredBase = equipmentKey
+    ? (incrementsByEquipment?.[equipmentKey]?.base_kg ?? null)
+    : null;
 
   // Filter to completed working sets with valid data
   const completedSets = history.working_sets.filter(
@@ -310,7 +446,13 @@ export function calculateProgression(
   }
 
   if (history.difficulty_feedback === "too_easy") {
-    const increment = getWeightIncrement(equipment);
+    const defaultIncrement = getWeightIncrement(equipment);
+    // Too easy: jump at least a full base step (or the equipment default).
+    const increment = pickWeightIncrement(
+      equipment,
+      incrementsByEquipment,
+      configuredBase ?? defaultIncrement
+    );
     if (isBodyweight(equipment) || increment === 0) {
       return {
         exercise_id: exerciseId,
@@ -336,7 +478,13 @@ export function calculateProgression(
   // Normal progression (feedback = "ok" or null)
   if (worstReps >= range.max) {
     // Top of rep range — bump weight, reset reps
-    const increment = getWeightIncrement(equipment);
+    const defaultIncrement = getWeightIncrement(equipment);
+    // Reps topped out: a smaller step (e.g. a micro-plate) is acceptable.
+    const increment = pickWeightIncrement(
+      equipment,
+      incrementsByEquipment,
+      (configuredBase ?? defaultIncrement) / 2
+    );
     if (isBodyweight(equipment) || increment === 0) {
       // Bodyweight: just keep adding reps
       return {
@@ -370,4 +518,86 @@ export function calculateProgression(
     reason_code: PROGRESSION_REASON_CODES.REP_RANGE_INCREASE,
     evidence,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Initial Load Suggestion (new exercises)
+// ---------------------------------------------------------------------------
+
+export interface InitialLoadOptions {
+  equipment: string[];
+  /** History from a biomechanically similar exercise the user has trained. */
+  similarExerciseHistory?: ExerciseHistory | null;
+  /** Load (kg) from a strength baseline matching the movement pattern, if any. */
+  baselineLoadKg?: number | null;
+}
+
+/**
+ * Majority load among completed weight sets; null when none qualify.
+ */
+export function getPrimaryHistoryLoadKg(
+  history: ExerciseHistory | null | undefined
+): number | null {
+  const completedSets = (history?.working_sets ?? []).filter(
+    (s): s is WorkingSetRecord & { load_kg: number } =>
+      s.completed && s.load_kg != null && s.load_kg > 0
+  );
+  if (completedSets.length === 0) return null;
+
+  const loadCounts = new Map<number, number>();
+  for (const s of completedSets) {
+    loadCounts.set(s.load_kg, (loadCounts.get(s.load_kg) ?? 0) + 1);
+  }
+  return [...loadCounts.entries()].reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+}
+
+function resolveInitialLoadAnchor(equipment: string[]): {
+  defaultKg: number;
+  minKg: number;
+} {
+  for (const anchor of INITIAL_LOAD_DEFAULTS) {
+    if (anchor.match(equipment)) return anchor;
+  }
+  return FALLBACK_INITIAL_LOAD;
+}
+
+/**
+ * Deterministic starting load (kg) for an exercise the user has never trained.
+ *
+ * Priority order:
+ * 1. Similar exercise history (conservative fraction of its primary load)
+ * 2. Muscle-matched strength baseline (conservative fraction)
+ * 3. Equipment-family default
+ * Result is rounded down to the equipment's plate/dumbbell increment and
+ * never falls below the equipment floor (e.g. empty barbell = 20kg).
+ */
+export function suggestInitialLoadKg(options: InitialLoadOptions): number {
+  const increment = Math.max(getWeightIncrement(options.equipment), 1);
+  const roundDown = (kg: number) =>
+    Math.max(increment, Math.floor(kg / increment) * increment);
+
+  let candidateKg = 0;
+
+  const similarLoadKg = getPrimaryHistoryLoadKg(options.similarExerciseHistory);
+  if (similarLoadKg != null && similarLoadKg > 0) {
+    candidateKg = similarLoadKg * SIMILAR_EXERCISE_FACTOR;
+  }
+
+  if (
+    !candidateKg &&
+    options.baselineLoadKg != null &&
+    options.baselineLoadKg > 0
+  ) {
+    candidateKg = options.baselineLoadKg * BASELINE_FACTOR;
+  }
+
+  const anchor = resolveInitialLoadAnchor(options.equipment);
+  if (!candidateKg) {
+    candidateKg = anchor.defaultKg;
+  } else {
+    // Even informed guesses stay above the equipment floor.
+    return Math.max(roundDown(candidateKg), anchor.minKg);
+  }
+
+  return roundDown(candidateKg);
 }

@@ -11,12 +11,19 @@ struct WatchWorkoutSnapshot: Codable, Equatable {
     var selectedExerciseId: String?
     var exercises: [WatchExercise]
     var rest: RestTimerState?
+    var weightUnit: String?
+    var warmup: WatchWarmup?
 
     enum Status: String, Codable {
         case active
         case completed
         case cancelled
     }
+}
+
+struct WatchWarmup: Codable, Equatable {
+    var durationSeconds: Int
+    var isCompleted: Bool
 }
 
 struct WatchExercise: Codable, Equatable, Identifiable {
@@ -45,6 +52,7 @@ struct WatchSet: Codable, Equatable, Identifiable {
     var durationSeconds: Int?
     var isCompleted: Bool
     var previousDisplay: String?
+    var targetDurationSeconds: Int?
 
     enum SetType: String, Codable {
         case warmup
@@ -74,7 +82,13 @@ struct WatchSyncEnvelope {
         else { return nil }
 
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let value = try decoder.singleValueContainer().decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value) { return date }
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid workout date"))
+        }
         guard let snapshot = try? decoder.decode(WatchWorkoutSnapshot.self, from: data)
         else { return nil }
 
@@ -141,6 +155,13 @@ struct WatchCommand: Codable, Identifiable {
 
     var id: String { commandID }
 
+    var decodedPayload: [String: Any] {
+        guard let data = payload.data(using: .utf8),
+              let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return [:] }
+        return value
+    }
+
     enum CommandType: String, Codable {
         case selectExercise
         case updateSet
@@ -151,6 +172,11 @@ struct WatchCommand: Codable, Identifiable {
         case skipRest
         case healthWorkoutStarted
         case finishWorkout
+        case requestState
+        case reopenSet
+        case setWarmupComplete
+        case healthWorkoutSaved
+        case healthWorkoutFailed
     }
 
     var dictionary: [String: Any] {

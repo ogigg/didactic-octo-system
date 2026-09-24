@@ -23,6 +23,7 @@ export const subscription = {
   },
   screen: {
     title: "Subscription",
+    backAccessibilityLabel: "Go back",
     currentPlan: {
       freeTitle: "Free plan",
       freeDescription: "5 AI generations per week",
@@ -51,5 +52,14 @@ export const subscription = {
     },
     upgradeCta: "Upgrade to Pro",
     comingSoon: "Pro subscriptions coming soon — stay tuned!",
+    management: {
+      description:
+        "Store subscriptions keep billing until you cancel them with Apple or Google Play.",
+      button: "Manage Store Subscription",
+      accessibilityLabel: "Manage store subscription",
+      errorTitle: "Couldn't open subscription management",
+      errorMessage:
+        "Open your App Store or Google Play subscription settings to manage billing.",
+    },
   },
 } as const;

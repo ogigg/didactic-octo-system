@@ -4,7 +4,41 @@ export const exerciseDetail = {
     history: "History",
     howTo: "How To",
   },
+  insights: {
+    title: "Recent progress",
+    scope: "Based on {{count}} recent logged exercise sessions (up to 50).",
+    durationProgress: "Best hold time",
+    repProgress: "Reps at the same weight",
+    repChange: "{{previous}} → {{recent}} reps at {{weight}}",
+    durationHint:
+      "Best set in the latest session compared with the previous session with a recorded duration.",
+    repHint:
+      "Best reps at the heaviest shared weight, comparing the latest session with the nearest earlier matching session.",
+    needDuration:
+      "Log durations in two sessions to compare your best hold time.",
+    needMatchingLoad: "Log this exercise at a repeated weight to compare reps.",
+    durationComparison: "Average time per session",
+    volumeComparison: "Average volume per session",
+    previousFive: "Previous 5 sessions",
+    latestFive: "Latest 5 sessions",
+    change: "Change: {{value}}",
+    comparisonHint:
+      "Compares equal groups of five logged sessions. Set counts and targets may differ.",
+    needTen: "Log {{count}} more sessions to compare two groups of five.",
+    frequency: "Training frequency",
+    lastDays: "Last {{count}} days",
+    trainingDays: "Training days: {{value}}",
+    notYet: "No completed sessions yet.",
+    lastToday: "Last trained today.",
+    lastTrained: "Days since last trained: {{count}}",
+    limitedHistory:
+      "Counts marked ≥ are minimums because only the latest 50 sessions are available.",
+  },
   overview: {
+    statisticsTitle: "Exercise statistics",
+    statisticsRange:
+      "Weekly totals from the last 52 weeks. Weeks without logged results are omitted.",
+    seeFullStatistics: "See full statistics",
     records: "Personal Records",
     recordsHint: "Your best results for this exercise.",
     sessionsCount: "{{count}} sessions",
@@ -22,6 +56,9 @@ export const exerciseDetail = {
     durationTotal: "Total time",
     durationWeeklyAvg: "Weekly avg",
     perWeek: "/wk",
+    weekOf: "Week of {{date}}",
+    chartVolume: "Volume",
+    chartDuration: "Duration",
     achievedOn: "Hit on {{date}}",
     noDate: "Date unavailable",
     noData: "Complete workouts with this exercise to see stats.",

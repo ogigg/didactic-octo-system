@@ -1,0 +1,10 @@
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT plan(3);
+INSERT INTO auth.users(id,email,raw_app_meta_data,raw_user_meta_data) VALUES ('93000000-0000-0000-0000-000000000001','baseline-sql@example.test','{}','{}');
+SELECT set_config('request.jwt.claims','{"sub":"93000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+SELECT lives_ok($$SELECT save_strength_baselines('[{"exercise_key":"pushups","load_kg":null,"reps":0}]','93000000-0000-0000-0000-000000000001')$$,'zero bodyweight reps is valid');
+SELECT throws_ok($$SELECT save_strength_baselines('[{"exercise_key":"db_row","load_kg":10,"reps":0}]','93000000-0000-0000-0000-000000000001')$$,'22023',NULL,'weighted entry requires positive reps');
+SELECT is((SELECT exercise_key FROM strength_baselines WHERE user_id='93000000-0000-0000-0000-000000000001'),'pushups','invalid replacement preserves previous baseline');
+SELECT * FROM finish();
+ROLLBACK;

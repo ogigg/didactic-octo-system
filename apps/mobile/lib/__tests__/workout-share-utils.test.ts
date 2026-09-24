@@ -1,5 +1,6 @@
 import type { WorkoutExercise } from "@/stores/workout-store";
 import { getWorkoutShareHighlights } from "@/lib/workout-share-utils";
+import { computeTotalVolume } from "@/lib/workout-summary-utils";
 
 function makeExercise(overrides: Partial<WorkoutExercise>): WorkoutExercise {
   return {
@@ -128,6 +129,35 @@ describe("getWorkoutShareHighlights", () => {
     );
 
     expect(highlights[0]?.metric).toBe("80kg x 8");
+  });
+
+  it("converts imperial workout loads before ranking and totaling", () => {
+    const exercises = [
+      makeExercise({
+        id: "bench",
+        sets: [
+          {
+            id: "set-1",
+            type: "working",
+            kg: "100",
+            reps: "8",
+            durationSeconds: null,
+            rpe: null,
+            isCompleted: true,
+            previousDisplay: null,
+          },
+        ],
+      }),
+    ];
+    const formatPounds = (kg: number) => `${Math.round(kg * 2.20462)}lbs`;
+
+    const highlights = getWorkoutShareHighlights(exercises, {
+      formatWeight: formatPounds,
+      weightUnit: "lbs",
+    });
+
+    expect(highlights[0]?.metric).toBe("100lbs x 8");
+    expect(computeTotalVolume(exercises, "lbs")).toBe(363);
   });
 
   it("uses best duration metrics for time-based exercises", () => {

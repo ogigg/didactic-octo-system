@@ -13,6 +13,12 @@ export const stats = {
     more: "More",
   },
   volume: {
+    today: "Today",
+    completed: "Completed",
+    forecast: "Forecast total",
+    sets: "Sets completed",
+    closeTooltip: "Close chart details",
+
     total: "Total",
     weeklyAvg: "Weekly avg",
     perWeek: "/wk",
@@ -27,7 +33,9 @@ export const stats = {
   },
   records: {
     heaviest: "Heaviest",
+    heaviestReps: "{{reps}} reps",
     mostReps: "Most Reps",
+    mostRepsWeight: "@ {{weight}}",
     bestSet: "Best Set",
     est1rm: "Est. 1RM",
     searchPlaceholder: "Search exercises...",

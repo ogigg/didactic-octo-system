@@ -102,7 +102,25 @@ export function useExerciseFilterOptions() {
 
   const result = useQuery({
     queryKey: exerciseKeys.filterOptions(language),
-    queryFn: () => fetchExerciseFilterOptions(language),
+    queryFn: async () => {
+      try {
+        const options = await fetchExerciseFilterOptions(language);
+        if (options.length > 0) return options;
+        console.warn(
+          "[exercises] filter options RPC returned no rows, falling back to catalog labels"
+        );
+      } catch (error) {
+        console.warn(
+          "[exercises] filter options RPC failed, falling back to catalog labels:",
+          error
+        );
+      }
+      // Keep fallback options aligned with the exercises users can actually
+      // select. Catalog labels also contain retired and secondary-only values.
+      return deriveFilterOptionsFromExercises(
+        await fetchExercises(undefined, language)
+      );
+    },
     staleTime: 60_000,
   });
 
@@ -136,4 +154,31 @@ export function useExerciseFilterOptions() {
     filterOptions: filterOptions.options,
     labelMaps: filterOptions.labelMaps,
   };
+}
+
+function deriveFilterOptionsFromExercises(exercises: Exercise[]) {
+  const muscles = new Map<string, string>();
+  const equipment = new Map<string, string>();
+
+  for (const exercise of exercises) {
+    exercise.primary_muscles.forEach((key, index) => {
+      muscles.set(key, exercise.primary_muscle_labels[index] ?? key);
+    });
+    exercise.equipment.forEach((key, index) => {
+      equipment.set(key, exercise.equipment_labels[index] ?? key);
+    });
+  }
+
+  return [
+    ...[...muscles].map(([label_key, display_name]) => ({
+      label_type: "muscle" as const,
+      label_key,
+      display_name,
+    })),
+    ...[...equipment].map(([label_key, display_name]) => ({
+      label_type: "equipment" as const,
+      label_key,
+      display_name,
+    })),
+  ].sort((a, b) => a.display_name.localeCompare(b.display_name));
 }

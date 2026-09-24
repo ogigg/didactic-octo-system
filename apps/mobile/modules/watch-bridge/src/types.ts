@@ -55,7 +55,12 @@ export interface WatchActionEnvelope {
     | "resumeRest"
     | "skipRest"
     | "healthWorkoutStarted"
-    | "finishWorkout";
+    | "finishWorkout"
+    | "requestState"
+    | "reopenSet"
+    | "healthWorkoutSaved"
+    | "healthWorkoutFailed"
+    | "setWarmupComplete";
   payload: string;
 }
 
@@ -65,8 +70,13 @@ export interface WatchActionPayload {
   setId?: string;
   loadKg?: number;
   reps?: number;
+  durationSeconds?: number;
   deltaSeconds?: number;
   restId?: string;
+  endDate?: string | null;
+  pausedRemainingSeconds?: number | null;
   completedAt?: string;
+  finishedAt?: string;
+  isCompleted?: boolean;
   healthWorkoutUUID?: string;
 }

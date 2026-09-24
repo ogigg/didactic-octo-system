@@ -2,6 +2,36 @@ jest.mock("@/hooks/use-theme-color", () => ({
   useThemeColor: jest.fn(() => "#000000"),
 }));
 
+jest.mock("@/lib/api/exercises", () => ({
+  fetchExercises: jest.fn(() => Promise.resolve([])),
+}));
+
+jest.mock("react-native-reanimated", () => {
+  const Reanimated = require("react-native-reanimated/mock");
+  Reanimated.useReducedMotion = jest.fn(() => false);
+  // Keep timed animations pending so exit animations can be observed.
+  Reanimated.withTiming = jest.fn((toValue) => toValue);
+  return Reanimated;
+});
+
+jest.mock("react-native-gesture-handler", () => {
+  const { View } = require("react-native");
+  const mockGesture = {
+    onChange: jest.fn(),
+    onEnd: jest.fn(),
+  };
+  mockGesture.onChange.mockReturnValue(mockGesture);
+  mockGesture.onEnd.mockReturnValue(mockGesture);
+
+  return {
+    GestureHandlerRootView: View,
+    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+    Gesture: {
+      Pan: jest.fn(() => mockGesture),
+    },
+  };
+});
+
 jest.mock("@/lib/rest-timer-sound", () => ({
   playRestTimerCompleteSound: jest.fn(),
 }));
@@ -13,8 +43,15 @@ jest.mock("@/lib/rest-timer-notifications", () => ({
   ),
 }));
 
-import { render, screen, waitFor } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
   cancelScheduledRestTimerNotification,
   scheduleRestTimerCompletionNotification,
@@ -208,5 +245,36 @@ describe("RestTimerBar", () => {
       max: 120,
       now: 120,
     });
+  });
+
+  it("keeps the expanded sheet mounted when rest ends so it can animate out", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider
+          initialMetrics={{
+            frame: { x: 0, y: 0, width: 390, height: 844 },
+            insets: { top: 47, left: 0, right: 0, bottom: 34 },
+          }}
+        >
+          <RestTimerBar />
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    );
+
+    fireEvent.press(screen.getByLabelText("Expand rest timer"));
+    expect(screen.getByText("Skip Rest")).toBeTruthy();
+
+    dateNowSpy.mockReturnValue(startedAtMs + 120_000);
+
+    await waitFor(() => {
+      expect(useWorkoutStore.getState().restTimer).toBeNull();
+    });
+
+    // The timer is cleared, but the sheet must stay mounted so its exit
+    // animation can play instead of disappearing instantly.
+    expect(screen.getByText("Skip Rest")).toBeTruthy();
   });
 });

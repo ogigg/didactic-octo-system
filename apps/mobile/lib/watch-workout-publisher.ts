@@ -89,6 +89,7 @@ function allocateNextRevision(domain: "workout" | "settings"): Promise<number> {
 export function allocateWatchSettingsRevision(): Promise<number> {
   return allocateNextRevision("settings");
 }
+let publicationQueue = Promise.resolve();
 
 export function currentWatchRevision(): number {
   return latestRevision;
@@ -130,9 +131,15 @@ export async function publishWatchSnapshot(
     getWatchSettingsSnapshot()
   );
   const revision = await allocateNextRevision("workout");
-  await sendWorkoutState(
-    makeWatchEnvelope(snapshot, revision, settingsSnapshot, settingsRevision)
+  const envelope = makeWatchEnvelope(
+    snapshot,
+    revision,
+    settingsSnapshot,
+    settingsRevision
   );
+  const publication = publicationQueue.then(() => sendWorkoutState(envelope));
+  publicationQueue = publication.catch(() => undefined);
+  await publication;
   return true;
 }
 

@@ -77,5 +77,14 @@ export const workoutPreview = {
     regeneratingTitle: "Odświeżanie planu",
     regeneratingMessage:
       "Ten trening jest teraz zastępowany. Zaktualizowana wersja pojawi się automatycznie, gdy będzie gotowa.",
+    regenerationFailedTitle: "Nie udało się odświeżyć planu",
+    regenerationFailedMessage:
+      "Twój obecny trening jest bezpieczny. Spróbuj ponownie lub chwilę poczekaj, jeśli generowanie nadal trwa.",
+    recoveryFailedTitle: "Nie udało się odświeżyć stanu treningu",
+    recoveryFailedMessage:
+      "Nie udało się odzyskać tego zawieszonego treningu. Sprawdź połączenie i spróbuj ponownie.",
+    referenceId: "Numer referencyjny: {{id}}",
+    retryRegeneration: "Spróbuj ponownie",
+    retryRecovery: "Odśwież stan",
   },
 } as const;

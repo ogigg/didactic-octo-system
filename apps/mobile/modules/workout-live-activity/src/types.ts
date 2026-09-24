@@ -9,8 +9,13 @@ export interface LiveActivityState {
   /** 1-based index of the current set within the exercise */
   currentSetNumber: number;
   totalSets: number;
+  /** Completed exercise sets across the whole workout. */
+  completedSets: number;
+  totalWorkoutSets: number;
   workoutName: string;
   workoutStartedAtMs: number;
+  /** True while publishing the final state before the activity is dismissed. */
+  isWorkoutComplete: boolean;
   restStartedAtMs: number | null;
   restEndsAtMs: number | null;
 }

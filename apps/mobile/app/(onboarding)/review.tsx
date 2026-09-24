@@ -1,314 +1,206 @@
-import { useRebuildQueue } from "@/hooks/use-workout-queue";
+import { isValidCustomGoal } from "@/lib/profanity";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { OnboardingScreen } from "@/components/onboarding/screen";
+import { OptionChips } from "@/components/generate-workout/option-chips";
 import { useUpsertProfile } from "@/hooks/use-profile-mutations";
-import { mapOnboardingToProfile } from "@/lib/api/profiles";
 import { useOnboardingStore } from "@/stores/onboarding-store";
-import type {
-  Frequency,
-  Gender,
-  Goal,
-  Equipment,
-  Experience,
-} from "@/stores/onboarding-store";
-import { trackEvent } from "@/lib/track-event";
+import { mapOnboardingToProfile } from "@/lib/api/profiles";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import { Radii, Spacing, Typography } from "@/constants/theme";
-import { AmbientGlow } from "@/components/ambient-glow";
-import { Button } from "@/components/ui/button";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
-const GENDER_LABELS: Record<Gender, string> = {
-  male: "Male",
-  female: "Female",
-  other: "Other",
-};
-
-const GOAL_LABELS: Record<Goal, string> = {
-  build_strength: "Build Strength",
-  lose_weight: "Lose Weight",
-  improve_fitness: "Improve Fitness",
-};
-
-const FREQ_LABELS: Record<Frequency, string> = {
-  2: "2 days per week",
-  3: "3 days per week",
-  4: "4 days per week",
-  5: "5+ days per week",
-};
-
-const EQUIPMENT_LABELS: Record<Equipment, string> = {
-  bodyweight: "Home (bodyweight)",
-  dumbbells: "Home Gym (dumbbells)",
-  full_gym: "Full Gym",
-};
-
-const EXPERIENCE_LABELS: Record<Experience, string> = {
-  beginner: "Just Starting",
-  intermediate: "A Few Months",
-  advanced: "Over a Year",
-};
-
-const BASELINE_LABELS: Record<string, string> = {
-  pushups: "Push-ups",
-  pullups: "Pull-ups",
-  db_bench: "DB Bench Press",
-  db_row: "DB Row",
-  bb_bench: "BB Bench Press",
-  bb_squat: "BB Squat",
-  deadlift: "Deadlift",
-};
-
-type EditStep =
-  | "gender"
-  | "goal"
-  | "frequency"
-  | "equipment"
-  | "experience"
-  | "strength";
-
+import { Spacing, Radii, Typography } from "@/constants/theme";
 export default function ReviewScreen() {
+  const { t } = useTranslation("onboarding");
   const store = useOnboardingStore();
-  const upsertProfile = useUpsertProfile();
-  const rebuildQueue = useRebuildQueue();
-  useFocusEffect(useCallback(() => undefined, []));
-
+  const save = useUpsertProfile();
+  const [adjustStyle, setAdjustStyle] = useState(false);
+  const text = useThemeColor({}, "text");
+  const secondary = useThemeColor({}, "textSecondary");
+  const primary = useThemeColor({}, "primary");
+  const border = useThemeColor({}, "border");
+  const fill = useThemeColor({}, "inputFill");
   const {
-    gender,
-    genderSkipped: _genderSkipped,
     goal,
     customGoal,
     frequency,
     equipment,
     experience,
-    strengthBaselines,
-    complete,
+    sessionDuration,
+    trainingStyle,
+    constraints,
+    setConstraints,
+    setTrainingStyle,
   } = store;
-
-  const primary = useThemeColor({}, "primary");
-  const textColor = useThemeColor({}, "text");
-  const textSecondary = useThemeColor({}, "textSecondary");
-  const textMuted = useThemeColor({}, "textMuted");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
-
-  const goalDisplay = customGoal ?? (goal ? GOAL_LABELS[goal] : null);
-  const showGender = gender !== null;
-
-  const baselineSummary =
-    strengthBaselines.length > 0
-      ? strengthBaselines
-          .map((b) => {
-            const label = BASELINE_LABELS[b.exercise_key] ?? b.exercise_key;
-            if (b.load_kg !== null) {
-              return `${label}: ${b.load_kg}kg × ${b.reps}`;
-            }
-            return `${label}: ${b.reps} reps`;
-          })
-          .join(", ")
-      : null;
-
-  function handleEdit(step: EditStep) {
-    router.push({
-      pathname: `/(onboarding)/${step}`,
-      params: { editMode: "1" },
-    } as never);
-  }
-
-  function handleSubmit() {
-    if (frequency === null || equipment === null || experience === null) return;
-
-    const onboardingPayload = {
-      gender,
-      goal,
-      customGoal,
-      frequency,
-      equipment,
-      experience,
-      strengthBaselines,
-    };
-
-    upsertProfile.mutate(onboardingPayload, {
-      onSuccess: () => {
-        const profilePayload = mapOnboardingToProfile(onboardingPayload);
-
-        rebuildQueue.mutate({
-          count: frequency,
-          preferences: {
-            training_split: profilePayload.training_split,
-            session_duration_minutes: profilePayload.session_duration_minutes,
-            equipment: profilePayload.equipment_level,
-            training_style: profilePayload.training_style,
-            difficulty: profilePayload.difficulty_level,
-          },
-          baselines: strengthBaselines,
-          trigger: "onboarding",
-        });
-
-        complete();
-        trackEvent("onboarding_completed", {});
-        router.replace("/(tabs)" as never);
-      },
-    });
-  }
-
+  const canSubmit =
+    (goal !== null || isValidCustomGoal(customGoal)) &&
+    frequency !== null &&
+    equipment !== null &&
+    experience !== null &&
+    sessionDuration !== null;
+  const payload = canSubmit
+    ? {
+        gender: null,
+        goal,
+        customGoal,
+        frequency: frequency!,
+        equipment: equipment!,
+        experience: experience!,
+        sessionDuration: sessionDuration!,
+        trainingStyle,
+        constraints,
+        strengthBaselines: store.strengthBaselines,
+      }
+    : null;
+  const plan = payload ? mapOnboardingToProfile(payload) : null;
+  const days =
+    frequency === 1
+      ? t("frequency.once")
+      : frequency === 5
+        ? t("frequency.fivePlus")
+        : t("frequency.dayCount", { count: frequency ?? 0 });
+  const rows = [
+    {
+      step: "goal",
+      label: t("review.goal"),
+      value: customGoal ?? (goal ? t(`goal.${goal}`) : "—"),
+    },
+    {
+      step: "equipment",
+      label: t("review.equipment"),
+      value: equipment ? t(`equipment.${equipment}`) : "—",
+    },
+    {
+      step: "experience",
+      label: t("review.experience"),
+      value: experience ? t(`experience.${experience}`) : "—",
+    },
+    {
+      step: "frequency",
+      label: t("review.schedule"),
+      value: t("review.scheduleValue", {
+        days,
+        minutes: sessionDuration ?? "—",
+      }),
+    },
+  ];
   return (
-    <View style={styles.root}>
-      <AmbientGlow variant="hero" />
-      <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text
-            style={[Typography.titleLg, { color: textColor }, styles.title]}
-          >
-            Looking good!
+    <OnboardingScreen
+      step="review"
+      title={t("review.title")}
+      subtitle={t("review.subtitle")}
+      canContinue={canSubmit}
+      saving={save.isPending}
+      error={save.isError}
+      onSubmit={() => {
+        if (payload && !save.isPending) save.mutate(payload);
+      }}
+    >
+      {rows.map((row) => (
+        <Pressable
+          key={row.step}
+          disabled={save.isPending}
+          accessibilityRole="button"
+          accessibilityLabel={`${t("actions.edit", { field: row.label })}: ${row.value}`}
+          onPress={() =>
+            router.push({
+              pathname: `/(onboarding)/${row.step}`,
+              params: { editMode: "1" },
+            } as never)
+          }
+          style={[styles.row, { borderColor: border }]}
+        >
+          <View style={styles.copy}>
+            <Text style={[Typography.caption, { color: secondary }]}>
+              {row.label}
+            </Text>
+            <Text style={[Typography.bodyMedium, { color: text }]}>
+              {row.value}
+            </Text>
+          </View>
+          <Text style={{ color: primary }}>›</Text>
+        </Pressable>
+      ))}
+      {plan && (
+        <View style={[styles.plan, { borderColor: border }]}>
+          <Text style={[Typography.body, { color: text }]}>
+            {t("review.split")}: {t(`review.${plan.training_split}`)}
           </Text>
-          <Text
-            style={[Typography.body, { color: textSecondary }, styles.subtitle]}
-          >
-            {"Here's what we know about you."}
+          <Text style={[Typography.body, { color: text }]}>
+            {t("review.style")}: {t(`review.${plan.training_style}`)}
           </Text>
-
-          {showGender && (
-            <ReviewCard
-              label="GENDER"
-              value={GENDER_LABELS[gender!]}
-              onEdit={() => handleEdit("gender")}
-              primary={primary}
-              textColor={textColor}
-              textMuted={textMuted}
-              backgroundSubtle={backgroundSubtle}
+          <Pressable
+            accessibilityRole="button"
+            disabled={save.isPending}
+            onPress={() => setAdjustStyle(!adjustStyle)}
+            style={styles.adjust}
+          >
+            <Text style={[Typography.body, { color: primary }]}>
+              {t("review.adjustStyle")}
+            </Text>
+          </Pressable>
+          {adjustStyle && (
+            <OptionChips
+              selected={plan.training_style}
+              onSelect={(value) => {
+                if (!save.isPending) setTrainingStyle(value);
+              }}
+              options={(
+                ["strength", "hypertrophy", "endurance", "circuit"] as const
+              ).map((value) => ({ value, label: t(`review.${value}`) }))}
             />
           )}
-
-          {goalDisplay && (
-            <ReviewCard
-              label="GOAL"
-              value={goalDisplay}
-              onEdit={() => handleEdit("goal")}
-              primary={primary}
-              textColor={textColor}
-              textMuted={textMuted}
-              backgroundSubtle={backgroundSubtle}
-            />
-          )}
-
-          {frequency !== null && (
-            <ReviewCard
-              label="FREQUENCY"
-              value={FREQ_LABELS[frequency]}
-              onEdit={() => handleEdit("frequency")}
-              primary={primary}
-              textColor={textColor}
-              textMuted={textMuted}
-              backgroundSubtle={backgroundSubtle}
-            />
-          )}
-
-          {equipment !== null && (
-            <ReviewCard
-              label="EQUIPMENT"
-              value={EQUIPMENT_LABELS[equipment]}
-              onEdit={() => handleEdit("equipment")}
-              primary={primary}
-              textColor={textColor}
-              textMuted={textMuted}
-              backgroundSubtle={backgroundSubtle}
-            />
-          )}
-
-          {experience !== null && (
-            <ReviewCard
-              label="EXPERIENCE"
-              value={EXPERIENCE_LABELS[experience]}
-              onEdit={() => handleEdit("experience")}
-              primary={primary}
-              textColor={textColor}
-              textMuted={textMuted}
-              backgroundSubtle={backgroundSubtle}
-            />
-          )}
-
-          {baselineSummary && (
-            <ReviewCard
-              label="STRENGTH BASELINE"
-              value={baselineSummary}
-              onEdit={() => handleEdit("strength")}
-              primary={primary}
-              textColor={textColor}
-              textMuted={textMuted}
-              backgroundSubtle={backgroundSubtle}
-            />
-          )}
-        </ScrollView>
-
-        <View style={styles.actions}>
-          <Button label="Let's start working out!" onPress={handleSubmit} />
         </View>
-      </SafeAreaView>
-    </View>
+      )}
+      <Text style={[Typography.bodyMedium, { color: text }]}>
+        {t("review.constraints")}
+      </Text>
+      <Text style={[Typography.caption, styles.hint, { color: secondary }]}>
+        {t("review.constraintsHint")}
+      </Text>
+      <TextInput
+        editable={!save.isPending}
+        value={constraints}
+        onChangeText={setConstraints}
+        multiline
+        maxLength={200}
+        accessibilityLabel={t("review.constraints")}
+        placeholder={t("review.constraintsPlaceholder")}
+        placeholderTextColor={secondary}
+        style={[styles.input, { color: text, backgroundColor: fill }]}
+      />
+      <Text style={[Typography.caption, { color: secondary }]}>
+        {t("review.constraintsCount", { count: constraints.length })}
+      </Text>
+      <Text style={[Typography.caption, styles.hint, { color: secondary }]}>
+        {t("review.strengthLater")}
+      </Text>
+    </OnboardingScreen>
   );
 }
-
-function ReviewCard({
-  label,
-  value,
-  onEdit,
-  primary,
-  textColor,
-  textMuted,
-  backgroundSubtle,
-}: {
-  label: string;
-  value: string;
-  onEdit: () => void;
-  primary: string;
-  textColor: string;
-  textMuted: string;
-  backgroundSubtle: string;
-}) {
-  return (
-    <View style={[styles.card, { backgroundColor: backgroundSubtle }]}>
-      <View style={styles.cardContent}>
-        <Text style={[Typography.label, { color: textMuted }]}>{label}</Text>
-        <Text style={[Typography.body, { color: textColor }, styles.cardValue]}>
-          {value}
-        </Text>
-      </View>
-      <TouchableOpacity
-        onPress={onEdit}
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${label.toLowerCase()}`}
-      >
-        <Text style={[Typography.body, { color: primary }]}>Edit</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  safe: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xl },
-  title: { marginTop: Spacing["3xl"], marginBottom: Spacing.sm },
-  subtitle: { marginBottom: Spacing["3xl"] },
-  card: {
+  row: {
+    minHeight: 64,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: Radii.md,
-    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  copy: { flex: 1, gap: Spacing.xs },
+  plan: {
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
     marginBottom: Spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  cardContent: { flex: 1, marginRight: Spacing.md },
-  cardValue: { marginTop: Spacing.xs },
-  actions: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.lg,
+  input: {
+    ...Typography.body,
+    minHeight: 80,
+    padding: Spacing.md,
+    borderRadius: Radii.md,
+    textAlignVertical: "top",
   },
+  hint: { marginVertical: Spacing.md },
+  adjust: { minHeight: 44, justifyContent: "center" },
 });

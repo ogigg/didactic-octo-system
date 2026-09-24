@@ -4,6 +4,7 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
   removeItem: jest.fn(),
 }));
 
+import { isPendingWorkoutStale } from "../pending-workout-recovery";
 import {
   getCurrentTimezoneOffsetMinutes,
   getPendingWorkoutRegenerationEligibility,
@@ -39,6 +40,29 @@ function createPendingWorkout(
 }
 
 describe("pending workout regeneration helpers", () => {
+  it("treats queued and regenerating rows older than five minutes as stale", () => {
+    const staleUpdatedAt = new Date(Date.now() - 6 * 60 * 1000).toISOString();
+
+    expect(
+      isPendingWorkoutStale(
+        createPendingWorkout({ status: "queued", updated_at: staleUpdatedAt })
+      )
+    ).toBe(true);
+    expect(
+      isPendingWorkoutStale(
+        createPendingWorkout({
+          status: "regenerating",
+          updated_at: staleUpdatedAt,
+        })
+      )
+    ).toBe(true);
+    expect(
+      isPendingWorkoutStale(
+        createPendingWorkout({ status: "ready", updated_at: staleUpdatedAt })
+      )
+    ).toBe(false);
+  });
+
   it("allows regeneration when the plan has never been regenerated", () => {
     const eligibility = getPendingWorkoutRegenerationEligibility(
       null,

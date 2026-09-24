@@ -30,7 +30,14 @@ export const home = {
     completed_other: "{{count}} workouts done",
   },
   workoutQueue: {
+    preparing:
+      "Preparing your workouts. Your current plan is kept until the new one is ready.",
+    preparationError:
+      "We couldn’t prepare your workouts. Your saved setup and existing workouts are safe. Try again.",
+    retryPreparation: "Try again",
+
     title: "Your Plan",
+    loading: "Loading your plan...",
     readyCount: "{{ready}}/{{total}}",
     empty: "No workouts queued yet",
     emptySubtitle: "Complete onboarding to get your personalized plan",
@@ -42,6 +49,7 @@ export const home = {
     dayLabel: "Day {{position}}",
     startWorkout: "Start Workout",
     resumeWorkout: "Resume Workout",
+    resumeWorkoutHint: "Opens your workout in progress",
     generating: "Preparing your workout...",
     regenerating: "Refreshing workout",
     regeneratingSubtitle: "Your replacement workout is on the way.",
@@ -62,6 +70,22 @@ export const home = {
     exerciseCount_other: "{{count}} exercises",
     empty: "Create your first custom workout",
     newWorkoutName: "New Workout",
+    reviewTemplate: "Review {{name}}",
+  },
+  templateDetail: {
+    loading: "Loading workout template",
+    modeLabel: "Review template",
+    description:
+      "Review the exercises below. This workout will only begin when you choose Start Workout.",
+    exercisesTitle: "Exercises",
+    startWorkout: "Start Workout",
+    activeWorkoutTitle: "Workout already in progress",
+    activeWorkoutMessage:
+      "Finish or discard your active workout before starting this template.",
+    notFoundTitle: "Template not found",
+    notFoundMessage:
+      "This saved workout is no longer available. Return to My Workouts and choose another template.",
+    back: "Back",
   },
   history: {
     seeAll: "See Workout History",

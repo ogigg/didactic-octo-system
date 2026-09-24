@@ -62,7 +62,11 @@ public final class WatchBridgeModule: Module {
     }
 
     AsyncFunction("acknowledgeCommand") { (commandID: String) in
-      self.sessionDelegate.acknowledge(commandID: commandID)
+      guard WCSession.isSupported() else { return }
+      self.sessionDelegate.acknowledge(
+        commandID: commandID,
+        on: WCSession.default
+      )
     }
 
     Function("isWatchPaired") { () -> Bool in

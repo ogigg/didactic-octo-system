@@ -1,0 +1,11 @@
+/* Widget gallery and fallbacks shown before the app publishes data. In-widget
+   copy comes from the app's i18n/locales/en/widgets.ts via the snapshot. */
+"widget.next.name" = "Next workout";
+"widget.next.description" = "See the workout waiting in your queue and how long it takes.";
+"widget.streak.name" = "Streak & week";
+"widget.streak.description" = "Keep your weekly streak and this week's progress in view.";
+"widget.consistency.name" = "Consistency";
+"widget.consistency.description" = "See which days you trained over the last weeks.";
+"widget.time.name" = "Training time";
+"widget.time.description" = "Compare your training time across recent weeks.";
+"widget.status.openApp" = "Open Sweaty to see your plan";

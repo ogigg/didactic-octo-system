@@ -7,12 +7,22 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
   private let pendingDefaultsKey = "WatchBridge.pendingActions"
   private let pendingContextDefaultsKey = "WatchBridge.pendingApplicationContext"
   private let pendingSettingsDefaultsKey = "WatchBridge.pendingSettingsUserInfo"
+  private let stateLock = NSRecursiveLock()
+  private var pendingContextGeneration: UInt64 = 0
+
+  private func pendingApplicationContextUnsafe() -> [String: Any]? {
+    UserDefaults.standard.dictionary(forKey: pendingContextDefaultsKey)
+  }
 
   var pendingApplicationContext: [String: Any]? {
     get {
-      UserDefaults.standard.dictionary(forKey: pendingContextDefaultsKey)
+      stateLock.lock()
+      defer { stateLock.unlock() }
+      return pendingApplicationContextUnsafe()
     }
     set {
+      stateLock.lock()
+      defer { stateLock.unlock() }
       UserDefaults.standard.set(newValue, forKey: pendingContextDefaultsKey)
     }
   }
@@ -27,11 +37,25 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
   }
 
   var acknowledgedCommandIDs: [String] {
-    Array(Set(UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []))
-      .suffix(100)
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    return acknowledgedCommandIDsUnsafe()
   }
 
   var pendingActions: [[String: Any]] {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    return pendingActionsUnsafe()
+  }
+
+  private func acknowledgedCommandIDsUnsafe() -> [String] {
+    Array(
+      (UserDefaults.standard.stringArray(forKey: defaultsKey) ?? [])
+        .suffix(100)
+    )
+  }
+
+  private func pendingActionsUnsafe() -> [[String: Any]] {
     UserDefaults.standard.array(forKey: pendingDefaultsKey) as? [[String: Any]] ?? []
   }
 
@@ -39,7 +63,13 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     _ applicationContext: [String: Any],
     on session: WCSession
   ) {
-    pendingApplicationContext = applicationContext
+    stateLock.lock()
+    pendingContextGeneration &+= 1
+    UserDefaults.standard.set(
+      applicationContext,
+      forKey: pendingContextDefaultsKey
+    )
+    stateLock.unlock()
     flushPendingApplicationContext(on: session)
   }
 
@@ -48,6 +78,11 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
       session.activate()
       return
     }
+    stateLock.lock()
+    let pendingApplicationContext = pendingApplicationContextUnsafe()
+    let generation = pendingContextGeneration
+    stateLock.unlock()
+
     guard session.isPaired, session.isWatchAppInstalled,
           let pendingApplicationContext
     else {
@@ -56,7 +91,11 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
 
     do {
       try session.updateApplicationContext(pendingApplicationContext)
-      self.pendingApplicationContext = nil
+      stateLock.lock()
+      if pendingContextGeneration == generation {
+        UserDefaults.standard.removeObject(forKey: pendingContextDefaultsKey)
+      }
+      stateLock.unlock()
     } catch {
       // Keep the latest snapshot persisted. Watch installation and
       // connectivity state can change after the phone app has launched.
@@ -90,19 +129,45 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     self.pendingSettingsUserInfo = nil
   }
 
-  func acknowledge(commandID: String) {
-    let remaining = pendingActions.filter {
-      ($0["commandID"] as? String) != commandID
+  func acknowledge(commandID: String, on session: WCSession) {
+    stateLock.lock()
+    do {
+      defer { stateLock.unlock() }
+      let remaining = pendingActionsUnsafe().filter {
+        ($0["commandID"] as? String) != commandID
+      }
+      UserDefaults.standard.set(remaining, forKey: pendingDefaultsKey)
+      var acknowledged = acknowledgedCommandIDsUnsafe()
+      if !acknowledged.contains(commandID) {
+        acknowledged.append(commandID)
+        UserDefaults.standard.set(
+          Array(acknowledged.suffix(100)),
+          forKey: defaultsKey
+        )
+      }
     }
-    UserDefaults.standard.set(remaining, forKey: pendingDefaultsKey)
-    var acknowledged = acknowledgedCommandIDs
-    if !acknowledged.contains(commandID) {
-      acknowledged.append(commandID)
-      UserDefaults.standard.set(
-        Array(acknowledged.suffix(100)),
-        forKey: defaultsKey
-      )
+    flushAcknowledgements(on: session)
+  }
+
+  private func flushAcknowledgements(on session: WCSession) {
+    let acknowledged = acknowledgedCommandIDs
+    guard !acknowledged.isEmpty,
+          session.activationState == .activated,
+          session.isPaired,
+          session.isWatchAppInstalled
+    else { return }
+
+    let message: [String: Any] = [
+      "protocolVersion": 1,
+      "kind": "commandAcknowledgement",
+      "acknowledgedCommandIDs": acknowledged,
+    ]
+    if session.isReachable {
+      session.sendMessage(message, replyHandler: nil) { error in
+        print("[WatchBridge] acknowledgement delivery failed:", error)
+      }
     }
+    session.transferUserInfo(message)
   }
 
   func session(
@@ -118,6 +183,7 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     if activationState == .activated {
       flushPendingApplicationContext(on: session)
       flushPendingSettingsUserInfo(on: session)
+      flushAcknowledgements(on: session)
     }
   }
 
@@ -130,10 +196,11 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
   func sessionWatchStateDidChange(_ session: WCSession) {
     flushPendingApplicationContext(on: session)
     flushPendingSettingsUserInfo(on: session)
+    flushAcknowledgements(on: session)
   }
 
   func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-    deliver(message)
+    deliver(message, on: session)
   }
 
   func session(
@@ -142,30 +209,35 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     replyHandler: @escaping ([String: Any]) -> Void
   ) {
     let commandID = message["commandID"] as? String
-    deliver(message)
+    deliver(message, on: session)
     replyHandler(["queued": true, "commandID": commandID ?? ""])
   }
 
   func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
-    deliver(userInfo)
+    deliver(userInfo, on: session)
   }
 
-  private func deliver(_ action: [String: Any]) {
+  private func deliver(_ action: [String: Any], on session: WCSession) {
     guard action["protocolVersion"] is NSNumber,
           let commandID = action["commandID"] as? String,
-          action["type"] is String,
-          action["payload"] is String
+          !commandID.isEmpty
     else { return }
 
-    guard !acknowledgedCommandIDs.contains(commandID) else { return }
-    if !pendingActions.contains(where: {
+    stateLock.lock()
+    if acknowledgedCommandIDsUnsafe().contains(commandID) {
+      stateLock.unlock()
+      flushAcknowledgements(on: session)
+      return
+    }
+    if !pendingActionsUnsafe().contains(where: {
       ($0["commandID"] as? String) == commandID
     }) {
       UserDefaults.standard.set(
-        pendingActions + [action],
+        pendingActionsUnsafe() + [action],
         forKey: pendingDefaultsKey
       )
     }
+    stateLock.unlock()
 
     DispatchQueue.main.async { [weak self] in
       self?.onWatchAction?(action)

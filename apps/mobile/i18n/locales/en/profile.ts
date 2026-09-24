@@ -26,7 +26,7 @@ export const profile = {
     health: "Health",
     watch: "Apple Watch",
     feedback: "Feedback",
-    deleteAccount: "Delete Account",
+    accountData: "Account & Data",
   },
   language: {
     label: "Language",

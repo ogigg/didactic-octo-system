@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Explain the current database model at a level that is useful for humans and AI agents, while treating `supabase/migrations` as the authoritative schema source.
-> **Last reviewed:** 2026-08-06
+> **Last reviewed:** 2026-09-12
 
 ## Source Of Truth
 
@@ -59,6 +59,10 @@ Important columns:
 - `training_split`, `session_duration_minutes`, `equipment_level`, `training_style`, `difficulty_level`, `training_custom_prompt`: core training preference inputs used to shape generation
 - `training_setup_completed`: whether the user finished the richer training setup flow
 - `weight_unit`: display preference for weight values — `kg` (default) or `lbs`. All data remains stored in metric; this controls display conversion only.
+- `weight_increments`: optional per-equipment load steps as JSONB keyed by equipment category (`barbell` | `dumbbell` | `machine` | `cable`), each entry shaped `{ "base_kg": number, "micro_kg": number|null }` (e.g. machine with 4 kg pin steps + 1.1 kg magnetic micro-plates). NULL column or missing categories mean auto — the progression engine falls back to equipment-based defaults. Reachable increases for a category are combinations of `n × base_kg + m × micro_kg`; the server-side progression engine uses them so suggested loads are always physically settable.
+- `initial_queue_generated_at`: when the first successful onboarding queue replacement was committed; a null value means the onboarding free retry is still available
+- `queue_generation_request_id`, `queue_generation_started_at`: server-managed claim token and timestamp for the queue replacement currently being generated; claims expire after 15 minutes
+- `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL
 - `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state
 - `deletion_scheduled_at`: when non-null, the account is scheduled for hard deletion at this timestamp. Signing back in before then clears the flag. A scheduled job (`purge_expired_deletions()`) purges expired rows, which cascades to every user-owned table.
 
@@ -70,9 +74,18 @@ Notes:
 
 - profile rows are auto-created when a new auth user is created
 - this table is one of the most important sources of generation context
+- onboarding profile and baseline writes go through `complete_onboarding(...)`, which locks the profile, validates the payload, and commits both records atomically; repeated calls after completion return the existing profile unchanged
+- authenticated clients cannot write the queue claim or initial-generation marker directly
 - account deletion is soft with a 14-day grace period — see `request_account_deletion`, `cancel_account_deletion`, `purge_expired_deletions`
+- after the grace period, `purge_expired_deletions()` deletes the matching `auth.users` row; foreign-key cascades remove the profile and user-owned app data
+- no separate legal, security, or fraud-retention archive is implemented in this repository; external store purchase and billing records are outside this database purge
 
 ### `strength_baselines`
+
+Settings replace strength baselines atomically through `save_strength_baselines`.
+Bodyweight repetitions may be zero (known inability); unanswered exercises have
+no row. Weighted entries require both load and positive whole repetitions.
+Loads are always stored in kilograms, regardless of the display unit.
 
 Purpose:
 
@@ -112,6 +125,7 @@ Relationships:
 Notes:
 
 - important for biasing future generation without fully manual planning
+- `preferred` rows are the existing favorite-exercise signal and are surfaced in exercise picker search as favorites
 
 ## Workout Planning And Execution
 
@@ -236,6 +250,7 @@ Important columns:
 - `regeneration_count`
 - `regeneration_feedback`: JSON array of manual regeneration attempts and optional user feedback
 - `user_edits`
+- `generation_attempt_id`: server-owned lease for the generation currently replacing this row
 
 Relationships:
 
@@ -245,6 +260,32 @@ Notes:
 
 - unique per user + queue position
 - supports a pre-generated workout flow instead of generating only at the moment of use
+- queue replacement generation keeps the current rows untouched while new workouts are generated; `replace_pending_workouts(...)` swaps the full ready queue in one transaction only after every requested workout succeeds
+- `claim_queue_generation(...)` serializes replacements per profile and allows stale claims to be reclaimed after 15 minutes; a completed onboarding queue returns an idempotent already-ready result
+- regeneration claims are owned by a durable `generation_attempts` row; a stale claim is recovered after five minutes and late responses cannot overwrite the recovered row
+
+### `generation_attempts`
+
+Purpose:
+
+- durable request correlation, stage timing, fallback outcome, and recovery state for every workout generation attempt
+
+Important columns:
+
+- `request_id`, `user_id`, `function_name`, `trigger`
+- `pending_workout_id`: optional target slot; queue workers may reserve this UUID before inserting the pending row
+- `status`: `running`, `succeeded`, `succeeded_with_fallback`, `rejected`, `failed`, or `timed_out`
+- `stage`, `stages`: current stage and an append-only JSON array of stage timing/details entries
+- `started_at`, `updated_at`, `finished_at`, `duration_ms`
+- `generation_source`, `fallback_reason`, `error_code`, `error_message`, `final_output`
+
+Notes:
+
+- service-role edge functions create, stage, finish, and commit attempts; admins can read them through RLS
+- `(user_id, request_id)` is unique for parent attempts and `(user_id, request_id, pending_workout_id)` is unique for child/slot attempts, making retries idempotent while allowing queue children to share a request ID
+- `complete_regeneration_attempt(...)` verifies the attempt is still running and owns the target row before atomically saving the generated workout, clearing `user_edits`, and finishing the attempt
+- `finish_generation_attempt(...)` atomically rolls failed, rejected, and timed-out attempts back to `ready` when prior workout data exists (otherwise `failed`) and clears the generation lease
+- `recover_stale_generation_attempts(...)` fences attempts older than five minutes, restores pending rows to `ready` when prior data exists (otherwise `failed`), releases legacy queue leases, and repairs legacy `queued`, `generating`, and `regenerating` rows without an attempt
 
 ### `workout_sessions`
 
@@ -310,6 +351,13 @@ Notes:
 - deleting a logged exercise occurrence cascades to its `session_sets` and
   `set_logs`, removing it from statistics, progression, and generated-workout
   history
+- completed exercise deletion goes through
+  `delete_completed_session_exercise(UUID)`, which verifies ownership and
+  completed status before performing the cascade
+- completed exercise edits go through `update_completed_exercise_sets(UUID,
+JSONB)`. The RPC verifies ownership and completed status, then replaces the
+  exercise's completed set/log rows transactionally so adding, removing, or
+  changing sets cannot leave partial history.
 
 ### `session_sets`
 
@@ -440,6 +488,7 @@ Notes:
 - a partial unique index allows only one protection event per user + covered week
 - protected weeks are counted alongside qualifying completed workout weeks by `get_streak_status`
 - qualifying workout weeks require a completed `workout_sessions` row with at least one completed `set_logs` row
+- the mobile total-workouts count does not yet apply the completed-set requirement; see the qualifying-workout discrepancy in `docs/superpowers/specs/2026-09-10-streak-protection-experience-design.md` (SWE-139)
 
 ## Operational / Product Support
 
@@ -489,6 +538,57 @@ Notes:
 - writes are intended to happen through server-side logic / RPCs
 - `check_generation_allowance` may be called by the owning authenticated user or by `service_role`; `record_generation_usage` and `update_subscription_status` are service-role-only because they mutate entitlement/accounting state through `SECURITY DEFINER` RPCs
 
+### `llm_generation_logs`
+
+Purpose:
+
+- raw LLM request/response traces for every workout generation, used to debug bad model output (for example exercises generated with a `0` kg load)
+
+Important columns:
+
+- `user_id`, `pending_workout_id`: generation context (nullable)
+- `attempt_id`, `request_id`: durable generation correlation (nullable for historical log rows)
+- `function_name`: which edge function triggered the call (`generate-workout`, `generate-next-workout`)
+- `model`: OpenRouter model used
+- `status`: `success`, `parse_error`, `api_error`, or `timeout`
+- `request_settings`: effective model request options (nullable for historical rows)
+- `provider`: provider selected by OpenRouter, when returned
+- `finish_reason`: provider termination reason such as `stop` or `length`
+- `reasoning_tokens`: provider-reported hidden reasoning tokens
+- `cost_usd`: provider-reported request cost in USD
+- `failure_code`: stable application failure category used to explain fallback
+- `request_messages`: full system + user prompt sent to the model
+- `raw_response`: unmodified OpenRouter JSON response
+- `parsed_content`: the JSON parsed out of the model content before app-level enrichment
+- `reasoning_content`: separate reasoning/chain-of-thought field returned by the model, when present
+- `error_message`, `duration_ms`, `prompt_tokens`, `completion_tokens`
+
+Relationships:
+
+- optionally tied to a profile and a pending workout
+- optionally tied to a durable generation attempt
+
+Notes:
+
+- written exclusively by edge functions via the service role key
+- RLS is enabled with an admin-only SELECT policy; regular users can never read generation logs
+- surfaced in the admin dashboard (`apps/admin`) under Generations
+- nullable diagnostics remain compatible with historical rows; the migration
+  backfills provider, finish reason, reasoning tokens, and cost only when those
+  values are already present in the retained raw response
+
+The admin-only `llm_generation_metrics(...)` RPC aggregates model validity,
+provider latency (average, p50, and p95), linked fallback attempts, token
+usage, and cost in the database. It is `SECURITY INVOKER`, so the existing
+admin-only RLS policies remain the data boundary.
+
+## Admin Access
+
+- `profiles.is_admin` grants access to the admin dashboard and admin-only RLS policies
+- the `public.is_admin()` helper function is used by all admin policies (`exercises`, `exercise_translations`, `exercise_media_assets`, `llm_generation_logs`, and storage writes to the `exercise-media` bucket)
+- admins are promoted manually: `UPDATE public.profiles SET is_admin = TRUE WHERE id = '<user-uuid>';`
+- the admin dashboard lives in `apps/admin` and authenticates with the same Supabase project as the mobile app; RLS remains the security boundary even for admins
+
 ## Relationships Summary
 
 ```text
@@ -501,6 +601,7 @@ auth.users
 
 profiles
   -> pending_workouts
+  -> generation_attempts
   -> strength_baselines
   -> exercise_preferences
   -> body_measurements
@@ -522,8 +623,15 @@ When database-related work touches behavior, also inspect `supabase/migrations` 
 - progression history RPC (`get_exercise_progression_history`)
 - stats RPCs
 - exercise detail RPCs
+- editable exercise-history RPCs (`get_editable_exercise_history` and
+  `update_completed_exercise_sets`) and verified exercise deletion RPC
+  (`delete_completed_session_exercise`)
 - measurement history RPCs
 - generation allowance / subscription RPCs
+- onboarding completion and queue replacement RPCs (`complete_onboarding`, `claim_queue_generation`, `release_queue_generation`, `replace_pending_workouts`)
+- admin aggregate metrics (`generation_attempt_metrics`) respect the same admin-only attempt read policy
+- model observability aggregates (`llm_generation_metrics`) respect admin-only model-log and attempt RLS
+- generation recovery and fencing RPCs (`claim_generation_attempt`, `record_generation_attempt_stage`, `finish_generation_attempt`, `complete_regeneration_attempt`, `complete_pending_workout_attempt`, `recover_stale_generation_attempts`)
 - streak protection RPCs
 
 Those functions are part of the practical database interface even though they are not tables.
@@ -554,3 +662,30 @@ Invariants:
 - authenticated callers can request only their own history; `service_role` retains server-side access for generation
 - `rpe` may be null on older logs; missing RPE must not break consumers
 - progression decisions that hold load/reps/duration when any completed working-set RPE is `>= 9` rely on this RPC surface
+
+### `get_stats_personal_records`
+
+Purpose:
+
+- returns all-time personal-record statistics for each exercise in the authenticated user's completed workout history
+
+Return shape (per exercise):
+
+- `exercise_id`
+- `exercise_name`
+- `max_weight_kg`: greatest completed working-set load
+- `max_weight_reps`: reps from the exact working set selected for `max_weight_kg`
+- `max_reps`: greatest completed working-set reps
+- `max_reps_weight_kg`: load from the exact working set selected for `max_reps`
+- `max_volume_set_kg`: greatest completed working-set load × reps
+- `est_1rm_kg`: greatest Epley estimate among completed working sets with 1–10 reps (nullable)
+
+Invariants:
+
+- only `workout_sessions.status = 'completed'`, `set_logs.completed = true`, non-null actual load/reps, and `session_sets.set_type = 'working'` contribute; warm-up sets, active/incomplete sessions, incomplete logs, and other users' data are excluded
+- the paired values come from the same exact selected set as their corresponding maximum; they are not independent maxima
+- max-weight selection orders load descending, reps descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
+- max-reps selection orders reps descending, load descending, workout `completed_at` descending (`NULLS LAST`), then set-log ID descending
+- callers must be authenticated and receive only their own records; an authenticated user with no eligible sets receives `[]`
+
+Onboarding supports `goal_type.build_muscle` and `frequency_type.1`. New submissions explicitly supply session duration and may supply a training-style override and optional `training_custom_prompt` (200 characters).
