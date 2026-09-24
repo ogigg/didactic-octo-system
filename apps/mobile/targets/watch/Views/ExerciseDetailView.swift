@@ -32,6 +32,22 @@ struct ExerciseDetailView: View {
                     SetLoggerView()
                         .frame(maxWidth: .infinity)
                         .frame(height: textSize > .large ? nil : 38)
+
+                    // With automatic rest presentation off, keep the running
+                    // rest one tap away from the set logger.
+                    if !coordinator.watchSettings.autoShowRestTimer,
+                       let rest = coordinator.snapshot?.rest {
+                        let remaining = rest.remainingSeconds(at: coordinator.now)
+                        Button { coordinator.navigate(.rest) } label: {
+                            Label(String(format: "%d:%02d", remaining / 60, remaining % 60), systemImage: "timer")
+                                .font(.caption2)
+                                .monospacedDigit()
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(WatchTheme.primary)
+                        .accessibilityLabel(watchLocalizedFormat("Open rest timer, %lld seconds remaining", remaining))
+                    }
                 } else {
                     Text(String(localized: "No set is ready"))
                         .font(.headline)
@@ -86,8 +102,10 @@ struct ExerciseCompleteView: View {
             onPrimary: {
                 if coordinator.hasNextExercise {
                     coordinator.showNextExercise()
-                } else {
+                } else if coordinator.watchSettings.confirmEndWorkout {
                     finishConfirmation = true
+                } else {
+                    coordinator.finishWorkout()
                 }
             }
         ) {

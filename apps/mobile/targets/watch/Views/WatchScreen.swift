@@ -128,7 +128,7 @@ private struct WatchHeader: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             switch action {
-            case .heartRate:
+            case .heartRate where coordinator.watchSettings.showHeartRate:
                 Button {
                     coordinator.navigate(.heartRate)
                 } label: {
@@ -162,7 +162,7 @@ private struct WatchHeader: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Sync status"))
-            case .none:
+            case .none, .heartRate:
                 Color.clear
                     .frame(
                         width: WatchLayout.headerButtonSize,

@@ -6,6 +6,7 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
   private let defaultsKey = "WatchBridge.acknowledgedCommandIDs"
   private let pendingDefaultsKey = "WatchBridge.pendingActions"
   private let pendingContextDefaultsKey = "WatchBridge.pendingApplicationContext"
+  private let pendingSettingsDefaultsKey = "WatchBridge.pendingSettingsUserInfo"
   private let stateLock = NSRecursiveLock()
   private var pendingContextGeneration: UInt64 = 0
 
@@ -23,6 +24,15 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
       stateLock.lock()
       defer { stateLock.unlock() }
       UserDefaults.standard.set(newValue, forKey: pendingContextDefaultsKey)
+    }
+  }
+
+  var pendingSettingsUserInfo: [String: Any]? {
+    get {
+      UserDefaults.standard.dictionary(forKey: pendingSettingsDefaultsKey)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: pendingSettingsDefaultsKey)
     }
   }
 
@@ -89,8 +99,34 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     } catch {
       // Keep the latest snapshot persisted. Watch installation and
       // connectivity state can change after the phone app has launched.
-      print("[WatchBridge] pending application context failed:", error)
+      let code = (error as NSError).code
+      print("[WatchBridge] pending application context failed reason=\(code)")
     }
+  }
+
+  func queueSettingsUserInfo(
+    _ userInfo: [String: Any],
+    on session: WCSession
+  ) {
+    pendingSettingsUserInfo = userInfo
+    flushPendingSettingsUserInfo(on: session)
+  }
+
+  func flushPendingSettingsUserInfo(on session: WCSession) {
+    guard session.activationState == .activated else {
+      session.activate()
+      return
+    }
+    guard session.isPaired, session.isWatchAppInstalled,
+      let pendingSettingsUserInfo
+    else {
+      return
+    }
+
+    // transferUserInfo is the durable queue. Once WatchConnectivity accepts
+    // the dictionary, its queue owns retry/reconnect delivery.
+    session.transferUserInfo(pendingSettingsUserInfo)
+    self.pendingSettingsUserInfo = nil
   }
 
   func acknowledge(commandID: String, on session: WCSession) {
@@ -140,11 +176,13 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
     error: Error?
   ) {
     if let error {
-      print("[WatchBridge] activation failed:", error)
+      let code = (error as NSError).code
+      print("[WatchBridge] activation failed reason=\(code)")
       return
     }
     if activationState == .activated {
       flushPendingApplicationContext(on: session)
+      flushPendingSettingsUserInfo(on: session)
       flushAcknowledgements(on: session)
     }
   }
@@ -157,6 +195,7 @@ final class PhoneSessionDelegate: NSObject, WCSessionDelegate {
 
   func sessionWatchStateDidChange(_ session: WCSession) {
     flushPendingApplicationContext(on: session)
+    flushPendingSettingsUserInfo(on: session)
     flushAcknowledgements(on: session)
   }
 

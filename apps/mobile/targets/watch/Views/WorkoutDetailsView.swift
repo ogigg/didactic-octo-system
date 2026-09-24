@@ -24,8 +24,10 @@ struct WorkoutDetailsView: View {
                     SyncStatusSummary()
                     Button(String(localized: "Sync now")) { coordinator.connectivity.requestState() }
                         .buttonStyle(.bordered)
-                    Button(String(localized: "Heart rate")) { coordinator.navigate(.heartRate) }
-                        .buttonStyle(.bordered)
+                    if coordinator.watchSettings.showHeartRate {
+                        Button(String(localized: "Heart rate")) { coordinator.navigate(.heartRate) }
+                            .buttonStyle(.bordered)
+                    }
 
                     if coordinator.healthSaveFailed {
                         Button(String(localized: "Try Apple Health again")) {
@@ -97,7 +99,8 @@ struct WorkoutDetailsView: View {
                     .font(.caption)
 
 
-                if let previous = set.previousDisplay {
+                if coordinator.watchSettings.showPreviousPerformance,
+                   let previous = set.previousDisplay {
                     Text(
                         watchLocalizedFormat(
                             "Previous %@",

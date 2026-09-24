@@ -54,6 +54,7 @@ const MAPPING = {
   "heart.fill": "favorite",
   "hand.thumbsdown": "thumb-down",
   "heart.text.square": "monitor-heart",
+  applewatch: "watch",
   "gearshape.fill": "settings",
   "lock.fill": "lock",
   globe: "language",

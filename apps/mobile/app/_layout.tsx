@@ -254,6 +254,10 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="watch-settings"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="feedback"
                   options={{ headerShown: false }}
                 />

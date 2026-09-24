@@ -1,16 +1,28 @@
 import { Platform } from "react-native";
 
-import type { WatchActionEnvelope, WatchSyncEnvelope } from "./types";
+import type {
+  WatchActionEnvelope,
+  WatchSettingsEnvelope,
+  WatchSyncEnvelope,
+} from "./types";
 
 export type {
   WatchActionEnvelope,
   WatchActionPayload,
+  WatchSettingsEnvelope,
+  WatchSettingsSnapshot,
   WatchSyncEnvelope,
 } from "./types";
-export { WATCH_SYNC_PROTOCOL_VERSION } from "./types";
+export {
+  WATCH_SYNC_PROTOCOL_VERSION,
+  type RestAdjustmentSeconds,
+  type RestCompletionBehavior,
+  type RestWarningSeconds,
+} from "./types";
 
 interface NativeWatchBridge {
   sendWorkoutState(state: Record<string, unknown>): Promise<void>;
+  sendWatchSettings(state: Record<string, unknown>): Promise<void>;
   drainPendingActions(): Promise<Record<string, unknown>[]>;
   acknowledgeCommand(commandID: string): Promise<void>;
   isWatchPaired(): boolean;
@@ -54,6 +66,34 @@ export async function sendWorkoutState(
   await getNative()?.sendWorkoutState(
     envelope as unknown as Record<string, unknown>
   );
+}
+
+/**
+ * Deliver settings through the durable user-info path. This deliberately has
+ * a separate native method so settings can never become a second application
+ * context writer.
+ */
+export async function sendWatchSettings(
+  envelope: WatchSettingsEnvelope
+): Promise<void> {
+  await getNative()?.sendWatchSettings(
+    envelope as unknown as Record<string, unknown>
+  );
+}
+
+export interface WatchStatus {
+  paired: boolean;
+  installed: boolean;
+  reachable: boolean;
+}
+
+/** Re-read the current synchronous WCSession flags for status screens. */
+export async function refreshWatchStatus(): Promise<WatchStatus> {
+  return {
+    paired: isWatchPaired(),
+    installed: isWatchAppInstalled(),
+    reachable: isWatchReachable(),
+  };
 }
 
 export function isWatchPaired(): boolean {
