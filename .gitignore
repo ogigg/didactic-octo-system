@@ -36,5 +36,7 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+# App Store Connect API keys belong in apps/mobile/fastlane/ and never in git
+*.p8
 .worktrees/
 supabase/functions.env
