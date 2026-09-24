@@ -62,6 +62,17 @@ export function computeStreakWeeks(
 }
 
 /**
+ * Whether `resolveStreakWeeks` reads the local streak: right after a workout,
+ * or when the server has no streak. The loading flag uses the same rule.
+ */
+export function readsLocalStreak(input: {
+  protectedStreak: number | null;
+  hasJustFinishedWorkout: boolean;
+}): boolean {
+  return input.hasJustFinishedWorkout || input.protectedStreak === null;
+}
+
+/**
  * Prefer the server streak (it applies freezes and restarts). While a freshly
  * finished workout is not yet reflected server-side, the local streak may be
  * one week ahead, so take the larger value only in that window.
@@ -73,11 +84,14 @@ export function resolveStreakWeeks(input: {
 }): number | null {
   const { protectedStreak, localStreak, hasJustFinishedWorkout } = input;
 
+  if (!readsLocalStreak(input)) {
+    return protectedStreak;
+  }
   if (hasJustFinishedWorkout) {
     return Math.max(localStreak ?? 0, protectedStreak ?? 0);
   }
 
-  return protectedStreak ?? localStreak;
+  return localStreak;
 }
 
 // Total workouts intentionally counts every `completed` session. The streak
@@ -118,11 +132,13 @@ export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
     staleTime: Infinity,
   });
   const streakStatusQuery = useStreakStatus();
+  const protectedStreak = streakStatusQuery.data?.current_streak_weeks ?? null;
+  const hasJustFinishedWorkout = currentWorkoutFinishedAtMs !== undefined;
 
   const streakWeeks = useMemo(
     () =>
       resolveStreakWeeks({
-        protectedStreak: streakStatusQuery.data?.current_streak_weeks ?? null,
+        protectedStreak,
         // A just-finished workout still counts for this week when the
         // history fetch failed.
         localStreak:
@@ -132,18 +148,23 @@ export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
                 currentWorkoutFinishedAtMs
               )
             : null,
-        hasJustFinishedWorkout: currentWorkoutFinishedAtMs !== undefined,
+        hasJustFinishedWorkout,
       }),
-    [currentWorkoutFinishedAtMs, data, streakStatusQuery.data]
+    [currentWorkoutFinishedAtMs, data, hasJustFinishedWorkout, protectedStreak]
   );
+
+  // Separate flags so a slow streak RPC never hides a loaded count (SWE-181).
+  // The streak waits for the history only when it reads the local fallback.
+  const isStreakLoading =
+    streakStatusQuery.isLoading ||
+    (isLoading &&
+      readsLocalStreak({ protectedStreak, hasJustFinishedWorkout }));
 
   return {
     totalWorkouts: data?.totalWorkouts ?? null,
     streakWeeks,
-    isLoading: isLoading || streakStatusQuery.isLoading,
-    // Separate flags so a slow streak RPC doesn't hide a loaded count.
     isTotalLoading: isLoading,
-    isStreakLoading: streakStatusQuery.isLoading,
+    isStreakLoading,
     refetch,
   };
 }

@@ -171,6 +171,17 @@ function mockWorkoutSessions(
   }));
 }
 
+// The workout-stats query never settles, so it stays loading.
+function mockPendingWorkoutSessions() {
+  const pending = new Promise<never>(() => {});
+  mockFrom.mockImplementation(() => ({
+    select: (_columns: string, options?: { head?: boolean }) =>
+      options?.head
+        ? { eq: () => pending }
+        : { eq: () => ({ not: () => ({ order: () => pending }) }) },
+  }));
+}
+
 const activeQueryClients: QueryClient[] = [];
 
 function createWrapper() {
@@ -205,7 +216,7 @@ describe("useWorkoutStats", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.isTotalLoading).toBe(false));
 
     expect(result.current.totalWorkouts).toBe(0);
     expect(result.current.streakWeeks).toBe(0);
@@ -231,7 +242,7 @@ describe("useWorkoutStats", () => {
         wrapper: createWrapper(),
       });
 
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await waitFor(() => expect(result.current.isTotalLoading).toBe(false));
 
       expect(result.current.totalWorkouts).toBeNull();
       expect(result.current.streakWeeks).toBeNull();
@@ -248,7 +259,7 @@ describe("useWorkoutStats", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.isTotalLoading).toBe(false));
 
     expect(result.current.totalWorkouts).toBeNull();
     expect(result.current.streakWeeks).toBe(1);
@@ -266,7 +277,47 @@ describe("useWorkoutStats", () => {
 
     expect(result.current.totalWorkouts).toBe(5);
     expect(result.current.isStreakLoading).toBe(true);
-    expect(result.current.isLoading).toBe(true);
+  });
+
+  it("shows the server streak while the history is still loading", () => {
+    mockUseStreakStatus.mockReturnValue({
+      data: { current_streak_weeks: 3 },
+      isLoading: false,
+    });
+    mockPendingWorkoutSessions();
+
+    const { result } = renderHook(() => useWorkoutStats(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isTotalLoading).toBe(true);
+    expect(result.current.isStreakLoading).toBe(false);
+    expect(result.current.streakWeeks).toBe(3);
+  });
+
+  it("waits for the history when the server has no streak to show", () => {
+    mockUseStreakStatus.mockReturnValue({ data: undefined, isLoading: false });
+    mockPendingWorkoutSessions();
+
+    const { result } = renderHook(() => useWorkoutStats(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isStreakLoading).toBe(true);
+  });
+
+  it("waits for the history right after a workout, even with a server streak", () => {
+    mockUseStreakStatus.mockReturnValue({
+      data: { current_streak_weeks: 3 },
+      isLoading: false,
+    });
+    mockPendingWorkoutSessions();
+
+    const { result } = renderHook(() => useWorkoutStats(Date.now()), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isStreakLoading).toBe(true);
   });
 
   it("replaces a failed count with real data after a successful refetch", async () => {
@@ -279,7 +330,7 @@ describe("useWorkoutStats", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.isTotalLoading).toBe(false));
     expect(result.current.totalWorkouts).toBeNull();
 
     mockWorkoutSessions({ count: 7, error: null }, { data: [], error: null });
@@ -313,6 +364,6 @@ describe("useWorkoutStats", () => {
 
     expect(mockFrom.mock.calls.length).toBeGreaterThan(fetchCountBefore);
     expect(result.current.totalWorkouts).toBe(4);
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isTotalLoading).toBe(false);
   });
 });

@@ -54,8 +54,14 @@ jest.mock("@/hooks/use-streak-protection", () => ({
   useStreakStatus: () => ({ data: mockStreakStatus }),
 }));
 
+let mockWorkoutStats: {
+  totalWorkouts: number | null;
+  streakWeeks: number | null;
+  isTotalLoading: boolean;
+  isStreakLoading: boolean;
+};
 jest.mock("@/hooks/use-workout-stats", () => ({
-  useWorkoutStats: () => ({ totalWorkouts: 12, streakWeeks: 3 }),
+  useWorkoutStats: () => mockWorkoutStats,
 }));
 
 jest.mock("@/hooks/use-exercises-query", () => ({
@@ -154,6 +160,12 @@ describe("useHomeWidgets", () => {
       auto_apply_enabled: true,
     };
     mockWorkoutState = { isActive: false, workoutName: "", ownerUserId: null };
+    mockWorkoutStats = {
+      totalWorkouts: 12,
+      streakWeeks: 3,
+      isTotalLoading: false,
+      isStreakLoading: false,
+    };
     appStateListeners = [];
     jest
       .spyOn(AppState, "addEventListener")
@@ -341,6 +353,29 @@ describe("useHomeWidgets", () => {
       message: "Sign in to Sweaty to see your workouts",
     });
     expect(publishedSnapshots()[1]?.summaries[0]?.streak.weeks).toBe(0);
+  });
+
+  it("keeps the previous snapshot until the streak and count finish loading", async () => {
+    // Local fallback streak, before the server streak arrives.
+    mockWorkoutStats = {
+      ...mockWorkoutStats,
+      streakWeeks: 1,
+      isStreakLoading: true,
+    };
+    const { rerender } = renderUseHomeWidgets();
+
+    await wait(400);
+    expect(mockSetWidgetSnapshot).not.toHaveBeenCalled();
+
+    mockWorkoutStats = {
+      ...mockWorkoutStats,
+      streakWeeks: 3,
+      isStreakLoading: false,
+    };
+    rerender(undefined);
+
+    await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(1));
+    expect(publishedSnapshots()[0]?.summaries[0]?.streak.weeks).toBe(3);
   });
 
   it("waits for auth to initialize before publishing", async () => {
