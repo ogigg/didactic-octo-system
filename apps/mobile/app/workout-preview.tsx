@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +19,10 @@ import { ExerciseImage } from "@/components/exercise/exercise-image";
 import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import { ExercisePreferenceSheet } from "@/components/exercise/exercise-preference-sheet";
 import { Button } from "@/components/ui/button";
+import {
+  AppBottomSheet,
+  type AppBottomSheetHandle,
+} from "@/components/ui/app-bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { ProgressionPill } from "@/components/workout/progression-pill";
@@ -35,19 +38,28 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import {
   useEditPendingWorkout,
+  useRecoverStalePendingWorkouts,
   useRegenerateWorkout,
   useStartPendingWorkout,
   useWorkoutQueueData,
 } from "@/hooks/use-workout-queue";
 import type { ExercisePreferenceValue } from "@/lib/api/exercise-preferences";
+import {
+  GenerationLimitReachedError,
+  WorkoutGenerationError,
+} from "@/lib/api/pending-workouts";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
+import { getWorkingSetLabel } from "@/lib/exercise-set-structure";
+import { applyPendingExerciseSwap } from "@/lib/pending-exercise-swap";
 import { getPendingWorkoutRegenerationEligibility } from "@/lib/pending-workout-regeneration";
+import { isPendingWorkoutStale } from "@/lib/pending-workout-recovery";
 import {
   getProgressionReasonTranslationKey,
   type ProgressionReasonCode,
 } from "@/lib/progression-reasoning";
 import { trackEvent } from "@/lib/track-event";
+import { estimateWorkoutMinutes } from "@/lib/workout-duration-estimate";
 import { usePendingSwapStore } from "@/stores/pending-swap-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
 import type { WorkoutExerciseReasoning } from "@/stores/workout-store";
@@ -83,25 +95,6 @@ interface LocalSet {
   target_duration_seconds?: number | null;
 }
 
-interface LocalWarmup {
-  duration_seconds: number;
-}
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-function estimateMinutes(
-  exercises: LocalExercise[],
-  warmup: LocalWarmup | null
-): number {
-  const totalSets = exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
-  const avgRest =
-    exercises.length > 0 ? exercises[0].rest_duration_seconds : 90;
-  const exerciseSeconds = totalSets * 45 + (totalSets - 1) * avgRest;
-  return Math.round((exerciseSeconds + (warmup?.duration_seconds ?? 0)) / 60);
-}
-
 // -----------------------------------------------------------------------------
 // Screen
 // -----------------------------------------------------------------------------
@@ -120,6 +113,8 @@ export default function WorkoutPreviewScreen() {
   const primary = useThemeColor({}, "primary");
   const primarySurface = useThemeColor({}, "primarySurface");
   const primaryContainer = useThemeColor({}, "primaryContainer");
+  const error = useThemeColor({}, "error");
+  const destructiveSurface = useThemeColor({}, "destructiveSurface");
   const backgroundElevated = useThemeColor({}, "backgroundElevated");
   const border = useThemeColor({}, "border");
   const inputFill = useThemeColor({}, "inputFill");
@@ -135,6 +130,7 @@ export default function WorkoutPreviewScreen() {
   // Mutations
   const startMutation = useStartPendingWorkout();
   const regenerateMutation = useRegenerateWorkout();
+  const recoverMutation = useRecoverStalePendingWorkouts();
   const editMutation = useEditPendingWorkout();
 
   // Local edit state
@@ -216,7 +212,7 @@ export default function WorkoutPreviewScreen() {
           : []
       );
     }
-  }, [workout?.workout_data]);
+  }, [workout?.user_edits, workout?.workout_data]);
 
   useEffect(() => {
     openedAtRef.current = Date.now();
@@ -233,7 +229,9 @@ export default function WorkoutPreviewScreen() {
       if (!workout) return;
 
       trackEvent("workout_preview_viewed", {
+        workout_id: workout.id,
         queue_position: workout.queue_position,
+        generation_source: workout.generation_source,
         time_on_screen_ms: Math.max(0, Date.now() - openedAtRef.current),
       });
     };
@@ -246,14 +244,7 @@ export default function WorkoutPreviewScreen() {
         setLocalExercises((prev) =>
           prev.map((ex, i) =>
             i === swapIndexRef.current
-              ? {
-                  ...ex,
-                  exercise_id: swapResult.id,
-                  exercise_name: swapResult.name,
-                  exercise_type: swapResult.exerciseType ?? ex.exercise_type,
-                  image: swapResult.image ?? null,
-                  reasoning: null,
-                }
+              ? applyPendingExerciseSwap(ex, swapResult)
               : ex
           )
         );
@@ -300,6 +291,49 @@ export default function WorkoutPreviewScreen() {
     },
     [isRegenerating, regenerateMutation, workout]
   );
+
+  const regenerationError =
+    regenerateMutation.isError &&
+    regenerateMutation.variables?.pendingWorkout.id === workout?.id
+      ? regenerateMutation.error
+      : null;
+  const recoveryError = recoverMutation.isError ? recoverMutation.error : null;
+  const visibleError = recoveryError ?? regenerationError;
+  const isStaleWorkout = workout ? isPendingWorkoutStale(workout) : false;
+  const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
+    workout?.last_regenerated_at ?? null
+  );
+  const isRetryableFailedWorkout =
+    workout?.status === "failed" && regenerationEligibility.canRegenerate;
+  const handleRegenerationRetry = useCallback(() => {
+    if (!workout) return;
+
+    if (recoveryError || isRegenerating || isStaleWorkout) {
+      recoverMutation.mutate();
+      return;
+    }
+
+    submitRegeneration(
+      regenerateMutation.variables?.pendingWorkout.id === workout.id
+        ? regenerateMutation.variables.feedback
+        : undefined
+    );
+  }, [
+    isRegenerating,
+    isStaleWorkout,
+    recoveryError,
+    recoverMutation,
+    regenerateMutation,
+    submitRegeneration,
+    workout,
+  ]);
+  const regenerationErrorRetryable =
+    !(regenerationError instanceof GenerationLimitReachedError) &&
+    (regenerationError instanceof WorkoutGenerationError
+      ? regenerationError.retryable
+      : true);
+  const canRetryRegeneration =
+    regenerationErrorRetryable && regenerationEligibility.canRegenerate;
 
   const persistEdits = useCallback(() => {
     if (!workout || dirtyEditTypes.length === 0 || isRegenerating) return;
@@ -380,6 +414,79 @@ export default function WorkoutPreviewScreen() {
               <Text style={[Typography.caption, { color: textDisabled }]}>
                 {t("empty.subtitle")}
               </Text>
+              {visibleError ? (
+                <View
+                  style={[
+                    styles.statusCard,
+                    {
+                      backgroundColor: destructiveSurface,
+                      borderColor: error,
+                    },
+                  ]}
+                  accessibilityRole="alert"
+                >
+                  <Text style={[Typography.titleSm, { color: error }]}>
+                    {recoveryError
+                      ? t("status.recoveryFailedTitle")
+                      : t("status.regenerationFailedTitle")}
+                  </Text>
+                  <Text style={[Typography.caption, { color: textSecondary }]}>
+                    {recoveryError
+                      ? t("status.recoveryFailedMessage")
+                      : t("status.regenerationFailedMessage")}
+                  </Text>
+                  {visibleError instanceof WorkoutGenerationError &&
+                  visibleError.request_id ? (
+                    <Text style={[Typography.micro, { color: textMuted }]}>
+                      {t("status.referenceId", {
+                        id: visibleError.request_id,
+                      })}
+                    </Text>
+                  ) : null}
+                  {canRetryRegeneration || isStaleWorkout || recoveryError ? (
+                    <Button
+                      label={
+                        recoveryError
+                          ? t("status.retryRecovery")
+                          : t("status.retryRegeneration")
+                      }
+                      onPress={handleRegenerationRetry}
+                      variant="secondary"
+                      disabled={
+                        regenerateMutation.isPending ||
+                        recoverMutation.isPending
+                      }
+                    />
+                  ) : null}
+                </View>
+              ) : isStaleWorkout || isRetryableFailedWorkout ? (
+                <View
+                  style={[
+                    styles.statusCard,
+                    {
+                      backgroundColor: primaryContainer,
+                      borderColor: border,
+                    },
+                  ]}
+                >
+                  <Text style={[Typography.titleSm, { color: primary }]}>
+                    {isRetryableFailedWorkout
+                      ? t("status.regenerationFailedTitle")
+                      : t("status.regeneratingTitle")}
+                  </Text>
+                  <Text style={[Typography.caption, { color: textSecondary }]}>
+                    {isRetryableFailedWorkout
+                      ? t("status.regenerationFailedMessage")
+                      : t("status.regeneratingMessage")}
+                  </Text>
+                  <Button
+                    label={t("status.retryRegeneration")}
+                    onPress={handleRegenerationRetry}
+                    variant="secondary"
+                    disabled={recoverMutation.isPending}
+                  />
+                </View>
+              ) : null}
             </View>
           </SafeAreaView>
         </SafeAreaProvider>
@@ -388,13 +495,11 @@ export default function WorkoutPreviewScreen() {
   }
 
   const warmup = workout.workout_data.warmup;
-  const estimatedMinutes = estimateMinutes(localExercises, warmup);
-  const regenerationEligibility = getPendingWorkoutRegenerationEligibility(
-    workout.last_regenerated_at
-  );
+  const estimatedMinutes = estimateWorkoutMinutes(localExercises, warmup);
   const regenerable = regenerationEligibility.canRegenerate && !isRegenerating;
   const canEdit = isEditing && !isRegenerating;
-  const showFooter = isNextUp || regenerable || isRegenerating;
+  const showFooter =
+    isNextUp || regenerable || isRegenerating || visibleError !== null;
 
   return (
     <KeyboardAvoidingView
@@ -491,7 +596,56 @@ export default function WorkoutPreviewScreen() {
               ]}
             />
 
-            {isRegenerating ? (
+            {visibleError ? (
+              <View
+                style={[
+                  styles.statusCard,
+                  {
+                    backgroundColor: destructiveSurface,
+                    borderColor: error,
+                  },
+                ]}
+                accessibilityRole="alert"
+              >
+                <View style={styles.statusCardHeader}>
+                  <View
+                    style={[styles.statusDot, { backgroundColor: error }]}
+                  />
+                  <Text style={[Typography.titleSm, { color: error }]}>
+                    {recoveryError
+                      ? t("status.recoveryFailedTitle")
+                      : t("status.regenerationFailedTitle")}
+                  </Text>
+                </View>
+                <Text style={[Typography.caption, { color: textSecondary }]}>
+                  {recoveryError
+                    ? t("status.recoveryFailedMessage")
+                    : t("status.regenerationFailedMessage")}
+                </Text>
+                {visibleError instanceof WorkoutGenerationError &&
+                visibleError.request_id ? (
+                  <Text style={[Typography.micro, { color: textMuted }]}>
+                    {t("status.referenceId", {
+                      id: visibleError.request_id,
+                    })}
+                  </Text>
+                ) : null}
+                {canRetryRegeneration || isStaleWorkout || recoveryError ? (
+                  <Button
+                    label={
+                      recoveryError
+                        ? t("status.retryRecovery")
+                        : t("status.retryRegeneration")
+                    }
+                    onPress={handleRegenerationRetry}
+                    variant="secondary"
+                    disabled={
+                      regenerateMutation.isPending || recoverMutation.isPending
+                    }
+                  />
+                ) : null}
+              </View>
+            ) : isRegenerating ? (
               <View
                 style={[
                   styles.statusCard,
@@ -512,6 +666,14 @@ export default function WorkoutPreviewScreen() {
                 <Text style={[Typography.caption, { color: textSecondary }]}>
                   {t("status.regeneratingMessage")}
                 </Text>
+                {isStaleWorkout ? (
+                  <Button
+                    label={t("status.retryRegeneration")}
+                    onPress={handleRegenerationRetry}
+                    variant="secondary"
+                    disabled={recoverMutation.isPending}
+                  />
+                ) : null}
               </View>
             ) : null}
 
@@ -623,7 +785,6 @@ export default function WorkoutPreviewScreen() {
             text={text}
             textSecondary={textSecondary}
             textMuted={textMuted}
-            background={backgroundElevated}
             border={border}
             inputFill={inputFill}
             primary={primary}
@@ -683,7 +844,6 @@ interface RegenerationFeedbackSheetProps {
   text: string;
   textSecondary: string;
   textMuted: string;
-  background: string;
   border: string;
   inputFill: string;
   primary: string;
@@ -702,140 +862,127 @@ function RegenerationFeedbackSheet({
   text,
   textSecondary,
   textMuted,
-  background,
   border,
   inputFill,
   primary,
   primarySurface,
   t,
 }: RegenerationFeedbackSheetProps) {
+  const sheetRef = useRef<AppBottomSheetHandle>(null);
   const trimmedFeedback = feedback.trim();
   const hasFeedback = trimmedFeedback.length > 0;
 
   return (
-    <Modal
+    <AppBottomSheet
+      ref={sheetRef}
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      closeAccessibilityLabel={t("regenerate.dismiss")}
+      testID="regeneration-feedback-sheet"
     >
-      <Pressable
-        style={styles.regenerationBackdrop}
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel={t("regenerate.dismiss")}
+      <ScrollView
+        style={styles.regenerationScroll}
+        contentContainerStyle={styles.regenerationSheet}
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        keyboardShouldPersistTaps="handled"
       >
-        <Pressable
-          style={[styles.regenerationSheet, { backgroundColor: background }]}
-          onPress={(event) => event.stopPropagation()}
-          accessibilityViewIsModal
+        <View
+          style={[styles.regenerationIcon, { backgroundColor: primarySurface }]}
         >
-          <View style={[styles.sheetHandle, { backgroundColor: textMuted }]} />
+          <IconSymbol name="sparkles" size={20} color={primary} />
+        </View>
 
-          <View
-            style={[
-              styles.regenerationIcon,
-              { backgroundColor: primarySurface },
-            ]}
-          >
-            <IconSymbol name="sparkles" size={20} color={primary} />
-          </View>
+        <Text style={[Typography.titleMd, { color: text }]}>
+          {t("regenerate.sheetTitle")}
+        </Text>
+        <Text
+          style={[
+            Typography.caption,
+            styles.regenerationSheetCopy,
+            { color: textSecondary },
+          ]}
+        >
+          {t("regenerate.sheetMessage")}
+        </Text>
 
-          <Text style={[Typography.titleMd, { color: text }]}>
-            {t("regenerate.sheetTitle")}
-          </Text>
-          <Text
-            style={[
-              Typography.caption,
-              styles.regenerationSheetCopy,
-              { color: textSecondary },
-            ]}
-          >
-            {t("regenerate.sheetMessage")}
-          </Text>
+        <TextInput
+          value={feedback}
+          onChangeText={onFeedbackChange}
+          placeholder={t("regenerate.feedbackPlaceholder")}
+          placeholderTextColor={textMuted}
+          multiline
+          maxLength={300}
+          textAlignVertical="top"
+          style={[
+            styles.feedbackInput,
+            {
+              backgroundColor: inputFill,
+              borderColor: hasFeedback ? primary : border,
+              color: text,
+            },
+          ]}
+          accessibilityLabel={t("regenerate.feedbackAccessibilityLabel")}
+        />
 
-          <TextInput
-            value={feedback}
-            onChangeText={onFeedbackChange}
-            placeholder={t("regenerate.feedbackPlaceholder")}
-            placeholderTextColor={textMuted}
-            multiline
-            maxLength={300}
-            textAlignVertical="top"
-            style={[
-              styles.feedbackInput,
+        <Text style={[Typography.micro, { color: textMuted }]}>
+          {t("regenerate.feedbackCount", {
+            count: trimmedFeedback.length,
+            max: 300,
+          })}
+        </Text>
+
+        <View style={styles.regenerationActions}>
+          <Pressable
+            onPress={() => sheetRef.current?.dismiss(onSubmit)}
+            accessibilityRole="button"
+            accessibilityLabel={t("regenerate.confirm")}
+            style={({ pressed }) => [
+              styles.regenerationPrimaryAction,
               {
-                backgroundColor: inputFill,
-                borderColor: hasFeedback ? primary : border,
-                color: text,
+                backgroundColor: primary,
+                opacity: pressed ? Opacity.pressed : 1,
               },
             ]}
-            accessibilityLabel={t("regenerate.feedbackAccessibilityLabel")}
-          />
-
-          <Text style={[Typography.micro, { color: textMuted }]}>
-            {t("regenerate.feedbackCount", {
-              count: trimmedFeedback.length,
-              max: 300,
-            })}
-          </Text>
-
-          <View style={styles.regenerationActions}>
-            <Pressable
-              onPress={onSubmit}
-              accessibilityRole="button"
-              accessibilityLabel={t("regenerate.confirm")}
-              style={({ pressed }) => [
-                styles.regenerationPrimaryAction,
-                {
-                  backgroundColor: primary,
-                  opacity: pressed ? Opacity.pressed : 1,
-                },
-              ]}
+          >
+            <IconSymbol name="arrow.clockwise" size={16} color="#FFFFFF" />
+            <Text
+              style={[Typography.titleSm, styles.regenerationPrimaryActionText]}
             >
-              <IconSymbol name="arrow.clockwise" size={16} color="#FFFFFF" />
-              <Text
-                style={[
-                  Typography.titleSm,
-                  styles.regenerationPrimaryActionText,
-                ]}
-              >
-                {hasFeedback
-                  ? t("regenerate.confirmWithFeedback")
-                  : t("regenerate.confirm")}
-              </Text>
-            </Pressable>
+              {hasFeedback
+                ? t("regenerate.confirmWithFeedback")
+                : t("regenerate.confirm")}
+            </Text>
+          </Pressable>
 
-            <Pressable
-              onPress={onSkip}
-              accessibilityRole="button"
-              accessibilityLabel={t("regenerate.skipFeedback")}
-              style={({ pressed }) => [
-                styles.regenerationSecondaryAction,
-                {
-                  borderColor: border,
-                  opacity: pressed ? Opacity.pressed : 1,
-                },
-              ]}
-            >
-              <Text style={[Typography.titleSm, { color: textSecondary }]}>
-                {t("regenerate.skipFeedback")}
-              </Text>
-            </Pressable>
-          </View>
-
-          <Text
-            style={[
-              Typography.micro,
-              styles.regenerationLimitNote,
-              { color: textMuted },
+          <Pressable
+            onPress={() => sheetRef.current?.dismiss(onSkip)}
+            accessibilityRole="button"
+            accessibilityLabel={t("regenerate.skipFeedback")}
+            style={({ pressed }) => [
+              styles.regenerationSecondaryAction,
+              {
+                borderColor: border,
+                opacity: pressed ? Opacity.pressed : 1,
+              },
             ]}
           >
-            {t("regenerate.limitNote")}
-          </Text>
-        </Pressable>
-      </Pressable>
-    </Modal>
+            <Text style={[Typography.titleSm, { color: textSecondary }]}>
+              {t("regenerate.skipFeedback")}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text
+          style={[
+            Typography.micro,
+            styles.regenerationLimitNote,
+            { color: textMuted },
+          ]}
+        >
+          {t("regenerate.limitNote")}
+        </Text>
+      </ScrollView>
+    </AppBottomSheet>
   );
 }
 
@@ -1052,6 +1199,8 @@ function ReadSetsTable({
   t,
 }: ReadSetsTableProps) {
   const { label: unitLabel, format } = useWeightUnit();
+  const warning = useThemeColor({}, "warning");
+  let workingOrdinal = 0;
 
   return (
     <View style={styles.setsContainer}>
@@ -1071,59 +1220,67 @@ function ReadSetsTable({
         </Text>
       </View>
       {/* Rows */}
-      {sets.map((set, i) => (
-        <View
-          key={i}
-          style={[
-            styles.setRow,
-            i < sets.length - 1 && { borderBottomColor: border },
-          ]}
-        >
-          <Text
+      {sets.map((set, i) => {
+        const label = getWorkingSetLabel(
+          set.set_type,
+          set.set_type === "working" ? workingOrdinal++ : 0
+        );
+        return (
+          <View
+            key={i}
             style={[
-              Typography.caption,
-              { color: textSecondary },
-              styles.colSet,
+              styles.setRow,
+              i < sets.length - 1 && { borderBottomColor: border },
             ]}
           >
-            {i + 1}
-          </Text>
-          <Text
-            style={[
-              Typography.micro,
-              {
-                color: set.set_type === "warmup" ? textMuted : textSecondary,
-              },
-              styles.colType,
-            ]}
-            numberOfLines={1}
-          >
-            {set.set_type === "warmup"
-              ? t("exerciseList.warmup")
-              : t("exerciseList.working")}
-          </Text>
-          <Text
-            style={[
-              Typography.bodyMedium,
-              { color: text },
-              styles.colData,
-              { fontVariant: ["tabular-nums"] },
-            ]}
-          >
-            {set.target_load_kg ? format(set.target_load_kg) : "—"}
-          </Text>
-          <Text
-            style={[
-              Typography.bodyMedium,
-              { color: text },
-              styles.colData,
-              { fontVariant: ["tabular-nums"] },
-            ]}
-          >
-            {set.target_reps || "—"}
-          </Text>
-        </View>
-      ))}
+            <Text
+              style={[
+                Typography.caption,
+                {
+                  color: set.set_type === "warmup" ? warning : textSecondary,
+                },
+                styles.colSet,
+              ]}
+            >
+              {label}
+            </Text>
+            <Text
+              style={[
+                Typography.micro,
+                {
+                  color: set.set_type === "warmup" ? warning : textSecondary,
+                },
+                styles.colType,
+              ]}
+              numberOfLines={1}
+            >
+              {set.set_type === "warmup"
+                ? t("exerciseList.warmup")
+                : t("exerciseList.working")}
+            </Text>
+            <Text
+              style={[
+                Typography.bodyMedium,
+                { color: text },
+                styles.colData,
+                { fontVariant: ["tabular-nums"] },
+              ]}
+            >
+              {set.target_load_kg ? format(set.target_load_kg) : "—"}
+            </Text>
+            <Text
+              style={[
+                Typography.bodyMedium,
+                { color: text },
+                styles.colData,
+                { fontVariant: ["tabular-nums"] },
+              ]}
+            >
+              {set.target_reps || "—"}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -1162,6 +1319,9 @@ function EditSetsTable({
   t,
 }: EditSetsTableProps) {
   const wu = useWeightUnit();
+  const warning = useThemeColor({}, "warning");
+  let workingOrdinal = 0;
+
   return (
     <View style={styles.setsContainer}>
       {/* Column headers */}
@@ -1169,9 +1329,9 @@ function EditSetsTable({
         <Text style={[Typography.label, { color: textMuted }, styles.colSet]}>
           {t("setHeader.set")}
         </Text>
-        <Text
-          style={[Typography.label, { color: textMuted }, styles.colType]}
-        />
+        <Text style={[Typography.label, { color: textMuted }, styles.colType]}>
+          {t("setHeader.type")}
+        </Text>
         <Text style={[Typography.label, { color: textMuted }, styles.colData]}>
           {t("edit.kg", { unit: wu.label })}
         </Text>
@@ -1180,27 +1340,45 @@ function EditSetsTable({
         </Text>
       </View>
       {/* Editable rows */}
-      {sets.map((set, i) => (
-        <EditSetRow
-          key={i}
-          setIndex={i}
-          set={set}
-          exerciseIndex={exerciseIndex}
-          text={text}
-          textMuted={textMuted}
-          border={border}
-          inputFill={inputFill}
-          inputFillFocused={inputFillFocused}
-          isLast={i === sets.length - 1}
-          onUpdateSet={onUpdateSet}
-        />
-      ))}
+      {sets.map((set, i) => {
+        const setLabel = getWorkingSetLabel(
+          set.set_type,
+          set.set_type === "working" ? workingOrdinal++ : 0
+        );
+        return (
+          <EditSetRow
+            key={i}
+            setIndex={i}
+            setLabel={setLabel}
+            setLabelColor={set.set_type === "warmup" ? warning : textMuted}
+            typeLabel={
+              set.set_type === "warmup"
+                ? t("exerciseList.warmup")
+                : t("exerciseList.working")
+            }
+            typeLabelColor={set.set_type === "warmup" ? warning : textMuted}
+            set={set}
+            exerciseIndex={exerciseIndex}
+            text={text}
+            textMuted={textMuted}
+            border={border}
+            inputFill={inputFill}
+            inputFillFocused={inputFillFocused}
+            isLast={i === sets.length - 1}
+            onUpdateSet={onUpdateSet}
+          />
+        );
+      })}
     </View>
   );
 }
 
 interface EditSetRowProps {
   setIndex: number;
+  setLabel: string;
+  setLabelColor: string;
+  typeLabel: string;
+  typeLabelColor: string;
   set: LocalSet;
   exerciseIndex: number;
   text: string;
@@ -1219,6 +1397,10 @@ interface EditSetRowProps {
 
 function EditSetRow({
   setIndex,
+  setLabel,
+  setLabelColor,
+  typeLabel,
+  typeLabelColor,
   set,
   exerciseIndex,
   text,
@@ -1234,21 +1416,17 @@ function EditSetRow({
 
   return (
     <View style={[styles.setRow, !isLast && { borderBottomColor: border }]}>
-      <Text style={[Typography.caption, { color: textMuted }, styles.colSet]}>
-        {setIndex + 1}
+      <Text
+        style={[Typography.caption, { color: setLabelColor }, styles.colSet]}
+      >
+        {setLabel}
       </Text>
-      <View style={styles.colType}>
-        <Text
-          style={[
-            Typography.micro,
-            {
-              color: set.set_type === "warmup" ? textMuted : text,
-            },
-          ]}
-        >
-          {set.set_type === "warmup" ? "W" : ""}
-        </Text>
-      </View>
+      <Text
+        style={[Typography.micro, { color: typeLabelColor }, styles.colType]}
+        numberOfLines={1}
+      >
+        {typeLabel}
+      </Text>
       <View style={styles.colData}>
         <TextInput
           style={[
@@ -1480,24 +1658,12 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
     gap: Spacing.md,
   },
-  regenerationBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.42)",
-    justifyContent: "flex-end",
+  regenerationScroll: {
+    flexShrink: 1,
   },
   regenerationSheet: {
-    borderTopLeftRadius: Radii.lg,
-    borderTopRightRadius: Radii.lg,
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing["4xl"],
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: Radii.full,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   regenerationIcon: {
     width: 40,

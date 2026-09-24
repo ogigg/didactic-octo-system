@@ -8,6 +8,7 @@ jest.mock("@/lib/supabase", () => ({
 }));
 
 import { supabase } from "@/lib/supabase";
+import exerciseCatalog from "../../../../../supabase/data/exercises.json";
 import {
   fetchCatalogLabels,
   fetchExercise,
@@ -49,6 +50,21 @@ const validExercise = {
 function mockRpc(data: unknown, error: unknown = null) {
   (mockSupabase.rpc as jest.Mock).mockResolvedValue({ data, error });
 }
+
+describe("exercise catalog", () => {
+  it("tracks plank by duration by default", () => {
+    const plank = exerciseCatalog.find(
+      (exercise) => exercise.external_id === "curated-plank"
+    );
+
+    expect(plank).toEqual(
+      expect.objectContaining({
+        name: "Plank",
+        exercise_type: "time",
+      })
+    );
+  });
+});
 
 describe("fetchExercises", () => {
   it("returns validated exercises from supabase", async () => {

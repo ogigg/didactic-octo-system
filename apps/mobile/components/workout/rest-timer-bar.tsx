@@ -80,7 +80,10 @@ export function RestTimerBar() {
     }
 
     backgroundedUntilCompletionRef.current = false;
-    const endsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
+    const endsAtMs =
+      restTimer.pausedRemainingSeconds === undefined
+        ? restTimer.startedAtMs + restTimer.durationSeconds * 1000
+        : null;
 
     const subscription = AppState.addEventListener("change", (nextState) => {
       appStateRef.current = nextState;
@@ -90,7 +93,7 @@ export function RestTimerBar() {
         return;
       }
 
-      if (Date.now() < endsAtMs) {
+      if (endsAtMs !== null && Date.now() < endsAtMs) {
         backgroundedUntilCompletionRef.current = false;
       }
     });
@@ -106,6 +109,11 @@ export function RestTimerBar() {
     }
 
     let isDisposed = false;
+    if (restTimer.pausedRemainingSeconds !== undefined) {
+      setNotificationStatus(null);
+      void cancelScheduledRestTimerNotification();
+      return;
+    }
     const endsAtMs = restTimer.startedAtMs + restTimer.durationSeconds * 1000;
     setNotificationStatus(null);
 
@@ -122,16 +130,12 @@ export function RestTimerBar() {
     };
   }, [notificationContent, restTimer]);
 
-  // Collapse the sheet whenever the timer goes away (skip, finish, etc.)
-  useEffect(() => {
-    if (!restTimer) setExpanded(false);
-  }, [restTimer]);
-
   const isFinished = restTimer
     ? getRestTimerProgress(
         restTimer.startedAtMs,
         restTimer.durationSeconds,
-        now
+        now,
+        restTimer.pausedRemainingSeconds
       ).remainingSeconds <= 0
     : false;
 
@@ -163,7 +167,12 @@ export function RestTimerBar() {
 
   const handleCollapse = useCallback(() => setExpanded(false), []);
 
-  if (!restTimer || isFinished) return null;
+  if (!restTimer || isFinished) {
+    // Keep the expanded sheet mounted so it can play its exit animation
+    // before collapsing.
+    if (!expanded) return null;
+    return <RestTimerSheet onClose={handleCollapse} />;
+  }
 
   const {
     durationSeconds,
@@ -172,7 +181,8 @@ export function RestTimerBar() {
   } = getRestTimerProgress(
     restTimer.startedAtMs,
     restTimer.durationSeconds,
-    now
+    now,
+    restTimer.pausedRemainingSeconds
   );
 
   const display = formatRestCountdown(remaining);

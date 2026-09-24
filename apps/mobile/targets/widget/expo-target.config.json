@@ -1,10 +1,11 @@
 {
   "type": "widget",
-  "deploymentTarget": "18.0",
+  "deploymentTarget": "16.2",
   "name": "SweatyWidget",
   "bundleIdentifier": "com.ogig.sweaty.SweatyWidget",
   "colors": {
-    "widgetAccent": "#38BDF8",
+    "widgetAccent": { "light": "#3898D8", "dark": "#5AAEE0" },
+    "widgetBackground": { "light": "#FFFFFF", "dark": "#1A1D20" },
     "widgetSuccess": "#34C759"
   },
   "entitlements": {

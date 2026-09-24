@@ -18,6 +18,7 @@ export type TrainingStyle =
 export type Difficulty = "beginner" | "intermediate" | "advanced";
 
 export interface GenerateWorkoutRequest {
+  request_id?: string;
   training_split: TrainingSplit;
   duration_minutes: DurationMinutes;
   equipment: Equipment;
@@ -92,6 +93,7 @@ export const generateWorkoutResponseSchema = z.object({
   ]),
   goal_snapshot: z.enum([
     "build_strength",
+    "build_muscle",
     "lose_weight",
     "improve_fitness",
     "custom",

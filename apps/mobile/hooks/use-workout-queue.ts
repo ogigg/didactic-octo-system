@@ -4,14 +4,19 @@ import { useRouter } from "expo-router";
 
 import { useAuth } from "@/hooks/use-auth";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
-import { convertPreviousDisplay } from "@/lib/workout-previous-sets";
+import {
+  convertPreviousDisplay,
+  type ExercisePreviousSets,
+} from "@/lib/workout-previous-sets";
+import {
+  applyPreviousSetsToWorkoutSets,
+  normalizeGeneratedExerciseSets,
+} from "@/lib/exercise-set-structure";
 import { useProfile, type Profile } from "@/hooks/use-profile-query";
 import {
   deletePendingWorkout,
-  deleteAllPendingWorkouts,
   fetchPendingWorkouts,
-  replacePendingWorkoutWithFallback,
-  setPendingWorkoutStatus,
+  recoverStaleGenerationAttempts,
   triggerQueueGeneration,
   triggerRegeneration,
   updatePendingWorkoutEdits,
@@ -22,15 +27,12 @@ import {
 } from "@/lib/api/pending-workouts";
 import { usePaywallStore } from "@/stores/paywall-store";
 import { subscriptionKeys } from "@/lib/query-keys";
-import {
-  buildFallbackPendingWorkoutData,
-  isPendingWorkoutStale,
-  MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS,
-} from "@/lib/pending-workout-recovery";
 import { getCurrentTimezoneOffsetMinutes } from "@/lib/pending-workout-regeneration";
-import { pendingWorkoutKeys } from "@/lib/query-keys";
+import { profileKeys, pendingWorkoutKeys } from "@/lib/query-keys";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/track-event";
+import { normalizeAnalyticsError } from "@/lib/analytics-errors";
+import { markPendingWorkoutGeneratedTracked } from "@/lib/workout-queue-analytics";
 import {
   usePendingWorkoutStore,
   selectNextWorkout,
@@ -45,8 +47,8 @@ import {
   type WorkoutSet,
 } from "@/stores/workout-store";
 import { fetchPreviousSetDisplays } from "@/lib/api/workouts";
-import type { PreviousSetValue } from "@/lib/workout-previous-sets";
 import type { ExerciseImageData } from "@/lib/exercise-media";
+import * as Crypto from "expo-crypto";
 import type { ProgressionReasonCode } from "@/lib/progression-reasoning";
 
 // -----------------------------------------------------------------------------
@@ -105,25 +107,10 @@ function getGenerationPreferencesFromProfile(
 
 function applyPreviousSetDisplays(
   sets: WorkoutSet[],
-  previousSets: PreviousSetValue[] | undefined,
+  previousSets: ExercisePreviousSets | undefined,
   fallbackDisplay: string | null
 ): WorkoutSet[] {
-  let workingIndex = 0;
-
-  return sets.map((set) => {
-    if (set.type !== "working") {
-      return { ...set, previousDisplay: null };
-    }
-
-    const previousDisplay =
-      previousSets?.[workingIndex]?.display ?? fallbackDisplay;
-    workingIndex += 1;
-
-    return {
-      ...set,
-      previousDisplay,
-    };
-  });
+  return applyPreviousSetsToWorkoutSets(sets, previousSets, fallbackDisplay);
 }
 
 // -----------------------------------------------------------------------------
@@ -138,7 +125,7 @@ export function useWorkoutQueueData() {
 
   const query = useQuery({
     queryKey: pendingWorkoutKeys.list(),
-    queryFn: fetchPendingWorkouts,
+    queryFn: () => fetchPendingWorkouts(),
     enabled: !!user,
   });
 
@@ -156,18 +143,10 @@ export function useWorkoutQueueData() {
 
 export function useWorkoutQueue() {
   const { user } = useAuth();
-  const { data: profile } = useProfile();
   const queryClient = useQueryClient();
 
-  const recoveryAttempts = usePendingWorkoutStore((s) => s.recoveryAttempts);
-  const recordRecoveryAttempt = usePendingWorkoutStore(
-    (s) => s.recordRecoveryAttempt
-  );
-  const clearRecoveryAttempt = usePendingWorkoutStore(
-    (s) => s.clearRecoveryAttempt
-  );
-  const queueGenerationStartedAt = usePendingWorkoutStore(
-    (s) => s.queueGenerationStartedAt
+  const queueGenerationRequestId = usePendingWorkoutStore(
+    (s) => s.queueGenerationRequestId
   );
   const queueGenerationTrigger = usePendingWorkoutStore(
     (s) => s.queueGenerationTrigger
@@ -180,7 +159,8 @@ export function useWorkoutQueue() {
   );
 
   const previousQueueRef = useRef<PendingWorkout[]>([]);
-  const recoveryInFlightRef = useRef(false);
+  const pendingWorkoutGeneratedKeysRef = useRef<Set<string>>(new Set());
+  const trackedQueueRequestIdRef = useRef<string | null>(null);
   const invalidationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -189,7 +169,7 @@ export function useWorkoutQueue() {
 
   const query = useQuery({
     queryKey: pendingWorkoutKeys.list(),
-    queryFn: fetchPendingWorkouts,
+    queryFn: () => fetchPendingWorkouts(),
     enabled: !!user,
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -255,6 +235,17 @@ export function useWorkoutQueue() {
   useEffect(() => {
     const previousQueue = previousQueueRef.current;
 
+    // Request IDs are unique per queue rebuild. Resetting the per-request set
+    // here keeps it bounded while still preventing duplicate effects for the
+    // same request/workout pair.
+    if (
+      queueGenerationRequestId !== null &&
+      trackedQueueRequestIdRef.current !== queueGenerationRequestId
+    ) {
+      pendingWorkoutGeneratedKeysRef.current.clear();
+      trackedQueueRequestIdRef.current = queueGenerationRequestId;
+    }
+
     for (const workout of queue) {
       const previous = previousQueue.find((item) => item.id === workout.id);
       const becameReady =
@@ -264,8 +255,17 @@ export function useWorkoutQueue() {
           previous.status !== "regenerating") ||
           queueGenerationTrigger !== null);
 
-      if (becameReady) {
+      if (
+        becameReady &&
+        markPendingWorkoutGeneratedTracked(
+          pendingWorkoutGeneratedKeysRef.current,
+          queueGenerationRequestId,
+          workout.id
+        )
+      ) {
         trackEvent("pending_workout_generated", {
+          request_id: queueGenerationRequestId,
+          workout_id: workout.id,
           generation_source: workout.generation_source,
           trigger: queueGenerationTrigger ?? "unknown",
           generation_time_ms:
@@ -282,25 +282,25 @@ export function useWorkoutQueue() {
       }
     }
 
-    const queueJustCompleted =
+    const queueIsTerminal =
       queue.length > 0 &&
-      queue.every((workout) => workout.status === "ready") &&
+      queue.every(
+        (workout) => workout.status === "ready" || workout.status === "failed"
+      );
+    const previousQueueWasTerminal =
+      previousQueue.length > 0 &&
+      previousQueue.every(
+        (workout) => workout.status === "ready" || workout.status === "failed"
+      );
+
+    // The Supabase function emits canonical queue-ready/queue-failed events.
+    // Only clear the local context here so a request cannot leak into a later
+    // query/effect cycle.
+    if (
+      queueIsTerminal &&
       queueGenerationTrigger !== null &&
-      (previousQueue.length === 0 ||
-        !previousQueue.every((workout) => workout.status === "ready"));
-
-    if (queueJustCompleted) {
-      const fallbackCount = queue.filter(
-        (workout) => workout.generation_source === "fallback_template"
-      ).length;
-
-      trackEvent("workout_queue_ready", {
-        total_generation_time_ms: queueGenerationStartedAt
-          ? Math.max(0, Date.now() - queueGenerationStartedAt)
-          : null,
-        count: queue.length,
-        fallback_count: fallbackCount,
-      });
+      !previousQueueWasTerminal
+    ) {
       clearQueueGenerationContext();
     }
 
@@ -308,87 +308,9 @@ export function useWorkoutQueue() {
   }, [
     clearQueueGenerationContext,
     queue,
-    queueGenerationStartedAt,
+    queueGenerationRequestId,
     queueGenerationTrigger,
     regeneratingWorkoutIds,
-  ]);
-
-  // ---- Recovery: fix stale workouts ----
-
-  useEffect(() => {
-    const preferences = getGenerationPreferencesFromProfile(profile);
-
-    if (
-      !user ||
-      !profile?.training_setup_completed ||
-      !preferences ||
-      queue.length === 0 ||
-      recoveryInFlightRef.current
-    ) {
-      return;
-    }
-
-    const staleWorkouts = queue.filter(isPendingWorkoutStale);
-
-    if (staleWorkouts.length === 0) {
-      return;
-    }
-
-    recoveryInFlightRef.current = true;
-
-    void (async () => {
-      try {
-        for (const workout of staleWorkouts) {
-          const attemptCount = recoveryAttempts[workout.id] ?? 0;
-
-          if (attemptCount >= MAX_PENDING_WORKOUT_RECOVERY_ATTEMPTS) {
-            const fallbackWorkout = await buildFallbackPendingWorkoutData({
-              focusArea: workout.focus_area,
-              equipment: preferences.equipment,
-              goalSnapshot: profile.goal ?? "improve_fitness",
-              customGoalSnapshot: profile.custom_goal,
-            });
-
-            if (fallbackWorkout) {
-              await replacePendingWorkoutWithFallback(
-                workout.id,
-                fallbackWorkout
-              );
-              clearRecoveryAttempt(workout.id);
-            }
-
-            continue;
-          }
-
-          await setPendingWorkoutStatus(workout.id, "generating");
-
-          try {
-            await triggerRegeneration(
-              workout.id,
-              preferences,
-              getCurrentTimezoneOffsetMinutes()
-            );
-            clearRecoveryAttempt(workout.id);
-          } catch {
-            recordRecoveryAttempt(workout.id);
-          }
-        }
-
-        await queryClient.invalidateQueries({
-          queryKey: pendingWorkoutKeys.list(),
-        });
-      } finally {
-        recoveryInFlightRef.current = false;
-      }
-    })();
-  }, [
-    clearRecoveryAttempt,
-    profile,
-    queryClient,
-    queue,
-    recordRecoveryAttempt,
-    recoveryAttempts,
-    user,
   ]);
 
   return { ...query, queue };
@@ -427,6 +349,7 @@ export function useRegenerateWorkout() {
     (s) => s.clearWorkoutRegenerating
   );
   const openPaywall = usePaywallStore((s) => s.open);
+  const regenerationRequestIdsRef = useRef<Record<string, string>>({});
 
   return useMutation({
     mutationFn: async (input: {
@@ -439,24 +362,35 @@ export function useRegenerateWorkout() {
         throw new Error("Training preferences are incomplete");
       }
 
-      await setPendingWorkoutStatus(input.pendingWorkout.id, "regenerating");
-
-      return triggerRegeneration(
-        input.pendingWorkout.id,
-        preferences,
-        getCurrentTimezoneOffsetMinutes(),
-        input.feedback
-      );
+      try {
+        return await triggerRegeneration(
+          input.pendingWorkout.id,
+          preferences,
+          getCurrentTimezoneOffsetMinutes(),
+          input.feedback,
+          regenerationRequestIdsRef.current[input.pendingWorkout.id]
+        );
+      } catch (error) {
+        // Keep a client-observed transport failure distinct from the canonical
+        // server generation failure emitted by the Edge Function.
+        trackEvent("workout_generation_client_failed", {
+          request_id:
+            regenerationRequestIdsRef.current[input.pendingWorkout.id],
+          workout_id: input.pendingWorkout.id,
+          queue_position: input.pendingWorkout.queue_position,
+          ...normalizeAnalyticsError(error),
+          failure_stage: "function_transport",
+        });
+        throw error;
+      }
     },
     onMutate: async (input) => {
       const feedback = input.feedback?.trim();
       const pendingWorkout = input.pendingWorkout;
+      const requestId = Crypto.randomUUID();
+      regenerationRequestIdsRef.current[pendingWorkout.id] = requestId;
 
       await queryClient.cancelQueries({ queryKey: pendingWorkoutKeys.list() });
-
-      const previousQueue = queryClient.getQueryData<PendingWorkout[]>(
-        pendingWorkoutKeys.list()
-      );
 
       queryClient.setQueryData<PendingWorkout[]>(
         pendingWorkoutKeys.list(),
@@ -470,6 +404,7 @@ export function useRegenerateWorkout() {
       markWorkoutRegenerating(pendingWorkout.id);
 
       trackEvent("pending_workout_regenerated", {
+        request_id: requestId,
         phase: "started",
         queue_position: pendingWorkout.queue_position,
         focus_area: pendingWorkout.focus_area,
@@ -478,14 +413,16 @@ export function useRegenerateWorkout() {
         feedback_length: feedback?.length ?? 0,
       });
 
-      return { previousQueue };
+      return undefined;
     },
     onSuccess: (_data, input) => {
       const feedback = input.feedback?.trim();
       const pendingWorkout = input.pendingWorkout;
+      const requestId = regenerationRequestIdsRef.current[pendingWorkout.id];
 
       clearWorkoutRegenerating(pendingWorkout.id);
       trackEvent("pending_workout_regenerated", {
+        request_id: requestId,
         phase: "completed",
         queue_position: pendingWorkout.queue_position,
         focus_area: pendingWorkout.focus_area,
@@ -497,30 +434,46 @@ export function useRegenerateWorkout() {
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
-    onError: (error, input, context) => {
+    onError: (error, input) => {
       const pendingWorkout = input.pendingWorkout;
+      const requestId = regenerationRequestIdsRef.current[pendingWorkout.id];
+      const normalizedError = normalizeAnalyticsError(error);
 
       clearWorkoutRegenerating(pendingWorkout.id);
 
-      if (context?.previousQueue) {
-        queryClient.setQueryData(
-          pendingWorkoutKeys.list(),
-          context.previousQueue
-        );
-      }
-
-      void setPendingWorkoutStatus(pendingWorkout.id, pendingWorkout.status);
-
+      trackEvent("pending_workout_regenerated", {
+        request_id: requestId,
+        phase: "failed",
+        queue_position: pendingWorkout.queue_position,
+        focus_area: pendingWorkout.focus_area,
+        previous_generation_source: pendingWorkout.generation_source,
+        has_feedback: !!input.feedback?.trim(),
+        feedback_length: input.feedback?.trim().length ?? 0,
+        error_code: normalizedError.error_code,
+      });
+      void queryClient.refetchQueries({ queryKey: pendingWorkoutKeys.list() });
       if (error instanceof GenerationLimitReachedError) {
         queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
         openPaywall(error.used, 5);
-        return;
       }
-
-      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
     },
     onSettled: (_data, _error, input) => {
       clearWorkoutRegenerating(input.pendingWorkout.id);
+      delete regenerationRequestIdsRef.current[input.pendingWorkout.id];
+    },
+  });
+}
+
+export function useRecoverStalePendingWorkouts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => recoverStaleGenerationAttempts(),
+    onSuccess: () => {
+      void queryClient.refetchQueries({ queryKey: pendingWorkoutKeys.list() });
+    },
+    onError: () => {
+      void queryClient.refetchQueries({ queryKey: pendingWorkoutKeys.list() });
     },
   });
 }
@@ -538,6 +491,7 @@ export function useEditPendingWorkout() {
     },
     onSuccess: (_data, input) => {
       trackEvent("pending_workout_edited", {
+        workout_id: input.id,
         edit_type: input.editType,
       });
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
@@ -555,6 +509,7 @@ export function useStartPendingWorkout() {
   return useMutation({
     mutationFn: async (input: {
       pendingWorkout: PendingWorkout;
+      workoutSource?: "queued_ai" | "comeback";
       exercises?: {
         exercise_id: string;
         exercise_name: string;
@@ -592,7 +547,7 @@ export function useStartPendingWorkout() {
           input.exercises ?? input.pendingWorkout.workout_data.exercises,
       };
 
-      const previousSetDisplays: Record<string, PreviousSetValue[]> =
+      const previousSetDisplays: Record<string, ExercisePreviousSets> =
         await fetchPreviousSetDisplays(
           workoutData.exercises.map((ex) => ex.exercise_id),
           weightUnit
@@ -600,35 +555,44 @@ export function useStartPendingWorkout() {
 
       const exercises: WorkoutExercise[] = workoutData.exercises.map(
         (ex, exIndex) => {
+          const exerciseType =
+            (ex.exercise_type as "weight" | "time") ?? "weight";
           const fallbackPreviousDisplay = convertPreviousDisplay(
             ex.previous_display,
             weightUnit
           );
-          const sets = ex.sets.map((set, setIndex) => ({
-            id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
-            type: set.set_type,
-            kg:
-              set.target_load_kg != null
+          const normalizedSets = normalizeGeneratedExerciseSets(
+            exerciseType,
+            ex.sets
+          );
+          const sets = applyPreviousSetDisplays(
+            normalizedSets.map((set, setIndex) => ({
+              id: `${input.pendingWorkout.id}-${exIndex}-${setIndex}`,
+              type: set.set_type,
+              kg: set.target_load_kg
                 ? String(
                     Math.round(
                       convertWeight(set.target_load_kg, weightUnit) * 10
                     ) / 10
                   )
                 : "",
-            reps: set.target_reps != null ? String(set.target_reps) : "",
-            durationSeconds:
-              (set as { target_duration_seconds?: number | null })
-                .target_duration_seconds ?? null,
-            rpe: null,
-            isCompleted: false,
-            previousDisplay: null,
-          }));
+              reps: set.target_reps != null ? String(set.target_reps) : "",
+              durationSeconds:
+                (set as { target_duration_seconds?: number | null })
+                  .target_duration_seconds ?? null,
+              rpe: null,
+              isCompleted: false,
+              previousDisplay: null,
+            })),
+            previousSetDisplays[ex.exercise_id],
+            fallbackPreviousDisplay
+          );
 
           return {
             id: ex.exercise_id,
             name: ex.exercise_name,
             image: ex.image ?? null,
-            exerciseType: (ex.exercise_type as "weight" | "time") ?? "weight",
+            exerciseType,
             restDurationSeconds: ex.rest_duration_seconds,
             notes: ex.notes ?? "",
             reasoning: ex.reasoning ?? null,
@@ -636,11 +600,7 @@ export function useStartPendingWorkout() {
             progressionType: ex.progression_type ?? null,
             progressionReasonCode: ex.progression_reason_code ?? null,
             progressionIsDeload: ex.progression_is_deload ?? false,
-            sets: applyPreviousSetDisplays(
-              sets,
-              previousSetDisplays[ex.exercise_id],
-              fallbackPreviousDisplay
-            ),
+            sets,
           };
         }
       );
@@ -662,23 +622,19 @@ export function useStartPendingWorkout() {
               durationSeconds: workoutData.warmup.duration_seconds,
               isCompleted: false,
             }
-          : null
+          : null,
+        {
+          workoutSource: input.workoutSource ?? "queued_ai",
+          workoutId: input.pendingWorkout.id,
+          wasEdited: input.wasEdited ?? false,
+          editCount: input.editCount ?? 0,
+          weightUnit,
+        }
       );
 
       return input;
     },
-    onSuccess: ({ pendingWorkout, wasEdited = false, editCount = 0 }) => {
-      trackEvent("pending_workout_started", {
-        time_since_generated_ms: pendingWorkout.generated_at
-          ? Math.max(
-              0,
-              Date.now() - new Date(pendingWorkout.generated_at).getTime()
-            )
-          : null,
-        was_edited: wasEdited,
-        edit_count: editCount,
-      });
-
+    onSuccess: () => {
       router.navigate("/workout");
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
     },
@@ -696,21 +652,42 @@ export function useRebuildQueue() {
   const openPaywall = usePaywallStore((s) => s.open);
 
   return useMutation({
+    mutationKey: ["queue-generation"],
     mutationFn: async (request: QueueGenerationRequest) => {
-      markQueueGenerationStarted(request.trigger);
+      const requestId = Crypto.randomUUID();
+      markQueueGenerationStarted(request.trigger, requestId);
       trackEvent("workout_queue_initialized", {
+        request_id: requestId,
         count: request.count,
         trigger: request.trigger,
       });
-      await deleteAllPendingWorkouts();
-      await triggerQueueGeneration(request);
+      try {
+        await triggerQueueGeneration({ ...request, request_id: requestId });
+      } catch (error) {
+        // This is intentionally a client-only event. Canonical queue failure
+        // events are emitted by the Edge Function when it accepts the call.
+        trackEvent("workout_queue_client_failed", {
+          request_id: requestId,
+          count: request.count,
+          trigger: request.trigger,
+          ...normalizeAnalyticsError(error),
+          failure_stage: "queue_transport",
+        });
+        throw error;
+      }
+      return { requestId };
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileKeys.all });
       queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
     },
     onError: (error) => {
+      // Do not emit workout_queue_failed here: the Supabase function emits
+      // that canonical event once it has accepted the request.
       clearQueueGenerationContext();
+      queryClient.invalidateQueries({ queryKey: profileKeys.all });
+      queryClient.invalidateQueries({ queryKey: pendingWorkoutKeys.list() });
       if (error instanceof GenerationLimitReachedError) {
         queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() });
         openPaywall(error.used, 5);

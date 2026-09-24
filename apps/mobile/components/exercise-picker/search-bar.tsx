@@ -9,6 +9,7 @@ interface SearchBarProps {
   onClear: () => void;
   placeholder: string;
   clearAccessibilityLabel: string;
+  autoFocus?: boolean;
 }
 
 export function SearchBar({
@@ -17,6 +18,7 @@ export function SearchBar({
   onClear,
   placeholder,
   clearAccessibilityLabel,
+  autoFocus = true,
 }: SearchBarProps) {
   const inputFill = useThemeColor({}, "inputFill");
   const textColor = useThemeColor({}, "text");
@@ -35,6 +37,7 @@ export function SearchBar({
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
+        autoFocus={autoFocus}
         accessibilityLabel={placeholder}
       />
       {showClearButton ? (
@@ -42,7 +45,7 @@ export function SearchBar({
           onPress={onClear}
           accessibilityRole="button"
           accessibilityLabel={clearAccessibilityLabel}
-          hitSlop={8}
+          hitSlop={10}
           style={styles.clearButton}
         >
           <IconSymbol name="xmark" size={16} color={textMuted} />
@@ -69,7 +72,7 @@ const styles = StyleSheet.create({
   clearButton: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 28,
-    minWidth: 28,
+    height: 24,
+    width: 24,
   },
 });

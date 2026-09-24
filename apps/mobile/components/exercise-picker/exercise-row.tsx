@@ -2,21 +2,26 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { Spacing, Typography } from "@/constants/theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ExerciseImage } from "@/components/exercise/exercise-image";
+import { ExercisePreferenceIcon } from "@/components/exercise/exercise-preference-icon";
 import type { Exercise } from "@/lib/api/exercises";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface ExerciseRowProps {
   exercise: Exercise;
   onSelect: (exercise: Exercise) => void;
   mode?: "replace" | "add" | "pending_swap";
+  isFavorite?: boolean;
 }
 
 export const ExerciseRow = memo(function ExerciseRow({
   exercise,
   onSelect,
   mode,
+  isFavorite = false,
 }: ExerciseRowProps) {
+  const { t } = useTranslation("exercisePicker");
   const textColor = useThemeColor({}, "text");
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
@@ -29,11 +34,22 @@ export const ExerciseRow = memo(function ExerciseRow({
   const primaryMuscle =
     exercise.primary_muscle_labels[0] ?? exercise.primary_muscles[0] ?? "";
 
+  const accessibilityLabel = useMemo(() => {
+    const parts = [exercise.name];
+    if (primaryMuscle) {
+      parts.push(primaryMuscle);
+    }
+    if (isFavorite) {
+      parts.push(t("row.favorite"));
+    }
+    return parts.join(", ");
+  }, [exercise.name, primaryMuscle, isFavorite, t]);
+
   return (
     <Pressable
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={`${exercise.name}, ${primaryMuscle}`}
+      accessibilityLabel={accessibilityLabel}
       style={[styles.container, { borderBottomColor: border }]}
     >
       <ExerciseImage
@@ -57,6 +73,15 @@ export const ExerciseRow = memo(function ExerciseRow({
           </Text>
         ) : null}
       </View>
+      {isFavorite ? (
+        <View
+          accessible={false}
+          importantForAccessibility="no"
+          style={styles.favoriteIcon}
+        >
+          <ExercisePreferenceIcon preference="preferred" size={18} />
+        </View>
+      ) : null}
       <IconSymbol
         name={mode === "add" ? "plus.circle" : "arrow.triangle.2.circlepath"}
         size={20}
@@ -80,5 +105,8 @@ const styles = StyleSheet.create({
     gap: 2,
     marginLeft: Spacing.md,
     marginRight: Spacing.md,
+  },
+  favoriteIcon: {
+    marginRight: Spacing.sm,
   },
 });

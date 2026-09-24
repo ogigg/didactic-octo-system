@@ -55,6 +55,10 @@ jest.mock("@/hooks/use-workout-mutations", () => ({
     isPending: false,
     mutate: mockDeleteWorkout,
   })),
+  useUpdateCompletedSessionExerciseSets: jest.fn(() => ({
+    isPending: false,
+    mutate: jest.fn(),
+  })),
 }));
 
 jest.mock("@/hooks/use-workout-queries", () => ({
@@ -96,6 +100,14 @@ jest.mock("@/components/ambient-glow", () => ({
 
 jest.mock("@/components/history/muscle-distribution-card", () => ({
   MuscleDistributionCard: () => null,
+}));
+
+jest.mock("@/components/history/exercise-history-menu", () => ({
+  ExerciseHistoryMenu: () => null,
+}));
+
+jest.mock("@/components/history/exercise-history-edit-sheet", () => ({
+  ExerciseHistoryEditSheet: () => null,
 }));
 
 jest.mock("@/components/ui/back-button", () => ({

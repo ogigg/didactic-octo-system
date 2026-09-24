@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundleIconName</key>
+  <string>AppIcon</string>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
   <key>NSHealthShareUsageDescription</key>
@@ -10,6 +12,10 @@
   <string>Sweaty saves workout sessions to Apple Health.</string>
   <key>WKApplication</key>
   <true/>
+  <key>WKBackgroundModes</key>
+  <array>
+    <string>workout-processing</string>
+  </array>
   <key>WKCompanionAppBundleIdentifier</key>
   <string>com.ogig.sweaty</string>
 </dict>
