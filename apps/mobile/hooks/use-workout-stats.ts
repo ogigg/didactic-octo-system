@@ -141,6 +141,9 @@ export function useWorkoutStats(currentWorkoutFinishedAtMs?: number) {
     totalWorkouts: data?.totalWorkouts ?? null,
     streakWeeks,
     isLoading: isLoading || streakStatusQuery.isLoading,
+    // Separate flags so a slow streak RPC doesn't hide a loaded count.
+    isTotalLoading: isLoading,
+    isStreakLoading: streakStatusQuery.isLoading,
     refetch,
   };
 }
