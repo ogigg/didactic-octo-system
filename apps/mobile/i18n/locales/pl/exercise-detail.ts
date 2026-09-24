@@ -5,6 +5,7 @@ export const exerciseDetail = {
     howTo: "Jak wykonać",
   },
   overview: {
+    seeFullStatistics: "Pełne statystyki",
     records: "Rekordy osobiste",
     recordsHint: "Twoje najlepsze wyniki w tym ćwiczeniu.",
     sessionsCount: "{{count}} sesji",
