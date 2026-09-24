@@ -11,7 +11,10 @@ jest.mock("@/lib/track-event", () => ({
 
 import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
 
-import { prepareActiveWorkoutForUser } from "../active-workout-owner";
+import {
+  prepareActiveWorkoutForUser,
+  WATCH_CANCEL_TIMEOUT_MS,
+} from "../active-workout-owner";
 
 const exercise: WorkoutExercise = {
   id: "squat",
@@ -96,6 +99,22 @@ describe("prepareActiveWorkoutForUser", () => {
 
     expect(mockPublishCancelledWorkoutToWatch).not.toHaveBeenCalled();
     expect(useWorkoutStore.getState().completedWorkoutSummary).toBeNull();
+  });
+
+  it("does not let a stuck Watch message hold up sign-in", async () => {
+    jest.useFakeTimers();
+    startWorkoutFor("user-a");
+    mockPublishCancelledWorkoutToWatch.mockReturnValue(new Promise(() => {}));
+
+    const prepared = prepareActiveWorkoutForUser("user-b");
+    await jest.advanceTimersByTimeAsync(WATCH_CANCEL_TIMEOUT_MS);
+    await prepared;
+
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-b",
+      isActive: false,
+    });
+    jest.useRealTimers();
   });
 
   it("still clears the workout when the Watch message fails", async () => {

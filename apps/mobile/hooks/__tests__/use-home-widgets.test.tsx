@@ -80,13 +80,22 @@ jest.mock("@/lib/api/workouts", () => ({
   fetchWorkoutHistoryPage: jest.fn(() => Promise.resolve([])),
 }));
 
+let mockHydrated: boolean;
+
 jest.mock("@/stores/workout-store", () => {
   const hook = (selector: (state: typeof mockWorkoutState) => unknown) =>
     selector(mockWorkoutState);
+  // Like a failed hydration: zustand never reports it as finished.
   Object.defineProperty(hook, "persist", {
-    value: { hasHydrated: () => true, onFinishHydration: () => () => {} },
+    value: {
+      hasHydrated: () => mockHydrated,
+      onFinishHydration: () => () => {},
+    },
   });
-  return { useWorkoutStore: hook };
+  return {
+    useWorkoutStore: hook,
+    waitForWorkoutStoreHydration: () => Promise.resolve(),
+  };
 });
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -131,6 +140,7 @@ describe("useHomeWidgets", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSetWidgetSnapshot.mockResolvedValue(undefined);
+    mockHydrated = true;
     mockAuth = { user: { id: "user-1" }, isInitialized: true };
     mockProfile = { weekly_frequency: "4" };
     mockOnboardingCompleted = true;
@@ -215,10 +225,52 @@ describe("useHomeWidgets", () => {
   it("republishes on resume so the widget recovers without app changes", async () => {
     renderUseHomeWidgets();
     await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(1));
+    await wait(20);
 
     act(() => emitAppState("active"));
 
     await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(2));
+    const [first, second] = publishedSnapshots();
+    // Rebuilt at publish time, so the snapshot's time is current.
+    expect(Date.parse(second!.generatedAt)).toBeGreaterThan(
+      Date.parse(first!.generatedAt)
+    );
+  });
+
+  it("publishes even when the workout store fails to hydrate", async () => {
+    mockHydrated = false;
+    renderUseHomeWidgets();
+
+    await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(1));
+  });
+
+  it("ignores a failed publish that newer content already replaced", async () => {
+    jest.useFakeTimers();
+    let failFirst!: (error: Error) => void;
+    mockSetWidgetSnapshot.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failFirst = reject;
+        })
+    );
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const { rerender } = renderUseHomeWidgets();
+    await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(1));
+
+    mockOnboardingCompleted = false;
+    rerender({});
+    await waitFor(() => expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(2));
+    await act(async () => failFirst(new Error("late failure")));
+    // Past the retry delay, then past the publish delay a retry would use.
+    await act(async () => {
+      jest.advanceTimersByTime(6_000);
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(1_000);
+    });
+
+    expect(mockSetWidgetSnapshot).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
   });
 
   it("retries a failed publish", async () => {

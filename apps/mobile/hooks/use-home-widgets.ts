@@ -35,7 +35,10 @@ import {
 } from "@/modules/home-widgets/src";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { selectNextWorkout } from "@/stores/pending-workout-store";
-import { useWorkoutStore } from "@/stores/workout-store";
+import {
+  useWorkoutStore,
+  waitForWorkoutStoreHydration,
+} from "@/stores/workout-store";
 
 const PUBLISH_DELAY_MS = 300;
 const PUBLISH_RETRY_MS = 5_000;
@@ -52,12 +55,15 @@ function useWorkoutStoreHydrated(): boolean {
 
   useEffect(() => {
     if (hydrated) return;
-    const unsubscribe = useWorkoutStore.persist.onFinishHydration(() =>
-      setHydrated(true)
-    );
-    // Hydration can finish between the first render and this subscription.
-    if (useWorkoutStore.persist.hasHydrated()) setHydrated(true);
-    return unsubscribe;
+    let cancelled = false;
+    // Also settles when hydration fails, which zustand never reports as
+    // finished, so the widgets keep publishing either way.
+    void waitForWorkoutStoreHydration().then(() => {
+      if (!cancelled) setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [hydrated]);
 
   return hydrated;
@@ -173,13 +179,15 @@ export function useHomeWidgets(): void {
   const lastWorkout = lastWorkoutQuery.data?.[0] ?? null;
   const streakStatus = streakQuery.data;
 
-  // Serialized once per content change; `contentKey` leaves out the timestamp
-  // so identical content is published only once.
-  const published = useMemo(() => {
+  // Everything but the time: the snapshot is built when it is published, so
+  // `now` is always current.
+  const snapshotInput = useMemo((): Omit<WidgetSnapshotInput, "now"> | null => {
     if (!isInitialized || !workoutStoreHydrated) return null;
 
-    const base: Omit<WidgetSnapshotInput, "isSignedIn" | "setupCompleted"> = {
-      now: new Date(),
+    const base: Omit<
+      WidgetSnapshotInput,
+      "now" | "isSignedIn" | "setupCompleted"
+    > = {
       language,
       t,
       weeklyFrequency: profile?.weekly_frequency,
@@ -224,9 +232,8 @@ export function useHomeWidgets(): void {
         : null,
     };
 
-    let input: WidgetSnapshotInput;
     if (!user) {
-      input = {
+      return {
         ...base,
         isSignedIn: false,
         setupCompleted: false,
@@ -238,30 +245,13 @@ export function useHomeWidgets(): void {
         totalWorkouts: null,
         lastWorkout: null,
       };
-    } else if (!profile || !queueQuery.isSuccess || !activity) {
+    }
+    if (!profile || !queueQuery.isSuccess || !activity) {
       // Keep the previous snapshot until the essentials load, so the widget
       // never flashes an empty queue while the app is starting.
       return null;
-    } else {
-      // A new calendar day moves the activity query key, which rebuilds this.
-      input = {
-        ...base,
-        isSignedIn: true,
-        setupCompleted: onboardingCompleted,
-      };
     }
-
-    try {
-      const snapshot = buildWidgetSnapshot(input);
-      return {
-        json: JSON.stringify(snapshot),
-        contentKey: JSON.stringify({ ...snapshot, generatedAt: null }),
-      };
-    } catch (error) {
-      // The widget is optional: unexpected data must never break the app.
-      console.warn("Home widget snapshot build failed:", error);
-      return null;
-    }
+    return { ...base, isSignedIn: true, setupCompleted: onboardingCompleted };
   }, [
     activeWorkoutName,
     activity,
@@ -297,16 +287,37 @@ export function useHomeWidgets(): void {
     return () => subscription.remove();
   }, []);
 
+  // Also runs on a new calendar day (`todayKey`), so the snapshot's time moves
+  // on while the app stays open. `contentKey` leaves out the timestamp, so
+  // identical content is published only once.
   useEffect(() => {
-    if (!published || published.contentKey === publishedKeyRef.current) {
+    if (!snapshotInput) return;
+    let published: { json: string; contentKey: string };
+    try {
+      const snapshot = buildWidgetSnapshot({
+        ...snapshotInput,
+        now: new Date(),
+      });
+      published = {
+        json: JSON.stringify(snapshot),
+        contentKey: JSON.stringify({ ...snapshot, generatedAt: null }),
+      };
+    } catch (error) {
+      // The widget is optional: unexpected data must never break the app.
+      console.warn("Home widget snapshot build failed:", error);
       return;
     }
+    if (published.contentKey === publishedKeyRef.current) return;
 
+    // A publish that fails after newer content took over, or after unmount,
+    // must not reset the dedupe key or schedule a retry nothing would clear.
+    let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       publishedKeyRef.current = published.contentKey;
       setWidgetSnapshot(published.json).catch((error) => {
         console.warn("Home widget snapshot publish failed:", error);
+        if (!active) return;
         publishedKeyRef.current = null;
         retryTimer = setTimeout(
           () => setPublishAttempt((attempt) => attempt + 1),
@@ -316,8 +327,9 @@ export function useHomeWidgets(): void {
     }, PUBLISH_DELAY_MS);
 
     return () => {
+      active = false;
       clearTimeout(timer);
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [published, publishAttempt]);
+  }, [snapshotInput, publishAttempt, todayKey]);
 }
