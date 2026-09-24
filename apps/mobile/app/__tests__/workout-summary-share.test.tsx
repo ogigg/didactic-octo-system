@@ -17,6 +17,20 @@ jest.mock("@/components/history/muscle-distribution-card", () => ({
   MuscleDistributionCard: () => null,
 }));
 
+const mockWorkoutShareStoryProps: { streakLabel: string | null }[] = [];
+jest.mock("@/components/workout/workout-share-story", () => {
+  const React = require("react");
+  const actual = jest.requireActual("@/components/workout/workout-share-story");
+
+  return {
+    ...actual,
+    WorkoutShareStory: (props: { streakLabel: string | null }) => {
+      mockWorkoutShareStoryProps.push(props);
+      return React.createElement(actual.WorkoutShareStory, props);
+    },
+  };
+});
+
 jest.mock("@/components/workout/heart-rate-chart", () => ({
   HeartRateChart: () => null,
 }));
@@ -48,6 +62,13 @@ jest.mock("react-native-safe-area-context", () => {
     useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
   };
 });
+
+let mockWorkoutStats = {
+  isTotalLoading: false,
+  isStreakLoading: false,
+  streakWeeks: 2 as number | null,
+  totalWorkouts: 4 as number | null,
+};
 
 const mockSummary = {
   workoutName: "Push day",
@@ -144,11 +165,7 @@ jest.mock("@/hooks/use-exercises-query", () => ({
 }));
 
 jest.mock("@/hooks/use-workout-stats", () => ({
-  useWorkoutStats: () => ({
-    isLoading: false,
-    streakWeeks: 2,
-    totalWorkouts: 4,
-  }),
+  useWorkoutStats: () => mockWorkoutStats,
 }));
 
 jest.mock("@/hooks/use-heart-rate-samples", () => ({
@@ -167,7 +184,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import { ActivityIndicator, Alert } from "react-native";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 
@@ -238,6 +255,47 @@ describe("WorkoutSummaryScreen share action", () => {
     });
 
     expect(screen.getByRole("button", { name: "Share" })).not.toBeDisabled();
+  });
+});
+
+describe("WorkoutSummaryScreen streak and total cards", () => {
+  afterEach(() => {
+    mockWorkoutStats = {
+      isTotalLoading: false,
+      isStreakLoading: false,
+      streakWeeks: 2,
+      totalWorkouts: 4,
+    };
+  });
+
+  it("shows the loaded total while the streak is still loading", () => {
+    mockWorkoutStats = {
+      isTotalLoading: false,
+      isStreakLoading: true,
+      streakWeeks: null,
+      totalWorkouts: 41,
+    };
+
+    const { UNSAFE_getAllByType } = render(<WorkoutSummaryScreen />);
+
+    // The finished workout is included in the total.
+    expect(screen.getByText("42")).toBeTruthy();
+    expect(screen.queryByText("—")).toBeNull();
+    // Only the streak card shows a loading indicator.
+    expect(UNSAFE_getAllByType(ActivityIndicator)).toHaveLength(1);
+  });
+
+  it("leaves the streak out of the share story until it resolves", async () => {
+    mockWorkoutStats = {
+      isTotalLoading: false,
+      isStreakLoading: true,
+      streakWeeks: 1,
+      totalWorkouts: 41,
+    };
+
+    render(<WorkoutSummaryScreen />);
+
+    expect(mockWorkoutShareStoryProps.at(-1)?.streakLabel).toBeNull();
   });
 });
 

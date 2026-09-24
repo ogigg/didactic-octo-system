@@ -166,7 +166,7 @@ export default function ProfileScreen() {
 
   const {
     totalWorkouts,
-    isLoading: statsLoading,
+    isTotalLoading: totalLoading,
     refetch: refetchStats,
   } = useWorkoutStats();
   const {
@@ -261,12 +261,12 @@ export default function ProfileScreen() {
                 { color: primary, fontFamily: Fonts?.rounded },
               ]}
             >
-              {statsLoading ? "—" : (totalWorkouts ?? "—")}
+              {totalLoading ? "—" : (totalWorkouts ?? "—")}
             </Text>
             <Text style={[Typography.label, { color: textMuted }]}>
               {t("stats.trainingsCompleted")}
             </Text>
-            {!statsLoading && totalWorkouts == null && (
+            {!totalLoading && totalWorkouts == null && (
               <Text
                 style={[
                   Typography.caption,

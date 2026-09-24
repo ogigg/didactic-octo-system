@@ -1,7 +1,12 @@
 const mockNavigate = jest.fn();
-const mockWorkoutStats: { totalWorkouts: number | null; isLoading: boolean } = {
+const mockWorkoutStats: {
+  totalWorkouts: number | null;
+  isTotalLoading: boolean;
+  isStreakLoading: boolean;
+} = {
   totalWorkouts: 0,
-  isLoading: false,
+  isTotalLoading: false,
+  isStreakLoading: false,
 };
 const mockI18n = {
   on: jest.fn(),
@@ -101,17 +106,28 @@ describe("Profile account management", () => {
 describe("Profile workout count", () => {
   beforeEach(() => {
     mockWorkoutStats.totalWorkouts = 0;
-    mockWorkoutStats.isLoading = false;
+    mockWorkoutStats.isTotalLoading = false;
+    mockWorkoutStats.isStreakLoading = false;
   });
 
   it("shows a placeholder while the count is loading", () => {
     mockWorkoutStats.totalWorkouts = null;
-    mockWorkoutStats.isLoading = true;
+    mockWorkoutStats.isTotalLoading = true;
 
     render(<ProfileScreen />);
 
     expect(screen.getByText("—")).toBeTruthy();
     expect(screen.queryByText("stats.loadFailed")).toBeNull();
+  });
+
+  it("shows the loaded count while the streak is still loading", () => {
+    mockWorkoutStats.totalWorkouts = 7;
+    mockWorkoutStats.isStreakLoading = true;
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByText("7")).toBeTruthy();
+    expect(screen.queryByText("—")).toBeNull();
   });
 
   it("shows zero only when the loaded count is zero", () => {
