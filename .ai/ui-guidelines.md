@@ -297,15 +297,14 @@ Rules:
 - Minimal: workout name (left, `titleSm`), timer (center, `titleSm`/`fontVariant: ['tabular-nums']`), Finish button (right, primary small).
 - Single bottom border (`border` color).
 
-**Tab Bar (3 tabs for MVP):**
+**Tab Bar:**
 
-- Home (workout list / next workout preview), Start/Active Workout, Profile/Settings.
-- Icons: 22px stroke, `textMuted` inactive, `primary` active.
-- Labels: `micro` size (10px/500).
-- **Center tab transforms when workout is active:**
-  - Inactive: 44px circle with `primaryContainer` bg, + icon.
-  - Active: 44px circle with `primary` fill, lightning icon, green dot indicator, timer replaces label.
-- Border top: `border` color.
+- Native tabs (`NativeTabs` from `expo-router/unstable-native-tabs`): Liquid Glass tab bar on iOS 26, Material bottom navigation on Android.
+- Tabs: Start (home), Kalendarz (calendar), Profil (profile).
+- Active icon + label: `primary`, from `Colors[colorScheme]`.
+- Inactive icon + label: `textSecondary` on Android and iOS < 26. On iOS 26 Liquid Glass ignores unselected-item colors and uses the system label color (black in light, white in dark).
+- iOS: SF Symbols, filled variant when selected where one exists (`house.fill`, `person.fill`; `calendar` has none). The selection bubble is drawn by the system.
+- Android: active indicator uses `primarySurface`.
 
 ### Back Button
 
