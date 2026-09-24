@@ -4,18 +4,20 @@ import { getAdminUser } from "@/lib/supabase/server";
 export default async function AdminHomePage() {
   const { supabase } = (await getAdminUser())!;
 
-  const [{ count: exerciseCount }, { count: logCount }] = await Promise.all([
-    supabase.from("exercises").select("*", { count: "exact", head: true }),
-    supabase
-      .from("llm_generation_logs")
-      .select("*", { count: "exact", head: true }),
-  ]);
+  const [{ count: exerciseCount }, { count: attemptCount }] = await Promise.all(
+    [
+      supabase.from("exercises").select("*", { count: "exact", head: true }),
+      supabase
+        .from("generation_attempts")
+        .select("*", { count: "exact", head: true }),
+    ]
+  );
 
   const stats = [
     { label: "Exercises", value: exerciseCount ?? 0, href: "/exercises" },
     {
-      label: "LLM generation logs",
-      value: logCount ?? 0,
+      label: "Generation attempts",
+      value: attemptCount ?? 0,
       href: "/generations",
     },
   ];

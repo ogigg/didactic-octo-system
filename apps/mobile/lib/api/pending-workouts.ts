@@ -10,15 +10,70 @@ import type {
 import { generateWorkoutResponseSchema } from "@/lib/api/generate-workout";
 import { supabase } from "@/lib/supabase";
 import type { GenerationLimitError } from "@/lib/api/subscription";
+import { STALE_PENDING_WORKOUT_MS } from "@/lib/pending-workout-recovery";
 
-export class GenerationLimitReachedError extends Error {
+export interface WorkoutGenerationErrorPayload {
+  error?: unknown;
+  message?: unknown;
+  code?: unknown;
+  error_code?: unknown;
+  request_id?: unknown;
+  retryable?: unknown;
+  used?: unknown;
+  remaining?: unknown;
+  tier?: unknown;
+}
+
+export class WorkoutGenerationError extends Error {
+  readonly code: string;
+  readonly error_code: string;
+  readonly request_id: string | null;
+  readonly retryable: boolean;
+
+  constructor(payload: WorkoutGenerationErrorPayload, fallbackMessage: string) {
+    const message =
+      typeof payload.message === "string"
+        ? payload.message
+        : typeof payload.error === "string"
+          ? payload.error
+          : fallbackMessage;
+    super(message);
+    this.name = "WorkoutGenerationError";
+    this.error_code =
+      typeof payload.error_code === "string"
+        ? payload.error_code
+        : typeof payload.code === "string"
+          ? payload.code
+          : "generation_failed";
+    this.code = this.error_code;
+    this.request_id =
+      typeof payload.request_id === "string" ? payload.request_id : null;
+    this.retryable =
+      typeof payload.retryable === "boolean" ? payload.retryable : true;
+  }
+}
+
+export class GenerationLimitReachedError extends WorkoutGenerationError {
   readonly code = "generation_limit_reached" as const;
   readonly used: number;
   readonly remaining: number;
   readonly tier: string;
 
-  constructor(payload: GenerationLimitError) {
-    super("Weekly generation limit reached");
+  constructor(
+    payload: GenerationLimitError & {
+      message?: string;
+      request_id?: string | null;
+    }
+  ) {
+    super(
+      {
+        error_code: "generation_limit_reached",
+        message: payload.message ?? "Weekly generation limit reached",
+        request_id: payload.request_id,
+        retryable: false,
+      },
+      "Weekly generation limit reached"
+    );
     this.name = "GenerationLimitReachedError";
     this.used = payload.used;
     this.remaining = payload.remaining;
@@ -94,6 +149,58 @@ const pendingWorkoutSchema = z.object({
 // Auth Helper
 // -----------------------------------------------------------------------------
 
+function parseFunctionErrorPayload(
+  value: unknown
+): WorkoutGenerationErrorPayload {
+  if (typeof value === "string") {
+    try {
+      return parseFunctionErrorPayload(JSON.parse(value));
+    } catch {
+      return { message: value };
+    }
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return value as WorkoutGenerationErrorPayload;
+  }
+
+  return {};
+}
+
+async function readFunctionErrorPayload(
+  data: unknown,
+  error: unknown
+): Promise<WorkoutGenerationErrorPayload> {
+  if (data !== null && data !== undefined) {
+    const parsedData = parseFunctionErrorPayload(data);
+    if (Object.keys(parsedData).length > 0) return parsedData;
+  }
+
+  const context =
+    typeof error === "object" && error !== null && "context" in error
+      ? (error as { context?: { json?: () => Promise<unknown> } }).context
+      : undefined;
+
+  if (context?.json) {
+    try {
+      return parseFunctionErrorPayload(await context.json());
+    } catch {
+      // Keep the transport error below when a response body is unavailable.
+    }
+  }
+
+  return {};
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return "Workout generation failed";
+}
+
 async function getAuthenticatedUserId(): Promise<string> {
   const {
     data: { user },
@@ -111,9 +218,7 @@ async function getAuthenticatedUserId(): Promise<string> {
 // Query Functions
 // -----------------------------------------------------------------------------
 
-export async function fetchPendingWorkouts(): Promise<PendingWorkout[]> {
-  await getAuthenticatedUserId();
-
+async function queryPendingWorkouts(): Promise<PendingWorkout[]> {
   const { data, error } = await supabase
     .from("pending_workouts")
     .select("*")
@@ -124,6 +229,61 @@ export async function fetchPendingWorkouts(): Promise<PendingWorkout[]> {
   }
 
   return z.array(pendingWorkoutSchema).parse(data) as PendingWorkout[];
+}
+
+export async function recoverStaleGenerationAttempts(
+  userId?: string
+): Promise<number> {
+  const authenticatedUserId = await getAuthenticatedUserId();
+  const targetUserId = userId ?? authenticatedUserId;
+
+  if (targetUserId !== authenticatedUserId) {
+    throw new Error("Cannot recover another user's workouts");
+  }
+
+  const { data, error } = await supabase.rpc(
+    "recover_stale_generation_attempts",
+    { p_user_id: targetUserId }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (typeof data === "number") return Math.max(0, data);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (typeof row === "number") return Math.max(0, row);
+  if (typeof row === "object" && row !== null) {
+    const count = Object.values(row).find((value) => typeof value === "number");
+    return typeof count === "number" ? Math.max(0, count) : 0;
+  }
+  return 0;
+}
+
+export async function fetchPendingWorkouts(options?: {
+  recoverStale?: boolean;
+}): Promise<PendingWorkout[]> {
+  const userId = await getAuthenticatedUserId();
+  const workouts = await queryPendingWorkouts();
+
+  if (
+    options?.recoverStale !== false &&
+    workouts.some(
+      (workout) =>
+        ["queued", "generating", "regenerating"].includes(workout.status) &&
+        Date.now() - new Date(workout.updated_at).getTime() >
+          STALE_PENDING_WORKOUT_MS
+    )
+  ) {
+    try {
+      await recoverStaleGenerationAttempts(userId);
+      return queryPendingWorkouts();
+    } catch {
+      // A recovery RPC failure must not hide the queue the user already has.
+    }
+  }
+
+  return workouts;
 }
 
 // -----------------------------------------------------------------------------
@@ -198,23 +358,22 @@ export async function triggerQueueGeneration(
   );
 
   if (error) {
-    const responseBody =
-      data ?? (await error.context?.json?.().catch(() => null));
-    const body = responseBody as {
-      error?: string;
-      used?: number;
-      remaining?: number;
-      tier?: string;
-    } | null;
-    if (body?.error === "generation_limit_reached") {
+    const body = await readFunctionErrorPayload(data, error);
+    if (
+      body.error === "generation_limit_reached" ||
+      body.error_code === "generation_limit_reached"
+    ) {
       throw new GenerationLimitReachedError({
         code: "generation_limit_reached",
-        used: body.used ?? 5,
-        remaining: body.remaining ?? 0,
-        tier: body.tier ?? "free",
+        used: typeof body.used === "number" ? body.used : 5,
+        remaining: typeof body.remaining === "number" ? body.remaining : 0,
+        tier: typeof body.tier === "string" ? body.tier : "free",
+        message: typeof body.message === "string" ? body.message : undefined,
+        request_id:
+          typeof body.request_id === "string" ? body.request_id : null,
       });
     }
-    throw new Error(body?.error ?? error.message);
+    throw new WorkoutGenerationError(body, getErrorMessage(error));
   }
   if (!data?.success && !data?.skipped) {
     throw new Error("Workout preparation did not complete");
@@ -244,59 +403,48 @@ export async function triggerRegeneration(
   });
 
   if (error) {
-    const body = data as {
-      error?: string;
-      used?: number;
-      remaining?: number;
-      tier?: string;
-    } | null;
-    if (body?.error === "generation_limit_reached") {
+    const body = await readFunctionErrorPayload(data, error);
+    if (
+      body.error === "generation_limit_reached" ||
+      body.error_code === "generation_limit_reached"
+    ) {
       throw new GenerationLimitReachedError({
         code: "generation_limit_reached",
-        used: body.used ?? 5,
-        remaining: body.remaining ?? 0,
-        tier: body.tier ?? "free",
+        used: typeof body.used === "number" ? body.used : 5,
+        remaining: typeof body.remaining === "number" ? body.remaining : 0,
+        tier: typeof body.tier === "string" ? body.tier : "free",
+        message: typeof body.message === "string" ? body.message : undefined,
+        request_id:
+          typeof body.request_id === "string"
+            ? body.request_id
+            : (requestId ?? null),
       });
     }
-    throw new Error(error.message);
+    throw new WorkoutGenerationError(
+      {
+        ...body,
+        request_id:
+          typeof body.request_id === "string" ? body.request_id : requestId,
+      },
+      getErrorMessage(error)
+    );
   }
 
-  return generateWorkoutResponseSchema.parse(data);
-}
-
-export async function setPendingWorkoutStatus(
-  id: string,
-  status: PendingWorkoutStatus
-): Promise<void> {
-  await getAuthenticatedUserId();
-
-  const { error } = await supabase
-    .from("pending_workouts")
-    .update({ status })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-}
-
-export async function replacePendingWorkoutWithFallback(
-  id: string,
-  fallbackWorkout: z.infer<typeof generateWorkoutResponseSchema>
-): Promise<void> {
-  await getAuthenticatedUserId();
-
-  const { error } = await supabase
-    .from("pending_workouts")
-    .update({
-      status: "ready",
-      generation_source: "fallback_template",
-      workout_data: fallbackWorkout,
-      generated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return generateWorkoutResponseSchema.parse(data);
+  } catch (parseError) {
+    const message =
+      parseError instanceof Error
+        ? parseError.message
+        : "Invalid workout generation response";
+    throw new WorkoutGenerationError(
+      {
+        error_code: "invalid_response",
+        message,
+        request_id: requestId,
+        retryable: true,
+      },
+      "Invalid workout generation response"
+    );
   }
 }
