@@ -37,6 +37,10 @@ import {
   supportedLanguages,
   type AppLanguage,
 } from "@/i18n";
+import {
+  themePreferences,
+  useThemePreferenceStore,
+} from "@/stores/theme-preference-store";
 
 const VISIBLE_WEEK_LABELS = new Set(["W1", "W4", "W7", "W10"]);
 
@@ -50,6 +54,7 @@ type IconName =
   | "gearshape.fill"
   | "flame.fill"
   | "globe"
+  | "circle.lefthalf.filled"
   | "megaphone.fill"
   | "star.fill"
   | "person.fill"
@@ -147,6 +152,8 @@ export default function ProfileScreen() {
   const signOut = useAuthStore((s) => s.signOut);
   const [selectedLanguage, setSelectedLanguage] =
     useState<AppLanguage>(getCurrentLanguage);
+  const themePreference = useThemePreferenceStore((s) => s.preference);
+  const setThemePreference = useThemePreferenceStore((s) => s.setPreference);
 
   function handleLogout() {
     Alert.alert(tAuth("logout.confirmTitle"), tAuth("logout.confirmMessage"), [
@@ -165,8 +172,6 @@ export default function ProfileScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
-  const primaryContainer = useThemeColor({}, "primaryContainer");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   const {
     totalWorkouts,
@@ -336,44 +341,35 @@ export default function ProfileScreen() {
                 showChevron={false}
                 position="first"
                 trailing={
-                  <View
-                    style={[
-                      styles.languageToggle,
-                      { backgroundColor: backgroundSubtle },
-                    ]}
-                  >
-                    {supportedLanguages.map((language) => {
-                      const selected = selectedLanguage === language;
-                      const label = languageLabels[language];
-
-                      return (
-                        <Pressable
-                          key={language}
-                          onPress={() => handleLanguageChange(language)}
-                          accessibilityRole="button"
-                          accessibilityLabel={t("language.accessibility", {
-                            language: languageLabels[language],
-                          })}
-                          accessibilityState={{ selected }}
-                          style={({ pressed }) => [
-                            styles.languageOption,
-                            selected && { backgroundColor: primaryContainer },
-                            pressed && { opacity: 0.75 },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              Typography.caption,
-                              styles.languageOptionLabel,
-                              { color: selected ? primary : textSecondary },
-                            ]}
-                          >
-                            {label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <SegmentedToggle
+                    options={supportedLanguages.map((language) => ({
+                      value: language,
+                      label: languageLabels[language],
+                      accessibilityLabel: t("language.accessibility", {
+                        language: languageLabels[language],
+                      }),
+                    }))}
+                    selected={selectedLanguage}
+                    onSelect={handleLanguageChange}
+                  />
+                }
+              />
+              <ListRow
+                icon="circle.lefthalf.filled"
+                label={t("theme.label")}
+                showChevron={false}
+                trailing={
+                  <SegmentedToggle
+                    options={themePreferences.map((preference) => ({
+                      value: preference,
+                      label: t(`theme.options.${preference}`),
+                      accessibilityLabel: t(
+                        `theme.accessibility.${preference}`
+                      ),
+                    }))}
+                    selected={themePreference}
+                    onSelect={setThemePreference}
+                  />
                 }
               />
               {SETTINGS_ITEMS.map((item, i) => {
@@ -418,6 +414,62 @@ export default function ProfileScreen() {
         </ScrollView>
       </SafeAreaView>
     </TabScreen>
+  );
+}
+
+interface SegmentedToggleOption<T extends string> {
+  value: T;
+  label: string;
+  accessibilityLabel: string;
+}
+
+interface SegmentedToggleProps<T extends string> {
+  options: SegmentedToggleOption<T>[];
+  selected: T;
+  onSelect: (value: T) => void;
+}
+
+function SegmentedToggle<T extends string>({
+  options,
+  selected,
+  onSelect,
+}: SegmentedToggleProps<T>) {
+  const primary = useThemeColor({}, "primary");
+  const textSecondary = useThemeColor({}, "textSecondary");
+  const primaryContainer = useThemeColor({}, "primaryContainer");
+  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
+
+  return (
+    <View style={[styles.toggle, { backgroundColor: backgroundSubtle }]}>
+      {options.map((option) => {
+        const isSelected = option.value === selected;
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onSelect(option.value)}
+            accessibilityRole="button"
+            accessibilityLabel={option.accessibilityLabel}
+            accessibilityState={{ selected: isSelected }}
+            style={({ pressed }) => [
+              styles.toggleOption,
+              isSelected && { backgroundColor: primaryContainer },
+              pressed && { opacity: 0.75 },
+            ]}
+          >
+            <Text
+              style={[
+                Typography.caption,
+                styles.toggleOptionLabel,
+                { color: isSelected ? primary : textSecondary },
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -478,12 +530,12 @@ const styles = StyleSheet.create({
   logoutButton: {
     marginTop: Spacing.md,
   },
-  languageToggle: {
+  toggle: {
     flexDirection: "row",
     borderRadius: Radii.sm,
     padding: 2,
   },
-  languageOption: {
+  toggleOption: {
     minWidth: 48,
     minHeight: 30,
     alignItems: "center",
@@ -491,7 +543,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm - 2,
     paddingHorizontal: Spacing.sm,
   },
-  languageOptionLabel: {
+  toggleOptionLabel: {
     fontWeight: "700",
   },
 });

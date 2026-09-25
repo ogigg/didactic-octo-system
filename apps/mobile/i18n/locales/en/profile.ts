@@ -35,4 +35,17 @@ export const profile = {
     polish: "Polski",
     accessibility: "Change app language to {{language}}",
   },
+  theme: {
+    label: "Appearance",
+    options: {
+      system: "Auto",
+      light: "Light",
+      dark: "Dark",
+    },
+    accessibility: {
+      system: "Match the device appearance",
+      light: "Always use the light appearance",
+      dark: "Always use the dark appearance",
+    },
+  },
 } as const;
