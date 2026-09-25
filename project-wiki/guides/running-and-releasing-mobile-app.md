@@ -86,10 +86,19 @@ cd apps/mobile/ios
 open Sweaty.xcworkspace
 ```
 
+Sign only with the team's one shared distribution certificate. Run
+`bundle exec fastlane ios certs` first to install it and the `match AppStore …`
+profiles. Don't let Xcode create certificates or profiles: skip "Automatically
+manage signing" and "Manage Certificates" for Release, and never let the
+Organizer create a new distribution certificate. See
+[iOS signing](../../apps/mobile/README.md#ios-signing).
+
 Then in Xcode:
 
 1. Select the `Sweaty` app target.
 2. Confirm the signing team, bundle identifier, version, and build number.
+   For Release, each of `Sweaty`, `SweatyWidget` and `SweatyWatch` uses manual
+   signing with its `match AppStore <bundle id>` profile.
 3. Choose `Product` -> `Clean Build Folder`.
 4. Choose a generic iOS device or an eligible connected device as the run destination.
 5. Choose `Product` -> `Archive`.

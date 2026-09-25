@@ -108,7 +108,7 @@ A normal successful save does not show status UI.
 ## Releasing with fastlane
 
 Release builds are made on a local Mac with [fastlane](https://fastlane.tools)
-and uploaded straight to App Store Connect and Google Play; EAS is not involved.
+and uploaded straight to App Store Connect and Google Play.
 The lanes live in [`fastlane/Fastfile`](fastlane/Fastfile) and run from
 `apps/mobile`.
 
@@ -125,13 +125,13 @@ The lanes live in [`fastlane/Fastfile`](fastlane/Fastfile) and run from
    for fastlane and CocoaPods themselves, but fastlane still warns at startup
    without it.
 3. Copy [`fastlane/.env.example`](fastlane/.env.example) to `fastlane/.env`
-   (git-ignored) and fill in the App Store Connect API key.
+   (git-ignored). Fill in the App Store Connect API key and, for iOS,
+   `MATCH_PASSWORD` (see [iOS signing](#ios-signing)).
 4. Put production app config in `.env.production.local` (git-ignored):
    `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
    `EXPO_PUBLIC_APP_ENV=production`, the PostHog and Google client IDs. The
-   release build inlines these into the JS bundle (EAS used to inject them).
-   The lanes stop before building when the Supabase values are missing or
-   point at a local server.
+   release build inlines these into the JS bundle. The lanes stop before
+   building when the Supabase values are missing or point at a local server.
 
 ### App Store Connect API key
 
@@ -146,42 +146,88 @@ be committed. The older `fastlane/api-key.json` stored the same key inline:
 save its `key` value as the `.p8` file to migrate.
 
 Use a **team key** (Users and Access → Integrations → App Store Connect API →
-Team Keys): the lanes download the App Store profiles, read TestFlight build
-numbers and upload through it. An individual key (your name → Edit Profile →
-Individual API Key) may be refused the profile download.
+Team Keys): the lanes fetch the signing assets, read TestFlight build numbers
+and upload through it. An individual key (your name → Edit Profile →
+Individual API Key) may be refused access to certificates and profiles.
 
 ### iOS signing
 
-The lanes sign only with what team `X6TS5L9ZTL` already has, and they never
-create, repair or revoke certificates or profiles: xcodebuild runs without
-`-allowProvisioningUpdates`, and profiles are fetched read-only. Before the
-native build, the lane:
+Team `X6TS5L9ZTL` has **one** Apple Distribution certificate for this app, and
+everyone who releases signs with it. It lives with the App Store profiles for
+`com.ogig.sweaty`, `com.ogig.sweaty.SweatyWidget` and
+`com.ogig.sweaty.SweatyWatch` in the private repo
+[`ogigg/sweaty-signing`](https://github.com/ogigg/sweaty-signing), encrypted by
+[fastlane match](https://docs.fastlane.tools/actions/match/). Apple never hands
+out a certificate's private key, so that repo is its only copy; nobody creates
+a certificate of their own. [`fastlane/Matchfile`](fastlane/Matchfile) says
+where the repo is; the lanes pass the bundle IDs from `IOS_SIGNED_TARGETS` in
+the Fastfile, the only list of signed targets.
 
-1. looks up the team's distribution certificate in the login keychain (it needs
-   the private key);
-2. downloads the existing App Store profiles for `com.ogig.sweaty`,
-   `com.ogig.sweaty.SweatyWidget` and `com.ogig.sweaty.SweatyWatch`. Only
-   profiles that use the certificate from step 1 are accepted;
-3. switches the Release configuration of the generated project to manual
-   signing with that certificate and those profiles.
+Set up a Mac once:
 
-The distribution certificate and profiles were created by EAS (their names
-start with `*[expo]`). Apple never hands out a certificate's private key, but
-EAS keeps it. Import the certificate once:
+1. Get read access to `ogigg/sweaty-signing` (Oskar owns it) and check it with
+   `git ls-remote https://github.com/ogigg/sweaty-signing.git`.
+2. Copy `MATCH_PASSWORD`, the repo's encryption passphrase, from the
+   "Sweaty – iOS signing" item in the team password manager into
+   `fastlane/.env`. Never send it over chat or email. Leave the line out rather
+   than blank: the lanes drop a blank value, and match would otherwise take it
+   as the passphrase.
+3. Install the certificate and profiles into the login keychain:
 
-1. From `apps/mobile`, run `npx eas-cli credentials -p ios` with an Expo
-   account that can access the `ogig` project, choose the `production` build
-   profile and download the credentials to `credentials.json`. The
-   distribution certificate lands as a `.p12` under `credentials/`, and
-   `credentials.json` holds its path and password. Both are git-ignored.
-2. Double-click the `.p12` and enter that password to import it into the
-   login keychain, then delete `credentials.json` and `credentials/`.
+   ```bash
+   bundle exec fastlane ios certs
+   ```
 
-If a lane stops with `No usable App Store profile for <bundle id>`, that bundle
-ID has no App Store profile made with the imported certificate. Someone with
-access to the developer portal has to create one there (Profiles → App Store
-Connect → the bundle ID → the existing distribution certificate). The lane will
-not do it for you.
+   The first build after that may ask to let `codesign` use the key; choose
+   **Always Allow**.
+
+`ios build` and `ios beta` run the same fetch before every build. They check
+that all three profiles use one certificate and that the keychain holds its
+private key, matched by SHA-1. Then they switch the Release configuration to
+manual signing with it. Other distribution identities in the keychain are
+ignored, because the build signs with this certificate by name. The lanes stop
+only when another valid identity has the same name, and they print the SHA-1s
+so you know which to delete. From 30 days before the certificate or a profile
+expires, every lane warns.
+
+Rules:
+
+- The lanes never create, renew or revoke certificates or profiles: match runs
+  read-only, and xcodebuild runs without `-allowProvisioningUpdates`.
+- `bundle exec fastlane ios certs_create` is the only command that may create
+  them. It runs match without readonly and reuses a valid certificate already
+  in the repo. Run it only with an explicit OK, for two cases:
+  - **bootstrap:** once, while the repo is still empty. Put a new passphrase in
+    the password manager and `fastlane/.env` first; match encrypts the repo
+    with it.
+
+  Before asking for confirmation, it checks everything that could otherwise
+  fail after the certificate exists on Apple's side, and stops if one fails:
+  - `MATCH_PASSWORD` is set;
+  - git has `user.name` and `user.email` for match's commit;
+  - you can push to the match repo (a dry-run push);
+  - the repo isn't empty while the team already has an Apple Distribution
+    certificate. That can happen after a failed bootstrap: import the
+    leftover certificate with `fastlane match import` instead of creating
+    another.
+
+  Afterwards it checks the result the same way `ios certs` does and says
+  whether it created a certificate or reused one.
+  - **renewal:** the certificate and profiles expire after a year. After they
+    expire, match replaces them. Everyone then runs `ios certs` again.
+
+- Never run `fastlane match nuke`: it revokes every distribution certificate on
+  the team.
+- Don't put the App Store Connect key or any other credential in the
+  `Matchfile`: fastlane prints its values unmasked.
+  [`fastlane/__tests__/signing-guards.test.ts`](fastlane/__tests__/signing-guards.test.ts)
+  fails the quality gate if one shows up, or if anything outside `certs_create`
+  runs match without readonly.
+
+If `ios certs` stops with `cannot create a new one because you enabled
+readonly`, the repo is empty or its certificate or profiles expired; see the
+bootstrap and renewal rules above. Any other fetch error, such as a wrong
+`MATCH_PASSWORD` or no repo access, is not a reason to create a certificate.
 
 ### iOS release commands
 

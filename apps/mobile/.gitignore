@@ -53,6 +53,8 @@ fastlane/keystore.properties
 fastlane/*.json
 *.keystore
 
-# EAS credentials download (see README -> "iOS signing")
+# Expo credentials downloads: credentials.json holds certificate and keystore
+# passwords in plain text. Keep ignored while the Expo project still stores
+# credentials.
 credentials.json
 credentials/

@@ -1,0 +1,20 @@
+# Where the shared iOS signing assets live: one Apple Distribution certificate
+# and the App Store profiles for every signed target, stored encrypted in a
+# private repo. Damian and Oskar both sign with this one certificate; nobody
+# creates their own. Setup and rules: apps/mobile/README.md -> "iOS signing".
+#
+# The lanes in the Fastfile pass everything else (type, bundle IDs, team, API
+# key), so there is one list of signed targets: IOS_SIGNED_TARGETS.
+#
+# Read-only by default, so nothing creates a certificate or profile by
+# accident. Never run `fastlane match nuke`: it revokes every distribution
+# certificate on the team.
+#
+# Never put credentials here (API key, passwords): fastlane prints every
+# Matchfile value unmasked. fastlane/__tests__/signing-guards.test.ts
+# enforces that.
+
+git_url("https://github.com/ogigg/sweaty-signing.git")
+git_branch("main")
+storage_mode("git")
+readonly(true)
