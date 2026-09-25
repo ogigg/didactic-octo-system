@@ -1,7 +1,10 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, View, useWindowDimensions } from "react-native";
 import Svg, { Rect, Text as SvgText } from "react-native-svg";
 
 import { Spacing } from "@/constants/theme";
+import { useAppCatalogLanguage } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
 interface HeatmapDay {
@@ -21,25 +24,40 @@ const MONTH_LABEL_HEIGHT = 16;
 const CELL_GAP = 2;
 const DEFAULT_WEEKS = 52;
 const DAYS_IN_WEEK = 7;
-const MONTH_ABBREVS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-const DAY_LABELS: { row: number; label: string }[] = [
-  { row: 0, label: "M" },
-  { row: 2, label: "W" },
-  { row: 4, label: "F" },
-];
+// Rows 0, 2 and 4 are Monday, Wednesday and Friday.
+const DAY_LABEL_ROWS = [0, 2, 4];
+// 2024-01-01 was a Monday; adding a row index gives that weekday.
+const FIRST_MONDAY_UTC = Date.UTC(2024, 0, 1);
+const LEGEND_CELLS_OFFSET = 26;
+const LEGEND_LABEL_GAP = 3;
+const LEGEND_FONT_SIZE = 9;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// SVG text can't be measured before layout; ~0.6em per character is a safe
+// upper bound for these short Latin labels.
+function estimateLabelWidth(label: string): number {
+  return Math.ceil(label.length * LEGEND_FONT_SIZE * 0.6);
+}
+
+/**
+ * Monday/Wednesday/Friday initials, or short names when the initials clash
+ * (Polish gives "P, Ś, P").
+ */
+function getDayLabels(locale: string) {
+  const format = (style: "narrow" | "short") => {
+    const formatter = new Intl.DateTimeFormat(locale, {
+      weekday: style,
+      timeZone: "UTC",
+    });
+    return DAY_LABEL_ROWS.map((row) =>
+      formatter.format(FIRST_MONDAY_UTC + row * DAY_MS).replace(/\.$/, "")
+    );
+  };
+  const narrow = format("narrow");
+  const labels =
+    new Set(narrow).size === narrow.length ? narrow : format("short");
+  return DAY_LABEL_ROWS.map((row, index) => ({ row, label: labels[index] }));
+}
 
 function getIntensityLevel(day: HeatmapDay | undefined): number {
   if (!day) return 0;
@@ -71,6 +89,8 @@ export function HeatmapChart({
   cellSize: cellSizeProp,
   weeks = DEFAULT_WEEKS,
 }: HeatmapChartProps) {
+  const { t } = useTranslation("stats");
+  const locale = useAppCatalogLanguage();
   const { width: screenWidth } = useWindowDimensions();
   const primaryColor = useThemeColor({}, "primary");
   const borderColor = useThemeColor({}, "border");
@@ -82,7 +102,20 @@ export function HeatmapChart({
   const cellSize = cellSizeProp ?? Math.max(4, Math.min(28, computed));
 
   const gridWidth = DAY_LABEL_WIDTH + WEEKS * cellSize + (WEEKS - 1) * CELL_GAP;
-  const legendWidth = 26 + 5 * cellSize + 4 * CELL_GAP + 32;
+  const lessLabel = t("heatmap.less");
+  const moreLabel = t("heatmap.more");
+  // The right-aligned "less" label must fit left of the cells, so push the
+  // cells right when a translation is longer than the default offset.
+  const legendCellsX = Math.max(
+    DAY_LABEL_WIDTH + LEGEND_CELLS_OFFSET,
+    estimateLabelWidth(lessLabel) + LEGEND_LABEL_GAP
+  );
+  const legendWidth =
+    legendCellsX -
+    DAY_LABEL_WIDTH +
+    5 * cellSize +
+    4 * CELL_GAP +
+    Math.max(32, LEGEND_LABEL_GAP + estimateLabelWidth(moreLabel));
   const chartWidth = Math.max(gridWidth, DAY_LABEL_WIDTH + legendWidth);
   const chartHeight =
     MONTH_LABEL_HEIGHT +
@@ -90,6 +123,12 @@ export function HeatmapChart({
     CELL_GAP +
     cellSize +
     12;
+
+  const monthFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { month: "short" }),
+    [locale]
+  );
+  const dayLabels = useMemo(() => getDayLabels(locale), [locale]);
 
   // Build lookup map
   const dataMap = new Map<string, HeatmapDay>();
@@ -130,7 +169,7 @@ export function HeatmapChart({
       if (row === 0) {
         const month = d.getMonth();
         if (month !== prevMonth) {
-          monthLabels.push({ col, label: MONTH_ABBREVS[month] });
+          monthLabels.push({ col, label: monthFormatter.format(d) });
           prevMonth = month;
         }
       }
@@ -162,7 +201,7 @@ export function HeatmapChart({
         })}
 
         {/* Day labels */}
-        {DAY_LABELS.map((dl) => {
+        {dayLabels.map((dl) => {
           const y =
             MONTH_LABEL_HEIGHT +
             dl.row * (cellSize + CELL_GAP) +
@@ -201,17 +240,18 @@ export function HeatmapChart({
         })}
 
         {/* Legend */}
+        {/* Right-aligned so longer translations grow away from the cells. */}
         <SvgText
-          x={DAY_LABEL_WIDTH}
+          x={legendCellsX - LEGEND_LABEL_GAP}
           y={legendY + cellSize}
-          fontSize={9}
+          fontSize={LEGEND_FONT_SIZE}
           fill={textMuted}
+          textAnchor="end"
         >
-          Less
+          {lessLabel}
         </SvgText>
         {[0, 1, 2, 3, 4].map((level) => {
-          const legendCellX =
-            DAY_LABEL_WIDTH + 26 + level * (cellSize + CELL_GAP);
+          const legendCellX = legendCellsX + level * (cellSize + CELL_GAP);
           const isEmpty = level === 0;
           return (
             <Rect
@@ -227,12 +267,12 @@ export function HeatmapChart({
           );
         })}
         <SvgText
-          x={DAY_LABEL_WIDTH + 26 + 5 * (cellSize + CELL_GAP) + 2}
+          x={legendCellsX + 5 * (cellSize + CELL_GAP) + LEGEND_LABEL_GAP}
           y={legendY + cellSize}
-          fontSize={9}
+          fontSize={LEGEND_FONT_SIZE}
           fill={textMuted}
         >
-          More
+          {moreLabel}
         </SvgText>
       </Svg>
     </View>

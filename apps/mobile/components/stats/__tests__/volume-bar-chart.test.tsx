@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import { VolumeBarChart } from "../volume-bar-chart";
 
+let mockLanguage = "en";
+
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) =>
@@ -11,6 +13,10 @@ jest.mock("react-i18next", () => ({
         "volume.perWeek": "/wk",
       })[key] ?? key,
   }),
+}));
+
+jest.mock("@/hooks/use-exercises-query", () => ({
+  useAppCatalogLanguage: () => mockLanguage,
 }));
 
 jest.mock("@/hooks/use-theme-color", () => ({
@@ -26,6 +32,28 @@ jest.mock("@/hooks/use-weight-unit", () => ({
 jest.mock("@/components/ui/icon-symbol", () => ({ IconSymbol: () => null }));
 
 describe("VolumeBarChart", () => {
+  afterEach(() => {
+    mockLanguage = "en";
+  });
+
+  it("names months in the app language", () => {
+    mockLanguage = "pl";
+
+    render(
+      <VolumeBarChart
+        scrollable
+        data={[
+          { week_start: "2026-06-01", volume_kg: 100 },
+          { week_start: "2026-07-06", volume_kg: 120 },
+        ]}
+      />
+    );
+
+    expect(screen.getByText("cze")).toBeTruthy();
+    expect(screen.getByText("lip")).toBeTruthy();
+    expect(screen.queryByText("Jun")).toBeNull();
+  });
+
   it("renders duration totals when configured for time exercises", () => {
     render(
       <VolumeBarChart
