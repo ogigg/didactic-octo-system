@@ -267,9 +267,11 @@ These behaviors could not be confirmed from the code alone:
 - "Return Home" on workout-summary dismisses two screens. Starting from Home,
   that lands on the tabs. Starting from workout-preview, it probably lands back
   on workout-preview. After an Apple Watch finish, it depends on the screen
-  that was open.
+  that was open. Tracked in
+  [SWE-198](https://linear.app/sweaty/issue/SWE-198).
 - A signed-in user who hasn't finished onboarding can open root screens through
   a widget or deep link, because the root-screen guard checks only sign-in.
+  Tracked in [SWE-199](https://linear.app/sweaty/issue/SWE-199).
 - After saving, change-password replaces itself with account-settings while
   account-settings is already underneath, which may leave it twice in the
-  stack.
+  stack. Tracked in [SWE-200](https://linear.app/sweaty/issue/SWE-200).
