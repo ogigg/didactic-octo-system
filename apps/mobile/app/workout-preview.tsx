@@ -48,6 +48,7 @@ import {
   GenerationLimitReachedError,
   WorkoutGenerationError,
 } from "@/lib/api/pending-workouts";
+import { getPrimaryMuscleLabel } from "@/lib/exercise-labels";
 import type { ExerciseImageData } from "@/lib/exercise-media";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
 import { getWorkingSetLabel } from "@/lib/exercise-set-structure";
@@ -722,6 +723,9 @@ export default function WorkoutPreviewScreen() {
                     exercise.image ??
                     exerciseMap.get(exercise.exercise_id)?.image
                   }
+                  primaryMuscle={getPrimaryMuscleLabel(
+                    exerciseMap.get(exercise.exercise_id)
+                  )}
                   exerciseIndex={exIndex}
                   isEditing={canEdit}
                   preference={preferencesMap?.get(exercise.exercise_id) ?? null}
@@ -994,6 +998,8 @@ interface ExerciseCardProps {
   exercise: LocalExercise;
   displayName: string;
   image?: ExerciseImageData;
+  /** Localized primary muscle, shown under the exercise name. */
+  primaryMuscle: string | null;
   exerciseIndex: number;
   isEditing: boolean;
   preference: ExercisePreferenceValue | null | undefined;
@@ -1022,6 +1028,7 @@ function ExerciseCard({
   exercise,
   displayName,
   image,
+  primaryMuscle,
   exerciseIndex,
   isEditing,
   preference,
@@ -1081,6 +1088,14 @@ function ExerciseCard({
             </Pressable>
             <ProgressionPill type={exercise.progression_type} />
           </View>
+          {primaryMuscle ? (
+            <Text
+              style={[Typography.caption, { color: textSecondary }]}
+              numberOfLines={1}
+            >
+              {primaryMuscle}
+            </Text>
+          ) : null}
           <View style={styles.exerciseMeta}>
             <Text style={[Typography.micro, { color: textMuted }]}>
               {t("exerciseList.rest", {

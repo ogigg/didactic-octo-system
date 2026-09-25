@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -51,6 +51,9 @@ export function useLocalizedExercises(ids: string[]) {
     queryFn: () => fetchExercises({ ids: sortedIds }, language),
     enabled: sortedIds.length > 0,
     staleTime: 60_000,
+    // Keep the old catalog entries while a changed id set (swap, add) loads,
+    // so the other exercises' names and muscles don't blink out.
+    placeholderData: keepPreviousData,
   });
 }
 
