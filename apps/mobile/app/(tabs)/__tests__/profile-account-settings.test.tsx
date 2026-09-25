@@ -81,6 +81,9 @@ jest.mock("@/components/ui/gradient-surface", () => {
 
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
+import { changeAppLanguage } from "@/i18n";
+import { useThemePreferenceStore } from "@/stores/theme-preference-store";
+
 import ProfileScreen from "../profile";
 
 describe("Profile account management", () => {
@@ -145,5 +148,47 @@ describe("Profile workout count", () => {
     expect(screen.getByText("—")).toBeTruthy();
     expect(screen.queryByText("0")).toBeNull();
     expect(screen.getByText("stats.loadFailed")).toBeTruthy();
+  });
+});
+
+describe("Profile appearance preference", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useThemePreferenceStore.setState({ preference: "system" });
+  });
+
+  it("starts on Auto and switches the app to the chosen scheme", () => {
+    render(<ProfileScreen />);
+
+    const auto = screen.getByRole("button", {
+      name: "theme.accessibility.system",
+    });
+    expect(auto.props.accessibilityState).toMatchObject({ selected: true });
+
+    fireEvent.press(
+      screen.getByRole("button", { name: "theme.accessibility.dark" })
+    );
+
+    expect(useThemePreferenceStore.getState().preference).toBe("dark");
+    expect(
+      screen.getByRole("button", { name: "theme.accessibility.dark" }).props
+        .accessibilityState
+    ).toMatchObject({ selected: true });
+    expect(
+      screen.getByRole("button", { name: "theme.accessibility.system" }).props
+        .accessibilityState
+    ).toMatchObject({ selected: false });
+  });
+
+  it("keeps the language toggle working alongside it", () => {
+    render(<ProfileScreen />);
+
+    // The mocked `t` returns the key, so both language options share a label.
+    fireEvent.press(
+      screen.getAllByRole("button", { name: "language.accessibility" })[1]
+    );
+
+    expect(changeAppLanguage).toHaveBeenCalledWith("pl");
+    expect(useThemePreferenceStore.getState().preference).toBe("system");
   });
 });

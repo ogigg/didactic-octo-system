@@ -57,6 +57,8 @@ actions. Copy is maintained in the English and Polish `auth.profile` namespace.
 
 > **Note:** In light mode, `backgroundElevated` and `background` share the same value; the visual distinction comes from the 1px `border` outline on elevated containers (e.g., set table).
 
+**Active scheme.** Users choose Auto, Light or Dark in Profile → Appearance. The choice is kept per device in `stores/theme-preference-store.ts` (AsyncStorage key `app-theme-preference`). On iOS and Android it is applied with `Appearance.setColorScheme`, which also covers native alerts, pickers and the keyboard; on web, `hooks/use-color-scheme.web.ts` applies it instead. `components/theme-ready-splash.tsx` keeps the splash up until the saved choice has loaded, so the app never starts in the wrong scheme. Always read the scheme through `useColorScheme()` from `@/hooks/use-color-scheme` or `useThemeColor`, never from the device directly.
+
 #### Light Mode
 
 | Token                  | Value                   | Usage                                               |

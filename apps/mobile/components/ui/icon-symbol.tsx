@@ -60,6 +60,7 @@ const MAPPING = {
   "apple.logo": "apple",
   "g.circle.fill": "g-mobiledata",
   globe: "language",
+  "circle.lefthalf.filled": "contrast",
   "megaphone.fill": "campaign",
   "star.fill": "star",
   nosign: "block",
