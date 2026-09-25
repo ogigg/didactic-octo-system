@@ -148,6 +148,9 @@ export default function RootLayout() {
                   headerShown: false,
                 }}
               >
+                {/* Index only routes: on a cold start it pops back to the
+                    (tabs) anchor below it, which must not animate. */}
+                <Stack.Screen name="index" options={{ animation: "none" }} />
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen

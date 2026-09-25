@@ -1,5 +1,7 @@
-const mockDismissTo = jest.fn();
+const mockDismissAll = jest.fn();
+const mockReplace = jest.fn();
 let mockSegments: string[];
+let mockRootStack: string[];
 let mockAuth: {
   isAuthenticated: boolean;
   isInitialized: boolean;
@@ -7,8 +9,17 @@ let mockAuth: {
 };
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ dismissTo: mockDismissTo }),
+  useRouter: () => ({ dismissAll: mockDismissAll, replace: mockReplace }),
   useSegments: () => mockSegments,
+  // Shaped like expo-router's root state: the root stack sits in `__root`.
+  useRootNavigationState: () => ({
+    routes: [
+      {
+        name: "__root",
+        state: { routes: mockRootStack.map((name) => ({ name })) },
+      },
+    ],
+  }),
 }));
 
 jest.mock("@/hooks/use-auth", () => ({
@@ -21,8 +32,10 @@ import { useDeepLinkAuthGuard } from "../use-deep-link-auth-guard";
 
 describe("useDeepLinkAuthGuard", () => {
   beforeEach(() => {
-    mockDismissTo.mockClear();
+    mockDismissAll.mockClear();
+    mockReplace.mockClear();
     mockSegments = ["workout-preview"];
+    mockRootStack = ["(tabs)", "workout-preview"];
     mockAuth = {
       isAuthenticated: false,
       isInitialized: true,
@@ -37,32 +50,56 @@ describe("useDeepLinkAuthGuard", () => {
     "statistics",
     "workout-detail",
     "delete-account",
-  ])("sends signed-out users from %s to sign-in", (route) => {
-    mockSegments = [route];
+  ])(
+    "pops the root stack for signed-out users on %s, leaving nothing below sign-in",
+    (route) => {
+      mockSegments = [route];
+      mockRootStack = ["(tabs)", "account-settings", route];
+      renderHook(() => useDeepLinkAuthGuard());
+
+      expect(mockDismissAll).toHaveBeenCalledTimes(1);
+      expect(mockReplace).not.toHaveBeenCalled();
+    }
+  );
+
+  it("replaces a protected screen that is alone in the root stack", () => {
+    mockRootStack = ["workout-preview"];
     renderHook(() => useDeepLinkAuthGuard());
 
-    expect(mockDismissTo).toHaveBeenCalledWith("/(auth)/sign-in");
+    expect(mockReplace).toHaveBeenCalledWith("/(auth)/sign-in");
+    expect(mockDismissAll).not.toHaveBeenCalled();
+  });
+
+  it("waits until the root stack has rendered", () => {
+    mockRootStack = [];
+    renderHook(() => useDeepLinkAuthGuard());
+
+    expect(mockDismissAll).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("leaves signed-in users on the linked screen", () => {
     mockAuth.isAuthenticated = true;
     renderHook(() => useDeepLinkAuthGuard());
 
-    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(mockDismissAll).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("waits until auth has initialized", () => {
     mockAuth.isInitialized = false;
     renderHook(() => useDeepLinkAuthGuard());
 
-    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(mockDismissAll).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("does not interrupt password recovery", () => {
     mockAuth.isPasswordRecovery = true;
     renderHook(() => useDeepLinkAuthGuard());
 
-    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(mockDismissAll).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it.each(["(auth)", "(tabs)", "(onboarding)", "auth-link-error"])(
@@ -71,7 +108,8 @@ describe("useDeepLinkAuthGuard", () => {
       mockSegments = [route];
       renderHook(() => useDeepLinkAuthGuard());
 
-      expect(mockDismissTo).not.toHaveBeenCalled();
+      expect(mockDismissAll).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
     }
   );
 
@@ -79,6 +117,7 @@ describe("useDeepLinkAuthGuard", () => {
     mockSegments = [];
     renderHook(() => useDeepLinkAuthGuard());
 
-    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(mockDismissAll).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

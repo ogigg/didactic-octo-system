@@ -541,9 +541,11 @@ next to the Live Activity:
   groups' auth checks. `hooks/use-deep-link-auth-guard.ts`, mounted in the root
   layout, sends signed-out users from any root-stack screen except the public
   ones and the self-guarded `(auth)`, `(tabs)` and `(onboarding)` groups back
-  to sign-in. It uses `dismissTo`, so an open sign-in screen is reused. This
-  covers a widget that still shows data from before sign-out and a session
-  that ends on a settings screen, such as after scheduling account deletion.
+  to sign-in. It pops the whole root stack (`dismissAll`), and the first
+  screen, the `(tabs)` anchor or a route group, redirects to sign-in by itself.
+  Nothing is left below sign-in for the back gesture to reveal. This covers a
+  widget that still shows data from before sign-out and a session that ends on
+  a settings screen, such as after scheduling account deletion.
 - Widget colors come from `targets/widget/expo-target.config.json`
   (`widgetAccent` and `widgetBackground` use `{ "light", "dark" }`); prebuild
   rewrites `targets/widget/Assets.xcassets` from that config.
