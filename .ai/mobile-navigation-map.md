@@ -246,7 +246,7 @@ Delete-account also blocks going back while a deletion request is running.
 | Settings   | `health-settings`         | Apple Health or Health Connect sync status and permissions.                               |
 | Settings   | `watch-settings`          | Apple Watch connection status and watch preferences.                                      |
 | Account    | `subscription`            | Plan and usage, upgrade (coming soon), manage the store subscription.                     |
-| Account    | `account-settings`        | Password, subscription, export and account deletion.                                      |
+| Account    | `account-settings`        | Account email and sign-in methods, password, subscription, export and account deletion.   |
 | Account    | `change-password`         | Set or change the password, with re-authentication.                                       |
 | Account    | `delete-account`          | Schedule account deletion with a typed confirmation; signs the user out.                  |
 | Account    | `feedback`                | Send a bug report or feature request.                                                     |

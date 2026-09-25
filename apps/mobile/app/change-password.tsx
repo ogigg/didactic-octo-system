@@ -23,6 +23,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { Radii, Spacing, Typography } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { getAccountSignIn } from "@/lib/account-sign-in";
 import {
   type AuthValidationKey,
   type ResetPasswordFormData,
@@ -154,11 +155,11 @@ export default function ChangePasswordScreen() {
           return;
         }
 
-        const providers = data.user.identities?.map(({ provider }) => provider);
+        const { providers } = getAccountSignIn(data.user);
         setAccount({
           email,
-          hasApple: providers?.includes("apple") ?? false,
-          hasPassword: providers?.includes("email") ?? false,
+          hasApple: providers.includes("apple"),
+          hasPassword: providers.includes("email"),
           userId: data.user.id,
         });
       })

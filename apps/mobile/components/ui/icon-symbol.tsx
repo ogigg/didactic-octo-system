@@ -57,6 +57,8 @@ const MAPPING = {
   applewatch: "watch",
   "gearshape.fill": "settings",
   "lock.fill": "lock",
+  "apple.logo": "apple",
+  "g.circle.fill": "g-mobiledata",
   globe: "language",
   "megaphone.fill": "campaign",
   "star.fill": "star",
