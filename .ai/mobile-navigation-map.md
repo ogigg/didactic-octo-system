@@ -56,9 +56,22 @@ flowchart TD
 ```
 
 `ProfileGate` ([`components/auth/profile-gate.tsx`](../apps/mobile/components/auth/profile-gate.tsx))
-is a placeholder, not a route. Root stack screens opened while signed out are
-sent back to sign-in by
+is a placeholder, not a route.
+
+The root stack's anchor is `(tabs)` (`unstable_settings.anchor` in
+`app/_layout.tsx`), so on a cold start expo-router puts `(tabs)` under
+`index`. Index therefore doesn't replace itself with its target: that would
+leave the anchor below it, two home screens for a signed-in user, or a home
+screen under sign-in that the back gesture reveals. It pops back to the anchor
+(`StackActions.popToTop()` without animation), and the `(tabs)` layout applies
+the same recovery, onboarding and sign-in redirects from there. It only
+replaces itself when nothing is below it.
+
+Root stack screens opened while signed out, including the settings screens a
+session ends on (signing out, deleting the account), are handled by
 [`hooks/use-deep-link-auth-guard.ts`](../apps/mobile/hooks/use-deep-link-auth-guard.ts).
+It pops the whole root stack, and the first screen redirects to sign-in, so
+no stale screen stays reachable with the back gesture.
 
 ## Sign-In And Onboarding
 

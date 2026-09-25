@@ -23,8 +23,10 @@ export default function TabLayout() {
 
   const completed = useOnboardingStore((s) => s.isCompleted);
   const nextStep = useOnboardingStore((s) => s.getNextUnfinishedStep);
-  if (!isInitialized || profileStatus !== "ready") return <ProfileGate />;
+  // Recovery comes first, as in the index route, which pops back to this
+  // layout on a cold start and relies on it to route from here.
   if (isPasswordRecovery) return <Redirect href="/(auth)/reset-password" />;
+  if (!isInitialized || profileStatus !== "ready") return <ProfileGate />;
   if (isAuthenticated && !completed)
     return <Redirect href={`/(onboarding)/${nextStep()}` as never} />;
 
