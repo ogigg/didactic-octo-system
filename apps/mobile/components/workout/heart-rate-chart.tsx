@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { GestureDetector } from "react-native-gesture-handler";
 import Svg, {
   Defs,
   G,
@@ -10,8 +11,16 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 
+import { ChartCrosshair } from "@/components/charts/chart-crosshair";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
 import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
+import { useChartScrub } from "@/hooks/use-chart-scrub";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import {
+  buildSmoothAreaPath,
+  buildSmoothLinePath,
+  type ChartPoint,
+} from "@/lib/chart-geometry";
 import type { HeartRateSample } from "@/lib/health";
 
 interface HeartRateChartProps {
@@ -28,14 +37,12 @@ interface HeartRateChartProps {
   height?: number;
 }
 
-const PADDING = { top: 12, right: 12, bottom: 24, left: 36 };
+const PADDING = { top: 16, right: 12, bottom: 24, left: 36 };
 const TARGET_POINTS = 60;
 const Y_TICKS = 4;
 const X_LABEL_COUNT = 4;
 
-interface PlotPoint {
-  x: number;
-  y: number;
+interface PlotPoint extends ChartPoint {
   bpm: number;
   tMs: number;
 }
@@ -102,9 +109,14 @@ export function HeartRateChart({
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
   const error = useThemeColor({}, "error");
+  const warning = useThemeColor({}, "warning");
+  const gradientId = useId().replace(/:/g, "");
+  const areaGradientId = `hr-area-${gradientId}`;
+  const lineGradientId = `hr-line-${gradientId}`;
 
   const plotWidth = chartWidth - PADDING.left - PADDING.right;
   const plotHeight = height - PADDING.top - PADDING.bottom;
+  const baseline = PADDING.top + plotHeight;
 
   const { points, stats, yMin, yMax, xLabels } = useMemo(() => {
     const startMs = startedAt.getTime();
@@ -162,21 +174,11 @@ export function HeartRateChart({
     };
   }, [samples, startedAt, endedAt, plotWidth, plotHeight]);
 
-  const linePath = useMemo(() => {
-    if (points.length === 0) return "";
-    return points
-      .map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`))
-      .join(" ");
-  }, [points]);
-
-  const areaPath = useMemo(() => {
-    if (points.length === 0) return "";
-    const bottom = PADDING.top + plotHeight;
-    const line = points
-      .map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`))
-      .join(" ");
-    return `${line} L ${points[points.length - 1].x} ${bottom} L ${points[0].x} ${bottom} Z`;
-  }, [points, plotHeight]);
+  const linePath = useMemo(() => buildSmoothLinePath(points), [points]);
+  const areaPath = useMemo(
+    () => buildSmoothAreaPath(points, baseline),
+    [points, baseline]
+  );
 
   const yTicks = useMemo(() => {
     const ticks: number[] = [];
@@ -186,7 +188,41 @@ export function HeartRateChart({
     return ticks;
   }, [yMin, yMax]);
 
+  // A tapped or scrubbed point stays pinned until it's tapped again. It's
+  // pinned by time, so late Health samples can't move it to another reading.
+  const [pinnedTime, setPinnedTime] = useState<number | null>(null);
+  const pinPoint = useCallback(
+    (index: number) => setPinnedTime(points[index]?.tMs ?? null),
+    [points]
+  );
+  const togglePinned = useCallback(
+    (index: number) => {
+      const tMs = points[index]?.tMs ?? null;
+      setPinnedTime((current) => (current === tMs ? null : tMs));
+    },
+    [points]
+  );
+  const { gesture, scrubIndex } = useChartScrub(points, {
+    onScrubEnd: pinPoint,
+    onTap: togglePinned,
+  });
+
   if (!stats) return null;
+
+  const pinnedIndex =
+    pinnedTime === null ? -1 : points.findIndex((p) => p.tMs === pinnedTime);
+  const activeIndex = scrubIndex ?? (pinnedIndex >= 0 ? pinnedIndex : null);
+  const activePoint = activeIndex === null ? undefined : points[activeIndex];
+  const avgY =
+    PADDING.top +
+    plotHeight -
+    ((stats.avg - yMin) / Math.max(yMax - yMin, 1)) * plotHeight;
+  const lastIndex = points.length - 1;
+  const handleAccessibilityAction = (actionName: string) => {
+    const current = activeIndex ?? lastIndex;
+    if (actionName === "increment") pinPoint(Math.min(current + 1, lastIndex));
+    if (actionName === "decrement") pinPoint(Math.max(current - 1, 0));
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: backgroundSubtle }]}>
@@ -219,76 +255,163 @@ export function HeartRateChart({
         />
       </View>
 
-      <View style={{ height }}>
-        <Svg
-          width={chartWidth}
-          height={height}
-          viewBox={`0 0 ${chartWidth} ${height}`}
+      <GestureDetector gesture={gesture}>
+        <View
+          collapsable={false}
+          style={[styles.plot, { height }]}
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel={title}
+          accessibilityValue={{
+            text: activePoint
+              ? `${Math.round(activePoint.bpm)} ${unitLabel}, ${formatClock(activePoint.tMs)}`
+              : `${avgLabel} ${stats.avg} ${unitLabel}`,
+          }}
+          accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+          onAccessibilityAction={({ nativeEvent }) =>
+            handleAccessibilityAction(nativeEvent.actionName)
+          }
         >
-          <Defs>
-            <LinearGradient id="hrAreaGradient" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor={error} stopOpacity={0.22} />
-              <Stop offset="100%" stopColor={error} stopOpacity={0.02} />
-            </LinearGradient>
-          </Defs>
+          <Svg
+            width={chartWidth}
+            height={height}
+            viewBox={`0 0 ${chartWidth} ${height}`}
+          >
+            <Defs>
+              <LinearGradient
+                id={areaGradientId}
+                gradientUnits="userSpaceOnUse"
+                x1={0}
+                y1={PADDING.top}
+                x2={0}
+                y2={baseline}
+              >
+                <Stop offset="0" stopColor={error} stopOpacity={0.26} />
+                <Stop offset="0.6" stopColor={error} stopOpacity={0.08} />
+                <Stop offset="1" stopColor={error} stopOpacity={0} />
+              </LinearGradient>
+              {/* Warmer toward the bottom, hotter red at the peaks. */}
+              <LinearGradient
+                id={lineGradientId}
+                gradientUnits="userSpaceOnUse"
+                x1={0}
+                y1={PADDING.top}
+                x2={0}
+                y2={baseline}
+              >
+                <Stop offset="0" stopColor={error} />
+                <Stop offset="1" stopColor={warning} />
+              </LinearGradient>
+            </Defs>
 
-          {yTicks.map((tick) => {
-            const y =
-              PADDING.top +
-              plotHeight -
-              ((tick - yMin) / Math.max(yMax - yMin, 1)) * plotHeight;
-            return (
-              <G key={`hr-yt-${tick.toFixed(1)}`}>
-                <Line
-                  x1={PADDING.left}
-                  y1={y}
-                  x2={chartWidth - PADDING.right}
-                  y2={y}
-                  stroke={border}
-                  strokeWidth={0.5}
-                />
-                <SvgText
-                  x={PADDING.left - 6}
-                  y={y + 3}
-                  textAnchor="end"
-                  fill={textMuted}
-                  fontSize={9}
-                  fontWeight="400"
-                >
-                  {Math.round(tick).toString()}
-                </SvgText>
-              </G>
-            );
-          })}
+            {yTicks.map((tick) => {
+              const y =
+                PADDING.top +
+                plotHeight -
+                ((tick - yMin) / Math.max(yMax - yMin, 1)) * plotHeight;
+              return (
+                <G key={`hr-yt-${tick.toFixed(1)}`}>
+                  <Line
+                    x1={PADDING.left}
+                    y1={y}
+                    x2={chartWidth - PADDING.right}
+                    y2={y}
+                    stroke={border}
+                    strokeWidth={1}
+                    strokeDasharray="2 6"
+                    strokeLinecap="round"
+                  />
+                  <SvgText
+                    x={PADDING.left - 6}
+                    y={y + 3}
+                    textAnchor="end"
+                    fill={textMuted}
+                    fontSize={9}
+                    fontWeight="400"
+                  >
+                    {Math.round(tick).toString()}
+                  </SvgText>
+                </G>
+              );
+            })}
 
-          <Path d={areaPath} fill="url(#hrAreaGradient)" />
+            <Path d={areaPath} fill={`url(#${areaGradientId})`} />
 
-          <Path
-            d={linePath}
-            fill="none"
-            stroke={error}
-            strokeWidth={2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
+            <G testID="hr-average-line">
+              <Line
+                x1={PADDING.left}
+                y1={avgY}
+                x2={chartWidth - PADDING.right}
+                y2={avgY}
+                stroke={error}
+                strokeOpacity={0.7}
+                strokeWidth={1.5}
+                strokeDasharray="0.5 5"
+                strokeLinecap="round"
+              />
+              <SvgText
+                x={chartWidth - PADDING.right}
+                y={avgY - 5}
+                textAnchor="end"
+                fill={error}
+                fontSize={9}
+                fontWeight="600"
+              >
+                {`${avgLabel} ${stats.avg}`}
+              </SvgText>
+            </G>
 
-          {xLabels.map((label, i) => (
-            <SvgText
-              key={`hr-xl-${i}-${label.label}`}
-              x={label.x}
-              y={height - 4}
-              textAnchor={
-                i === 0 ? "start" : i === xLabels.length - 1 ? "end" : "middle"
-              }
-              fill={textMuted}
-              fontSize={9}
-              fontWeight="400"
-            >
-              {label.label}
-            </SvgText>
-          ))}
-        </Svg>
-      </View>
+            <Path
+              d={linePath}
+              fill="none"
+              stroke={`url(#${lineGradientId})`}
+              strokeWidth={2.5}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+
+            {activePoint ? (
+              <ChartCrosshair
+                point={activePoint}
+                top={PADDING.top}
+                bottom={baseline}
+                color={error}
+                guideColor={textMuted}
+                surfaceColor={backgroundSubtle}
+              />
+            ) : null}
+
+            {xLabels.map((label, i) => (
+              <SvgText
+                key={`hr-xl-${i}-${label.label}`}
+                x={label.x}
+                y={height - 4}
+                textAnchor={
+                  i === 0
+                    ? "start"
+                    : i === xLabels.length - 1
+                      ? "end"
+                      : "middle"
+                }
+                fill={textMuted}
+                fontSize={9}
+                fontWeight="400"
+              >
+                {label.label}
+              </SvgText>
+            ))}
+          </Svg>
+
+          {activePoint ? (
+            <ChartTooltip
+              anchor={activePoint}
+              containerWidth={chartWidth}
+              value={`${Math.round(activePoint.bpm)} ${unitLabel}`}
+              caption={formatClock(activePoint.tMs)}
+            />
+          ) : null}
+        </View>
+      </GestureDetector>
     </View>
   );
 }
@@ -349,5 +472,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     letterSpacing: -0.3,
+  },
+  plot: {
+    position: "relative",
   },
 });

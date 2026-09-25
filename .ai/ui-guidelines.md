@@ -378,6 +378,16 @@ Soft radial gradients placed behind key content areas (timer overlay, hero secti
 
 **Usage:** Add `<AmbientGlow variant="..." />` as the first child of the root `View` in every screen. Always include it — the root layout already has one, but screen-level variants can add depth on top.
 
+### Line Charts
+
+Line charts (`components/measurements/line-chart.tsx`, `components/workout/heart-rate-chart.tsx`) share one treatment:
+
+- **Curve:** `buildSmoothLinePath` / `buildSmoothAreaPath` from `lib/chart-geometry.ts`, a monotone cubic curve that never invents peaks or dips between samples. Stroke 2.5 with round joins.
+- **Colour:** gradients with `gradientUnits="userSpaceOnUse"`, so a perfectly flat line still paints. Measurements run from `primary` to `heroGradientEnd` along the x axis. Heart rate runs vertically from `error` at the top to `warning` at the bottom. The area fill fades from ~28% opacity to transparent. Gradient ids come from `useId()`, so two charts on one screen don't share defs.
+- **Grid:** `border`-coloured horizontal lines, 1px, dashed `2 6`. Reference values, such as the heart-rate average, are dotted lines in the series colour with a small label at the right end.
+- **Inspecting:** `useChartScrub` (Gesture Handler `Race` of a horizontal pan and a tap) finds the nearest point. `ChartCrosshair` draws the dashed guide and haloed dot, and `ChartTooltip` floats the readout above the point, clamped to the chart and flipped below it near the top edge. Scrubbing ticks `Haptics.selectionAsync` once per new point.
+- **Accessibility:** the plot is an `adjustable` element. Its value describes the selected (or latest/summary) point, and increment/decrement move the selection.
+
 ## Accessibility
 
 - **Contrast ratios:** Minimum 4.5:1 for body text, 3:1 for large text (18px+ or 14px+ bold). All token pairings meet WCAG AA.
