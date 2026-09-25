@@ -16,6 +16,7 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 
+import { useAppCatalogLanguage } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
 import { Spacing, Typography } from "@/constants/theme";
@@ -49,6 +50,25 @@ export function MeasurementLineChart({
   selectedPoint,
   onPointPress,
 }: LineChartProps) {
+  const locale = useAppCatalogLanguage();
+  // Measurement dates are date-only strings (parsed as UTC midnight), so
+  // format them in UTC to show the logged day in every time zone.
+  const { axisFormatter, fullFormatter } = useMemo(
+    () => ({
+      axisFormatter: new Intl.DateTimeFormat(locale, {
+        month: "numeric",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
+      fullFormatter: new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+    }),
+    [locale]
+  );
   const { width: screenWidth } = useWindowDimensions();
   const chartWidth = screenWidth - 40;
   const textMuted = useThemeColor({}, "textMuted");
@@ -89,16 +109,16 @@ export function MeasurementLineChart({
 
     const xLabels: string[] = [];
     if (data.length <= MAX_POINTS_LABELS) {
-      xLabels.push(...data.map((d) => formatDate(d.date)));
+      xLabels.push(...data.map((d) => formatDate(d.date, axisFormatter)));
     } else {
       const step = Math.ceil(data.length / MAX_POINTS_LABELS);
       for (let i = 0; i < data.length; i += step) {
-        xLabels.push(formatDate(data[i].date));
+        xLabels.push(formatDate(data[i].date, axisFormatter));
       }
     }
 
     return { points, yMin, yMax, xLabels };
-  }, [data, plotWidth, plotHeight]);
+  }, [axisFormatter, data, plotWidth, plotHeight]);
 
   const linePath = useMemo(() => {
     if (points.length === 0) return "";
@@ -213,7 +233,7 @@ export function MeasurementLineChart({
               : PADDING.left + (xIndex / (data.length - 1)) * plotWidth;
           return (
             <SvgText
-              key={`xl-${label}`}
+              key={`xl-${xIndex}`}
               x={x}
               y={height - 4}
               textAnchor="middle"
@@ -272,7 +292,7 @@ export function MeasurementLineChart({
             {activePoint.value} {unit}
           </Text>
           <Text style={[Typography.caption, { color: textMuted }]}>
-            {formatFullDate(activePoint.date)}
+            {formatDate(activePoint.date, fullFormatter) || activePoint.date}
           </Text>
         </View>
       )}
@@ -280,18 +300,10 @@ export function MeasurementLineChart({
   );
 }
 
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function formatFullDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+// `Intl` throws on an invalid date, so return an empty label instead.
+function formatDate(dateStr: string, formatter: Intl.DateTimeFormat): string {
+  const date = new Date(dateStr);
+  return Number.isNaN(date.getTime()) ? "" : formatter.format(date);
 }
 
 function formatTickValue(value: number): string {

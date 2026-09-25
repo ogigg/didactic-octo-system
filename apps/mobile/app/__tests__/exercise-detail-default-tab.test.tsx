@@ -51,6 +51,7 @@ jest.mock("@/stores/toast-store", () => ({
 }));
 
 jest.mock("@/hooks/use-exercises-query", () => ({
+  useAppCatalogLanguage: () => "en",
   useExercise: (...args: unknown[]) => mockUseExercise(...args),
 }));
 
