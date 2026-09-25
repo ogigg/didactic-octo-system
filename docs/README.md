@@ -64,7 +64,7 @@ document when the missing knowledge is useful and can be maintained.
 - [Running and releasing the mobile app](../project-wiki/guides/running-and-releasing-mobile-app.md)
 - [Admin dashboard](../apps/admin/README.md)
 - [Debugging workout generation](../project-wiki/guides/debugging-workout-generation.md)
-- [Publishing to TestFlight via CLI](skills/publish-to-testflight.md)
+- [Publishing to TestFlight via CLI (`/testflight` skill)](../.claude/skills/testflight/SKILL.md)
 - [Database schema](../.ai/db-schema.md)
 - [Technology stack](../.ai/tech-stack.md)
 - [Workout-generation model research](workout-generation-model-report.html)

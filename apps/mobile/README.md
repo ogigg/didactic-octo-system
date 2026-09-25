@@ -242,6 +242,11 @@ archives a Release build, checks that the IPA contains the watch app and widget
 with matching build numbers, and uploads it to TestFlight. Processing on
 Apple's side takes 5–30 minutes.
 
+In Claude Code, `/testflight` does the same: it runs a read-only preflight
+([`.claude/skills/testflight/preflight.sh`](../../.claude/skills/testflight/preflight.sh))
+and asks before uploading. Then it runs the lane in your terminal and reports
+the build number.
+
 ```bash
 bundle exec fastlane ios build build_number:42
 ```
