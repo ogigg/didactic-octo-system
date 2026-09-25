@@ -58,6 +58,12 @@ When in doubt:
 - **Use it for:** Translation workflow, naming conventions, and namespace rules
 - **Do not use it for:** General product context
 
+### `mobile-navigation-map.md`
+
+- **Document status:** Current reference
+- **Use it for:** Which screens exist, how users move between them, and which widgets, links and devices open which screen
+- **Do not use it for:** Exact navigation behavior without checking the route files it cites
+
 ### `ui-guidelines.md`
 
 - **Document status:** Reference document
