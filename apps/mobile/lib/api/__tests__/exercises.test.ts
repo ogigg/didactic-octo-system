@@ -9,25 +9,46 @@ jest.mock("@/lib/supabase", () => ({
 
 import { supabase } from "@/lib/supabase";
 import exerciseCatalog from "../../../../../supabase/data/exercises.json";
+import { supportedLanguages } from "@/i18n";
 import {
   fetchCatalogLabels,
   fetchExercise,
   fetchExerciseFilterOptions,
   fetchExercises,
 } from "../exercises";
+import {
+  hasCatalogLabel,
+  readMigrationCatalog,
+  type CatalogLabelType,
+  type MigrationCatalog,
+} from "./catalog-migration-labels";
 
-// The app's tsconfig has no Node types (CI doesn't have the generated
-// expo-env.d.ts), so type the few Node built-ins this file reads by hand.
-declare const __dirname: string;
-interface NodeFs {
-  readdirSync(path: string): string[];
-  readFileSync(path: string, encoding: "utf8"): string;
+// English falls back to the canonical key, so only the other app languages
+// need label rows.
+const TRANSLATED_LANGUAGES = supportedLanguages.filter(
+  (language) => language !== "en"
+);
+
+let migrationCatalog: MigrationCatalog | undefined;
+function getMigrationCatalog(): MigrationCatalog {
+  migrationCatalog ??= readMigrationCatalog(TRANSLATED_LANGUAGES);
+  return migrationCatalog;
 }
-interface NodePath {
-  join(...parts: string[]): string;
+
+/** Keys used by the JSON catalog and by exercises inserted in migrations. */
+function catalogKeys(labelType: CatalogLabelType): string[] {
+  const jsonKeys = exerciseCatalog.flatMap((exercise) =>
+    labelType === "muscle"
+      ? [
+          ...(exercise.primary_muscles ?? []),
+          ...(exercise.secondary_muscles ?? []),
+        ]
+      : (exercise.equipment ?? [])
+  );
+  return [
+    ...new Set([...jsonKeys, ...getMigrationCatalog().exerciseKeys[labelType]]),
+  ];
 }
-const fs = jest.requireActual<NodeFs>("fs");
-const path = jest.requireActual<NodePath>("path");
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
@@ -65,29 +86,22 @@ function mockRpc(data: unknown, error: unknown = null) {
 }
 
 describe("exercise catalog", () => {
-  it("has a Polish label for every primary muscle", () => {
-    const migrationsDir = path.join(
-      __dirname,
-      "../../../../../supabase/migrations"
-    );
-    const migrations = fs
-      .readdirSync(migrationsDir)
-      .filter((file) => file.endsWith(".sql"))
-      .map((file) => fs.readFileSync(path.join(migrationsDir, file), "utf8"))
-      .join("\n");
-    const polishMuscles = new Set(
-      [...migrations.matchAll(/\('muscle',\s*'([^']+)',\s*'pl'/g)].map(
-        (match) => match[1]
-      )
-    );
-    const catalogMuscles = new Set(
-      exerciseCatalog.flatMap((exercise) => exercise.primary_muscles ?? [])
-    );
+  it.each(
+    (["muscle", "equipment"] as const).flatMap((labelType) =>
+      TRANSLATED_LANGUAGES.map((language) => ({ labelType, language }))
+    )
+  )(
+    "has a $language label for every catalog $labelType",
+    ({ labelType, language }) => {
+      const catalog = getMigrationCatalog();
 
-    expect(
-      [...catalogMuscles].filter((muscle) => !polishMuscles.has(muscle))
-    ).toEqual([]);
-  });
+      expect(
+        catalogKeys(labelType).filter(
+          (key) => !hasCatalogLabel(catalog, labelType, key, language)
+        )
+      ).toEqual([]);
+    }
+  );
 
   it("tracks plank by duration by default", () => {
     const plank = exerciseCatalog.find(
