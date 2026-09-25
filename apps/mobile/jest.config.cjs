@@ -21,6 +21,9 @@ module.exports = {
     "^zustand/middleware$": "<rootDir>/__mocks__/zustand-middleware.js",
   },
   testMatch: ["**/__tests__/**/*.test.{ts,tsx}", "**/*.test.{ts,tsx}"],
+  // The first render in a suite lazily loads and transforms React Native
+  // modules. On CI's cold cache that alone can pass the 5 s default.
+  testTimeout: 15000,
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
 };
 

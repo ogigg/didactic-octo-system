@@ -17,7 +17,11 @@ import { useAuthStore } from "@/stores/auth-store";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { GradientSurface } from "@/components/ui/gradient-surface";
-import { ListGroup, ListRow } from "@/components/ui/list-row";
+import {
+  getListRowPosition,
+  ListGroup,
+  ListRow,
+} from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
@@ -215,15 +219,7 @@ export default function ProfileScreen() {
             icon={item.icon}
             label={t(item.labelKey)}
             onPress={route ? () => router.navigate(route) : undefined}
-            position={
-              items.length === 1
-                ? "only"
-                : i === 0
-                  ? "first"
-                  : i === items.length - 1
-                    ? "last"
-                    : "middle"
-            }
+            position={getListRowPosition(i, items.length)}
           />
         );
       })}

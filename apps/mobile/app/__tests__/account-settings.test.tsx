@@ -4,8 +4,14 @@ const mockOpenSubscriptionManagement = jest.fn(() =>
 );
 const mockGetUser = jest.fn();
 let mockIsProActive = false;
+let mockRefocus: (() => void) | undefined;
 
 jest.mock("expo-router", () => ({
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const { useEffect } = jest.requireActual<typeof import("react")>("react");
+    mockRefocus = () => void effect();
+    useEffect(effect, [effect]);
+  },
   useRouter: () => ({
     navigate: mockNavigate,
     back: jest.fn(),
@@ -17,13 +23,13 @@ jest.mock("expo-router", () => ({
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) =>
+    t: (key: string, options?: { email?: string }) =>
       (
         ({
           "accessibility.back": "Go back",
           "deletion.accessibilityLabel": "Delete account, destructive action",
         }) as Record<string, string>
-      )[key] ?? key,
+      )[key] ?? (options?.email ? `${key}: ${options.email}` : key),
   }),
 }));
 
@@ -57,6 +63,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react-native";
 import { Alert } from "react-native";
 
@@ -84,11 +91,11 @@ describe("AccountSettingsScreen", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "password.changeLabel" })
+        screen.getByRole("button", { name: /^password\.changeLabel/ })
       ).toBeTruthy()
     );
     fireEvent.press(
-      screen.getByRole("button", { name: "password.changeLabel" })
+      screen.getByRole("button", { name: /^password\.changeLabel/ })
     );
 
     expect(mockNavigate).toHaveBeenCalledWith("/change-password");
@@ -102,9 +109,118 @@ describe("AccountSettingsScreen", () => {
     render(<AccountSettingsScreen />);
 
     expect(
-      await screen.findByRole("button", { name: "password.setLabel" })
+      await screen.findByRole("button", { name: /^password\.setLabel/ })
+    ).toBeTruthy();
+    expect(screen.getByText("signIn.status.notSetUp")).toBeTruthy();
+  });
+
+  it("shows the account email and every linked sign-in method", async () => {
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: {
+          email: "anna@example.com",
+          identities: [
+            { provider: "email", last_sign_in_at: "2026-09-24T10:00:00Z" },
+            { provider: "google", last_sign_in_at: "2026-09-01T10:00:00Z" },
+          ],
+        },
+      },
+      error: null,
+    });
+    render(<AccountSettingsScreen />);
+
+    expect(
+      await screen.findByText("signIn.signedInAs: anna@example.com")
+    ).toBeTruthy();
+    expect(screen.getByText("signIn.providers.google")).toBeTruthy();
+    expect(screen.getByText("signIn.status.linked")).toBeTruthy();
+    expect(screen.queryByText("signIn.providers.apple")).toBeNull();
+
+    const passwordRow = screen.getByRole("button", {
+      name: "password.changeLabel, signIn.providers.email, signIn.status.lastUsed",
+    });
+    expect(
+      within(passwordRow).getByText("signIn.status.lastUsed")
     ).toBeTruthy();
   });
+
+  it("refreshes the sign-in methods when the screen regains focus", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { identities: [{ provider: "apple" }] } },
+      error: null,
+    });
+    render(<AccountSettingsScreen />);
+    expect(
+      await screen.findByRole("button", { name: /^password\.setLabel/ })
+    ).toBeTruthy();
+
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: { identities: [{ provider: "apple" }, { provider: "email" }] },
+      },
+      error: null,
+    });
+    await act(async () => mockRefocus?.());
+
+    expect(
+      await screen.findByRole("button", { name: /^password\.changeLabel/ })
+    ).toBeTruthy();
+  });
+
+  it("labels an Apple hidden email instead of showing only the relay address", async () => {
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: {
+          email: "x7k2p9@privaterelay.appleid.com",
+          identities: [{ provider: "apple" }],
+        },
+      },
+      error: null,
+    });
+    render(<AccountSettingsScreen />);
+
+    expect(
+      await screen.findByText(
+        "signIn.signedInAsHiddenApple: x7k2p9@privaterelay.appleid.com"
+      )
+    ).toBeTruthy();
+    expect(screen.getByText("signIn.providers.apple")).toBeTruthy();
+    expect(screen.queryByText("signIn.status.lastUsed")).toBeNull();
+  });
+
+  it("hides the email and methods while the account is still loading", async () => {
+    mockGetUser.mockReturnValue(new Promise(() => {}));
+    render(<AccountSettingsScreen />);
+
+    await act(async () => {});
+
+    expect(screen.getByRole("button", { name: "password.label" })).toBeTruthy();
+    expect(screen.queryByText(/signIn\./)).toBeNull();
+  });
+
+  it.each([
+    [
+      "returns an error",
+      () =>
+        mockGetUser.mockResolvedValue({
+          data: { user: null },
+          error: new Error("offline"),
+        }),
+    ],
+    ["rejects", () => mockGetUser.mockRejectedValue(new Error("offline"))],
+  ])(
+    "keeps a neutral password row when loading the account %s",
+    async (_case, arrange) => {
+      arrange();
+      render(<AccountSettingsScreen />);
+
+      await act(async () => {});
+
+      fireEvent.press(screen.getByRole("button", { name: "password.label" }));
+      expect(mockNavigate).toHaveBeenCalledWith("/change-password");
+      expect(screen.queryByText(/signIn\./)).toBeNull();
+    }
+  );
 
   it("keeps subscription management separate from account deletion", () => {
     render(<AccountSettingsScreen />);
