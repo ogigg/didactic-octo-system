@@ -12,7 +12,8 @@ runtime.
 
 ## Configuration
 
-Set these Expo variables in the EAS environment used for the build:
+Set these Expo variables in `.env.production.local` (git-ignored), which the
+fastlane release builds read:
 
 ```bash
 EXPO_PUBLIC_APP_ENV=preview       # development | preview | production
@@ -24,12 +25,13 @@ EXPO_PUBLIC_POSTHOG_ENABLE_LOCAL=false
 Use a separate PostHog project/key for preview. Local development is disabled
 even when a key exists. To intentionally inspect local events, set
 `EXPO_PUBLIC_POSTHOG_ENABLE_LOCAL=true` and use a development PostHog project.
-Never put a production key in a local `.env` file.
+Never put a production key in `.env` or `.env.local`, which development
+builds read.
 
-The production and preview EAS environments must define the key and regional
-ingestion host. A missing key does not block app startup, but the client logs an
-actionable warning and does not capture events. Verify the configuration in a
-real preview build before release.
+Release builds must define the key and regional ingestion host. A missing key
+does not block app startup, but the client logs an actionable warning and does
+not capture events, and the release lanes warn before building. Verify the
+configuration in a TestFlight build before release.
 
 The PostHog SDK is already installed. Session replay and touch autocapture are
 disabled. React Native replay captures screenshots and this app contains

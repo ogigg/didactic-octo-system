@@ -48,6 +48,12 @@
 
 - If adding Supabase migrations locally, use `supabase db push --local`.
 
+## iOS Signing
+
+- The team has one shared Apple Distribution certificate, stored with the App Store profiles in the private match repo `ogigg/sweaty-signing` (see `apps/mobile/README.md` → "iOS signing"). Install it with `bundle exec fastlane ios certs`, which is read-only.
+- Never create, renew or revoke Apple certificates or provisioning profiles without the user's explicit OK. That covers `fastlane ios certs_create`, `match` without `readonly`, fastlane `cert`, `-allowProvisioningUpdates` and Xcode's automatic signing. Never run `fastlane match nuke`.
+- Never print or paste the App Store Connect key (`.p8`), `MATCH_PASSWORD` or a `.p12`, and never put the key in `fastlane/Matchfile`: fastlane prints its values unmasked.
+
 ## Linear
 
 - Work is tracked in the Linear team `Sweaty` (key `SWE`); issue IDs look like `SWE-123`.

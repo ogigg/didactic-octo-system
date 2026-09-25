@@ -1,5 +1,5 @@
 # Release lanes for the Sweaty Expo app. They build locally and upload
-# straight to the stores, with no EAS involved.
+# straight to the stores.
 #
 # Run from apps/mobile, e.g. `npm run release:ios` or
 # `bundle exec fastlane ios build`. Setup, credentials and troubleshooting:
@@ -8,6 +8,9 @@
 require "dotenv"
 require "json"
 require "open3"
+require "openssl"
+require "securerandom"
+require "tmpdir"
 require "uri"
 
 # fastlane's log handling and CocoaPods both break without a UTF-8 locale.
@@ -33,12 +36,17 @@ IOS_SCHEME = "Sweaty"
 IOS_TEAM_ID = "X6TS5L9ZTL"
 IOS_PROJECT = File.join(IOS_DIR, "Sweaty.xcodeproj")
 # Signed targets of the generated project and their bundle IDs. Each one needs
-# an existing App Store profile made with the team's distribution certificate.
+# an App Store profile in the match repo; the lanes pass this list to match.
 IOS_SIGNED_TARGETS = {
   "Sweaty" => "com.ogig.sweaty",
   "SweatyWidget" => "com.ogig.sweaty.SweatyWidget",
   "SweatyWatch" => "com.ogig.sweaty.SweatyWatch"
 }.freeze
+# match profile type of the shared signing assets.
+IOS_MATCH_TYPE = "appstore"
+# The lanes warn this many days before the shared certificate or a profile
+# expires, because builds stop working on that day until someone renews them.
+IOS_SIGNING_EXPIRY_WARNING_DAYS = 30
 
 # Stamp written into a generated native folder after a successful prebuild.
 FINGERPRINT_STAMP = ".fastlane-fingerprint"
@@ -97,8 +105,8 @@ def prepare_native_project(platform, clean: false, required_paths: [])
 end
 
 # Fails before a long native build when the JS bundle would ship without the
-# config lib/supabase.ts requires at startup. EAS used to inject these values;
-# locally they come from apps/mobile/.env.production.local (git-ignored).
+# config lib/supabase.ts requires at startup. The values come from
+# apps/mobile/.env.production.local (git-ignored).
 def check_release_js_env!
   env_files = EXPO_RELEASE_ENV_FILES.map { |name| File.join(APP_ROOT, name) }.select { |path| File.exist?(path) }
   # Dotenv would run $(...) command substitutions, which Expo's loader leaves as
@@ -160,8 +168,8 @@ def ios_asc_key_path
 end
 
 # App Store Connect API key from ASC_KEY_ID (+ ASC_ISSUER_ID for team keys) and
-# the git-ignored .p8 file. Both lanes need it to download the App Store
-# profiles; `ios beta` also uses it for build numbers and the upload.
+# the git-ignored .p8 file. Every iOS lane needs it to fetch the signing assets
+# with match; `ios beta` also uses it for build numbers and the upload.
 def ios_asc_api_key
   if ENV["ASC_KEY_ID"].to_s.strip.empty?
     UI.user_error!("Set ASC_KEY_ID (and ASC_ISSUER_ID for team keys) in fastlane/.env; see fastlane/.env.example")
@@ -192,55 +200,189 @@ def ios_next_build_number(api_key)
   latest.max + 1
 end
 
-# Signing only uses what the team already has: the existing distribution
-# certificate, imported into the login keychain as a .p12, and the existing App
-# Store profiles. The lanes must never create, repair or revoke certificates or
-# profiles, so nothing here passes -allowProvisioningUpdates to xcodebuild.
+# Signing uses the team's one shared distribution certificate and its App Store
+# profiles, stored encrypted in the private match repo (fastlane/Matchfile).
+# The lanes must never create, renew or revoke certificates or profiles: match
+# always runs read-only here, and nothing passes -allowProvisioningUpdates to
+# xcodebuild. Only the one-off bootstrap and the yearly renewal create assets,
+# through the confirm-gated `ios certs_create` lane; see README -> "iOS signing".
 
-# Keychain name of the team's distribution identity. The private key has to be
-# in the keychain, and Apple never hands it out; see README -> "iOS signing".
-def ios_distribution_identity!
-  output, = Open3.capture2("security", "find-identity", "-v", "-p", "codesigning")
-  names = output.scan(/"((?:Apple|iPhone|iOS) Distribution: [^"]*\(#{IOS_TEAM_ID}\))"/).flatten.uniq
-  if names.empty?
-    UI.user_error!("No distribution certificate with a private key for team #{IOS_TEAM_ID} in the keychain. " \
-                   "Import the team's existing one (.p12); the lanes never create certificates. " \
-                   "See README -> \"iOS signing\".")
-  end
-  if names.length > 1
-    UI.user_error!("Several distribution identities for team #{IOS_TEAM_ID} in the keychain " \
-                   "(#{names.join(', ')}); keep only the one the App Store profiles use")
-  end
-  names.first
+# What every match call signs for. The Matchfile only says where the repo is.
+def ios_match_options(api_key)
+  { api_key: api_key, type: IOS_MATCH_TYPE, app_identifier: IOS_SIGNED_TARGETS.values, team_id: IOS_TEAM_ID }
 end
 
-# Downloads and installs the existing App Store profile of every signed target.
-# `readonly` makes sigh fail instead of creating or regenerating a profile, and
-# it only accepts profiles whose certificate is in the local keychain.
-# Returns bundle ID => profile name.
-def ios_app_store_profiles!(api_key)
-  IOS_SIGNED_TARGETS.values.to_h do |bundle_id|
-    begin
-      get_provisioning_profile(
-        api_key: api_key,
-        app_identifier: bundle_id,
-        team_id: IOS_TEAM_ID,
-        readonly: true,
-        output_path: File.join(BUILD_DIR, "ios", "profiles")
-      )
-    rescue FastlaneCore::Interface::FastlaneError => e
-      UI.user_error!("No usable App Store profile for #{bundle_id}: #{e.message}\n" \
-                     "It must exist in the developer portal and use the distribution certificate in your " \
-                     "keychain. The lanes never create profiles; see README -> \"iOS signing\".")
+# This repo's match passphrase lives in fastlane/.env. A MATCH_PASSWORD exported
+# in the shell, for example for another project's match repo, would otherwise
+# win, because dotenv never overrides the environment; a bootstrap once
+# encrypted the repo with such a value. dotenv also loads a blank
+# `MATCH_PASSWORD=` as "", which match takes as a given passphrase, skipping the
+# keychain and the prompt, so a blank value is dropped. Returns the passphrase
+# in use, or nil.
+def ios_match_password_from_env
+  env_file = File.join(FASTLANE_DIR, ".env")
+  from_file = File.exist?(env_file) ? Dotenv.parse(env_file)["MATCH_PASSWORD"].to_s : ""
+  unless from_file.strip.empty?
+    if ENV.key?("MATCH_PASSWORD") && ENV["MATCH_PASSWORD"] != from_file
+      UI.important("Using MATCH_PASSWORD from fastlane/.env; the different one in your shell environment is ignored")
     end
-    # The action returns the profile UUID; the file path is in the lane context.
-    path = Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::SIGH_PROFILE_PATH]
-    [bundle_id, FastlaneCore::ProvisioningProfile.name(path)]
+    ENV["MATCH_PASSWORD"] = from_file
+    return from_file
   end
+
+  value = ENV["MATCH_PASSWORD"]
+  return value unless value.to_s.strip.empty?
+
+  ENV.delete("MATCH_PASSWORD")
+  nil
+end
+
+# git_url and git_branch from fastlane/Matchfile, read without printing it.
+def ios_match_repo
+  require "match"
+  config = FastlaneCore::Configuration.create(Match::Options.available_options, {})
+  config.load_configuration_file("Matchfile", nil, true)
+  [config[:git_url], config[:git_branch]]
+end
+
+# Installs the shared certificate and the App Store profile of every signed
+# target from the match repo into the login keychain. Read-only match fails
+# instead of creating anything that is missing or expired.
+# Returns identity (certificate common name), sha1, expires and profiles
+# (bundle ID => profile name).
+def ios_fetch_signing!(api_key)
+  ios_match_password_from_env
+  begin
+    match(**ios_match_options(api_key), readonly: true)
+  rescue FastlaneCore::Interface::FastlaneException => e
+    # Only match's readonly refusals mean something is missing in the repo.
+    # Anything else (passphrase, repo access, network) must not lead to
+    # creating a certificate.
+    hint = if e.message.include?("readonly")
+             "The match repo is empty, or its certificate or profiles expired. Creating or renewing them " \
+               "takes `bundle exec fastlane ios certs_create`, and only with an explicit OK."
+           else
+             "Check MATCH_PASSWORD in fastlane/.env against the team password manager, and your access to " \
+               "the match repo. Don't create a new certificate for this."
+           end
+    UI.user_error!("Could not install the shared signing assets from the match repo: #{e.message}\n" \
+                   "#{hint} See README -> \"iOS signing\".")
+  end
+
+  mapping = Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
+  profiles = {}
+  certificates = []
+  expiry_dates = []
+  IOS_SIGNED_TARGETS.each_value do |bundle_id|
+    profiles[bundle_id] = mapping[bundle_id] || UI.user_error!("The match repo has no App Store profile for #{bundle_id}")
+    path = ENV[Match::Utils.environment_variable_name_profile_path(app_identifier: bundle_id, type: IOS_MATCH_TYPE.to_sym)]
+    UI.user_error!("match installed no profile file for #{bundle_id}") if path.to_s.empty? || !File.exist?(path)
+
+    profile = FastlaneCore::ProvisioningProfile.parse(path)
+    expiry_dates << profile["ExpirationDate"].to_time
+    certificates.concat(profile["DeveloperCertificates"].map { |data| OpenSSL::X509::Certificate.new(data.string) })
+  end
+
+  by_sha1 = certificates.to_h { |cert| [OpenSSL::Digest::SHA1.hexdigest(cert.to_der).upcase, cert] }
+  if by_sha1.length != 1
+    UI.user_error!("The App Store profiles in the match repo don't share one certificate " \
+                   "(SHA-1 #{by_sha1.keys.join(', ')})")
+  end
+  sha1, certificate = by_sha1.first
+  identity = certificate.subject.to_a.assoc("CN")&.at(1).to_s.dup.force_encoding(Encoding::UTF_8)
+  UI.user_error!("The match certificate (SHA-1 #{sha1}) has no common name") if identity.empty?
+
+  { identity: identity, sha1: sha1, expires: [certificate.not_after, *expiry_dates].min, profiles: profiles }
+end
+
+# Fails unless the keychain holds the match certificate's private key exactly
+# once and no other valid identity shares its name, so codesign can't pick the
+# wrong one. Other distribution identities, such as the old Expo-made one, don't
+# matter: the build signs with this certificate by name.
+def ios_distribution_identity!(signing)
+  output, = Open3.capture2("security", "find-identity", "-v", "-p", "codesigning")
+  identities = output.scan(/^\s*\d+\)\s+([0-9A-F]{40})\s+"(.+)"$/)
+  copies = identities.count { |sha1, _| sha1 == signing[:sha1] }
+  if copies.zero?
+    UI.user_error!("The match certificate #{signing[:identity]} (SHA-1 #{signing[:sha1]}) has no private key in " \
+                   "the keychain. Run `bundle exec fastlane ios certs` to install it from the match repo; " \
+                   "see README -> \"iOS signing\".")
+  end
+  if copies > 1
+    UI.user_error!("The match certificate (SHA-1 #{signing[:sha1]}) is in #{copies} keychains. " \
+                   "Keep it only in the login keychain, then run the lane again.")
+  end
+
+  others = identities.filter_map { |sha1, name| sha1 if name == signing[:identity] && sha1 != signing[:sha1] }.uniq
+  return if others.empty?
+
+  UI.user_error!("Other valid identities share the name #{signing[:identity]}: SHA-1 #{others.join(', ')}. " \
+                 "Delete those in Keychain Access -> My Certificates and keep SHA-1 #{signing[:sha1]}, the " \
+                 "match certificate. Then run the lane again.")
+end
+
+# Reports the installed signing assets and warns when they expire soon.
+def ios_report_signing(signing)
+  days = ((signing[:expires] - Time.now) / 86_400).floor
+  if days <= IOS_SIGNING_EXPIRY_WARNING_DAYS
+    UI.important("The shared signing assets expire on #{signing[:expires].strftime('%Y-%m-%d')} (in #{days} days). " \
+                 "Builds stop working that day until someone renews them with `bundle exec fastlane ios " \
+                 "certs_create`, which needs an explicit OK; see README -> \"iOS signing\".")
+  end
+  UI.success("Signing with #{signing[:identity]} (SHA-1 #{signing[:sha1]}), valid until " \
+             "#{signing[:expires].strftime('%Y-%m-%d')}; profiles #{signing[:profiles].values.join(', ')}")
+end
+
+# The team's Apple Distribution certificates on the developer portal, read-only.
+def ios_portal_distribution_certificates(api_key)
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api_key)
+  Spaceship::ConnectAPI::Certificate.all(
+    filter: { certificateType: Spaceship::ConnectAPI::Certificate::CertificateType::DISTRIBUTION }
+  )
+end
+
+# Checks everything that would otherwise only fail after match has created the
+# certificate on Apple's side. Such a failure leaves the certificate outside the
+# repo, and the next run would create another one.
+def ios_certs_create_preflight!(existing_certificates)
+  unless ios_match_password_from_env
+    UI.user_error!("Set MATCH_PASSWORD in fastlane/.env first, and keep it in the team password manager: " \
+                   "match encrypts the repo with it.")
+  end
+
+  %w[user.name user.email].each do |key|
+    value, = Open3.capture2("git", "config", "--get", key)
+    UI.user_error!("Set git #{key} first; match commits the encrypted files with it") if value.strip.empty?
+  end
+
+  git_url, git_branch = ios_match_repo
+  refs, status = Open3.capture2e("git", "ls-remote", "--heads", git_url, git_branch)
+  UI.user_error!("Can't read the match repo #{git_url}:\n#{refs}") unless status.success?
+
+  # A dry-run push of a throwaway branch proves write access without changing
+  # the repo.
+  Dir.mktmpdir do |dir|
+    git = ["git", "-C", dir, "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null"]
+    [
+      [*git, "init", "-q"],
+      [*git, "commit", "-q", "--allow-empty", "--no-verify", "-m", "match push access check"],
+      [*git, "push", "--dry-run", "-q", git_url, "HEAD:refs/heads/fastlane-push-check-#{SecureRandom.hex(4)}"]
+    ].each do |command|
+      output, result = Open3.capture2e(*command)
+      UI.user_error!("No push access to the match repo #{git_url}:\n#{output}") unless result.success?
+    end
+  end
+
+  return unless refs.strip.empty? && existing_certificates.any?
+
+  UI.user_error!("The match repo is still empty, but the team already has an Apple Distribution certificate " \
+                 "(#{existing_certificates.map(&:id).join(', ')}). A failed bootstrap may have left it behind. " \
+                 "Don't create another: import it with `fastlane match import`, or revoke it with an explicit " \
+                 "OK, then run this again.")
 end
 
 # Switches the Release configuration of every signed target to manual signing
-# with the downloaded profiles. ios/ is generated and git-ignored.
+# with the match certificate and profiles. ios/ is generated and git-ignored.
 def ios_use_manual_signing(identity, profiles)
   IOS_SIGNED_TARGETS.each do |target, bundle_id|
     update_code_signing_settings(
@@ -294,11 +436,75 @@ def ios_verify_ipa!(ipa_path)
     UI.user_error!("Bundle build numbers differ: #{versions.map { |name, version| "#{name}=#{version}" }.join(', ')}")
   end
   UI.success("IPA contains #{versions.keys.join(', ')} with build #{versions.values.first}")
+  ios_verify_scene_lifecycle!(ipa_path, "#{app}/Info.plist")
+end
+
+# iOS 27 terminates apps linked against the iOS 27 SDK at launch unless they
+# adopt the UIScene lifecycle; build 1.2.0 (37) crashed that way.
+# plugins/with-scene-lifecycle.cjs adds the scene manifest, so a missing one
+# means the plugin didn't run or broke.
+def ios_verify_scene_lifecycle!(ipa_path, info_plist)
+  data, = Open3.capture2("unzip", "-p", ipa_path, info_plist, binmode: true)
+  sdk, = Open3.capture2("plutil", "-extract", "DTSDKName", "raw", "-o", "-", "-", stdin_data: data, binmode: true)
+  _, manifest = Open3.capture2("plutil", "-extract", "UIApplicationSceneManifest", "xml1", "-o", "-", "-",
+                               stdin_data: data, binmode: true, err: File::NULL)
+  sdk_major = sdk[/\d+/].to_i
+  if sdk_major >= 27 && !manifest.success?
+    UI.user_error!("The IPA is built with the #{sdk.strip} SDK but has no UIApplicationSceneManifest, so iOS " \
+                   "#{sdk_major} would terminate it at launch. Check plugins/with-scene-lifecycle.cjs.")
+  end
+  UI.success("IPA uses the UIScene lifecycle (#{sdk.strip} SDK)") if manifest.success?
 end
 
 # --- iOS lanes ----------------------------------------------------------------
 
 platform :ios do
+  desc "Install the shared distribution certificate and App Store profiles from the match repo (read-only)"
+  lane :certs do
+    signing = ios_fetch_signing!(ios_asc_api_key)
+    ios_distribution_identity!(signing)
+    ios_report_signing(signing)
+  end
+
+  # The only lane that may create signing assets. It exists so the one-off
+  # bootstrap and the yearly renewal authenticate with the API key: the
+  # Matchfile can't hold the key, because fastlane prints its values unmasked.
+  desc "One-off, needs an explicit OK: create the shared certificate and profiles, or renew them after they expire"
+  lane :certs_create do
+    UI.user_error!("certs_create needs an interactive terminal") unless UI.interactive?
+
+    api_key = ios_asc_api_key
+    before = ios_portal_distribution_certificates(api_key)
+    ios_certs_create_preflight!(before)
+
+    UI.important("This runs match WITHOUT readonly for team #{IOS_TEAM_ID}. A valid certificate already in the " \
+                 "match repo is reused. Otherwise match creates ONE new Apple Distribution certificate, plus " \
+                 "App Store profiles for #{IOS_SIGNED_TARGETS.values.join(', ')}, and pushes them encrypted " \
+                 "to the match repo.")
+    UI.important("Apple Distribution certificates on the team now: " \
+                 "#{before.empty? ? 'none' : before.map { |cert| "#{cert.id} (expires #{cert.expiration_date})" }.join(', ')}")
+    UI.important("Run it only for the bootstrap or the yearly renewal, with an explicit OK; see README -> \"iOS signing\".")
+    UI.user_error!("Stopped; nothing was created") unless UI.confirm("Create or renew the team's shared signing assets now?")
+
+    match(**ios_match_options(api_key), readonly: false, renew_expired_certs: true)
+
+    # Check the result the same way every build does, and say what changed.
+    signing = ios_fetch_signing!(api_key)
+    ios_distribution_identity!(signing)
+    after = ios_portal_distribution_certificates(api_key)
+    created = after.map(&:id) - before.map(&:id)
+    if created.empty?
+      UI.success("No new certificate: match reused the one in the repo")
+    else
+      UI.important("Created Apple Distribution certificate #{created.join(', ')}")
+    end
+    if after.length > 1
+      UI.important("The team now has #{after.length} Apple Distribution certificates " \
+                   "(#{after.map(&:id).join(', ')}); the lanes use only SHA-1 #{signing[:sha1]}")
+    end
+    ios_report_signing(signing)
+  end
+
   desc "Build a signed App Store IPA into build/ios without uploading it"
   desc "Options: build_number:<n> sets the build number, clean:true forces expo prebuild"
   lane :build do |options|
@@ -325,15 +531,17 @@ platform :ios do
 
   private_lane :ios_build_ipa do |options|
     # Check signing before the long native steps.
-    identity = ios_distribution_identity!
-    profiles = ios_app_store_profiles!(options[:api_key])
+    signing = ios_fetch_signing!(options[:api_key])
+    ios_distribution_identity!(signing)
+    ios_report_signing(signing)
+    profiles = signing[:profiles]
 
     prepare_native_project(:ios, clean: options[:clean], required_paths: ["Sweaty.xcworkspace", "Pods"]) do
       ios_restore_target_asset_newlines
       Dir.chdir(IOS_DIR) { sh("bundle", "exec", "pod", "install") }
     end
     ios_set_build_number(options[:build_number]) if options[:build_number]
-    ios_use_manual_signing(identity, profiles)
+    ios_use_manual_signing(signing[:identity], profiles)
 
     ipa = build_app(
       workspace: IOS_WORKSPACE,

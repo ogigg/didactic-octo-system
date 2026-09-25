@@ -93,9 +93,8 @@ alwaysApply: false
   2. Prioritize Mobile Web Vitals (Load Time, Jank, and Responsiveness).
   3. Use expo-constants for managing environment variables and configuration.
   4. Use expo-permissions to handle device permissions gracefully.
-  5. Implement expo-updates for over-the-air (OTA) updates.
-  6. Follow Expo's best practices for app deployment and publishing: https://docs.expo.dev/distribution/introduction/
-  7. Ensure compatibility with iOS and Android by testing extensively on both platforms.
+  5. Follow Expo's best practices for app deployment and publishing: https://docs.expo.dev/distribution/introduction/
+  6. Ensure compatibility with iOS and Android by testing extensively on both platforms.
 
   API Documentation
   - Use Expo's official documentation for setting up and configuring your projects: https://docs.expo.dev/

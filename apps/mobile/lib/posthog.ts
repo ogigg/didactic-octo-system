@@ -1,3 +1,4 @@
+import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as Localization from "expo-localization";
 import { Platform } from "react-native";
@@ -113,7 +114,7 @@ if (
   analyticsEnvironment !== "test"
 ) {
   // Do not throw during startup: analytics must never block the app. The
-  // warning is intentionally actionable for EAS preview/production builds.
+  // warning is intentionally actionable for preview and production builds.
   console.warn(
     `[PostHog] Missing EXPO_PUBLIC_POSTHOG_KEY for ${analyticsEnvironment} environment. Analytics is disabled.`
   );
@@ -167,18 +168,11 @@ function getExpoConfigValue(key: string): string | null {
     : null;
 }
 
+// The release lanes stamp the build number into the native bundle
+// (CFBundleVersion / versionCode) at build time. app.json keeps a placeholder,
+// so the Expo config would report the same number for every build.
 function getBuildNumber(): string {
-  const config = Constants.expoConfig as {
-    ios?: { buildNumber?: string | number };
-    android?: { versionCode?: string | number };
-  } | null;
-  const platformBuild =
-    Platform.OS === "ios"
-      ? config?.ios?.buildNumber
-      : config?.android?.versionCode;
-  return platformBuild === undefined || platformBuild === null
-    ? "unknown"
-    : String(platformBuild);
+  return Application.nativeBuildVersion ?? "unknown";
 }
 
 function getLocale(): string {

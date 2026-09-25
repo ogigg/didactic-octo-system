@@ -60,7 +60,8 @@ Specific model selection can change over time, so it should be treated as operat
 
 ### Deployment And Delivery
 
-- **EAS Build / Submit / Update** - mobile delivery workflows
+- **fastlane** - local release builds, TestFlight and Google Play uploads, and
+  iOS signing through match
 - **GitHub Actions** - CI/CD automation
 - **Supabase CLI** - backend and migration workflows
 
