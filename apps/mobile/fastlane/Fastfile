@@ -212,10 +212,24 @@ def ios_match_options(api_key)
   { api_key: api_key, type: IOS_MATCH_TYPE, app_identifier: IOS_SIGNED_TARGETS.values, team_id: IOS_TEAM_ID }
 end
 
-# dotenv loads a blank `MATCH_PASSWORD=` as "", and match takes "" as a given
-# passphrase: it skips the keychain and the prompt. Drop a blank value so match
-# falls back to them. Returns the passphrase from the environment, or nil.
+# This repo's match passphrase lives in fastlane/.env. A MATCH_PASSWORD exported
+# in the shell, for example for another project's match repo, would otherwise
+# win, because dotenv never overrides the environment; a bootstrap once
+# encrypted the repo with such a value. dotenv also loads a blank
+# `MATCH_PASSWORD=` as "", which match takes as a given passphrase, skipping the
+# keychain and the prompt, so a blank value is dropped. Returns the passphrase
+# in use, or nil.
 def ios_match_password_from_env
+  env_file = File.join(FASTLANE_DIR, ".env")
+  from_file = File.exist?(env_file) ? Dotenv.parse(env_file)["MATCH_PASSWORD"].to_s : ""
+  unless from_file.strip.empty?
+    if ENV.key?("MATCH_PASSWORD") && ENV["MATCH_PASSWORD"] != from_file
+      UI.important("Using MATCH_PASSWORD from fastlane/.env; the different one in your shell environment is ignored")
+    end
+    ENV["MATCH_PASSWORD"] = from_file
+    return from_file
+  end
+
   value = ENV["MATCH_PASSWORD"]
   return value unless value.to_s.strip.empty?
 

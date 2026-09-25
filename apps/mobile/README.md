@@ -171,7 +171,8 @@ Set up a Mac once:
    "Sweaty – iOS signing" item in the team password manager into
    `fastlane/.env`. Never send it over chat or email. Leave the line out rather
    than blank: the lanes drop a blank value, and match would otherwise take it
-   as the passphrase.
+   as the passphrase. The value in `fastlane/.env` wins over a `MATCH_PASSWORD`
+   exported in your shell, for example one another project's match repo uses.
 3. Install the certificate and profiles into the login keychain:
 
    ```bash
