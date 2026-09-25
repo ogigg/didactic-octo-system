@@ -171,6 +171,7 @@ export default function MeasurementsScreen() {
                 unit={unit}
                 selectedPoint={selectedPoint}
                 onPointPress={handlePointPress}
+                accessibilityLabel={fieldLabel}
               />
             ) : (
               <View style={styles.emptyChart}>
