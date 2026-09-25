@@ -44,6 +44,7 @@
       "./plugins/with-app-group.cjs",
       "./plugins/with-min-pod-deployment-target.cjs",
       "./plugins/with-android-release-signing.cjs",
+      "./plugins/with-scene-lifecycle.cjs",
       [
         "expo-splash-screen",
         {

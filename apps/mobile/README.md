@@ -242,6 +242,13 @@ archives a Release build, checks that the IPA contains the watch app and widget
 with matching build numbers, and uploads it to TestFlight. Processing on
 Apple's side takes 5–30 minutes.
 
+Before uploading, the lane also stops when the IPA is built with the iOS 27 SDK
+or newer but has no `UIApplicationSceneManifest`. iOS 27 terminates such apps at
+launch; build 1.2.0 (37) crashed that way.
+[`plugins/with-scene-lifecycle.cjs`](plugins/with-scene-lifecycle.cjs) moves the
+app to the UIScene lifecycle: `SceneDelegate.swift` creates the window, starts
+React Native and forwards URLs and user activities to the AppDelegate.
+
 In Claude Code, `/testflight` does the same: it runs a read-only preflight
 ([`.claude/skills/testflight/preflight.sh`](../../.claude/skills/testflight/preflight.sh))
 and asks before uploading. Then it runs the lane in your terminal and reports

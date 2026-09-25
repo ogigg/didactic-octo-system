@@ -436,6 +436,24 @@ def ios_verify_ipa!(ipa_path)
     UI.user_error!("Bundle build numbers differ: #{versions.map { |name, version| "#{name}=#{version}" }.join(', ')}")
   end
   UI.success("IPA contains #{versions.keys.join(', ')} with build #{versions.values.first}")
+  ios_verify_scene_lifecycle!(ipa_path, "#{app}/Info.plist")
+end
+
+# iOS 27 terminates apps linked against the iOS 27 SDK at launch unless they
+# adopt the UIScene lifecycle; build 1.2.0 (37) crashed that way.
+# plugins/with-scene-lifecycle.cjs adds the scene manifest, so a missing one
+# means the plugin didn't run or broke.
+def ios_verify_scene_lifecycle!(ipa_path, info_plist)
+  data, = Open3.capture2("unzip", "-p", ipa_path, info_plist, binmode: true)
+  sdk, = Open3.capture2("plutil", "-extract", "DTSDKName", "raw", "-o", "-", "-", stdin_data: data, binmode: true)
+  _, manifest = Open3.capture2("plutil", "-extract", "UIApplicationSceneManifest", "xml1", "-o", "-", "-",
+                               stdin_data: data, binmode: true, err: File::NULL)
+  sdk_major = sdk[/\d+/].to_i
+  if sdk_major >= 27 && !manifest.success?
+    UI.user_error!("The IPA is built with the #{sdk.strip} SDK but has no UIApplicationSceneManifest, so iOS " \
+                   "#{sdk_major} would terminate it at launch. Check plugins/with-scene-lifecycle.cjs.")
+  end
+  UI.success("IPA uses the UIScene lifecycle (#{sdk.strip} SDK)") if manifest.success?
 end
 
 # --- iOS lanes ----------------------------------------------------------------
