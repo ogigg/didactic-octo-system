@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isAdmin } from "./is-admin";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -33,15 +34,7 @@ export async function getAdminUser() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.is_admin) return null;
+  if (!user || !(await isAdmin(supabase, user.id))) return null;
 
   return { user, supabase };
 }
