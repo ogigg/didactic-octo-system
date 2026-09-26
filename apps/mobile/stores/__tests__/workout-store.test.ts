@@ -654,15 +654,38 @@ describe("workout ownership", () => {
     jest.clearAllMocks();
   }
 
-  it("lets the first account claim an unowned workout without clearing it", () => {
+  it("never hands an unowned workout to an account, whatever its timestamp", () => {
     startWorkoutFor(null);
+    // A skewed device clock can make an old workout look recent.
+    useWorkoutStore.setState({ startedAtMs: Date.now() + DAY_MS });
 
     useWorkoutStore.getState().prepareForUser("user-a");
 
     expect(useWorkoutStore.getState()).toMatchObject({
       ownerUserId: "user-a",
-      isActive: true,
-      workoutName: "Push day",
+      isActive: false,
+      workoutName: "",
+      exercises: [],
+    });
+  });
+
+  it("never hands an unowned summary to an account", () => {
+    startWorkoutFor(null);
+    useWorkoutStore.getState().finishWorkout();
+
+    useWorkoutStore.getState().prepareForUser("user-a");
+
+    expect(useWorkoutStore.getState().completedWorkoutSummary).toBeNull();
+  });
+
+  it("lets an account claim an idle unowned store", () => {
+    useWorkoutStore.setState({ ownerUserId: null, weightUnit: "lbs" });
+
+    useWorkoutStore.getState().prepareForUser("user-a");
+
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-a",
+      weightUnit: "lbs",
     });
   });
 

@@ -9,6 +9,8 @@ import type { PendingWorkout } from "@/lib/api/pending-workouts";
 // -----------------------------------------------------------------------------
 
 interface PendingWorkoutState {
+  /** Account whose queue generation this tracks. Null means no account. */
+  ownerUserId: string | null;
   queueGenerationStartedAt: number | null;
   queueGenerationRequestId: string | null;
   queueGenerationTrigger:
@@ -21,6 +23,8 @@ interface PendingWorkoutState {
 }
 
 interface PendingWorkoutActions {
+  /** Keeps the account's own context and clears any other account's. */
+  prepareForUser: (userId: string | null) => void;
   markQueueGenerationStarted: (
     trigger: "onboarding" | "preference_change" | "replenishment",
     requestId?: string | null
@@ -38,12 +42,34 @@ interface PendingWorkoutActions {
 // -----------------------------------------------------------------------------
 
 const initialState: PendingWorkoutState = {
+  ownerUserId: null,
   queueGenerationStartedAt: null,
   queueGenerationRequestId: null,
   queueGenerationTrigger: null,
   recoveryAttempts: {},
   regeneratingWorkoutIds: [],
 };
+
+// -----------------------------------------------------------------------------
+// Ownership
+// -----------------------------------------------------------------------------
+
+// Undefined until auth reports an account; a load before that keeps the saved
+// owner, and the account change that follows clears it if it differs.
+let claimedOwnerUserId: string | null | undefined;
+
+/**
+ * Applies saved state unless an account change already claimed the store for
+ * someone else, so a late load cannot restore that account's context.
+ */
+export function mergePersistedPendingWorkoutState<
+  T extends PendingWorkoutState,
+>(persisted: unknown, current: T, ownerUserId: string | null | undefined): T {
+  const saved = (persisted ?? {}) as Partial<PendingWorkoutState>;
+  if (ownerUserId !== undefined && (saved.ownerUserId ?? null) !== ownerUserId)
+    return current;
+  return { ...current, ...saved };
+}
 
 // -----------------------------------------------------------------------------
 // Store
@@ -55,6 +81,12 @@ export const usePendingWorkoutStore = create<
   persist(
     (set, get) => ({
       ...initialState,
+
+      prepareForUser: (userId) => {
+        claimedOwnerUserId = userId;
+        if (get().ownerUserId === userId) return;
+        set({ ...initialState, ownerUserId: userId });
+      },
 
       markQueueGenerationStarted: (trigger, requestId = null) =>
         set({
@@ -107,7 +139,7 @@ export const usePendingWorkoutStore = create<
           ),
         })),
 
-      reset: () => set(initialState),
+      reset: () => set({ ...initialState, ownerUserId: get().ownerUserId }),
     }),
     {
       name: "pending-workout-storage",
@@ -121,11 +153,19 @@ export const usePendingWorkoutStore = create<
         return {
           ...initialState,
           ...state,
+          ownerUserId: state?.ownerUserId ?? null,
           queueGenerationRequestId: state?.queueGenerationRequestId ?? null,
           regeneratingWorkoutIds: [],
         };
       },
+      merge: (persisted, current) =>
+        mergePersistedPendingWorkoutState(
+          persisted,
+          current,
+          claimedOwnerUserId
+        ),
       partialize: (state) => ({
+        ownerUserId: state.ownerUserId,
         queueGenerationStartedAt: state.queueGenerationStartedAt,
         queueGenerationRequestId: state.queueGenerationRequestId,
         queueGenerationTrigger: state.queueGenerationTrigger,

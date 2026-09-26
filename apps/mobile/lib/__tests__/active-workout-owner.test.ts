@@ -9,10 +9,18 @@ jest.mock("@/lib/track-event", () => ({
   trackEvent: jest.fn(),
 }));
 
-import { useWorkoutStore, type WorkoutExercise } from "@/stores/workout-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
+  useWorkoutStore,
+  WORKOUT_STORAGE_KEY,
+  type WorkoutExercise,
+} from "@/stores/workout-store";
+
+import {
+  eraseActiveWorkoutForUser,
   prepareActiveWorkoutForUser,
+  UNOWNED_WORKOUT_QUARANTINE_KEY,
   WATCH_CANCEL_TIMEOUT_MS,
 } from "../active-workout-owner";
 
@@ -43,8 +51,9 @@ function startWorkoutFor(ownerUserId: string | null) {
 }
 
 describe("prepareActiveWorkoutForUser", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await AsyncStorage.clear();
     mockPublishCancelledWorkoutToWatch.mockResolvedValue(true);
     useWorkoutStore.getState().clearWorkout({ suppressAbandonment: true });
     useWorkoutStore.setState({ ownerUserId: null });
@@ -70,16 +79,54 @@ describe("prepareActiveWorkoutForUser", () => {
     });
   });
 
-  it("claims an unowned workout without touching the Watch", async () => {
+  it("never hands an unowned workout to an account, whatever its timestamp", async () => {
+    startWorkoutFor(null);
+    // A skewed device clock can make another account's workout look recent.
+    useWorkoutStore.setState({ startedAtMs: Date.now() + 60 * 60 * 1000 });
+    await AsyncStorage.setItem(WORKOUT_STORAGE_KEY, "unowned-workout");
+
+    await prepareActiveWorkoutForUser("user-a");
+
+    expect(mockPublishCancelledWorkoutToWatch).toHaveBeenCalledTimes(1);
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-a",
+      isActive: false,
+      exercises: [],
+    });
+    // Set aside for no account rather than silently lost.
+    expect(await AsyncStorage.getItem(UNOWNED_WORKOUT_QUARANTINE_KEY)).toBe(
+      "unowned-workout"
+    );
+  });
+
+  it("keeps the first quarantined copy", async () => {
+    await AsyncStorage.setItem(UNOWNED_WORKOUT_QUARANTINE_KEY, "first");
+    await AsyncStorage.setItem(WORKOUT_STORAGE_KEY, "second");
     startWorkoutFor(null);
 
     await prepareActiveWorkoutForUser("user-a");
 
-    expect(mockPublishCancelledWorkoutToWatch).not.toHaveBeenCalled();
-    expect(useWorkoutStore.getState()).toMatchObject({
-      ownerUserId: "user-a",
-      isActive: true,
-    });
+    expect(await AsyncStorage.getItem(UNOWNED_WORKOUT_QUARANTINE_KEY)).toBe(
+      "first"
+    );
+  });
+
+  it("still hides an unowned workout when quarantine fails", async () => {
+    startWorkoutFor(null);
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const getItem = jest
+      .spyOn(AsyncStorage, "getItem")
+      .mockRejectedValueOnce(new Error("disk"));
+
+    await prepareActiveWorkoutForUser("user-a");
+
+    expect(useWorkoutStore.getState().isActive).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      "[active-workout-owner] quarantine failed:",
+      expect.any(Error)
+    );
+    getItem.mockRestore();
+    warn.mockRestore();
   });
 
   it("leaves the owner's workout running", async () => {
@@ -133,5 +180,48 @@ describe("prepareActiveWorkoutForUser", () => {
       expect.any(Error)
     );
     warn.mockRestore();
+  });
+});
+
+describe("eraseActiveWorkoutForUser", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPublishCancelledWorkoutToWatch.mockResolvedValue(true);
+    useWorkoutStore.getState().clearWorkout({ suppressAbandonment: true });
+    useWorkoutStore.setState({ ownerUserId: null });
+  });
+
+  it("cancels and clears the erased account's workout", async () => {
+    startWorkoutFor("user-a");
+
+    await eraseActiveWorkoutForUser("user-a");
+
+    expect(mockPublishCancelledWorkoutToWatch).toHaveBeenCalledTimes(1);
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: null,
+      isActive: false,
+      exercises: [],
+    });
+  });
+
+  it("clears the erased account's unsaved summary", async () => {
+    startWorkoutFor("user-a");
+    useWorkoutStore.getState().finishWorkout();
+
+    await eraseActiveWorkoutForUser("user-a");
+
+    expect(useWorkoutStore.getState().completedWorkoutSummary).toBeNull();
+  });
+
+  it("leaves another account's workout alone", async () => {
+    startWorkoutFor("user-b");
+
+    await eraseActiveWorkoutForUser("user-a");
+
+    expect(mockPublishCancelledWorkoutToWatch).not.toHaveBeenCalled();
+    expect(useWorkoutStore.getState()).toMatchObject({
+      ownerUserId: "user-b",
+      isActive: true,
+    });
   });
 });

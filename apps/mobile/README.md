@@ -107,6 +107,49 @@ versioned so an older in-flight success cannot remove a newer edit; malformed
 storage entries are dropped individually without discarding valid or dead work.
 A normal successful save does not show status UI.
 
+## Account-scoped local data
+
+Several people can use one device, so everything the app keeps on it is tied
+to the account that created it. Another account must never see it, replay it
+or claim it.
+
+| Local data                                            | How it is scoped                                                                          |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Workout templates                                     | One AsyncStorage key per account, `workout-templates-storage:<userId>`                    |
+| Sync queue (unsynced workouts, profile, measurements) | Every item records `ownerId`; only the signed-in owner's items replay or show sync status |
+| Active workout and unsaved summary                    | `ownerUserId`; another account's workout is cancelled on the Watch and cleared            |
+| Onboarding draft                                      | `ownerUserId`; another account's draft is cleared                                         |
+| Queue-generation context (`pending-workout-storage`)  | `ownerUserId`; another account's context is cleared                                       |
+
+- On every account change, including sign-out and a new sign-in without one,
+  `switchLocalAccountData` in `stores/account-data.ts` runs synchronously. It
+  empties the in-memory templates and queue-generation context before the new
+  account's data loads. A load that finishes after a later account change is
+  discarded, so a slow read can't restore the previous account's templates.
+  The TanStack Query cache is cleared at the same time.
+- The active workout and onboarding draft are claimed during profile setup,
+  after they finish loading. Routing waits for that setup.
+- Signing out keeps the account's templates, unsynced writes, workout and
+  draft on the device for its next sign-in. Only confirmed account erasure
+  removes them: call `eraseLocalAccountData(userId)` from
+  `stores/account-data.ts` after the account has signed out. It leaves other
+  accounts' data in place.
+- Data saved before it had an owner is never given to any account. Nothing on
+  the device records who made it, and timestamps can't prove it: a device
+  clock can be wrong, and `last_sign_in_at` also changes when the account
+  signs in on another device. Ownerless data is quarantined instead:
+  - Templates stay under the old shared key, `workout-templates-storage`,
+    which the app no longer reads or deletes.
+  - An active workout or unsaved summary is cancelled on the Watch and
+    cleared. A copy of the saved workout is first kept under
+    `active-workout-storage:unowned`, which the app never reads. This copy is
+    best effort; if it can't be written, the workout is still cleared.
+  - Queued writes stay failed and are never replayed or shown.
+  - An ownerless onboarding draft or queue-generation context is cleared.
+- If an account's saved templates can't be read, changes made in that session
+  stay in memory and are not saved, so they can't overwrite the unread
+  templates. The next successful load saves normally.
+
 ## Releasing with fastlane
 
 Release builds are made on a local Mac with [fastlane](https://fastlane.tools)
