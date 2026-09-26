@@ -58,9 +58,11 @@ Deno.serve(async (req: Request) => {
     const email = parsed.data.email;
     console.log("[login-provider-hint] Lookup", maskEmail(email));
 
+    // get_login_provider_hint is service-role only, so this rate-limited
+    // endpoint is the only way to reach it.
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, anonKey, {
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
 

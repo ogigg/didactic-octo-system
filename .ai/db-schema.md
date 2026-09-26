@@ -2,7 +2,7 @@
 
 > **Document status:** Reference document
 > **Purpose:** Explain the current database model at a level that is useful for humans and AI agents, while treating `supabase/migrations` as the authoritative schema source.
-> **Last reviewed:** 2026-09-12
+> **Last reviewed:** 2026-09-26
 
 ## Source Of Truth
 
@@ -62,8 +62,8 @@ Important columns:
 - `weight_increments`: optional per-equipment load steps as JSONB keyed by equipment category (`barbell` | `dumbbell` | `machine` | `cable`), each entry shaped `{ "base_kg": number, "micro_kg": number|null }` (e.g. machine with 4 kg pin steps + 1.1 kg magnetic micro-plates). NULL column or missing categories mean auto — the progression engine falls back to equipment-based defaults. Reachable increases for a category are combinations of `n × base_kg + m × micro_kg`; the server-side progression engine uses them so suggested loads are always physically settable.
 - `initial_queue_generated_at`: when the first successful onboarding queue replacement was committed; a null value means the onboarding free retry is still available
 - `queue_generation_request_id`, `queue_generation_started_at`: server-managed claim token and timestamp for the queue replacement currently being generated; claims expire after 15 minutes
-- `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL
-- `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state
+- `is_admin`: grants access to the admin dashboard (`apps/admin`) and admin-only RLS policies; promoted manually via SQL or the service role
+- `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`: monetization / entitlement state, written by `update_subscription_status` (service role)
 - `deletion_scheduled_at`: when non-null, the account is scheduled for hard deletion at this timestamp. Signing back in before then clears the flag. A scheduled job (`purge_expired_deletions()`) purges expired rows, which cascades to every user-owned table.
 
 Relationships:
@@ -75,7 +75,8 @@ Notes:
 - profile rows are auto-created when a new auth user is created
 - this table is one of the most important sources of generation context
 - onboarding profile and baseline writes go through `complete_onboarding(...)`, which locks the profile, validates the payload, and commits both records atomically; repeated calls after completion return the existing profile unchanged
-- authenticated clients cannot write the queue claim or initial-generation marker directly
+- server-owned fields — `is_admin`, `subscription_tier`, `subscription_expires_at`, `revenuecat_customer_id`, `deletion_scheduled_at`, `initial_queue_generated_at`, `queue_generation_request_id`, `queue_generation_started_at` — cannot be changed by direct `anon`/`authenticated` writes. The `profiles_server_owned_fields_guard` trigger rejects such INSERT, upsert, and UPDATE statements with `42501`, even when the payload also contains allowed fields. A fresh row must carry the column defaults; an upsert or update may echo the current values. `SECURITY DEFINER` RPCs, `service_role`, and SQL sessions are not restricted, so `complete_onboarding`, the queue claim RPCs, and the account-deletion RPCs keep working
+- ordinary preference fields (training setup, `weight_unit`, `weight_increments`, onboarding flags) stay directly writable by the owner
 - account deletion is soft with a 14-day grace period — see `request_account_deletion`, `cancel_account_deletion`, `purge_expired_deletions`
 - after the grace period, `purge_expired_deletions()` deletes the matching `auth.users` row; foreign-key cascades remove the profile and user-owned app data
 - no separate legal, security, or fraud-retention archive is implemented in this repository; external store purchase and billing records are outside this database purge
@@ -323,6 +324,32 @@ Notes:
   returns `health_record_id` for best-effort platform cleanup. Health Connect
   records can be deleted by UUID; the current Apple Health library cannot
   delete workout records by UUID.
+- `get_workout_session_detail(UUID)` returns the full session only to its
+  owner or to `service_role` (used by `generate-next-workout`). Anonymous
+  callers cannot execute it, and a NULL `auth.uid()` is rejected explicitly.
+
+### `workout_session_comments`
+
+Purpose:
+
+- free-form user feedback on a workout; the last three comments are added to
+  the generation prompt and shown read-only in workout history
+
+Important columns:
+
+- `user_id`, `workout_session_id`
+- `comment`: 1–500 characters
+
+Relationships:
+
+- owned by a profile and attached to a `workout_sessions` row; both foreign
+  keys cascade on delete
+
+Notes:
+
+- users can read and insert their own comments only; the insert policy also
+  requires `workout_session_id` to be one of the caller's own sessions
+- updates and deletes are service-role only
 
 ### `session_exercises`
 
@@ -437,6 +464,9 @@ Notes:
 
 - unique per user + date
 - columns are nullable so a user can log partial measurements
+- `update_body_measurement_date(user_id, old DATE, new DATE)` moves a row to
+  another date. It runs as the caller (RLS applies) and rejects callers other
+  than the owner or `service_role`
 - this table is optimized for trend/history style features rather than workout generation
 
 ### `streak_protection_balances`
@@ -588,8 +618,74 @@ admin-only RLS policies remain the data boundary.
 
 - `profiles.is_admin` grants access to the admin dashboard and admin-only RLS policies
 - the `public.is_admin()` helper function is used by all admin policies (`exercises`, `exercise_translations`, `exercise_media_assets`, `llm_generation_logs`, and storage writes to the `exercise-media` bucket)
-- admins are promoted manually: `UPDATE public.profiles SET is_admin = TRUE WHERE id = '<user-uuid>';`
+- admins are promoted manually: `UPDATE public.profiles SET is_admin = TRUE WHERE id = '<user-uuid>';` run as SQL or with the service role. Users cannot promote themselves (see `profiles`)
 - the admin dashboard lives in `apps/admin` and authenticates with the same Supabase project as the mobile app; RLS remains the security boundary even for admins
+
+## Authorization Model
+
+Reviewed on 2026-09-26 (SWE-205). The migration
+`20260926120000_harden_database_authorization.sql` holds the fixes.
+
+Grants:
+
+- Supabase default privileges give `anon` and `authenticated` full table DML
+  and `EXECUTE` on every new `public` function. RLS and explicit revokes are
+  the only boundary. `REVOKE ... FROM PUBLIC` does not remove those
+  role-specific grants, so revoke from `anon`/`authenticated` by name.
+- All 20 `public` tables have RLS enabled. Tables with no write policy for
+  clients (`generation_usage`, `generation_attempts`, `llm_generation_logs`,
+  `streak_protection_*`, `catalog_label_translations`) are written only by
+  `SECURITY DEFINER` RPCs or `service_role`.
+
+Tables:
+
+- user-owned tables (`workout_sessions` and its children, `pending_workouts`,
+  `strength_baselines`, `exercise_preferences`, `body_measurements`): owner-only
+  CRUD through `auth.uid()`
+- `profiles`: owner select/insert/update, with server-owned fields guarded by
+  a trigger; no delete policy
+- `workout_session_comments`: owner select and own-session insert; service
+  role for everything else
+- `feedback`: owner insert; service-role read and status updates
+- catalog (`exercises`, `exercise_translations`, `exercise_media_assets`,
+  `catalog_label_translations`): read for `authenticated` (media assets:
+  active only); writes for admins through `is_admin()` or for `service_role`
+- `generation_attempts`, `llm_generation_logs`: admin read, service write
+
+Storage:
+
+- the only bucket, `exercise-media`, is public, so media URLs are readable
+  without auth on purpose. `storage.objects` allows reads for
+  `authenticated` and writes only for admins or `service_role`.
+
+`SECURITY DEFINER` routines:
+
+- every `public` definer routine pins `search_path`. New or rewritten ones use
+  `SET search_path = ''` with schema-qualified names. Older bodies pin
+  `public, pg_temp`.
+- service-only: `purge_expired_deletions` (pg_cron runs it as `postgres`;
+  the `purge-expired-deletions` Edge Function uses the service role),
+  `get_login_provider_hint` (only the rate-limited `login-provider-hint` Edge
+  Function), generation attempt/queue writers, `record_generation_usage`,
+  `update_subscription_status`, and `ensure_streak_protection_balance`
+- user-scoped RPCs scope every read and write to `auth.uid()` (plus
+  `service_role` where Edge Functions need it). Owner comparisons must handle
+  a NULL `auth.uid()` explicitly (`IS NULL OR <>`, not a bare `!=`)
+- anon can still execute catalog readers (`get_localized_*`,
+  `localized_label_array`) and user-scoped read/edit RPCs, which return
+  nothing or raise when `auth.uid()` is NULL. The pgTAP suite pins this set,
+  so a new anon-executable definer function fails the test until reviewed.
+- trigger functions (`handle_new_user`, `notify_workout_completed`,
+  `guard_profile_server_owned_fields`) are not executable by clients; trigger
+  firing does not check `EXECUTE`
+
+Tests:
+
+- SQL level: `supabase test db` (includes
+  `supabase/tests/database-authorization.test.sql`)
+- through PostgREST with real anon, user, admin, and service-role
+  credentials: see the header of
+  `supabase/tests/postgrest/database-authorization.test.ts`
 
 ## Relationships Summary
 
@@ -597,6 +693,7 @@ admin-only RLS policies remain the data boundary.
 auth.users
   -> profiles
      -> workout_sessions
+        -> workout_session_comments
         -> session_exercises
            -> session_sets
               -> set_logs
