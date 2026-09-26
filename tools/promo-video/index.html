@@ -1,0 +1,304 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sweaty — 30s ad</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <!-- ======= background ======= -->
+  <div id="bg">
+    <div id="bgBase"></div>
+    <div class="glow a" id="glowA"></div>
+    <div class="glow b" id="glowB"></div>
+    <div class="glow c" id="glowC"></div>
+    <div class="glow gold" id="glowGold"></div>
+    <svg id="bgRings" width="10" height="10"></svg>
+  </div>
+
+  <!-- ======= S1 hook ======= -->
+  <section class="scene" id="s1">
+    <div class="hookLine disp" id="lineA"></div>
+    <div class="hookLine disp" id="lineB"></div>
+    <div id="hookSub" class="sub">Sweaty plans every workout for you.</div>
+    <div id="flyRings"></div>
+  </section>
+
+  <!-- ======= S2 goals → AI plan ======= -->
+  <section class="scene" id="s2">
+    <div class="abs" id="s2copy" style="left:150px;top:380px;">
+      <div class="kicker" id="s2k">Set it once</div>
+      <div class="disp" id="s2h1" style="font-size:112px;margin-top:26px;"></div>
+      <div class="disp" id="s2h2" style="font-size:112px;margin-top:26px;position:absolute;top:48px;left:0"></div>
+    </div>
+    <div class="grp3d abs" id="g2" style="left:1290px;top:540px;transform-style:preserve-3d;">
+      <div class="phone ui-dark" id="ph2">
+        <div class="screen">
+          <div class="island"></div>
+          <div class="status"><span>9:41</span><span class="icons" data-status></span></div>
+          <div class="pscr" id="p2a">
+            <div class="t-cap c2" style="margin-top:8px">Step 1 of 5</div>
+            <div class="ob-track"><i></i></div>
+            <div class="t-tlg">What would you like to achieve?</div>
+            <div class="t-body c2" style="margin:8px 0 24px;line-height:1.45">We’ll use your goal to plan your workouts. You can change it at any time.</div>
+            <div class="opt"><span>Build strength</span><span class="radio"><i></i></span></div>
+            <div class="opt" id="optSel"><div class="selbg"></div><span>Build muscle</span><span class="radio"><i></i></span></div>
+            <div class="opt"><span>Lose weight</span><span class="radio"><i></i></span></div>
+            <div class="opt"><span>Improve fitness</span><span class="radio"><i></i></span></div>
+            <div class="opt" style="border-style:dashed"><span class="c2">Or describe your own goal</span></div>
+            <div class="btn" id="obBtn" style="position:absolute;left:20px;right:20px;bottom:44px;">Continue</div>
+          </div>
+          <div class="pscr" id="p2b" style="opacity:0">
+            <div class="row sb" style="margin-top:14px"><span class="t-tmd">Your Plan</span></div>
+            <div style="height:120px"></div>
+            <div class="loader" id="loader"></div>
+            <div class="t-tmd" style="text-align:center;margin-top:26px">Generating your workout...</div>
+            <div class="t-cap c2" style="text-align:center;margin-top:6px">Built around your goal, equipment and schedule</div>
+            <div class="card" style="margin-top:44px;border-radius:10px">
+              <div class="t-lbl cm">Day 1</div>
+              <div class="skel sk" style="width:60%;height:14px;margin-top:12px"></div>
+              <div class="skel sk" style="width:40%;height:10px;margin-top:8px"></div>
+              <div class="skel sk" style="width:80%;height:10px;margin-top:18px"></div>
+              <div class="skel sk" style="width:55%;height:10px;margin-top:8px"></div>
+              <div class="t-cap c2" style="margin-top:14px">Preparing your workout...</div>
+            </div>
+          </div>
+          <div class="pscr" id="p2c" style="opacity:0">
+            <div class="row sb" style="margin:14px 0 12px"><span class="t-tmd">Your Plan</span><span class="t-tsm cp">3/3</span></div>
+            <div data-tpl="nextup" class="qc"></div>
+            <div class="dayc qc"><div><div class="t-lbl cm">Day 2</div><div class="t-tsm" style="margin-top:4px">Pull Day</div><div class="t-cap c2" style="margin-top:2px">Back · Biceps · Rear delts</div></div><div class="row" style="gap:10px"><span class="chip">Pull</span><span class="cm ico" data-i="chevR"></span></div></div>
+            <div class="dayc qc"><div><div class="t-lbl cm">Day 3</div><div class="t-tsm" style="margin-top:4px">Leg Day</div><div class="t-cap c2" style="margin-top:2px">Quads · Glutes · Hamstrings</div></div><div class="row" style="gap:10px"><span class="chip">Legs</span><span class="cm ico" data-i="chevR"></span></div></div>
+          </div>
+          <div class="tap" id="tap2"></div>
+          <div class="homeInd"></div>
+          <div class="glare"></div>
+        </div>
+      </div>
+    </div>
+    <div id="chips"></div>
+  </section>
+
+  <!-- ======= S3 home + widgets ======= -->
+  <section class="scene" id="s3">
+    <div class="grp3d abs" id="g3" style="left:760px;top:540px;transform-style:preserve-3d;">
+      <div class="phone ui-dark" id="ph3">
+        <div class="screen">
+          <div class="island"></div>
+          <div class="status"><span>9:41</span><span class="icons" data-status></span></div>
+          <div class="pscr" id="p3">
+            <div class="hs t-dlg" style="margin-top:14px">Good morning</div>
+            <div class="hs t-body c2" style="margin-top:2px">Ready to train?</div>
+            <div class="hs cardg" style="margin-top:20px">
+              <div class="row sb"><span class="t-tsm">This Week</span><span class="t-tsm cp">2/3</span></div>
+              <div class="row" style="gap:6px;margin-top:12px"><i class="seg on"></i><i class="seg on"></i><i class="seg"></i></div>
+            </div>
+            <div class="hs card" style="margin-top:20px;display:flex;gap:12px;align-items:center">
+              <div class="itile"><i class="ico" data-i="flame"></i></div>
+              <div><div class="t-tsm">Still on a 5-week streak</div><div class="t-cap c2" style="margin-top:2px">One workout this week keeps it. Anything counts.</div></div>
+            </div>
+            <div class="hs row sb" style="margin:20px 0 12px"><span class="t-tmd">Your Plan</span><span class="t-tsm cp">3/3</span></div>
+            <div class="hs" data-tpl="nextup" id="nu3"></div>
+            <div class="hs dayc"><div><div class="t-lbl cm">Day 2</div><div class="t-tsm" style="margin-top:4px">Pull Day</div></div><span class="chip">Pull</span></div>
+          </div>
+          <div class="tabbar"><div class="tb on"><i class="ico" data-i="house"></i>Home</div><div class="tb"><i class="ico" data-i="calendar"></i>Calendar</div><div class="tb"><i class="ico" data-i="person"></i>Profile</div></div>
+          <div class="tap" id="tap3"></div>
+          <div class="homeInd"></div>
+          <div class="glare"></div>
+        </div>
+      </div>
+      <!-- widgets -->
+      <div class="widget ui-dark" id="wNext" style="width:338px;height:158px;left:-590px;top:-300px;">
+        <div class="w-eyebrow">Next workout</div>
+        <div style="font-size:21px;font-weight:700;margin-top:6px;letter-spacing:-.3px">Push · chest &amp; shoulders</div>
+        <div class="t-cap c2" style="margin-top:3px">6 exercises · about 45 min</div>
+        <div class="row sb" style="margin-top:20px"><span class="t-cap c2"><i class="ico" data-i="flame" style="color:var(--w-acc)"></i> 5 wk streak</span><span class="w-capsule">Open workout ›</span></div>
+      </div>
+      <div class="widget ui-dark" id="wStreak" style="width:158px;height:158px;left:150px;top:-400px;">
+        <div class="w-eyebrow">Streak</div>
+        <div class="row" style="gap:4px;margin-top:8px"><i class="ico" data-i="flame" style="font-size:26px;color:#FF9F0A"></i><span style="font-size:34px;font-weight:700;letter-spacing:-1px">5</span><span class="t-cap c2" style="margin-top:10px">weeks</span></div>
+        <div class="t-cap c2" style="margin-top:6px">Longest: 8 wk</div>
+        <div class="t-cap" style="margin-top:14px;color:var(--w-acc)"><i class="ico" data-i="snow"></i> 1 freeze saved</div>
+      </div>
+      <div class="widget ui-dark" id="wWeek" style="width:158px;height:158px;left:-470px;top:-30px;">
+        <svg width="126" height="126" viewBox="0 0 126 126" style="position:absolute;left:16px;top:16px">
+          <circle cx="63" cy="63" r="52" fill="none" stroke="var(--w-acc)" stroke-opacity=".18" stroke-width="12"/>
+          <circle id="weekArc" cx="63" cy="63" r="52" fill="none" stroke="var(--w-acc)" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" transform="rotate(-90 63 63)"/>
+        </svg>
+        <div style="position:absolute;left:0;right:0;top:52px;text-align:center"><div style="font-size:26px;font-weight:700">2/3</div><div class="t-cap c2">this wk</div></div>
+      </div>
+      <div class="widget ui-dark" id="wCons" style="width:338px;height:158px;left:-600px;top:200px;">
+        <div class="row sb"><div class="w-eyebrow">Consistency</div><div class="t-cap c2">12 weeks</div></div>
+        <div id="consGrid" style="display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(3,20px);gap:5px;margin-top:12px"></div>
+        <div class="t-cap c2" style="margin-top:10px"><b style="color:var(--p-text)">3.1</b> per week on average</div>
+      </div>
+    </div>
+    <div class="abs" id="s3copy" style="left:1170px;top:390px;">
+      <div class="kicker" id="s3k">Every morning</div>
+      <div class="disp" id="s3h1" style="font-size:110px;margin-top:26px"></div>
+      <div class="sub" id="s3sub" style="margin-top:30px;width:640px;white-space:normal;line-height:1.3">Your next workout is planned, balanced and ready to start.</div>
+    </div>
+    <div id="expand" class="abs" style="background:var(--acc);border-radius:14px;opacity:0"></div>
+  </section>
+
+  <!-- ======= S4 workout ======= -->
+  <section class="scene" id="s4">
+    <div class="abs" id="s4copy" style="left:1120px;top:400px;">
+      <div class="kicker" id="s4k">In the gym</div>
+      <div class="disp" id="s4h1" style="font-size:112px;margin-top:26px"></div>
+    </div>
+    <div class="grp3d abs" id="g4" style="left:700px;top:540px;transform-style:preserve-3d;">
+      <div class="phone ui-dark" id="ph4">
+        <div class="screen">
+          <div class="island" id="isl4"><span class="isl" id="islL"><i class="ico" data-i="dumbbell" style="color:#5AAEE0"></i></span><span class="isl" id="islR" style="font-family:SFM;color:#5AAEE0">1:30</span></div>
+          <div class="status"><span>9:41</span><span class="icons" data-status></span></div>
+          <div class="pscr" id="p4">
+            <div class="wtop"><span class="ico c2" data-i="chevD" style="font-size:22px"></span><div style="text-align:center"><div class="t-tmd">Push Day</div><div class="t-mic cm" id="setsDone">7/18 sets</div></div><span class="finish">Finish</span></div>
+            <div class="wprog"><i id="wprog"></i></div>
+            <div class="wtimer" id="wtimer">24:13</div>
+            <div class="excard" id="ex4">
+              <div class="row" style="gap:12px">
+                <div class="thumb" style="background-image:url(../../supabase/assets/exercise-media/barbell-bench-press.png)"></div>
+                <div style="flex:1"><div class="t-tsm cp">Barbell Bench Press</div><div class="t-cap c2" style="margin-top:2px">Chest</div></div>
+                <span class="pill g" id="pillUp">Weight up</span>
+                <span class="ico c2" data-i="dots" style="font-size:18px;margin-left:4px"></span>
+              </div>
+              <div class="t-cap cp" style="margin-top:12px"><i class="ico" data-i="timer"></i> Rest Timer: 2min</div>
+              <div class="sethead"><span>Set</span><span>Previous</span><span>kg</span><span>Reps</span><span>RPE</span><span class="ico" data-i="check" style="font-size:13px;justify-self:center"></span></div>
+              <div id="rows4"></div>
+              <div class="t-bm cp" style="text-align:center;padding:10px 0 4px">+ Add Set</div>
+              <div class="hair"></div>
+              <div class="row sb"><div class="row" style="gap:10px"><span style="width:28px;height:28px;border-radius:50%;background:var(--p-psurf);display:flex;align-items:center;justify-content:center" class="cp"><i class="ico" data-i="question" style="font-size:16px"></i></span><span class="t-bm cp">Why this exercise</span></div><span class="t-cap c2">Show</span></div>
+            </div>
+            <div class="excard" style="margin-top:12px"><div class="row" style="gap:12px"><div class="thumb" style="background-image:url(../../supabase/assets/exercise-media/generated-2026-06/incline-dumbbell-press.png)"></div><div><div class="t-tsm cp">Incline Dumbbell Press</div><div class="t-cap c2" style="margin-top:2px">Upper chest</div></div></div></div>
+          </div>
+          <div class="restbar" id="restbar">
+            <div class="row sb"><span class="rb-pill">-15s</span><span class="rb-time cp" id="rbTime">1:30</span><span class="rb-pill">+15s</span><span class="t-tsm cp">Skip</span></div>
+            <div class="rb-track"><i id="rbTrack"></i></div>
+          </div>
+          <div class="tap" id="tap4"></div>
+          <div class="homeInd"></div>
+          <div class="glare"></div>
+        </div>
+      </div>
+    </div>
+    <div class="watch" id="watch" style="left:330px;top:560px;">
+      <div class="wscreen">
+        <div style="position:absolute;left:22px;top:18px;font-size:16px;font-weight:600;color:#5AAEE0">Rest</div>
+        <div style="position:absolute;right:22px;top:18px;font-size:15px;font-weight:600">9:41</div>
+        <svg width="140" height="140" viewBox="0 0 140 140" style="position:absolute;left:24px;top:46px">
+          <circle cx="70" cy="70" r="62" fill="none" stroke="#2A2D30" stroke-width="10"/>
+          <circle id="watchArc" cx="70" cy="70" r="62" fill="none" stroke="#5AAEE0" stroke-width="10" stroke-linecap="round" stroke-dasharray="389.6" stroke-dashoffset="0" transform="rotate(-90 70 70)"/>
+        </svg>
+        <div id="watchTime" style="position:absolute;left:0;right:0;top:92px;text-align:center;font-size:36px;font-weight:300;font-variant-numeric:tabular-nums">1:30</div>
+        <div style="position:absolute;left:0;right:0;bottom:16px;text-align:center;font-size:17px;font-weight:600"><i class="ico" data-i="heart" style="color:#FF453A"></i> <span id="hr">138</span> <span style="font-size:12px;color:#888">BPM</span></div>
+      </div>
+    </div>
+    <div class="phone ui-dark" id="ph4b" style="left:1500px;top:560px;">
+      <div class="screen" style="background:radial-gradient(120% 80% at 30% 20%, #2C5E8C 0%, #1B2A55 45%, #0B0E1A 100%)">
+        <div class="island"></div>
+        <div class="status" style="color:#fff"><span></span><span class="icons" data-status></span></div>
+        <div style="position:absolute;left:0;right:0;top:78px;text-align:center;color:rgba(255,255,255,.85);font-size:19px;font-weight:600">Friday, September 25</div>
+        <div style="position:absolute;left:0;right:0;top:96px;text-align:center;color:rgba(255,255,255,.92);font-family:SFR;font-size:104px;font-weight:600;letter-spacing:-2px">9:41</div>
+        <div class="live" id="live" style="left:12px;top:520px;width:369px">
+          <div class="row sb" style="font-size:12px;font-weight:600;letter-spacing:.3px"><span style="opacity:.7"><i class="ico" data-i="dumbbell"></i> BENCH PRESS · SET 3 / 4</span><span style="opacity:.7;font-family:SFM" id="lvElapsed">24:40</span></div>
+          <div style="font-size:12px;font-weight:700;color:#5AAEE0;margin-top:10px;letter-spacing:.4px">RESTING</div>
+          <div class="row sb" style="margin-top:2px"><span id="lvTime" style="font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-1px">1:30</span><div style="text-align:right"><div style="font-size:12px;opacity:.6">Up next</div><div style="font-size:15px;font-weight:600">100 kg × 5 reps</div></div></div>
+          <div class="row" style="gap:8px;margin-top:12px"><span class="lv-btn">−15s</span><span class="lv-btn" style="color:#5AAEE0"><i class="ico" data-i="fwd"></i> Skip</span><span class="lv-btn">+15s</span></div>
+        </div>
+        <div class="homeInd" style="background:#fff"></div>
+      </div>
+    </div>
+    <div class="abs sub" id="s4cap" style="left:0;right:0;top:968px;text-align:center;color:var(--ink)">Phone, wrist or lock screen — your rest timer follows you.</div>
+  </section>
+
+  <!-- ======= S5 last set build ======= -->
+  <section class="scene" id="s5">
+    <div class="abs kicker" id="s5k" style="left:0;right:0;top:190px;text-align:center">Set 4 of 4 · Barbell Bench Press</div>
+    <div class="abs" id="bigNum" style="left:0;right:0;top:250px;height:430px;text-align:center">
+      <div class="abs" style="left:0;right:0;top:0;font-family:SFR;font-weight:800;font-size:400px;line-height:430px;letter-spacing:-18px;color:transparent;-webkit-text-stroke:3px var(--ink3)">100<span style="font-size:130px;letter-spacing:-2px">kg</span></div>
+      <div class="abs" id="bigFill" style="left:0;right:0;top:0;font-family:SFR;font-weight:800;font-size:400px;line-height:430px;letter-spacing:-18px;color:transparent;background:linear-gradient(180deg,#FFF1C2 0%,#FFC53D 45%,#E3A50B 100%);-webkit-background-clip:text;background-clip:text;clip-path:inset(100% 0 0 0)">100<span style="font-size:130px;letter-spacing:-2px">kg</span></div>
+    </div>
+    <div class="abs row" id="reps" style="left:50%;top:740px;gap:22px;transform:translateX(-50%)"></div>
+    <div class="abs sub" id="s5sub" style="left:0;right:0;top:850px;text-align:center">Last set. <span style="color:var(--ink)">Previous best 95 kg × 5.</span></div>
+  </section>
+
+  <!-- ======= S6 PR ======= -->
+  <section class="scene" id="s6">
+    <div id="shocks"></div>
+    <div class="confetti" id="confetti"></div>
+    <div class="abs" id="prWrap" style="left:960px;top:430px;">
+      <div class="prbadge" id="prBadge">
+        <i class="ico tro" data-i="trophy" style="font-size:44px"></i>
+        <div><div style="font-size:40px;font-weight:800;letter-spacing:-.5px;line-height:1">New PR!</div><div style="font-size:21px;font-weight:700;color:#6B4A00;margin-top:4px">100 kg × 5</div></div>
+      </div>
+    </div>
+    <div class="abs disp" id="prHead" style="left:0;right:0;top:620px;text-align:center;font-size:120px"></div>
+    <div class="story" id="story" style="left:1250px;top:120px;">
+      <div class="row" style="gap:10px"><div style="width:34px;height:34px;border-radius:10px;background:#5AAEE0;color:#fff;font-weight:800;font-family:SFR;display:flex;align-items:center;justify-content:center;font-size:19px">S</div><div><div style="font-size:15px;font-weight:700">Sweaty</div><div style="font-size:11px;color:#888">Finished - Sep 25</div></div></div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.2px;color:#5AAEE0;margin-top:22px">WORKOUT COMPLETE</div>
+      <div style="font-family:SFR;font-size:36px;font-weight:800;letter-spacing:-.5px;margin-top:4px">Push Day</div>
+      <div class="st-panel" style="margin-top:16px">
+        <div style="font-size:12px;opacity:.85">Total volume</div>
+        <div style="font-family:SFR;font-size:36px;font-weight:800;letter-spacing:-.5px"><span id="vol">12,450</span> <span style="font-size:18px">kg</span></div>
+        <div style="font-size:12px;opacity:.85;margin-top:6px">That’s like lifting a grand piano 🎹</div>
+      </div>
+      <div class="row" style="gap:8px;margin-top:10px">
+        <div class="st-tile"><div style="font-size:10px;color:#888">Time</div><div style="font-size:18px;font-weight:700;margin-top:2px">48:12</div></div>
+        <div class="st-tile"><div style="font-size:10px;color:#888">Sets</div><div style="font-size:18px;font-weight:700;margin-top:2px">18/18</div></div>
+        <div class="st-tile"><div style="font-size:10px;color:#888">Week streak</div><div style="font-size:18px;font-weight:700;margin-top:2px;color:#30D158">5</div></div>
+      </div>
+      <div style="font-size:13px;font-weight:600;margin-top:16px">Session highlights</div>
+      <div id="hl"></div>
+      <div class="row sb" style="position:absolute;left:20px;right:20px;bottom:18px;border-radius:14px;background:#1A1D20;border:1px solid #2A2D30;padding:12px 14px"><div><div style="font-size:13px;font-weight:700">Join me on Sweaty</div><div style="font-size:11px;color:#888">Plan. Train. Progress.</div></div><span style="color:#5AAEE0;font-size:18px">→</span></div>
+    </div>
+  </section>
+
+  <!-- ======= S7 progress bento ======= -->
+  <section class="scene" id="s7">
+    <div class="abs" id="s7copy" style="left:120px;top:330px;">
+      <div class="kicker" id="s7k">Over time</div>
+      <div class="disp" id="s7h1" style="font-size:104px;margin-top:26px;line-height:1.02"></div>
+    </div>
+    <div class="grp3d abs" id="g7" style="left:1290px;top:540px;transform-style:preserve-3d;">
+      <div class="bcard ui-dark" id="bLine" style="left:-530px;top:-330px;width:640px;height:380px">
+        <div class="row sb"><div><div class="bt">Bench Press</div><div class="bs">Top set · last 12 weeks</div></div><span class="pill g" style="font-size:13px;padding:6px 12px">+25%</span></div>
+        <svg id="lineChart" width="580" height="250" style="position:absolute;left:30px;top:112px"></svg>
+        <div class="tooltip" id="tip"><div class="t-tsm" id="tipV">100 kg</div><div class="t-cap cm" id="tipD">Sep 25</div></div>
+      </div>
+      <div class="bcard ui-dark" id="bBars" style="left:134px;top:-330px;width:400px;height:380px">
+        <div class="bt">Volume Over Time</div><div class="bs">Weekly avg: 8.7t/wk</div>
+        <div id="bars" style="position:absolute;left:30px;right:30px;bottom:32px;height:230px;display:flex;align-items:flex-end;gap:8px"></div>
+      </div>
+      <div class="bcard ui-dark" id="bHeat" style="left:-530px;top:74px;width:640px;height:256px">
+        <div class="row sb"><div class="bt">Workout Activity</div><div class="t-cap cp" style="font-size:15px">42 workouts this year</div></div>
+        <div class="hm" id="heat" style="margin-top:22px"></div>
+      </div>
+      <div class="bcard ui-dark" id="bStreak" style="left:134px;top:74px;width:400px;height:256px">
+        <div class="w-eyebrow" style="font-size:14px;color:var(--p-primary)">Streak</div>
+        <div class="row" style="gap:10px;margin-top:10px"><i class="ico" data-i="flame" style="font-size:52px;color:#FF9F0A"></i><span style="font-size:86px;font-weight:700;letter-spacing:-3px;line-height:1" id="streakN">5</span><span class="bs" style="font-size:22px;margin-top:30px">weeks</span></div>
+        <div class="bs" style="font-size:18px;margin-top:14px">Longest: 8 wk · <span class="cp"><i class="ico" data-i="snow"></i> 1 freeze saved</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= S8 end card ======= -->
+  <section class="scene" id="s8">
+    <div id="endRings"></div>
+    <div id="logo">
+      <div class="lh" id="lh"></div>
+      <div class="lr" id="lr0"></div><div class="lr" id="lr1"></div><div class="lr" id="lr2"></div><div class="lr" id="lr3"></div>
+    </div>
+    <div id="wordmark" style="top:590px"><span class="mask"><span class="mi" id="wm">Sweaty</span></span></div>
+    <div id="tagline" class="sub" style="top:790px"><span class="mask"><span class="mi" id="tg">Plan. Train. Progress.</span></span></div>
+    <div id="cta" style="top:880px"><span class="ico" data-i="spark" style="font-size:26px"></span>Be the first to train smarter</div>
+  </section>
+
+  <div id="flash"></div>
+  <canvas id="grain" width="960" height="540"></canvas>
+  <div id="vignette"></div>
+</div>
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

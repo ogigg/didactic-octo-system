@@ -1,0 +1,14 @@
+{
+  "name": "promo-video",
+  "private": true,
+  "description": "Deterministic motion-graphics engine for the Sweaty app promo video (HTML + GSAP, rendered frame by frame in headless Chrome, encoded with ffmpeg).",
+  "scripts": {
+    "stills": "node render.mjs --stills",
+    "music": "node music.mjs",
+    "make": "node make.mjs"
+  },
+  "dependencies": {
+    "gsap": "3.15.0",
+    "puppeteer-core": "25.12.0"
+  }
+}
