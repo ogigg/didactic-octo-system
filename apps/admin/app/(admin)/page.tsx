@@ -2,7 +2,9 @@ import Link from "next/link";
 import { getAdminUser } from "@/lib/supabase/server";
 
 export default async function AdminHomePage() {
-  const { supabase } = (await getAdminUser())!;
+  const admin = await getAdminUser();
+  if (!admin) return null;
+  const { supabase } = admin;
 
   const [{ count: exerciseCount }, { count: attemptCount }] = await Promise.all(
     [

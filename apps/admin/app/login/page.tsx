@@ -1,3 +1,4 @@
+import { safeNextPath } from "@/lib/safe-next-path";
 import { login } from "./actions";
 
 interface LoginPageProps {
@@ -22,7 +23,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         ) : null}
 
         <form action={login} className="flex flex-col gap-4">
-          <input type="hidden" name="next" value={next ?? "/"} />
+          <input type="hidden" name="next" value={safeNextPath(next)} />
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-text-secondary">Email</span>
             <input

@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNextPath } from "@/lib/safe-next-path";
+import { isAdmin } from "@/lib/supabase/is-admin";
 
 const PUBLIC_PATHS = ["/login"];
 
@@ -38,15 +40,19 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", request.nextUrl.pathname);
+    url.search = "";
+    url.searchParams.set(
+      "next",
+      safeNextPath(request.nextUrl.pathname + request.nextUrl.search)
+    );
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublicPath) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
-    return NextResponse.redirect(url);
+  // Only admins skip the login page. The admin layout sends a signed-in
+  // non-admin back to /login, so bouncing them to / here would loop forever.
+  if (user && isPublicPath && (await isAdmin(supabase, user.id))) {
+    const next = safeNextPath(request.nextUrl.searchParams.get("next"));
+    return NextResponse.redirect(new URL(next, request.url));
   }
 
   return response;

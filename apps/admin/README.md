@@ -51,16 +51,43 @@ The env values are the same project URL and anon key used by `apps/mobile`
 3. Sign in at `/login`. Non-admin accounts are rejected at login and every
    admin page re-checks `profiles.is_admin` server-side.
 
+A rejected non-admin is signed out of the admin session only (`scope:
+"local"`), so their mobile app session keeps working. A non-admin who is
+already signed in, for example after losing admin rights, sees the login page
+instead of being redirected back and forth between `/` and `/login`.
+
 ## Security Model
 
 - Auth uses Supabase email/password sessions via `@supabase/ssr` cookies;
-  `middleware.ts` redirects unauthenticated visitors to `/login`.
+  `middleware.ts` redirects unauthenticated visitors to `/login` with the
+  requested path and query in `next`.
+- After login, `next` only takes same-origin paths. `lib/safe-next-path.ts`
+  turns absolute URLs, protocol-relative paths (`//host`), backslashes,
+  control characters, encoded separators (`%2F`, `%5C`, `%25`) and `/login`
+  into `/`. The login page, the login action and the middleware all apply it.
+- Every exported server action is a public POST endpoint. Each one must call
+  `getAdminUser()` before it writes, uploads or runs an RPC, and each page that
+  loads data returns early without an admin. The page layout's check is not
+  enough on its own. `app/(admin)/actions-authorization.test.ts` fails when a
+  new action or `"use server"` file is added without a matching test.
 - All data access runs with the signed-in user's JWT against RLS. Admin
   capabilities come from the `is_admin()` helper and admin-only policies added
   in `supabase/migrations/20260821000000_add_admin_role.sql` — there is no
   service-role key in the browser or server bundle.
 - Regular users can never read `llm_generation_logs`; only admins have SELECT,
   and writes happen exclusively through edge functions using the service role.
+
+## Tests
+
+```bash
+npm test --workspace=admin
+```
+
+The tests use Node's built-in runner (`node --test`) and need Node 22.18 or
+newer, which strips TypeScript without a build step. `test/setup.ts` resolves
+the `@/` alias and extensionless imports. The Next.js server APIs and Supabase
+are replaced with in-memory fakes from `test/`, so the tests never reach a
+Supabase project.
 
 ## Database Changes
 
