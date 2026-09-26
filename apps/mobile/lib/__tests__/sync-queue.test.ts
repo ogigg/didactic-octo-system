@@ -480,6 +480,24 @@ describe("SyncQueue", () => {
       expect(await queue.getDeadItems()).toHaveLength(0);
     });
 
+    it("erases one account's writes and keeps every other account's", async () => {
+      queue.setActiveUser(null);
+      await queue.enqueue("op", "id-1", { a: 1 }, "erased-user");
+      await queue.enqueue("op", "id-2", { b: 2 }, "other-user");
+
+      await queue.removeOwner("erased-user");
+
+      expect(readStoredItems()).toEqual([
+        expect.objectContaining({ ownerId: "other-user", id: "id-2" }),
+      ]);
+
+      const handler = jest.fn().mockResolvedValue(undefined);
+      queue.registerHandler("op", handler);
+      queue.setActiveUser("erased-user");
+      await queue.processQueue();
+      expect(handler).not.toHaveBeenCalled();
+    });
+
     it("rejects an enqueue without an active or explicit owner", async () => {
       queue.setActiveUser(null);
 

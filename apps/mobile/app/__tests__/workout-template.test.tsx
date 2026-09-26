@@ -2,6 +2,7 @@ const mockRouterReplace = jest.fn();
 const mockStartWorkout = jest.fn();
 
 interface MockTemplateState {
+  hasHydrated: boolean;
   templates: {
     id: string;
     name: string;
@@ -22,15 +23,15 @@ const savedTemplate = {
   exercises: [{ id: "bench-press", name: "Bench Press" }],
 };
 
-let mockTemplateState: MockTemplateState = { templates: [savedTemplate] };
+let mockTemplateState: MockTemplateState = {
+  hasHydrated: true,
+  templates: [savedTemplate],
+};
 let mockWorkoutState: MockWorkoutState = {
   isActive: false,
   startWorkout: mockStartWorkout,
 };
-let mockTemplatesHydrated = true;
 let mockWorkoutHydrated = true;
-const mockTemplateHydrateListeners = new Set<() => void>();
-const mockTemplateFinishListeners = new Set<() => void>();
 const mockWorkoutHydrateListeners = new Set<() => void>();
 const mockWorkoutFinishListeners = new Set<() => void>();
 
@@ -65,28 +66,12 @@ jest.mock("@/lib/api/workouts", () => ({
   fetchPreviousSetDisplays: jest.fn(() => Promise.resolve({})),
 }));
 
-jest.mock("@/stores/workout-templates-store", () => {
-  const useWorkoutTemplatesStore = Object.assign(
-    jest.fn((selector: (state: MockTemplateState) => unknown) =>
+jest.mock("@/stores/workout-templates-store", () => ({
+  useWorkoutTemplatesStore: jest.fn(
+    (selector: (state: MockTemplateState) => unknown) =>
       selector(mockTemplateState)
-    ),
-    {
-      persist: {
-        hasHydrated: () => mockTemplatesHydrated,
-        onHydrate: (callback: () => void) => {
-          mockTemplateHydrateListeners.add(callback);
-          return () => mockTemplateHydrateListeners.delete(callback);
-        },
-        onFinishHydration: (callback: () => void) => {
-          mockTemplateFinishListeners.add(callback);
-          return () => mockTemplateFinishListeners.delete(callback);
-        },
-      },
-    }
-  );
-
-  return { useWorkoutTemplatesStore };
-});
+  ),
+}));
 
 jest.mock("@/stores/workout-store", () => {
   const useWorkoutStore = Object.assign(
@@ -142,15 +127,12 @@ import WorkoutTemplateScreen from "../workout-template";
 describe("WorkoutTemplateScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockTemplateState = { templates: [savedTemplate] };
+    mockTemplateState = { hasHydrated: true, templates: [savedTemplate] };
     mockWorkoutState = {
       isActive: false,
       startWorkout: mockStartWorkout,
     };
-    mockTemplatesHydrated = true;
     mockWorkoutHydrated = true;
-    mockTemplateHydrateListeners.clear();
-    mockTemplateFinishListeners.clear();
     mockWorkoutHydrateListeners.clear();
     mockWorkoutFinishListeners.clear();
   });
@@ -166,24 +148,20 @@ describe("WorkoutTemplateScreen", () => {
   });
 
   it("waits for both stores to hydrate and preserves an active session", () => {
-    mockTemplateState = { templates: [] };
+    mockTemplateState = { hasHydrated: false, templates: [] };
     mockWorkoutState = {
       isActive: false,
       startWorkout: mockStartWorkout,
     };
-    mockTemplatesHydrated = false;
     mockWorkoutHydrated = false;
 
-    render(<WorkoutTemplateScreen />);
+    const { rerender } = render(<WorkoutTemplateScreen />);
 
     expect(screen.getByLabelText("templateDetail.loading")).toBeOnTheScreen();
     expect(screen.queryByText("templateDetail.notFoundTitle")).toBeNull();
 
-    act(() => {
-      mockTemplateState = { templates: [savedTemplate] };
-      mockTemplatesHydrated = true;
-      mockTemplateFinishListeners.forEach((listener) => listener());
-    });
+    mockTemplateState = { hasHydrated: true, templates: [savedTemplate] };
+    rerender(<WorkoutTemplateScreen />);
 
     expect(screen.getByLabelText("templateDetail.loading")).toBeOnTheScreen();
     expect(screen.queryByText("templateDetail.notFoundTitle")).toBeNull();

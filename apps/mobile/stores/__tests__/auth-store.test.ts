@@ -368,7 +368,7 @@ describe("useAuthStore", () => {
       expect(useAuthStore.getState().isLoading).toBe(false);
     });
 
-    it("flushes queued writes but retains the owned draft on sign out", async () => {
+    it("keeps the account's queued writes and draft on sign out", async () => {
       const { syncQueue } = require("@/lib/sync-queue");
       const { useOnboardingStore } = require("@/stores/onboarding-store");
 
@@ -378,7 +378,9 @@ describe("useAuthStore", () => {
         await useAuthStore.getState().signOut();
       });
 
-      expect(syncQueue.flush).toHaveBeenCalledTimes(1);
+      // Unsynced workouts wait for their owner; only erasure removes them.
+      expect(syncQueue.flush).not.toHaveBeenCalled();
+      expect(syncQueue.setActiveUser).toHaveBeenLastCalledWith(null);
       expect(useOnboardingStore.getState().reset).not.toHaveBeenCalled();
     });
 

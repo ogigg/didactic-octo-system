@@ -172,7 +172,7 @@ interface WorkoutActions {
   recordHealthWorkoutSession: (workoutId: string, sessionId: string) => void;
   markHealthWorkoutFallbackStarted: (workoutId: string) => void;
   clearWorkout: (options?: { suppressAbandonment?: boolean }) => void;
-  /** Claims the persisted workout, discarding one that belongs to another account. */
+  /** Claims the persisted workout, clearing another account's or an unowned one. */
   prepareForUser: (userId: string) => void;
   completeSet: (
     exerciseId: string,
@@ -299,12 +299,23 @@ function clearedWorkoutState(state: WorkoutState): WorkoutState {
   };
 }
 
-export function isOwnedByAnotherUser(
-  state: Pick<WorkoutState, "ownerUserId">,
+/**
+ * Whether the persisted workout or summary must be cleared before `userId` can
+ * see it. An unowned one predates ownership; nothing on the device records who
+ * made it, so no account may claim it.
+ */
+export function mustDiscardWorkoutForUser(
+  state: Pick<
+    WorkoutState,
+    "ownerUserId" | "isActive" | "completedWorkoutSummary"
+  >,
   userId: string
 ): boolean {
-  return state.ownerUserId !== null && state.ownerUserId !== userId;
+  const hasWorkout = state.isActive || state.completedWorkoutSummary !== null;
+  return hasWorkout && state.ownerUserId !== userId;
 }
+
+export const WORKOUT_STORAGE_KEY = "active-workout-storage";
 
 let markHydrationSettled = () => {};
 const hydrationSettled = new Promise<void>((resolve) => {
@@ -864,11 +875,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         prepareForUser: (userId) => {
           const state = get();
           if (state.ownerUserId === userId) return;
-          // Unowned data predates ownership or is a fresh install, so the first
-          // account keeps it instead of losing a workout in progress.
-          const discard =
-            isOwnedByAnotherUser(state, userId) &&
-            (state.isActive || state.completedWorkoutSummary !== null);
+          const discard = mustDiscardWorkoutForUser(state, userId);
           // No abandonment event: analytics already identify the new account.
           set(
             discard
@@ -1348,7 +1355,7 @@ export const useWorkoutStore = create<WorkoutState & WorkoutActions>()(
         updateWorkoutName: (name) => set({ workoutName: name }),
       }),
       {
-        name: "active-workout-storage",
+        name: WORKOUT_STORAGE_KEY,
         version: 1,
         storage: createJSONStorage(() => trackedAsyncStorage),
         migrate: (persistedState, version) => {

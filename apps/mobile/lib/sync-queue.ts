@@ -306,6 +306,17 @@ export class SyncQueue {
     this.publishHealth();
   }
 
+  /** Drops one account's queued writes, for confirmed account erasure. */
+  async removeOwner(ownerId: string): Promise<void> {
+    await this.hydrate();
+    const remaining = this.items.filter((item) => item.ownerId !== ownerId);
+    if (remaining.length === this.items.length) return;
+    this.items = remaining;
+    if (this.activeUserId === ownerId) this.recoveredReference = undefined;
+    await this.persist();
+    this.publishHealth();
+  }
+
   async getDeadItems(): Promise<SyncQueueItem[]> {
     await this.hydrate();
     return this.items

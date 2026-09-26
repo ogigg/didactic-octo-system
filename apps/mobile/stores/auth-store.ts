@@ -5,6 +5,7 @@ import { prepareActiveWorkoutForUser } from "@/lib/active-workout-owner";
 import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 import { syncQueue } from "@/lib/sync-queue";
+import { switchLocalAccountData } from "@/stores/account-data";
 import { useOnboardingStore } from "@/stores/onboarding-store";
 import { fetchProfile } from "@/lib/api/profiles";
 import { cancelAccountDeletion } from "@/lib/api/delete-account";
@@ -154,6 +155,7 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => {
     if (changed) {
       void queryClient.cancelQueries();
       queryClient.clear();
+      switchLocalAccountData(userId);
     }
     syncQueue.setActiveUser(userId);
     if (userId) setTimeout(() => void syncQueue.processQueue(), 0);
@@ -244,20 +246,14 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => {
           return;
         }
 
-        try {
-          await syncQueue.flush();
-        } catch (error) {
-          // A failed local flush must not leave a signed-out person persisted
-          // or allow the next account to inherit this identity.
-          console.warn(
-            "[auth-store] Failed to flush sync queue on sign out:",
-            error
-          );
-        }
+        // Queued writes, templates and the workout draft stay on the device,
+        // tagged with this account, until it signs in again. Only confirmed
+        // account erasure removes them (see eraseLocalAccountData).
         ++transition;
         activeUserId = null;
         void queryClient.cancelQueries();
         queryClient.clear();
+        switchLocalAccountData(null);
         syncQueue.setActiveUser(null);
         set({
           session: null,

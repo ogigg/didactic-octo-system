@@ -53,8 +53,10 @@ export default function WorkoutTemplateScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { t } = useTranslation("home");
-  const templatesHydrated = usePersistHydration(
-    useWorkoutTemplatesStore.persist
+  // Loads per account, so a switch shows the spinner rather than a template
+  // from the previous account.
+  const templatesHydrated = useWorkoutTemplatesStore(
+    (state) => state.hasHydrated
   );
   const workoutHydrated = usePersistHydration(useWorkoutStore.persist);
   const storesHydrated = templatesHydrated && workoutHydrated;
