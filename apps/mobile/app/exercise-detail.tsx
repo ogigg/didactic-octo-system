@@ -46,7 +46,10 @@ import {
   useSetExercisePreference,
 } from "@/hooks/use-exercise-preference-mutations";
 import { useExercisePreference } from "@/hooks/use-exercise-preference-query";
-import { useExercise } from "@/hooks/use-exercises-query";
+import {
+  useAppCatalogLanguage,
+  useExercise,
+} from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import {
@@ -87,13 +90,16 @@ function formatValue(value: number | null | undefined, suffix = ""): string {
   return `${display}${suffix}`;
 }
 
-function formatLongDate(date: string | null | undefined): string | null {
+function formatLongDate(
+  date: string | null | undefined,
+  locale: string
+): string | null {
   const parsedDate = parseDisplayDate(date);
   if (!parsedDate) {
     return null;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -132,9 +138,10 @@ function parseDisplayDate(date: string | null | undefined): Date | null {
 
 function getAchievedLabel(
   t: (key: string, options?: Record<string, string>) => string,
-  date: string | null | undefined
+  date: string | null | undefined,
+  locale: string
 ): string {
-  const formattedDate = formatLongDate(date);
+  const formattedDate = formatLongDate(date, locale);
 
   return formattedDate
     ? t("overview.achievedOn", { date: formattedDate })
@@ -418,6 +425,7 @@ export default function ExerciseDetailScreen({
   const router = useRouter();
   const { t } = useTranslation("exerciseDetail");
   const { t: tHistory } = useTranslation("history");
+  const locale = useAppCatalogLanguage();
   const showSuccess = useToastStore((state) => state.showSuccess);
   const tString = useCallback(
     (key: string, options?: Record<string, string>) =>
@@ -940,7 +948,8 @@ export default function ExerciseDetailScreen({
                     }
                     dateLabel={getAchievedLabel(
                       tString,
-                      records?.max_duration_date
+                      records?.max_duration_date,
+                      locale
                     )}
                   />
                 ) : (
@@ -954,7 +963,8 @@ export default function ExerciseDetailScreen({
                       }
                       dateLabel={getAchievedLabel(
                         tString,
-                        records?.max_weight_date
+                        records?.max_weight_date,
+                        locale
                       )}
                     />
                     <Divider />
@@ -963,7 +973,8 @@ export default function ExerciseDetailScreen({
                       value={formatValue(records?.max_reps)}
                       dateLabel={getAchievedLabel(
                         tString,
-                        records?.max_reps_date
+                        records?.max_reps_date,
+                        locale
                       )}
                     />
                     <Divider />
@@ -976,7 +987,8 @@ export default function ExerciseDetailScreen({
                       }
                       dateLabel={getAchievedLabel(
                         tString,
-                        records?.max_volume_set_date
+                        records?.max_volume_set_date,
+                        locale
                       )}
                     />
                   </>
@@ -1076,7 +1088,9 @@ export default function ExerciseDetailScreen({
                 }}
                 getTooltip={(week) => {
                   const title = tString("overview.weekOf", {
-                    date: formatLongDate(week.week_start) ?? week.week_start,
+                    date:
+                      formatLongDate(week.week_start, locale) ??
+                      week.week_start,
                   });
                   const weekMetrics = getExerciseWeekMetrics(
                     week.week_start,
@@ -1415,7 +1429,8 @@ export default function ExerciseDetailScreen({
             exerciseName={exercise?.name ?? ""}
             dateLabel={
               selectedHistory
-                ? (formatLongDate(selectedHistory.date) ?? selectedHistory.date)
+                ? (formatLongDate(selectedHistory.date, locale) ??
+                  selectedHistory.date)
                 : ""
             }
             setCount={selectedHistory?.sets.length ?? 0}
@@ -1429,7 +1444,8 @@ export default function ExerciseDetailScreen({
             workoutName={selectedHistory?.workout_name ?? ""}
             workoutDate={
               selectedHistory
-                ? (formatLongDate(selectedHistory.date) ?? selectedHistory.date)
+                ? (formatLongDate(selectedHistory.date, locale) ??
+                  selectedHistory.date)
                 : ""
             }
             exerciseType={

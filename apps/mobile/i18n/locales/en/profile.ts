@@ -3,6 +3,7 @@ export const profile = {
   subtitle: "Your training at a glance",
   stats: {
     trainingsCompleted: "TRAININGS COMPLETED",
+    loadFailed: "We couldn't load this. Pull down to refresh.",
   },
   chart: {
     title: "Weekly Duration",
@@ -12,6 +13,7 @@ export const profile = {
   sections: {
     tracking: "Tracking",
     settings: "Training",
+    devices: "Devices",
     account: "Account",
   },
   nav: {
@@ -23,6 +25,7 @@ export const profile = {
     trainingPreferences: "Preferences",
     strengthBaselines: "Strength",
     health: "Health",
+    watch: "Apple Watch",
     feedback: "Feedback",
     accountData: "Account & Data",
   },
@@ -31,5 +34,18 @@ export const profile = {
     english: "English",
     polish: "Polski",
     accessibility: "Change app language to {{language}}",
+  },
+  theme: {
+    label: "Appearance",
+    options: {
+      system: "Auto",
+      light: "Light",
+      dark: "Dark",
+    },
+    accessibility: {
+      system: "Match the device appearance",
+      light: "Always use the light appearance",
+      dark: "Always use the dark appearance",
+    },
   },
 } as const;

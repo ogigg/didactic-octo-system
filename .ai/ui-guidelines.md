@@ -57,6 +57,8 @@ actions. Copy is maintained in the English and Polish `auth.profile` namespace.
 
 > **Note:** In light mode, `backgroundElevated` and `background` share the same value; the visual distinction comes from the 1px `border` outline on elevated containers (e.g., set table).
 
+**Active scheme.** Users choose Auto, Light or Dark in Profile → Appearance. The choice is kept per device in `stores/theme-preference-store.ts` (AsyncStorage key `app-theme-preference`). On iOS and Android it is applied with `Appearance.setColorScheme`, which also covers native alerts, pickers and the keyboard; on web, `hooks/use-color-scheme.web.ts` applies it instead. `components/theme-ready-splash.tsx` keeps the splash up until the saved choice has loaded, so the app never starts in the wrong scheme. Always read the scheme through `useColorScheme()` from `@/hooks/use-color-scheme` or `useThemeColor`, never from the device directly.
+
 #### Light Mode
 
 | Token                  | Value                   | Usage                                               |
@@ -297,15 +299,14 @@ Rules:
 - Minimal: workout name (left, `titleSm`), timer (center, `titleSm`/`fontVariant: ['tabular-nums']`), Finish button (right, primary small).
 - Single bottom border (`border` color).
 
-**Tab Bar (3 tabs for MVP):**
+**Tab Bar:**
 
-- Home (workout list / next workout preview), Start/Active Workout, Profile/Settings.
-- Icons: 22px stroke, `textMuted` inactive, `primary` active.
-- Labels: `micro` size (10px/500).
-- **Center tab transforms when workout is active:**
-  - Inactive: 44px circle with `primaryContainer` bg, + icon.
-  - Active: 44px circle with `primary` fill, lightning icon, green dot indicator, timer replaces label.
-- Border top: `border` color.
+- Native tabs (`NativeTabs` from `expo-router/unstable-native-tabs`): Liquid Glass tab bar on iOS 26, Material bottom navigation on Android.
+- Tabs: Start (home), Kalendarz (calendar), Profil (profile).
+- Active icon + label: `primary`, from `Colors[colorScheme]`.
+- Inactive icon + label: `textSecondary` on Android and iOS < 26. On iOS 26 Liquid Glass ignores unselected-item colors and uses the system label color (black in light, white in dark).
+- iOS: SF Symbols, filled variant when selected where one exists (`house.fill`, `person.fill`; `calendar` has none). The selection bubble is drawn by the system.
+- Android: active indicator uses `primarySurface`.
 
 ### Back Button
 
@@ -378,6 +379,16 @@ Soft radial gradients placed behind key content areas (timer overlay, hero secti
 - **`timer`**: Medium blobs — for rest timer overlay
 
 **Usage:** Add `<AmbientGlow variant="..." />` as the first child of the root `View` in every screen. Always include it — the root layout already has one, but screen-level variants can add depth on top.
+
+### Line Charts
+
+Line charts (`components/measurements/line-chart.tsx`, `components/workout/heart-rate-chart.tsx`) share one treatment:
+
+- **Curve:** `buildSmoothLinePath` / `buildSmoothAreaPath` from `lib/chart-geometry.ts`, a monotone cubic curve that never invents peaks or dips between samples. Stroke 2.5 with round joins.
+- **Colour:** gradients with `gradientUnits="userSpaceOnUse"`, so a perfectly flat line still paints. Measurements run from `primary` to `heroGradientEnd` along the x axis. Heart rate runs vertically from `error` at the top to `warning` at the bottom. The area fill fades from ~28% opacity to transparent. Gradient ids come from `useId()`, so two charts on one screen don't share defs.
+- **Grid:** `border`-coloured horizontal lines, 1px, dashed `2 6`. Reference values, such as the heart-rate average, are dotted lines in the series colour with a small label at the right end.
+- **Inspecting:** `useChartScrub` (Gesture Handler `Race` of a horizontal pan and a tap) finds the nearest point. `ChartCrosshair` draws the dashed guide and haloed dot, and `ChartTooltip` floats the readout above the point, clamped to the chart and flipped below it near the top edge. Scrubbing ticks `Haptics.selectionAsync` once per new point.
+- **Accessibility:** the plot is an `adjustable` element. Its value describes the selected (or latest/summary) point, and increment/decrement move the selection.
 
 ## Accessibility
 

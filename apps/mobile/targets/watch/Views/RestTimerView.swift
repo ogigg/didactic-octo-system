@@ -7,6 +7,7 @@ struct RestTimerView: View {
     var body: some View {
         let rest = coordinator.snapshot?.rest
         let remaining = rest?.remainingSeconds(at: coordinator.now) ?? 0
+        let adjustment = coordinator.watchSettings.restAdjustmentSeconds
         let isPaused = rest?.isPaused == true
         let isDone = remaining == 0
         let tint = isDone ? WatchTheme.success : (isPaused ? Color.secondary : WatchTheme.primary)
@@ -21,11 +22,17 @@ struct RestTimerView: View {
             primarySymbol: isDone ? "play.fill" : "forward.end.fill",
             primaryTint: isDone ? WatchTheme.success : WatchTheme.surface,
             primaryForeground: isDone ? .black : .primary,
-            onPrimary: { if isDone { coordinator.skipRest() } else { skipConfirmation = true } }
+            onPrimary: {
+                if isDone || !coordinator.watchSettings.confirmSkipRest {
+                    coordinator.skipRest()
+                } else {
+                    skipConfirmation = true
+                }
+            }
         ) {
             VStack(spacing: 3) {
                 HStack(spacing: 0) {
-                    adjustButton(seconds: -15)
+                    adjustButton(seconds: -adjustment)
                     Spacer(minLength: 2)
                     Button {
                         if isPaused { coordinator.resumeRest() } else { coordinator.pauseRest() }
@@ -41,7 +48,7 @@ struct RestTimerView: View {
                             : String(localized: "Pause rest timer")
                     )
                     Spacer(minLength: 2)
-                    adjustButton(seconds: 15)
+                    adjustButton(seconds: adjustment)
                 }
                 nextLine
             }
@@ -84,7 +91,7 @@ struct RestTimerView: View {
 
     private func adjustButton(seconds: Int) -> some View {
         Button { coordinator.adjustRest(by: seconds) } label: {
-            Text(seconds < 0 ? "−15" : "+15")
+            Text(seconds < 0 ? "−\(abs(seconds))" : "+\(seconds)")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .frame(width: 32, height: 32)
@@ -99,7 +106,7 @@ struct RestTimerView: View {
     @ViewBuilder
     private var nextLine: some View {
         HStack(spacing: 4) {
-            if let heartRate = coordinator.health.heartRate {
+            if coordinator.watchSettings.showHeartRate, let heartRate = coordinator.health.heartRate {
                 Button { coordinator.navigate(.heartRate) } label: {
                     Label(String(heartRate), systemImage: "heart.fill")
                         .labelStyle(.titleAndIcon)

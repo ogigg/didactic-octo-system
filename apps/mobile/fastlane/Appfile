@@ -1,0 +1,6 @@
+# App identifiers shared by every lane. Credentials never live here; see
+# fastlane/.env.example for the environment each lane expects.
+
+app_identifier("com.ogig.sweaty")
+team_id("X6TS5L9ZTL")
+package_name("com.ogig.sweaty")

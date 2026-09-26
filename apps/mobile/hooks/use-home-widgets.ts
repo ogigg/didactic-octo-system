@@ -124,7 +124,8 @@ export function useHomeWidgets(): void {
   const profileQuery = useProfile();
   const queueQuery = useWorkoutQueueData();
   const streakQuery = useStreakStatus();
-  const { totalWorkouts, streakWeeks } = useWorkoutStats();
+  const { totalWorkouts, streakWeeks, isTotalLoading, isStreakLoading } =
+    useWorkoutStats();
 
   const windows = useMemo(() => {
     const today = dateFromKey(todayKey);
@@ -246,9 +247,16 @@ export function useHomeWidgets(): void {
         lastWorkout: null,
       };
     }
-    if (!profile || !queueQuery.isSuccess || !activity) {
+    if (
+      !profile ||
+      !queueQuery.isSuccess ||
+      !activity ||
+      isTotalLoading ||
+      isStreakLoading
+    ) {
       // Keep the previous snapshot until the essentials load, so the widget
-      // never flashes an empty queue while the app is starting.
+      // never flashes an empty queue or a provisional streak while the app is
+      // starting.
       return null;
     }
     return { ...base, isSignedIn: true, setupCompleted: onboardingCompleted };
@@ -257,6 +265,8 @@ export function useHomeWidgets(): void {
     activity,
     exerciseMap,
     isInitialized,
+    isStreakLoading,
+    isTotalLoading,
     isWorkoutActive,
     language,
     lastWorkout,

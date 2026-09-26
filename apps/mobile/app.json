@@ -42,6 +42,9 @@
       "./plugins/with-ios-object-version.cjs",
       "./plugins/with-live-activities-plist.cjs",
       "./plugins/with-app-group.cjs",
+      "./plugins/with-min-pod-deployment-target.cjs",
+      "./plugins/with-android-release-signing.cjs",
+      "./plugins/with-scene-lifecycle.cjs",
       [
         "expo-splash-screen",
         {
@@ -70,34 +73,21 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "3d62df88-5973-4504-9c6f-0f2393a5bd6d",
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "bundleIdentifier": "com.ogig.sweaty.SweatyWidget",
-                  "targetName": "SweatyWidget",
-                  "entitlements": {
-                    "com.apple.security.application-groups": [
-                      "group.com.ogig.sweaty"
-                    ]
-                  }
-                }
-              ]
-            }
-          }
-        }
-      }
-    },
-    "owner": "ogig"
+      "router": {}
+    }
   }
 }

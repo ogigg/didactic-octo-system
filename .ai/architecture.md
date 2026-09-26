@@ -146,6 +146,17 @@ while the watch maintains a persisted local workout projection for disconnected
 logging. Snapshot revisions order phone publications; stable workout, exercise
 occurrence, set, and rest-cycle IDs identify mutations.
 
+Apple Watch preferences are device-local iPhone state with safe field defaults
+and an independent monotonic settings revision. A settings-only change uses
+durable `transferUserInfo` plus a reachable-only immediate message; it never
+replaces application context, manufactures an empty workout, or advances the
+workout revision. Each later workout envelope also carries the current settings
+snapshot and revision so the latest application context can heal a missed
+immediate delivery. The Watch validates and persists settings separately from
+the workout high-water mark, and delayed settings messages cannot overwrite a
+newer revision. Unpaired, uninstalled, and temporarily unreachable states still
+allow local editing and queued delivery.
+
 The phone waits for workout-store hydration before consuming commands and waits
 for its serialized AsyncStorage writes before acknowledging them. Commands for
 existing incomplete sets in the current workout can arrive after unrelated
@@ -193,6 +204,13 @@ replayed from the offline sync queue, invalidates the same query roots through
 snapshot current. The persisted in-progress workout belongs to the account that
 started it; signing in with another account clears it (after cancelling it on
 the Watch) before the tabs render. Details live in `apps/mobile/README.md`.
+
+Watch settings govern rest warning timing (10 seconds by default), rest-end and
+set-completion haptics (on), quick adjustment size (15 seconds), automatic rest
+presentation (on), zero-time behavior (stay on timer), skip/end confirmations
+(on), and heart-rate/previous-performance visibility (on). They do not change
+phone notifications or sounds, Digital Crown feedback, watchOS language,
+units, or HealthKit collection and workout ownership.
 
 ### Workout History Deletion
 

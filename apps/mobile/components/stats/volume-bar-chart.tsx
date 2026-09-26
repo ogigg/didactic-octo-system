@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -14,6 +14,7 @@ import Svg, { Defs, Path, Pattern, Rect } from "react-native-svg";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { ExerciseChartProgress } from "@/lib/exercise-chart-progress";
 import { Elevation, Radii, Spacing, Typography } from "@/constants/theme";
+import { useAppCatalogLanguage } from "@/hooks/use-exercises-query";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import { formatExerciseDuration } from "@/lib/format-exercise-duration";
@@ -48,20 +49,21 @@ interface VolumeBarChartProps {
   };
 }
 
+// `week_start` is a date-only string (parsed as UTC midnight), so read it in
+// UTC and use a UTC month formatter to keep the month right in every time zone.
 function getMonthLabel(
   dateStr: string,
-  prevDateStr: string | undefined
+  prevDateStr: string | undefined,
+  monthFormatter: Intl.DateTimeFormat
 ): string {
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return "";
-  const monthLabel = new Intl.DateTimeFormat(undefined, {
-    month: "short",
-  }).format(date);
+  const monthLabel = monthFormatter.format(date);
   if (!prevDateStr) return monthLabel;
   const prevDate = new Date(prevDateStr);
   if (
     Number.isNaN(prevDate.getTime()) ||
-    date.getMonth() !== prevDate.getMonth()
+    date.getUTCMonth() !== prevDate.getUTCMonth()
   ) {
     return monthLabel;
   }
@@ -78,6 +80,11 @@ export function VolumeBarChart({
   getTooltip,
 }: VolumeBarChartProps) {
   const { t } = useTranslation("stats");
+  const locale = useAppCatalogLanguage();
+  const monthFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { month: "short", timeZone: "UTC" }),
+    [locale]
+  );
   const hatchId = `today-hatch-${useId().replace(/:/g, "")}`;
   const { formatVolume } = useWeightUnit();
   const primaryColor = useThemeColor({}, "primary");
@@ -395,7 +402,11 @@ export function VolumeBarChart({
               {data.map((week, index) => {
                 const showLabel = scrollable || index % labelEvery === 0;
                 const label = showLabel
-                  ? getMonthLabel(week.week_start, data[index - 1]?.week_start)
+                  ? getMonthLabel(
+                      week.week_start,
+                      data[index - 1]?.week_start,
+                      monthFormatter
+                    )
                   : "";
 
                 return (

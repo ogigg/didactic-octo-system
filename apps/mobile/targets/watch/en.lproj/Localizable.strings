@@ -135,3 +135,4 @@
 "Remove %lld seconds" = "Remove %lld seconds";
 "Add %lld seconds" = "Add %lld seconds";
 "Undo last set" = "Undo last set";
+"Open rest timer, %lld seconds remaining" = "Open rest timer, %lld seconds remaining";

@@ -232,6 +232,8 @@ Notes:
 
 - canonical `primary_muscles`, `equipment`, and `difficulty_level` values remain unchanged for filtering, generation, analytics, and progression
 - localized labels are display/search concerns only
+- every muscle and equipment key used by the exercise catalog (`supabase/data/exercises.json` and exercises inserted by migrations) needs a label row for each non-English app language; `apps/mobile/lib/api/__tests__/exercises.test.ts` reads the migrations and fails otherwise
+- add label rows with insert-only migrations (`INSERT … VALUES … ON CONFLICT (label_type, label_key, language_code) DO NOTHING`); the check rejects migrations that delete label rows or change their keys
 
 ### `pending_workouts`
 

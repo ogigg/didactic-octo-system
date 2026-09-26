@@ -156,7 +156,8 @@ jest.mock("@/hooks/use-exercises-query", () => ({
 
 jest.mock("@/hooks/use-workout-stats", () => ({
   useWorkoutStats: () => ({
-    isLoading: false,
+    isTotalLoading: false,
+    isStreakLoading: false,
     streakWeeks: 2,
     totalWorkouts: 4,
   }),

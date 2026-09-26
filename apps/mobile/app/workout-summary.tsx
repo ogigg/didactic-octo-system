@@ -557,11 +557,8 @@ export default function WorkoutSummaryScreen() {
     useExerciseMuscles(exerciseIds);
   const { exerciseMap } = useLocalizedExerciseMap(exerciseIds);
   const { labelMaps } = useCatalogLabels();
-  const {
-    totalWorkouts,
-    streakWeeks,
-    isLoading: statsLoading,
-  } = useWorkoutStats(summary?.finishedAtMs ?? Date.now());
+  const { totalWorkouts, streakWeeks, isTotalLoading, isStreakLoading } =
+    useWorkoutStats(summary?.finishedAtMs);
 
   // Heart rate (cache-only read from Apple Health, iOS-only)
   const hrStartedAt = useMemo(
@@ -724,7 +721,9 @@ export default function WorkoutSummaryScreen() {
     total: stats.totalSets,
   });
   const shareCompletionLabel = `${stats.completionRate}%`;
-  const shareStreakLabel = streakWeeks != null ? String(streakWeeks) : null;
+  // Don't bake a provisional local streak into the shared image.
+  const shareStreakLabel =
+    !isStreakLoading && streakWeeks != null ? String(streakWeeks) : null;
 
   const handleShareWorkout = useCallback(async () => {
     if (!summary || isSharing) return;
@@ -1062,7 +1061,7 @@ export default function WorkoutSummaryScreen() {
                     size={24}
                     color={successColor}
                   />
-                  {statsLoading ? (
+                  {isStreakLoading ? (
                     <ActivityIndicator size="small" color={successColor} />
                   ) : (
                     <Text
@@ -1091,7 +1090,7 @@ export default function WorkoutSummaryScreen() {
                   ]}
                 >
                   <IconSymbol name="trophy.fill" size={24} color={primary} />
-                  {statsLoading ? (
+                  {isTotalLoading ? (
                     <ActivityIndicator size="small" color={primary} />
                   ) : (
                     <Text

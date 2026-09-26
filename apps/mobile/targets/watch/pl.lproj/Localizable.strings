@@ -135,3 +135,4 @@
 "Remove %lld seconds" = "Odejmij %lld s";
 "Add %lld seconds" = "Dodaj %lld s";
 "Undo last set" = "Cofnij ostatnią serię";
+"Open rest timer, %lld seconds remaining" = "Otwórz przerwę, zostało %lld s";

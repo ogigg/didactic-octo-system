@@ -20,6 +20,9 @@ final class WorkoutCoordinator {
     var healthSaveFailed = false
     var timedSetEnd: Date?
     var now = Date.now
+    /// Phone-owned preferences, persisted on the Watch with their own revision.
+    private(set) var watchSettings = WatchSettingsSnapshot.load()
+    private(set) var settingsRevision = WatchSettingsSnapshot.loadRevision()
 
     let connectivity = WatchConnectivityClient()
     let health = HealthKitClient()
@@ -28,6 +31,9 @@ final class WorkoutCoordinator {
     private var healthTask: Task<Void, Never>?
     private var healthTaskID = UUID()
     private var lastAlertedRestID: String?
+    private var observedRestIDs = Set<String>()
+    private var warnedRestIDs = Set<String>()
+    private var autoOpenedRestIDs = Set<String>()
     private var lastAlertedTimedEnd: Date?
     private var lastHealthAttempt: Date?
     private var handledTerminalWorkoutIDs = Set<String>()
@@ -81,6 +87,7 @@ final class WorkoutCoordinator {
         }
         timedSetEnd = UserDefaults.standard.object(forKey: timerKey) as? Date
         connectivity.onEnvelope = { [weak self] in self?.apply($0) }
+        connectivity.onSettings = { [weak self] in self?.apply($0) }
         health.onFailure = { [weak self] _ in
             guard let self else { return }
             self.healthSaveFailed = true
@@ -103,11 +110,7 @@ final class WorkoutCoordinator {
                 while !Task.isCancelled {
                     guard let self else { return }
                     self.now = .now
-                    if let rest = self.snapshot?.rest, !rest.isPaused,
-                       rest.remainingSeconds() == 0, self.lastAlertedRestID != rest.id {
-                        self.lastAlertedRestID = rest.id
-                        HapticsClient.restTimerComplete()
-                    }
+                    self.observeRest()
                     if let end = self.timedSetEnd, end <= self.now, self.lastAlertedTimedEnd != end {
                         self.lastAlertedTimedEnd = end
                         HapticsClient.restTimerComplete()
@@ -122,9 +125,60 @@ final class WorkoutCoordinator {
 
     func waitForPendingConnectivityContent() async { await connectivity.waitForPendingContent() }
 
+    /// Rest alerts and the automatic zero behavior run from the root ticker,
+    /// so they keep working when the user is not on the rest screen. Each
+    /// alert fires at most once per stable rest ID.
+    private func observeRest() {
+        guard let rest = snapshot?.rest, !rest.isPaused else { return }
+        let remaining = rest.remainingSeconds()
+        let warningSeconds = watchSettings.restWarningSeconds
+        if !observedRestIDs.contains(rest.id) {
+            observedRestIDs.insert(rest.id)
+            // A rest that starts at or below the threshold gets no catch-up warning.
+            if remaining <= warningSeconds { warnedRestIDs.insert(rest.id) }
+        }
+        if warningSeconds > 0, remaining > 0, remaining <= warningSeconds,
+           !warnedRestIDs.contains(rest.id) {
+            warnedRestIDs.insert(rest.id)
+            HapticsClient.restTimerWarning()
+        }
+        guard remaining == 0, lastAlertedRestID != rest.id else { return }
+        lastAlertedRestID = rest.id
+        HapticsClient.restTimerComplete(enabled: watchSettings.restEndHapticsEnabled)
+        if watchSettings.restCompletionBehavior == .openNextSet,
+           !autoOpenedRestIDs.contains(rest.id) {
+            autoOpenedRestIDs.insert(rest.id)
+            skipRest()
+        }
+    }
+
+    /// Settings-only message: never touches the workout, screen or outbox.
+    func apply(_ envelope: WatchSettingsEnvelope) {
+        applySettings(envelope.settings, revision: envelope.settingsRevision)
+    }
+
+    private func applySettings(_ settings: WatchSettingsSnapshot, revision incomingRevision: Int64) {
+        guard incomingRevision > settingsRevision else { return }
+        let previousWarningSeconds = watchSettings.restWarningSeconds
+        watchSettings = settings
+        settingsRevision = incomingRevision
+        settings.persist()
+        UserDefaults.standard.set(incomingRevision, forKey: WatchSettingsSnapshot.revisionKey)
+        // A raised threshold must not produce a catch-up warning for a timer
+        // that was already below it when the preference changed.
+        if previousWarningSeconds != settings.restWarningSeconds, let rest = snapshot?.rest,
+           rest.remainingSeconds() <= settings.restWarningSeconds {
+            warnedRestIDs.insert(rest.id)
+        }
+    }
+
     func apply(_ envelope: WatchSyncEnvelope) {
         // Layout fixtures must not be replaced by the paired phone's live workout.
-        guard !isPreview, envelope.revision >= revision else { return }
+        guard !isPreview else { return }
+        if let settings = envelope.settings, let settingsRevision = envelope.settingsRevision {
+            applySettings(settings, revision: settingsRevision)
+        }
+        guard envelope.revision >= revision else { return }
         // Commit a draft before a phone-driven selection change can move its editor.
         if let editedSetID, let exercise = selectedExercise,
            envelope.snapshot.workoutId == snapshot?.workoutId,
@@ -251,8 +305,9 @@ final class WorkoutCoordinator {
         editedSetID = nil
         timedSetEnd = nil
         perform(.completeSet, payload: payload)
-        HapticsClient.setCompleted()
-        screen = currentSet == nil ? .exerciseComplete : .rest
+        HapticsClient.setCompleted(enabled: watchSettings.setCompletionHapticsEnabled)
+        // With auto-show off, the set logger stays visible and rest runs in the background.
+        screen = currentSet == nil ? .exerciseComplete : (watchSettings.autoShowRestTimer ? .rest : .activeSet)
         seedEditor()
     }
 

@@ -42,3 +42,19 @@ app-example
 /ios
 /android
 fastlane/api-key.json
+
+# fastlane (credentials stay local; see fastlane/.env.example)
+fastlane/.env.default
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/keystore.properties
+fastlane/*.json
+*.keystore
+
+# Expo credentials downloads: credentials.json holds certificate and keystore
+# passwords in plain text. Keep ignored while the Expo project still stores
+# credentials.
+credentials.json
+credentials/

@@ -7,9 +7,10 @@ export const accountSettings = {
   },
   intro: {
     title: "Manage your account",
-    body: "Review your subscription and account data options in one place.",
+    body: "Review how you sign in, your subscription, and account data options in one place.",
   },
   sections: {
+    signIn: "Sign-in methods",
     management: "Account management",
     deletion: "Data deletion",
   },
@@ -20,11 +21,24 @@ export const accountSettings = {
     errorMessage:
       "Open your App Store or Google Play subscription settings to manage billing.",
   },
+  signIn: {
+    signedInAs: "Signed in as {{email}}",
+    signedInAsHiddenApple: "Signed in with a hidden Apple email: {{email}}",
+    providers: {
+      apple: "Apple",
+      google: "Google",
+      email: "Email and password",
+    },
+    status: {
+      lastUsed: "Last used",
+      linked: "Linked",
+      notSetUp: "Not set up",
+    },
+  },
   password: {
     label: "Password",
     setLabel: "Set password",
     changeLabel: "Change password",
-    description: "Add or update email and password sign-in.",
     header: "Password",
     setTitle: "Set a password",
     changeTitle: "Change your password",

@@ -36,13 +36,29 @@ struct ExerciseDetailView: View {
                     }
                     SetProgressBar(sets: exercise.sets, currentSetID: set.id)
                         .padding(.horizontal, 2)
-                    if let previous = set.previousDisplay {
+                    if coordinator.watchSettings.showPreviousPerformance,
+                       let previous = set.previousDisplay {
                         Text(watchLocalizedFormat("Previous %@", previous))
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .padding(.horizontal, 2)
+                    }
+                    // With automatic rest presentation off, keep the running
+                    // rest one tap away from the set logger.
+                    if !coordinator.watchSettings.autoShowRestTimer,
+                       let rest = coordinator.snapshot?.rest {
+                        let remaining = rest.remainingSeconds(at: coordinator.now)
+                        Button { coordinator.navigate(.rest) } label: {
+                            Label(String(format: "%d:%02d", remaining / 60, remaining % 60), systemImage: "timer")
+                                .font(.system(.caption2, design: .rounded).weight(.semibold))
+                                .monospacedDigit()
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(WatchTheme.primary)
+                        .accessibilityLabel(watchLocalizedFormat("Open rest timer, %lld seconds remaining", remaining))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
@@ -118,8 +134,10 @@ struct ExerciseCompleteView: View {
             onPrimary: {
                 if coordinator.hasNextExercise {
                     coordinator.showNextExercise()
-                } else {
+                } else if coordinator.watchSettings.confirmEndWorkout {
                     finishConfirmation = true
+                } else {
+                    coordinator.finishWorkout()
                 }
             }
         ) {

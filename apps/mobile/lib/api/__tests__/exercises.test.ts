@@ -9,12 +9,46 @@ jest.mock("@/lib/supabase", () => ({
 
 import { supabase } from "@/lib/supabase";
 import exerciseCatalog from "../../../../../supabase/data/exercises.json";
+import { supportedLanguages } from "@/i18n";
 import {
   fetchCatalogLabels,
   fetchExercise,
   fetchExerciseFilterOptions,
   fetchExercises,
 } from "../exercises";
+import {
+  hasCatalogLabel,
+  readMigrationCatalog,
+  type CatalogLabelType,
+  type MigrationCatalog,
+} from "./catalog-migration-labels";
+
+// English falls back to the canonical key, so only the other app languages
+// need label rows.
+const TRANSLATED_LANGUAGES = supportedLanguages.filter(
+  (language) => language !== "en"
+);
+
+let migrationCatalog: MigrationCatalog | undefined;
+function getMigrationCatalog(): MigrationCatalog {
+  migrationCatalog ??= readMigrationCatalog(TRANSLATED_LANGUAGES);
+  return migrationCatalog;
+}
+
+/** Keys used by the JSON catalog and by exercises inserted in migrations. */
+function catalogKeys(labelType: CatalogLabelType): string[] {
+  const jsonKeys = exerciseCatalog.flatMap((exercise) =>
+    labelType === "muscle"
+      ? [
+          ...(exercise.primary_muscles ?? []),
+          ...(exercise.secondary_muscles ?? []),
+        ]
+      : (exercise.equipment ?? [])
+  );
+  return [
+    ...new Set([...jsonKeys, ...getMigrationCatalog().exerciseKeys[labelType]]),
+  ];
+}
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
@@ -52,6 +86,23 @@ function mockRpc(data: unknown, error: unknown = null) {
 }
 
 describe("exercise catalog", () => {
+  it.each(
+    (["muscle", "equipment"] as const).flatMap((labelType) =>
+      TRANSLATED_LANGUAGES.map((language) => ({ labelType, language }))
+    )
+  )(
+    "has a $language label for every catalog $labelType",
+    ({ labelType, language }) => {
+      const catalog = getMigrationCatalog();
+
+      expect(
+        catalogKeys(labelType).filter(
+          (key) => !hasCatalogLabel(catalog, labelType, key, language)
+        )
+      ).toEqual([]);
+    }
+  );
+
   it("tracks plank by duration by default", () => {
     const plank = exerciseCatalog.find(
       (exercise) => exercise.external_id === "curated-plank"

@@ -35,6 +35,7 @@ import {
   useMeasurementTrend,
   useUpsertMeasurement,
 } from "@/hooks/use-measurement-queries";
+import { useManualRefresh } from "@/hooks/use-manual-refresh";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeightUnit } from "@/hooks/use-weight-unit";
 import type { MeasurementTrendPoint } from "@/lib/api/body-measurements";
@@ -74,13 +75,13 @@ export default function MeasurementsScreen() {
   } = useMeasurementHistory(selectedField);
   const upsertMutation = useUpsertMeasurement();
   const deleteMutation = useDeleteMeasurement();
-  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-
-  const handleRefresh = useCallback(async () => {
-    setIsManualRefreshing(true);
-    await Promise.all([refetchTrend(), refetchLatest(), refetchHistory()]);
-    setIsManualRefreshing(false);
-  }, [refetchTrend, refetchLatest, refetchHistory]);
+  const { refreshing: isManualRefreshing, onRefresh: handleRefresh } =
+    useManualRefresh(
+      useCallback(
+        () => Promise.all([refetchTrend(), refetchLatest(), refetchHistory()]),
+        [refetchTrend, refetchLatest, refetchHistory]
+      )
+    );
 
   const unit = getMeasurementUnit(selectedField, weightUnit);
   const latestValue = latestData?.[selectedField] ?? null;
@@ -170,6 +171,7 @@ export default function MeasurementsScreen() {
                 unit={unit}
                 selectedPoint={selectedPoint}
                 onPointPress={handlePointPress}
+                accessibilityLabel={fieldLabel}
               />
             ) : (
               <View style={styles.emptyChart}>

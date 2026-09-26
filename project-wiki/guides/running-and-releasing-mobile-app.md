@@ -1,6 +1,6 @@
 # Running And Releasing The Mobile App
 
-This guide covers the day-to-day commands for running the Expo mobile app and the manual Xcode flow for preparing an App Store archive.
+This guide covers the day-to-day commands for running the Expo mobile app, the fastlane release lane, and the manual Xcode archive fallback.
 
 ## Start The App
 
@@ -38,18 +38,46 @@ npm run android
 npm run web
 ```
 
-## Build For App Store
+## Build And Upload To TestFlight
 
-If Apple target config changed (for example watch icon or entitlements), regenerate the native project first from `apps/mobile`:
+The default release path is the fastlane lane. It prebuilds when needed, sets the
+build number, archives, signs, and uploads to TestFlight. From `apps/mobile`:
+
+```bash
+npm run release:ios
+```
+
+One-time setup (Bundler, the App Store Connect API key, production `.env`
+values, and signing requirements) is in
+[Releasing with fastlane](../../apps/mobile/README.md#releasing-with-fastlane).
+
+The watch companion must include an app icon. That comes from
+`targets/watch/expo-target.config.json` → `icon`. Without it, App Store Connect
+rejects the upload with missing `CFBundleIconName` / watch icon errors.
+
+## Build And Upload To Google Play
+
+From `apps/mobile`, after the one-time Android setup (JDK 17, upload key,
+service account) and the first manual Play Console upload:
+
+```bash
+npm run release:android
+```
+
+The lane uploads a signed AAB to the internal testing track. Setup and the first
+release are described in
+[Releasing with fastlane](../../apps/mobile/README.md#first-google-play-release).
+
+## Archive Manually In Xcode
+
+Use this fallback when you need to inspect signing or the archive by hand. If
+Apple target config changed (for example watch icon or entitlements),
+regenerate the native project first from `apps/mobile`:
 
 ```bash
 npx expo prebuild -p ios --clean
 cd ios && pod install
 ```
-
-The watch companion must include an app icon. That comes from
-`targets/watch/expo-target.config.json` → `icon`. Without it, App Store Connect
-rejects the upload with missing `CFBundleIconName` / watch icon errors.
 
 Then open the iOS workspace in Xcode:
 
@@ -58,17 +86,22 @@ cd apps/mobile/ios
 open Sweaty.xcworkspace
 ```
 
+Sign only with the team's one shared distribution certificate. Run
+`bundle exec fastlane ios certs` first to install it and the `match AppStore …`
+profiles. Don't let Xcode create certificates or profiles: skip "Automatically
+manage signing" and "Manage Certificates" for Release, and never let the
+Organizer create a new distribution certificate. See
+[iOS signing](../../apps/mobile/README.md#ios-signing).
+
 Then in Xcode:
 
 1. Select the `Sweaty` app target.
 2. Confirm the signing team, bundle identifier, version, and build number.
+   For Release, each of `Sweaty`, `SweatyWidget` and `SweatyWatch` uses manual
+   signing with its `match AppStore <bundle id>` profile.
 3. Choose `Product` -> `Clean Build Folder`.
 4. Choose a generic iOS device or an eligible connected device as the run destination.
 5. Choose `Product` -> `Archive`.
 6. When the archive finishes, use the Organizer window to validate and distribute the build to App Store Connect.
 
 Prefer opening `Sweaty.xcworkspace` instead of `Sweaty.xcodeproj` so CocoaPods dependencies are loaded correctly.
-
-## Publish To TestFlight Via CLI
-
-For the fully automated, command-line-only flow (xcodebuild archive → export → fastlane pilot upload), see [Publishing to TestFlight via CLI](../../docs/skills/publish-to-testflight.md).

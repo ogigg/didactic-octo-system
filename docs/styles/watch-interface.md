@@ -54,8 +54,9 @@ system owns the time-of-day clock.
   The exercise list's primary action continues the current exercise, starts
   the next one, or finishes when every set is done. **End workout** sits as a
   red text button at the end of the list.
-- Rest is a countdown ring. Tapping the ring pauses or resumes, ±15 s buttons
-  flank it, and the line underneath shows live heart rate and the next set.
+- Rest is a countdown ring. Tapping the ring pauses or resumes, rest-adjust
+  buttons flank it (the synced watch-settings step, 15 s by default), and the
+  line underneath shows live heart rate and the next set.
 - Completion screens summarize duration, completed sets, and volume.
 
 ## Workout interactions

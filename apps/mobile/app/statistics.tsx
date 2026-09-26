@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +21,7 @@ import { VolumeBarChart } from "@/components/stats/volume-bar-chart";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Spacing, Typography } from "@/constants/theme";
+import { useManualRefresh } from "@/hooks/use-manual-refresh";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   useHeatmapData,
@@ -28,6 +31,11 @@ import {
 } from "@/hooks/use-stats-queries";
 import { useWorkoutStats } from "@/hooks/use-workout-stats";
 import type { StatsPeriod } from "@/lib/api/stats";
+import {
+  statsKeys,
+  streakProtectionKeys,
+  workoutStatsKeys,
+} from "@/lib/query-keys";
 
 function LoadingPlaceholder() {
   const textMuted = useThemeColor({}, "textMuted");
@@ -62,17 +70,36 @@ export default function StatisticsScreen() {
 
   const [period, setPeriod] = useState<StatsPeriod>("90d");
 
+  const queryClient = useQueryClient();
   const { data: heatmapData, isLoading: heatmapLoading } = useHeatmapData();
-  const {
-    totalWorkouts,
-    streakWeeks,
-    isLoading: statsLoading,
-  } = useWorkoutStats();
+  const { totalWorkouts, streakWeeks, isTotalLoading, isStreakLoading } =
+    useWorkoutStats();
   const { segments, isLoading: muscleLoading } =
     useMuscleDistributionStats(period);
   const { data: volumeData, isLoading: volumeLoading } =
     useVolumeOverTime(period);
   const { data: prData, isLoading: prLoading } = usePersonalRecords();
+
+  // Refetch only mounted, enabled queries: every stats section, the workout
+  // count (exact, so nested home-widget keys stay untouched) and the server
+  // streak. A failed refetch keeps each section's last good data.
+  const refreshAll = useCallback(
+    () =>
+      Promise.all([
+        queryClient.refetchQueries({ queryKey: statsKeys.all, type: "active" }),
+        queryClient.refetchQueries({
+          queryKey: workoutStatsKeys.all,
+          exact: true,
+          type: "active",
+        }),
+        queryClient.refetchQueries({
+          queryKey: streakProtectionKeys.all,
+          type: "active",
+        }),
+      ]),
+    [queryClient]
+  );
+  const { refreshing, onRefresh } = useManualRefresh(refreshAll);
 
   const muscleTotal = segments?.reduce((sum, seg) => sum + seg.value, 0) ?? 0;
 
@@ -83,6 +110,14 @@ export default function StatisticsScreen() {
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={primaryColor}
+              colors={[primaryColor]}
+            />
+          }
         >
           <ScreenHeader title={t("title")} />
 
@@ -105,15 +140,17 @@ export default function StatisticsScreen() {
                 />
                 <View style={styles.heatmapSummary}>
                   <Text style={[Typography.caption, { color: textSecondary }]}>
-                    {!statsLoading
-                      ? t("heatmap.workoutsThisYear", {
-                          count: totalWorkouts ?? 0,
-                        })
-                      : "—"}
+                    {isTotalLoading
+                      ? "—"
+                      : totalWorkouts != null
+                        ? t("heatmap.workoutsThisYear", {
+                            count: totalWorkouts,
+                          })
+                        : t("heatmap.workoutsUnavailable")}
                   </Text>
                   <Text style={[Typography.caption, { color: primaryColor }]}>
-                    {!statsLoading
-                      ? t("heatmap.streak", { count: streakWeeks ?? 0 })
+                    {!isStreakLoading && streakWeeks != null
+                      ? t("heatmap.streak", { count: streakWeeks })
                       : "—"}
                   </Text>
                 </View>

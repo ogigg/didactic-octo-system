@@ -54,7 +54,7 @@ private struct ExerciseListView: View {
                         }
 
                         if primary != .finish {
-                            Button(role: .destructive) { endConfirmation = true } label: {
+                            Button(role: .destructive, action: requestEnd) {
                                 Text(String(localized: "End workout"))
                                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                                     .foregroundStyle(WatchTheme.danger)
@@ -101,7 +101,15 @@ private struct ExerciseListView: View {
         switch primary {
         case .resume: coordinator.navigate(.activeSet)
         case .next: coordinator.showNextExercise()
-        case .finish: endConfirmation = true
+        case .finish: requestEnd()
+        }
+    }
+
+    private func requestEnd() {
+        if coordinator.watchSettings.confirmEndWorkout {
+            endConfirmation = true
+        } else {
+            coordinator.finishWorkout()
         }
     }
 

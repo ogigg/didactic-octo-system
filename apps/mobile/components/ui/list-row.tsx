@@ -12,6 +12,8 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 
 type IconName = Parameters<typeof IconSymbol>[0]["name"];
 
+export type ListRowPosition = "first" | "middle" | "last" | "only";
+
 interface ListRowProps {
   icon?: IconName;
   label: string;
@@ -22,7 +24,17 @@ interface ListRowProps {
   showChevron?: boolean;
   accessibilityLabel?: string;
   /** Position in a grouped list — controls separator rendering. */
-  position?: "first" | "middle" | "last" | "only";
+  position?: ListRowPosition;
+}
+
+/** Position of row `index` in a group of `count` rows. */
+export function getListRowPosition(
+  index: number,
+  count: number
+): ListRowPosition {
+  if (count === 1) return "only";
+  if (index === 0) return "first";
+  return index === count - 1 ? "last" : "middle";
 }
 
 /**
@@ -75,7 +87,7 @@ export function ListRow({
         ) : null}
       </View>
       {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
-      {showChevron && onPress && !trailing ? (
+      {showChevron && onPress ? (
         <IconSymbol name="chevron.right" size={16} color={textMuted} />
       ) : null}
     </View>

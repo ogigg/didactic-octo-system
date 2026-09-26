@@ -18,9 +18,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AmbientGlow } from "@/components/ambient-glow";
 import { AnalyticsScreenTracker } from "@/components/analytics-screen-tracker";
-import { AnimatedSplash } from "@/components/animated-splash";
 import { HomeWidgetsHost } from "@/components/home-widgets-host";
 import { SyncHealthBanner } from "@/components/sync-health-banner";
+import { ThemeReadySplash } from "@/components/theme-ready-splash";
 import { ToastHost } from "@/components/ui/toast-host";
 import { WatchBridgeHost } from "@/components/watch-bridge-host";
 import { Colors } from "@/constants/theme";
@@ -148,6 +148,9 @@ export default function RootLayout() {
                   headerShown: false,
                 }}
               >
+                {/* Index only routes: on a cold start it pops back to the
+                    (tabs) anchor below it, which must not animate. */}
+                <Stack.Screen name="index" options={{ animation: "none" }} />
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
@@ -254,6 +257,10 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="watch-settings"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="feedback"
                   options={{ headerShown: false }}
                 />
@@ -281,7 +288,7 @@ export default function RootLayout() {
             </ThemeProvider>
           </QueryClientProvider>
           {!splashDone && (
-            <AnimatedSplash
+            <ThemeReadySplash
               appReady={isInitialized}
               onFinish={handleSplashFinish}
             />

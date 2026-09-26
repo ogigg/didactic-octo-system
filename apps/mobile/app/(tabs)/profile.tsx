@@ -17,10 +17,15 @@ import { useAuthStore } from "@/stores/auth-store";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { Button } from "@/components/ui/button";
 import { GradientSurface } from "@/components/ui/gradient-surface";
-import { ListGroup, ListRow } from "@/components/ui/list-row";
+import {
+  getListRowPosition,
+  ListGroup,
+  ListRow,
+} from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
 import { TabScreen } from "@/components/ui/tab-screen";
 import { Fonts, Radii, Spacing, Typography } from "@/constants/theme";
+import { useManualRefresh } from "@/hooks/use-manual-refresh";
 import { useTabBarClearance } from "@/hooks/use-tab-bar-clearance";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useWeeklyDurations } from "@/hooks/use-weekly-durations";
@@ -32,6 +37,10 @@ import {
   supportedLanguages,
   type AppLanguage,
 } from "@/i18n";
+import {
+  themePreferences,
+  useThemePreferenceStore,
+} from "@/stores/theme-preference-store";
 
 const VISIBLE_WEEK_LABELS = new Set(["W1", "W4", "W7", "W10"]);
 
@@ -45,10 +54,12 @@ type IconName =
   | "gearshape.fill"
   | "flame.fill"
   | "globe"
+  | "circle.lefthalf.filled"
   | "megaphone.fill"
   | "star.fill"
   | "person.fill"
-  | "heart.text.square";
+  | "heart.text.square"
+  | "applewatch";
 
 interface NavItem {
   icon: IconName;
@@ -60,6 +71,7 @@ interface NavItem {
     | "nav.trainingPreferences"
     | "nav.strengthBaselines"
     | "nav.health"
+    | "nav.watch"
     | "nav.subscription"
     | "nav.accountData"
     | "nav.feedback";
@@ -125,6 +137,14 @@ const ACCOUNT_ITEMS: NavItem[] = [
   },
 ];
 
+const DEVICE_ITEMS: NavItem[] = [
+  {
+    icon: "applewatch",
+    labelKey: "nav.watch",
+    route: "/watch-settings",
+  },
+];
+
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation("profile");
   const { t: tAuth } = useTranslation("auth");
@@ -132,6 +152,8 @@ export default function ProfileScreen() {
   const signOut = useAuthStore((s) => s.signOut);
   const [selectedLanguage, setSelectedLanguage] =
     useState<AppLanguage>(getCurrentLanguage);
+  const themePreference = useThemePreferenceStore((s) => s.preference);
+  const setThemePreference = useThemePreferenceStore((s) => s.setPreference);
 
   function handleLogout() {
     Alert.alert(tAuth("logout.confirmTitle"), tAuth("logout.confirmMessage"), [
@@ -150,12 +172,10 @@ export default function ProfileScreen() {
   const textSecondary = useThemeColor({}, "textSecondary");
   const textMuted = useThemeColor({}, "textMuted");
   const border = useThemeColor({}, "border");
-  const primaryContainer = useThemeColor({}, "primaryContainer");
-  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
 
   const {
     totalWorkouts,
-    isLoading: statsLoading,
+    isTotalLoading: totalLoading,
     refetch: refetchStats,
   } = useWorkoutStats();
   const {
@@ -163,8 +183,6 @@ export default function ProfileScreen() {
     isLoading: weeklyLoading,
     refetch: refetchWeekly,
   } = useWeeklyDurations(12);
-
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const updateLanguage = () => setSelectedLanguage(getCurrentLanguage());
@@ -184,11 +202,12 @@ export default function ProfileScreen() {
     });
   }, []);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([refetchStats(), refetchWeekly()]);
-    setRefreshing(false);
-  }, [refetchStats, refetchWeekly]);
+  const { refreshing, onRefresh } = useManualRefresh(
+    useCallback(
+      () => Promise.all([refetchStats(), refetchWeekly()]),
+      [refetchStats, refetchWeekly]
+    )
+  );
 
   const maxMinutes = weeklyLoading
     ? 0
@@ -205,15 +224,7 @@ export default function ProfileScreen() {
             icon={item.icon}
             label={t(item.labelKey)}
             onPress={route ? () => router.navigate(route) : undefined}
-            position={
-              items.length === 1
-                ? "only"
-                : i === 0
-                  ? "first"
-                  : i === items.length - 1
-                    ? "last"
-                    : "middle"
-            }
+            position={getListRowPosition(i, items.length)}
           />
         );
       })}
@@ -251,11 +262,22 @@ export default function ProfileScreen() {
                 { color: primary, fontFamily: Fonts?.rounded },
               ]}
             >
-              {statsLoading ? "—" : (totalWorkouts ?? 0)}
+              {totalLoading ? "—" : (totalWorkouts ?? "—")}
             </Text>
             <Text style={[Typography.label, { color: textMuted }]}>
               {t("stats.trainingsCompleted")}
             </Text>
+            {!totalLoading && totalWorkouts == null && (
+              <Text
+                style={[
+                  Typography.caption,
+                  styles.heroError,
+                  { color: textMuted },
+                ]}
+              >
+                {t("stats.loadFailed")}
+              </Text>
+            )}
           </GradientSurface>
 
           {/* Weekly duration chart — soft surface gradient, inline title */}
@@ -319,44 +341,35 @@ export default function ProfileScreen() {
                 showChevron={false}
                 position="first"
                 trailing={
-                  <View
-                    style={[
-                      styles.languageToggle,
-                      { backgroundColor: backgroundSubtle },
-                    ]}
-                  >
-                    {supportedLanguages.map((language) => {
-                      const selected = selectedLanguage === language;
-                      const label = languageLabels[language];
-
-                      return (
-                        <Pressable
-                          key={language}
-                          onPress={() => handleLanguageChange(language)}
-                          accessibilityRole="button"
-                          accessibilityLabel={t("language.accessibility", {
-                            language: languageLabels[language],
-                          })}
-                          accessibilityState={{ selected }}
-                          style={({ pressed }) => [
-                            styles.languageOption,
-                            selected && { backgroundColor: primaryContainer },
-                            pressed && { opacity: 0.75 },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              Typography.caption,
-                              styles.languageOptionLabel,
-                              { color: selected ? primary : textSecondary },
-                            ]}
-                          >
-                            {label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <SegmentedToggle
+                    options={supportedLanguages.map((language) => ({
+                      value: language,
+                      label: languageLabels[language],
+                      accessibilityLabel: t("language.accessibility", {
+                        language: languageLabels[language],
+                      }),
+                    }))}
+                    selected={selectedLanguage}
+                    onSelect={handleLanguageChange}
+                  />
+                }
+              />
+              <ListRow
+                icon="circle.lefthalf.filled"
+                label={t("theme.label")}
+                showChevron={false}
+                trailing={
+                  <SegmentedToggle
+                    options={themePreferences.map((preference) => ({
+                      value: preference,
+                      label: t(`theme.options.${preference}`),
+                      accessibilityLabel: t(
+                        `theme.accessibility.${preference}`
+                      ),
+                    }))}
+                    selected={themePreference}
+                    onSelect={setThemePreference}
+                  />
                 }
               />
               {SETTINGS_ITEMS.map((item, i) => {
@@ -377,6 +390,13 @@ export default function ProfileScreen() {
             </ListGroup>
           </View>
 
+          {/* Devices group — available on every platform so Android/web users
+              can understand where the companion experience lives. */}
+          <View style={styles.group}>
+            <SectionHeader title={t("sections.devices")} />
+            {renderGroup(DEVICE_ITEMS)}
+          </View>
+
           {/* Account group */}
           <View style={styles.group}>
             <SectionHeader title={t("sections.account")} />
@@ -394,6 +414,62 @@ export default function ProfileScreen() {
         </ScrollView>
       </SafeAreaView>
     </TabScreen>
+  );
+}
+
+interface SegmentedToggleOption<T extends string> {
+  value: T;
+  label: string;
+  accessibilityLabel: string;
+}
+
+interface SegmentedToggleProps<T extends string> {
+  options: SegmentedToggleOption<T>[];
+  selected: T;
+  onSelect: (value: T) => void;
+}
+
+function SegmentedToggle<T extends string>({
+  options,
+  selected,
+  onSelect,
+}: SegmentedToggleProps<T>) {
+  const primary = useThemeColor({}, "primary");
+  const textSecondary = useThemeColor({}, "textSecondary");
+  const primaryContainer = useThemeColor({}, "primaryContainer");
+  const backgroundSubtle = useThemeColor({}, "backgroundSubtle");
+
+  return (
+    <View style={[styles.toggle, { backgroundColor: backgroundSubtle }]}>
+      {options.map((option) => {
+        const isSelected = option.value === selected;
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onSelect(option.value)}
+            accessibilityRole="button"
+            accessibilityLabel={option.accessibilityLabel}
+            accessibilityState={{ selected: isSelected }}
+            style={({ pressed }) => [
+              styles.toggleOption,
+              isSelected && { backgroundColor: primaryContainer },
+              pressed && { opacity: 0.75 },
+            ]}
+          >
+            <Text
+              style={[
+                Typography.caption,
+                styles.toggleOptionLabel,
+                { color: isSelected ? primary : textSecondary },
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -417,6 +493,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -1,
     marginBottom: Spacing.xs,
+  },
+  heroError: {
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
   chartCard: {
     padding: Spacing.lg,
@@ -450,12 +530,12 @@ const styles = StyleSheet.create({
   logoutButton: {
     marginTop: Spacing.md,
   },
-  languageToggle: {
+  toggle: {
     flexDirection: "row",
     borderRadius: Radii.sm,
     padding: 2,
   },
-  languageOption: {
+  toggleOption: {
     minWidth: 48,
     minHeight: 30,
     alignItems: "center",
@@ -463,7 +543,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm - 2,
     paddingHorizontal: Spacing.sm,
   },
-  languageOptionLabel: {
+  toggleOptionLabel: {
     fontWeight: "700",
   },
 });

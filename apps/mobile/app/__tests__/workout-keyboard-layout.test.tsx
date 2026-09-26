@@ -22,14 +22,20 @@ jest.mock("@/hooks/use-workout-live-activity", () => ({
   useWorkoutLiveActivity: jest.fn(),
 }));
 
+let mockExercises: Record<string, unknown>[] = [];
+let mockExerciseMap = new Map<string, unknown>();
+const mockExerciseCardProps: Record<string, unknown>[] = [];
+
 jest.mock("@/hooks/use-exercises-query", () => ({
-  useLocalizedExerciseMap: jest.fn(() => ({ exerciseMap: new Map() })),
+  useLocalizedExerciseMap: jest.fn(() => ({ exerciseMap: mockExerciseMap })),
 }));
 
 jest.mock("@/stores/workout-store", () => ({
+  getExerciseOccurrenceId: (exercise: { id: string; occurrenceId?: string }) =>
+    exercise.occurrenceId ?? exercise.id,
   useWorkoutStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
-      exercises: [],
+      exercises: mockExercises,
       warmup: null,
       workoutName: "Workout",
       generationMeta: null,
@@ -41,7 +47,10 @@ jest.mock("@/stores/workout-store", () => ({
 }));
 
 jest.mock("@/components/workout/exercise-card", () => ({
-  ExerciseCard: () => null,
+  ExerciseCard: (props: Record<string, unknown>) => {
+    mockExerciseCardProps.push(props);
+    return null;
+  },
 }));
 
 jest.mock("@/components/workout/exercise-reorder-sheet", () => ({
@@ -171,6 +180,35 @@ describe("WorkoutScreen keyboard layout", () => {
 
     expect(UNSAFE_getByType(ScrollView)).toHaveProp("style", {
       flex: 1,
+    });
+  });
+});
+
+describe("WorkoutScreen exercise cards", () => {
+  afterEach(() => {
+    mockExercises = [];
+    mockExerciseMap = new Map();
+    mockExerciseCardProps.length = 0;
+  });
+
+  it("passes each card its localized primary muscle", () => {
+    mockExercises = [{ id: "bench-press", name: "Bench Press", sets: [] }];
+    mockExerciseMap = new Map([
+      [
+        "bench-press",
+        {
+          name: "Wyciskanie na ławce",
+          primary_muscles: ["chest"],
+          primary_muscle_labels: ["Klatka piersiowa"],
+        },
+      ],
+    ]);
+
+    render(<WorkoutScreen />);
+
+    expect(mockExerciseCardProps.at(-1)).toMatchObject({
+      displayName: "Wyciskanie na ławce",
+      primaryMuscle: "Klatka piersiowa",
     });
   });
 });

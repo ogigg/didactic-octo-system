@@ -46,7 +46,8 @@ npx expo run:ios --device
 - `npx expo run:ios` builds and opens the app in the iOS simulator.
 - `npx expo run:ios --device` builds and opens the app on a connected physical iPhone.
 
-For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mobile-app.md`.
+Store builds are made locally with fastlane; see
+[Releasing with fastlane](#releasing-with-fastlane).
 
 ## Structure
 
@@ -69,8 +70,10 @@ For App Store archiving, see `../../project-wiki/guides/running-and-releasing-mo
 - The Calendar marks protected and ended streak weeks from persisted streak events and qualifying workouts with connected, rounded date bands: very light blue for weeks with a qualifying workout, icy blue with a snowflake for protection, subtle coral for a streak break. Workout dates and calendar week bands use device-local Monday–Sunday boundaries. Persisted protected weeks retain their recorded Monday date labels; the backend streak counter still uses its existing UTC boundaries. Today has an outline even on workout and protected days; the marker, bands, and month range refresh at local midnight and on app resume. The calendar starts on Monday; bands have no bottom border and end at week and row boundaries. Development builds also show next week as an ended streak preview, including its month when the preview crosses a month boundary. Set `MOCK_NEXT_WEEK_AS_RUINED` to `false` in `lib/streak-calendar.ts` to disable this local-only preview; it never writes to the database. The same preview flag also shows September 21–27, 2026 as a failed week with a blue freeze marker on September 24 (a visual mock, separate from the weekly protection rules).
 - The main navigation uses Expo Router native tabs. iOS 26 builds compiled with Xcode 26 use the system Liquid Glass tab bar; Android uses the native Material bottom navigation.
 - Account deletion is available through Profile → Account & Data. Active subscribers are warned before continuing and can open the official Apple or Google Play subscription-management destination; if that destination is unavailable, the app tries the platform's official support page and then shows a localized error.
+- Profile → Account & Data shows the account email and every linked sign-in method (Apple, Google, email and password), and marks the method used last when several are linked. An Apple hidden email is labelled as such, next to the relay address. Until the account loads, or if it fails to load, only a neutral password row is shown. The email and providers stay on screen and are never sent to analytics or logs.
 - Password management is available through Profile → Account & Data. Signed-in OAuth users can add email/password sign-in without replacing their existing identity, while password users can change their password. Secure password changes use provider reauthentication for Apple on iOS and Supabase's email nonce flow otherwise.
 - Exercise details preview the latest 10 weekly volume (or duration) entries from the trailing 52 weeks, grouped into one bar per week with logged results. Weeks without logged results are omitted. The preview total and weekly average cover only those displayed weeks. The header opens `/exercise-statistics` for the selected exercise. This dedicated screen reuses the overview records and chart, showing all available weekly totals from the trailing 52 weeks in a taller, horizontally scrollable chart, plus live Today progress. Full statistics keeps bars at least 34 points wide and opens at the latest week; totals stay visible while the bars and dates scroll together. Tap a bar for details; hover does not open tooltips in the scrollable chart, so it cannot interrupt horizontal navigation. Its total and average use the full displayed history; personal records remain all-time. The full screen also shows same-weight rep comparisons (or best hold time for timed exercises), average volume/duration across the latest five versus previous five logged sessions, training days in 30/90 days, and days since last performed. Insights use up to 50 recent logged exercise performances, exclude the active workout, and show minimum counts when that limit prevents a complete frequency count. Same-weight comparisons use the heaviest shared load in the nearest earlier matching session; insufficient history shows an explanatory placeholder. Back returns to exercise details. The overall Statistics screen remains separate. Chart bars use a 6-point top-corner radius, with a flat join between completed load and forecast. Historical bars have uniform emphasis until selected. Selecting Today highlights both its completed and forecast portions; selecting a historical week dims Today. All bars have square bottom corners. They add a separate Today bar while the exercise is in the active workout. The Today bar matches the width and blue color of historical bars, without a legend. A blue outline with diagonal hatching shows checked sets; the subtle dashed segment adds the current targets of unchecked sets to the forecast. Edits and check/uncheck actions update it immediately, including offline. The Today tooltip includes completed load, forecast total, and checked/total set counts. Historical totals and weekly averages exclude this in-progress workout; finishing it moves its logged results into history. Chart tooltips float above the bars and close with the X button, an outside tap, or the platform back/escape action.
+- Line charts (body measurements and workout heart rate) draw a smoothed curve that never overshoots the logged values. The line and the fill under it use gradients, and the grid lines are dashed. Drag sideways across a chart to inspect the nearest point: a dashed guide, a haloed dot and a floating readout follow the finger, with a selection haptic for each new point. A mostly vertical swipe still scrolls the screen. Tap to pick a point. Measurements keep the point where the drag ended as the selection, highlight the latest entry, and show the change since the previous entry. Heart rate marks the workout average with a dotted line; a tap pins the readout and a second tap on the same sample clears it. VoiceOver users can step through the points by swiping up or down.
 - Workout history export is available from the History header and through Profile → Account & Data. Users can export completed workouts from the last 7, 30, or 90 days, or all time. JSON and CSV omit internal IDs, generation metadata, planned targets, and other implementation fields; JSON keeps a clean nested training record while CSV provides one row per set. PDF creates a localized training report with summary metrics, a weekly-frequency bar chart, workout-volume line chart, set-completion donut chart, recent workout detail, and all-time strength PRs. The header shows the selected date range. Weekly bars cover up to eight weeks within that range; boundary weeks include only selected workouts. The volume chart and workout table show the latest eight sessions. Volume changes are shown without interpreting them as progress. Reports respect the user's kg/lb preference. Optional duration is included in data exports only for timed exercise results. Files are created in the app cache and handed to the device share menu.
 - Pending workout generation is server-owned. Queue reads automatically recover generation rows stuck in `queued`, `generating`, or `regenerating` for more than five minutes through `recover_stale_generation_attempts`, then refetch the authoritative queue. Regeneration failures keep the current plan visible, show a localized error and server reference ID when available, and offer retry when the server marks the error retryable.
 - Deletion does not cancel store billing. After the 14-day grace period, the implemented purge deletes `auth.users` and cascades through user-owned app data in the database. The repository implements no separate legal/security retention archive; Apple or Google purchase and billing records remain governed by those providers.
@@ -104,6 +107,244 @@ versioned so an older in-flight success cannot remove a newer edit; malformed
 storage entries are dropped individually without discarding valid or dead work.
 A normal successful save does not show status UI.
 
+## Releasing with fastlane
+
+Release builds are made on a local Mac with [fastlane](https://fastlane.tools)
+and uploaded straight to App Store Connect and Google Play.
+The lanes live in [`fastlane/Fastfile`](fastlane/Fastfile) and run from
+`apps/mobile`.
+
+### One-time setup
+
+1. Install Xcode and Ruby 3.x with Bundler (Ruby 3.3 via rbenv works), then
+   install the pinned fastlane and CocoaPods versions:
+
+   ```bash
+   bundle install
+   ```
+
+2. Set `export LANG=en_US.UTF-8` in your shell profile. The lanes force UTF-8
+   for fastlane and CocoaPods themselves, but fastlane still warns at startup
+   without it.
+3. Copy [`fastlane/.env.example`](fastlane/.env.example) to `fastlane/.env`
+   (git-ignored). Fill in the App Store Connect API key and, for iOS,
+   `MATCH_PASSWORD` (see [iOS signing](#ios-signing)).
+4. Put production app config in `.env.production.local` (git-ignored):
+   `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
+   `EXPO_PUBLIC_APP_ENV=production`, the PostHog and Google client IDs. The
+   release build inlines these into the JS bundle. The lanes stop before
+   building when the Supabase values are missing or point at a local server.
+
+### App Store Connect API key
+
+| Variable        | Value                                                                   |
+| --------------- | ----------------------------------------------------------------------- |
+| `ASC_KEY_ID`    | The key ID shown in App Store Connect.                                  |
+| `ASC_ISSUER_ID` | The issuer ID for a team key. Leave it empty for an individual key.     |
+| `ASC_KEY_PATH`  | Optional path to the `.p8`. Defaults to `fastlane/AuthKey_<KEY_ID>.p8`. |
+
+Keep the downloaded `.p8` in `fastlane/`; `*.p8` is git-ignored and must never
+be committed. The older `fastlane/api-key.json` stored the same key inline:
+save its `key` value as the `.p8` file to migrate.
+
+Use a **team key** (Users and Access → Integrations → App Store Connect API →
+Team Keys): the lanes fetch the signing assets, read TestFlight build numbers
+and upload through it. An individual key (your name → Edit Profile →
+Individual API Key) may be refused access to certificates and profiles.
+
+### iOS signing
+
+Team `X6TS5L9ZTL` has **one** Apple Distribution certificate for this app, and
+everyone who releases signs with it. It lives with the App Store profiles for
+`com.ogig.sweaty`, `com.ogig.sweaty.SweatyWidget` and
+`com.ogig.sweaty.SweatyWatch` in the private repo
+[`ogigg/sweaty-signing`](https://github.com/ogigg/sweaty-signing), encrypted by
+[fastlane match](https://docs.fastlane.tools/actions/match/). Apple never hands
+out a certificate's private key, so that repo is its only copy; nobody creates
+a certificate of their own. [`fastlane/Matchfile`](fastlane/Matchfile) says
+where the repo is; the lanes pass the bundle IDs from `IOS_SIGNED_TARGETS` in
+the Fastfile, the only list of signed targets.
+
+Set up a Mac once:
+
+1. Get read access to `ogigg/sweaty-signing` (Oskar owns it) and check it with
+   `git ls-remote https://github.com/ogigg/sweaty-signing.git`.
+2. Copy `MATCH_PASSWORD`, the repo's encryption passphrase, from the
+   "Sweaty – iOS signing" item in the team password manager into
+   `fastlane/.env`. Never send it over chat or email. Leave the line out rather
+   than blank: the lanes drop a blank value, and match would otherwise take it
+   as the passphrase. The value in `fastlane/.env` wins over a `MATCH_PASSWORD`
+   exported in your shell, for example one another project's match repo uses.
+3. Install the certificate and profiles into the login keychain:
+
+   ```bash
+   bundle exec fastlane ios certs
+   ```
+
+   The first build after that may ask to let `codesign` use the key; choose
+   **Always Allow**.
+
+`ios build` and `ios beta` run the same fetch before every build. They check
+that all three profiles use one certificate and that the keychain holds its
+private key, matched by SHA-1. Then they switch the Release configuration to
+manual signing with it. Other distribution identities in the keychain are
+ignored, because the build signs with this certificate by name. The lanes stop
+only when another valid identity has the same name, and they print the SHA-1s
+so you know which to delete. From 30 days before the certificate or a profile
+expires, every lane warns.
+
+Rules:
+
+- The lanes never create, renew or revoke certificates or profiles: match runs
+  read-only, and xcodebuild runs without `-allowProvisioningUpdates`.
+- `bundle exec fastlane ios certs_create` is the only command that may create
+  them. It runs match without readonly and reuses a valid certificate already
+  in the repo. Run it only with an explicit OK, for two cases:
+  - **bootstrap:** once, while the repo is still empty. Put a new passphrase in
+    the password manager and `fastlane/.env` first; match encrypts the repo
+    with it.
+
+  Before asking for confirmation, it checks everything that could otherwise
+  fail after the certificate exists on Apple's side, and stops if one fails:
+  - `MATCH_PASSWORD` is set;
+  - git has `user.name` and `user.email` for match's commit;
+  - you can push to the match repo (a dry-run push);
+  - the repo isn't empty while the team already has an Apple Distribution
+    certificate. That can happen after a failed bootstrap: import the
+    leftover certificate with `fastlane match import` instead of creating
+    another.
+
+  Afterwards it checks the result the same way `ios certs` does and says
+  whether it created a certificate or reused one.
+  - **renewal:** the certificate and profiles expire after a year. After they
+    expire, match replaces them. Everyone then runs `ios certs` again.
+
+- Never run `fastlane match nuke`: it revokes every distribution certificate on
+  the team.
+- Don't put the App Store Connect key or any other credential in the
+  `Matchfile`: fastlane prints its values unmasked.
+  [`fastlane/__tests__/signing-guards.test.ts`](fastlane/__tests__/signing-guards.test.ts)
+  fails the quality gate if one shows up, or if anything outside `certs_create`
+  runs match without readonly.
+
+If `ios certs` stops with `cannot create a new one because you enabled
+readonly`, the repo is empty or its certificate or profiles expired; see the
+bootstrap and renewal rules above. Any other fetch error, such as a wrong
+`MATCH_PASSWORD` or no repo access, is not a reason to create a certificate.
+
+### iOS release commands
+
+```bash
+npm run release:ios
+```
+
+Runs `fastlane ios beta`. The lane checks the config, sets the build number to
+the latest TestFlight build + 1 and regenerates `ios/` when needed. It then
+archives a Release build, checks that the IPA contains the watch app and widget
+with matching build numbers, and uploads it to TestFlight. Processing on
+Apple's side takes 5–30 minutes.
+
+Before uploading, the lane also stops when the IPA is built with the iOS 27 SDK
+or newer but has no `UIApplicationSceneManifest`. iOS 27 terminates such apps at
+launch; build 1.2.0 (37) crashed that way.
+[`plugins/with-scene-lifecycle.cjs`](plugins/with-scene-lifecycle.cjs) moves the
+app to the UIScene lifecycle: `SceneDelegate.swift` creates the window, starts
+React Native and forwards URLs and user activities to the AppDelegate.
+
+In Claude Code, `/testflight` does the same: it runs a read-only preflight
+([`.claude/skills/testflight/preflight.sh`](../../.claude/skills/testflight/preflight.sh))
+and asks before uploading. Then it runs the lane in your terminal and reports
+the build number.
+
+```bash
+bundle exec fastlane ios build build_number:42
+```
+
+Builds a signed `build/ios/Sweaty.ipa` without uploading it. Without
+`build_number:` it keeps the build number already in `ios/`.
+
+Before building, both lanes compare an `@expo/fingerprint` hash of the native
+inputs (app config, config plugins, native dependencies, Apple target configs)
+with the one saved in `ios/.fastlane-fingerprint`. They skip
+`expo prebuild --clean` when nothing changed; pass `clean:true` to force it.
+Swift sources under `targets/` are read directly by Xcode and need no prebuild.
+The marketing version comes from `app.json` → `version`; bump it when App Store
+Connect closes the current version.
+
+### Android setup
+
+The Android lanes build a signed release AAB with Gradle and upload it to the
+Play Console internal testing track. They need:
+
+1. **JDK 17.** React Native 0.81's Gradle build does not run on newer JDKs.
+   Install it with `brew install openjdk@17`. When `JAVA_HOME` points at
+   another version, the lanes switch to the JDK 17 that
+   `/usr/libexec/java_home -v 17` finds.
+2. **The Android SDK.** `ANDROID_HOME` defaults to Android Studio's
+   `~/Library/Android/sdk`.
+3. **An upload key.** Generate it once and keep a backup outside the
+   repository, because Play accepts only builds signed with it:
+
+   ```bash
+   keytool -genkeypair -v -keystore fastlane/sweaty-upload.keystore \
+     -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+   Copy [`fastlane/keystore.properties.example`](fastlane/keystore.properties.example)
+   to `fastlane/keystore.properties` and fill in the passwords. `*.keystore`
+   and `keystore.properties` are git-ignored. `SWEATY_UPLOAD_*` env vars
+   override the file, for example on CI.
+   [`plugins/with-android-release-signing.cjs`](plugins/with-android-release-signing.cjs)
+   wires the key into the generated `android/app/build.gradle`. Without a key,
+   release builds keep the debug signing, and the lanes refuse to run.
+
+4. **A Google Play service account** with release permissions:
+   1. In Google Cloud (the project linked to the Play developer account), create
+      a service account and download a JSON key.
+   2. In Play Console → Users and permissions, invite the service account's
+      email and grant **Release to testing tracks** for Sweaty.
+   3. Save the key as `fastlane/google-play-service-account.json`
+      (git-ignored), or point `PLAY_JSON_KEY_PATH` at it.
+
+### First Google Play release
+
+Google Play only accepts API uploads once the app exists and has a first
+build.
+
+1. Create the app `com.ogig.sweaty` in Play Console.
+2. Build the first bundle locally:
+
+   ```bash
+   bundle exec fastlane android build version_code:1
+   ```
+
+3. Upload `android/app/build/outputs/bundle/release/app-release.aab` by hand
+   to the internal testing track. Play Console then enrolls the app in Play App
+   Signing: Google keeps the app signing key, and the upload key above stays
+   yours.
+4. Roll that release out to internal testers, then set
+   `PLAY_RELEASE_STATUS=completed` in `fastlane/.env`. Until the app has a
+   release, Play accepts only `draft` uploads, which is the lane's default.
+
+After that, from `apps/mobile`:
+
+```bash
+npm run release:android
+```
+
+This runs `fastlane android beta`. It checks the service account, upload key
+and JS config, and sets `versionCode` to the highest code on any Play track +
+
+1. It regenerates `android/` when the native fingerprint changed, builds the
+   AAB, confirms it is not debug-signed, and uploads it to internal testing
+   without store metadata.
+   `bundle exec fastlane android build version_code:<n>` builds without
+   uploading. The version code reaches Gradle as `-Psweaty.versionCode`, so the
+   generated project is not edited.
+
+The app requires Android 8.0 (API 26) or later: `react-native-health-connect`
+needs it, so `expo-build-properties` in `app.json` sets `minSdkVersion: 26`.
+
 ## Related Docs
 
 - `../../PROJECT.md` for current product context
@@ -121,6 +362,15 @@ Native application.
 - The hydrated phone Zustand store is authoritative. Snapshots carry monotonic
   revisions; the watch caches the snapshot and revision together and overlays
   its persisted pending commands until acknowledgment.
+- Apple Watch preferences are owned by the iPhone and persisted locally for
+  that phone/watch pairing. They are not account data and are not sent to
+  Supabase. Current settings and their independent revision travel as optional
+  additive fields on the workout envelope, which older watch builds ignore.
+- Settings-only changes never replace application context or republish a
+  workout. They use durable `transferUserInfo`, plus `sendMessage` as a latency
+  optimization when the watch is reachable. The phone retains the latest
+  pre-delivery settings message until WatchConnectivity accepts it; ordinary
+  unreachable, unpaired, or not-installed states do not prevent editing.
 - Commands use stable workout, exercise occurrence, set, and rest IDs. The watch
   sends one command at a time through immediate and durable WatchConnectivity
   delivery. The phone serializes application, waits for local persistence, and
@@ -149,6 +399,19 @@ Native application.
   TestFlight validation requires a watch `AppIcon` asset catalog and
   `CFBundleIconName`; `@bacons/apple-targets` generates both from that config
   during prebuild.
+
+Apple Watch settings default to a 10-second rest warning, rest-end and
+set-completion haptics on, 15-second quick rest adjustments, automatic rest
+timer presentation on, staying on the timer when rest ends, skip-rest and
+end-workout confirmations on, and live heart rate and previous-performance
+context visible. The Watch validates and persists these values independently
+from workout state, so completing, cancelling, or clearing a workout does not
+erase them.
+
+These preferences control only the companion's app-generated rest/set feedback
+and workout presentation. They do not affect phone notifications or sounds,
+Digital Crown haptics, watchOS language, weight units, or Watch HealthKit
+recording and ownership.
 
 After changing the target config or adding native files, regenerate and build:
 
@@ -280,9 +543,11 @@ next to the Live Activity:
   groups' auth checks. `hooks/use-deep-link-auth-guard.ts`, mounted in the root
   layout, sends signed-out users from any root-stack screen except the public
   ones and the self-guarded `(auth)`, `(tabs)` and `(onboarding)` groups back
-  to sign-in. It uses `dismissTo`, so an open sign-in screen is reused. This
-  covers a widget that still shows data from before sign-out and a session
-  that ends on a settings screen, such as after scheduling account deletion.
+  to sign-in. It pops the whole root stack (`dismissAll`), and the first
+  screen, the `(tabs)` anchor or a route group, redirects to sign-in by itself.
+  Nothing is left below sign-in for the back gesture to reveal. This covers a
+  widget that still shows data from before sign-out and a session that ends on
+  a settings screen, such as after scheduling account deletion.
 - Widget colors come from `targets/widget/expo-target.config.json`
   (`widgetAccent` and `widgetBackground` use `{ "light", "dark" }`); prebuild
   rewrites `targets/widget/Assets.xcassets` from that config.

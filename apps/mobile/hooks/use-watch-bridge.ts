@@ -21,6 +21,7 @@ import {
   currentWatchRevision,
   publishWatchSnapshot,
 } from "@/lib/watch-workout-publisher";
+import { queueWatchSettingsPublication } from "@/lib/watch-settings-publisher";
 import {
   acknowledgeWatchCommand,
   drainPendingWatchActions,
@@ -31,6 +32,7 @@ import {
   useWorkoutStore,
   waitForWorkoutStorePersistence,
 } from "@/stores/workout-store";
+import { useWatchSettingsStore } from "@/stores/watch-settings-store";
 import { convertWeight, type WeightUnit } from "@/lib/unit-conversion";
 
 function displayWeight(valueKg: number, unit: WeightUnit): string {
@@ -44,6 +46,7 @@ export function useWatchBridge(): void {
   const processedCommandIDsRef = useRef(new Set<string>());
   const applyingWatchCommandRef = useRef(false);
   const exercisesForNames = useWorkoutStore((state) => state.exercises);
+  const settingsHydrated = useWatchSettingsStore((state) => state.hasHydrated);
   const { data: profile } = useProfile();
   const profileWeightUnit: WeightUnit | undefined = profile?.weight_unit;
   const { exerciseMap } = useLocalizedExerciseMap(
@@ -84,6 +87,10 @@ export function useWatchBridge(): void {
     async function publishCanonicalState(): Promise<void> {
       if (cancelled || !hydratedRef.current || !isWatchPaired()) return;
       const state = useWorkoutStore.getState();
+      // Persisted settings and revision high-water marks must be hydrated
+      // before the first context is emitted; otherwise a restart could send a
+      // lower revision that the Watch correctly rejects.
+      if (!useWatchSettingsStore.getState().hasHydrated) return;
       const weightUnit = state.weightUnit ?? profileWeightUnit ?? "kg";
       if (state.isActive && state.startedAtMs) {
         await publishWatchSnapshot(
@@ -146,6 +153,29 @@ export function useWatchBridge(): void {
         if (hydratedRef.current && !applyingWatchCommandRef.current) {
           publishStateWithErrorHandling("state publication");
         }
+      }
+    );
+
+    const unsubscribeSettings = useWatchSettingsStore.subscribe(
+      (state) => ({
+        schemaVersion: state.schemaVersion,
+        restWarningSeconds: state.restWarningSeconds,
+        restEndHapticsEnabled: state.restEndHapticsEnabled,
+        restAdjustmentSeconds: state.restAdjustmentSeconds,
+        autoShowRestTimer: state.autoShowRestTimer,
+        restCompletionBehavior: state.restCompletionBehavior,
+        setCompletionHapticsEnabled: state.setCompletionHapticsEnabled,
+        confirmSkipRest: state.confirmSkipRest,
+        confirmEndWorkout: state.confirmEndWorkout,
+        showHeartRate: state.showHeartRate,
+        showPreviousPerformance: state.showPreviousPerformance,
+        hasHydrated: state.hasHydrated,
+      }),
+      (next, previous) => {
+        if (!next.hasHydrated || previous?.hasHydrated !== true) return;
+        void queueWatchSettingsPublication(next).catch((error: unknown) => {
+          reportBridgeError("settings publication", error);
+        });
       }
     );
 
@@ -408,8 +438,9 @@ export function useWatchBridge(): void {
       cancelled = true;
       unsubscribeHydration?.();
       unsubscribeStore();
+      unsubscribeSettings();
       subscription.remove();
       appStateSubscription.remove();
     };
-  }, [exerciseMap, profileWeightUnit, router]);
+  }, [exerciseMap, profileWeightUnit, router, settingsHydrated]);
 }

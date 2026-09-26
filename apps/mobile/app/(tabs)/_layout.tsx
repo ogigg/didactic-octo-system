@@ -23,8 +23,10 @@ export default function TabLayout() {
 
   const completed = useOnboardingStore((s) => s.isCompleted);
   const nextStep = useOnboardingStore((s) => s.getNextUnfinishedStep);
-  if (!isInitialized || profileStatus !== "ready") return <ProfileGate />;
+  // Recovery comes first, as in the index route, which pops back to this
+  // layout on a cold start and relies on it to route from here.
   if (isPasswordRecovery) return <Redirect href="/(auth)/reset-password" />;
+  if (!isInitialized || profileStatus !== "ready") return <ProfileGate />;
   if (isAuthenticated && !completed)
     return <Redirect href={`/(onboarding)/${nextStep()}` as never} />;
 
@@ -32,24 +34,33 @@ export default function TabLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
+  const colors = Colors[colorScheme ?? "light"];
+  // Per-tab selected colors are set explicitly so both the standard and the
+  // scroll-edge appearances get `primary`, not only via `tintColor`.
+  // On iOS 26 the system ignores unselected-item colors (Liquid Glass).
+  const selectedLabelStyle = { color: colors.primary };
+
   return (
     <NativeTabs
       disableTransparentOnScrollEdge
-      iconColor={Colors[colorScheme ?? "light"].textSecondary}
-      indicatorColor={Colors[colorScheme ?? "light"].primarySurface}
+      iconColor={colors.textSecondary}
+      indicatorColor={colors.primarySurface}
+      labelStyle={{ color: colors.textSecondary }}
       minimizeBehavior="onScrollDown"
-      tintColor={Colors[colorScheme ?? "light"].primary}
+      tintColor={colors.primary}
     >
       <NativeTabs.Trigger name="index">
-        <Label>{t("nav.home")}</Label>
+        <Label selectedStyle={selectedLabelStyle}>{t("nav.home")}</Label>
         <Icon
+          selectedColor={colors.primary}
           sf={{ default: "house", selected: "house.fill" }}
           androidSrc={<VectorIcon family={MaterialIcons} name="home" />}
         />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="calendar">
-        <Label>{t("nav.calendar")}</Label>
+        <Label selectedStyle={selectedLabelStyle}>{t("nav.calendar")}</Label>
         <Icon
+          selectedColor={colors.primary}
           sf="calendar"
           androidSrc={
             <VectorIcon family={MaterialIcons} name="calendar-today" />
@@ -57,8 +68,9 @@ export default function TabLayout() {
         />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
-        <Label>{t("nav.profile")}</Label>
+        <Label selectedStyle={selectedLabelStyle}>{t("nav.profile")}</Label>
         <Icon
+          selectedColor={colors.primary}
           sf={{ default: "person", selected: "person.fill" }}
           androidSrc={<VectorIcon family={MaterialIcons} name="person" />}
         />

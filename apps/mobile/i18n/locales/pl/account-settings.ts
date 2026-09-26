@@ -7,9 +7,10 @@ export const accountSettings = {
   },
   intro: {
     title: "Zarządzaj kontem",
-    body: "Sprawdź opcje subskrypcji i danych konta w jednym miejscu.",
+    body: "Sprawdź sposób logowania, subskrypcję i opcje danych konta w jednym miejscu.",
   },
   sections: {
+    signIn: "Metody logowania",
     management: "Zarządzanie kontem",
     deletion: "Usuwanie danych",
   },
@@ -20,11 +21,24 @@ export const accountSettings = {
     errorMessage:
       "Otwórz ustawienia subskrypcji w App Store lub Google Play, aby zarządzać płatnościami.",
   },
+  signIn: {
+    signedInAs: "Zalogowano jako {{email}}",
+    signedInAsHiddenApple: "Zalogowano ukrytym emailem Apple: {{email}}",
+    providers: {
+      apple: "Apple",
+      google: "Google",
+      email: "Email i hasło",
+    },
+    status: {
+      lastUsed: "Ostatnio użyta",
+      linked: "Połączona",
+      notSetUp: "Nie ustawiono",
+    },
+  },
   password: {
     label: "Hasło",
     setLabel: "Ustaw hasło",
     changeLabel: "Zmień hasło",
-    description: "Dodaj lub zaktualizuj logowanie emailem i hasłem.",
     header: "Hasło",
     setTitle: "Ustaw hasło",
     changeTitle: "Zmień swoje hasło",

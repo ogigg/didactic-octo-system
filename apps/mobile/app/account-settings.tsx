@@ -1,9 +1,10 @@
-import { type Href, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { type Href, useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { SignInMethodsSection } from "@/components/account/sign-in-methods-section";
 import { AmbientGlow } from "@/components/ambient-glow";
 import { GradientSurface } from "@/components/ui/gradient-surface";
 import { ListGroup, ListRow } from "@/components/ui/list-row";
@@ -12,6 +13,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSubscription } from "@/hooks/use-subscription";
+import { type AccountSignIn, getAccountSignIn } from "@/lib/account-sign-in";
 import { openSubscriptionManagement } from "@/lib/subscription-management";
 import { supabase } from "@/lib/supabase";
 
@@ -19,7 +21,7 @@ export default function AccountSettingsScreen() {
   const { t } = useTranslation("accountSettings");
   const router = useRouter();
   const { isProActive } = useSubscription();
-  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [account, setAccount] = useState<AccountSignIn | null>(null);
 
   const background = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -27,26 +29,26 @@ export default function AccountSettingsScreen() {
 
   const navigate = (route: Href) => router.navigate(route);
 
-  useEffect(() => {
-    let active = true;
+  // Refetch on focus: after setting a password, an instance further down the
+  // stack would otherwise keep showing the old sign-in methods.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
 
-    void supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (active && data.user) {
-          setHasPassword(
-            data.user.identities?.some(
-              ({ provider }) => provider === "email"
-            ) ?? false
-          );
-        }
-      })
-      .catch(() => {});
+      void supabase.auth
+        .getUser()
+        .then(({ data, error }) => {
+          if (active && !error && data.user) {
+            setAccount(getAccountSignIn(data.user));
+          }
+        })
+        .catch(() => {});
 
-    return () => {
-      active = false;
-    };
-  }, []);
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   async function handleManageSubscription() {
     try {
@@ -106,28 +108,20 @@ export default function AccountSettingsScreen() {
             </Text>
           </View>
 
+          <SignInMethodsSection
+            account={account}
+            onPasswordPress={() => navigate("/change-password")}
+          />
+
           <View style={styles.section}>
             <SectionHeader title={t("sections.management")} />
             <ListGroup>
-              <ListRow
-                icon="lock.fill"
-                label={
-                  hasPassword === null
-                    ? t("password.label")
-                    : hasPassword
-                      ? t("password.changeLabel")
-                      : t("password.setLabel")
-                }
-                description={t("password.description")}
-                onPress={() => navigate("/change-password")}
-                position="first"
-              />
               <ListRow
                 icon="star.fill"
                 label={t("subscription.label")}
                 description={t("subscription.description")}
                 onPress={() => navigate("/subscription")}
-                position="middle"
+                position="first"
               />
               <ListRow
                 icon="square.and.arrow.up"

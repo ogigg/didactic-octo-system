@@ -39,7 +39,7 @@ document when that document is already the best source of truth.
 | 3   | Context and scope        | Current  | [`.ai/architecture.md`](../.ai/architecture.md#main-system-boundaries)                                                            |
 | 4   | Solution strategy        | Current  | [`.ai/architecture.md`](../.ai/architecture.md#current-architecture-summary)                                                      |
 | 5   | Building block view      | Partial  | [`.ai/architecture.md`](../.ai/architecture.md#main-system-boundaries); [repository structure](../README.md#repository-structure) |
-| 6   | Runtime view             | Partial  | [`.ai/architecture.md`](../.ai/architecture.md#primary-data-flows)                                                                |
+| 6   | Runtime view             | Partial  | [`.ai/architecture.md`](../.ai/architecture.md#primary-data-flows); [mobile navigation map](../.ai/mobile-navigation-map.md)      |
 | 7   | Deployment view          | Current  | [Running and releasing the mobile app](../project-wiki/guides/running-and-releasing-mobile-app.md)                                |
 | 8   | Cross-cutting concepts   | Current  | [Database schema](../.ai/db-schema.md), [internationalization](../.ai/i18n.md), and [UI style guide](style-guide.md)              |
 | 9   | Architecture decisions   | Partial  | No dedicated ADR index yet; relevant design context exists in [`superpowers/specs`](superpowers/specs/)                           |
@@ -55,6 +55,7 @@ document when the missing knowledge is useful and can be maintained.
 - [UI style guide](style-guide.md)
 - [Bottom sheets and modals](styles/bottom-sheets.md)
 - [Detailed tokens and component patterns](../.ai/ui-guidelines.md)
+- [Mobile app navigation map](../.ai/mobile-navigation-map.md)
 - [Internationalization](../.ai/i18n.md)
 
 ## Engineering And Operations
@@ -63,7 +64,7 @@ document when the missing knowledge is useful and can be maintained.
 - [Running and releasing the mobile app](../project-wiki/guides/running-and-releasing-mobile-app.md)
 - [Admin dashboard](../apps/admin/README.md)
 - [Debugging workout generation](../project-wiki/guides/debugging-workout-generation.md)
-- [Publishing to TestFlight via CLI](skills/publish-to-testflight.md)
+- [Publishing to TestFlight via CLI (`/testflight` skill)](../.claude/skills/testflight/SKILL.md)
 - [Database schema](../.ai/db-schema.md)
 - [Technology stack](../.ai/tech-stack.md)
 - [Workout-generation model research](workout-generation-model-report.html)

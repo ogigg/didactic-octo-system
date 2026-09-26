@@ -8,6 +8,7 @@ export const stats = {
   },
   heatmap: {
     workoutsThisYear: "{{count}} workouts this year",
+    workoutsUnavailable: "We couldn't load your workout count",
     streak: "{{count}}-week streak",
     less: "Less",
     more: "More",

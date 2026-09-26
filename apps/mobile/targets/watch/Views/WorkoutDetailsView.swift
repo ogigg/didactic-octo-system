@@ -33,8 +33,10 @@ struct WorkoutDetailsView: View {
                         pillButton(String(localized: "Sync now"), symbol: "arrow.triangle.2.circlepath") {
                             coordinator.connectivity.requestState()
                         }
-                        pillButton(String(localized: "Heart rate"), symbol: "heart.fill", tint: WatchTheme.heart) {
-                            coordinator.navigate(.heartRate)
+                        if coordinator.watchSettings.showHeartRate {
+                            pillButton(String(localized: "Heart rate"), symbol: "heart.fill", tint: WatchTheme.heart) {
+                                coordinator.navigate(.heartRate)
+                            }
                         }
                     }
 
@@ -139,7 +141,8 @@ struct WorkoutDetailsView: View {
                 Text(watchLocalizedFormat("Target %@", WatchDisplay.set(set, unit: coordinator.weightUnit, target: true)))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
-                if let previous = set.previousDisplay {
+                if coordinator.watchSettings.showPreviousPerformance,
+                   let previous = set.previousDisplay {
                     Text(watchLocalizedFormat("Previous %@", previous))
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
