@@ -2,17 +2,26 @@
 
 > **Document status:** Current standard
 > **Purpose:** Keep workout actions readable and consistently positioned on small Apple Watch screens.
-> **Last reviewed:** 2026-09-07
+> **Last reviewed:** 2026-09-24
 
 ## Screen structure
 
 The native companion lives in `apps/mobile/targets/watch`. `WatchScreen` owns
-the shared header, content margins, and primary action placement. Individual
-screens supply content instead of duplicating navigation rows. The system
-owns the time-of-day clock; application content respects its safe area.
+the shared toolbar, title row, content margins, and primary action placement.
+Individual screens supply content instead of duplicating navigation rows. The
+system owns the time-of-day clock.
 
-- Use the same leading back-button position and trailing control region across
-  screens. Reserve their space when a control is absent.
+- `ContentView` hosts screens in a `NavigationStack` so back and details sit in
+  the system toolbar corners (`topBarLeading` / `topBarTrailing`) level with
+  the clock instead of in a separate header row.
+- Do not set a system navigation title. With both corner controls present,
+  watchOS centers the clock and squeezes the title into a narrow marquee slot.
+  `WatchScreen` draws the title as a full-width first content row instead.
+- The primary action ignores the bottom safe area and sits `bottomInset`
+  above the screen edge.
+- The trailing toolbar control opens details. It stays a quiet `ellipsis` while
+  everything is synchronized and only turns into a gold sync or warning glyph
+  when changes are waiting, the phone is unreachable, or Apple Health failed.
 - Use the shared horizontal margin and primary-action sizing from `WatchLayout`.
 - Keep the active set, rest timer, heart rate, and exercise completion usable
   without vertical scrolling at the default text size on the 40 mm SE.
@@ -25,6 +34,35 @@ owns the time-of-day clock; application content respects its safe area.
   it below the visible screen.
 - Show warmup and working-set labels distinctly. Session warmup completion is
   available from the exercise list.
+
+## Visual language
+
+- The background is pure black so the app blends into the bezel. Each screen
+  adds a soft `AmbientGlow` behind the header in its purpose color: sky blue
+  for logging and rest, green for completion, red for heart rate.
+- Tokens live in `WatchTheme` (`WorkoutWatchApp.swift`) and sizes in
+  `WatchLayout`. Cards and rows use the round `cardRadius`; data wells, set
+  rows, and stat strips use the tighter `dataRadius`.
+- The Digital Crown target is the one sky-blue outlined well with a
+  `chevron.up.chevron.down` hint; other wells stay neutral. A running timed
+  set turns its well and the screen glow green.
+- `SetProgressBar` shows one segment per set: green when done, glowing sky blue
+  for the current set, neutral for the rest.
+- The primary capsule carries a leading SF Symbol. Use green for starting a
+  timer, moving on, and finishing; use a neutral surface capsule for skipping.
+- Keep destructive actions out of the primary slot during an active workout.
+  The exercise list's primary action continues the current exercise, starts
+  the next one, or finishes when every set is done. **End workout** sits as a
+  red text button at the end of the list.
+- Rest is a countdown ring. Tapping the ring pauses or resumes, rest-adjust
+  buttons flank it (the synced watch-settings step, 15 s by default), and the
+  line underneath shows live heart rate and the next set.
+- `WatchScreen` clips content only toward the primary action. Glows and ring
+  strokes at the top edge may bleed into the title row (drawn above them) and
+  side margins, so do not pad content down to make room for them. At larger
+  text sizes the shell's scroll view clips on its own and adds `glowInset`
+  at the top instead.
+- Completion screens summarize duration, completed sets, and volume.
 
 ## Workout interactions
 
@@ -49,8 +87,9 @@ screens, not only each screen in isolation.
 Debug builds accept `--watch-preview` followed by `active`, `timed`, `rest`,
 `heartRate`, `exerciseComplete`, `list`, `details`, `waiting`, or `complete`.
 Add `--large-text` to verify enlarged text with the same fixtures.
-These deterministic fixtures do not send commands, start HealthKit, or overwrite
-persisted workouts. They are excluded from Release builds.
+These deterministic fixtures use the default watch settings. They do not send
+commands, start HealthKit, overwrite persisted workouts, or accept snapshots or
+settings from the paired phone. They are excluded from Release builds.
 
 For local commands and the physical-device connection checks, see the
 [mobile README](../../apps/mobile/README.md#apple-watch-companion).

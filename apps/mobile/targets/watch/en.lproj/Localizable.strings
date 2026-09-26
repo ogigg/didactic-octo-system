@@ -125,3 +125,14 @@
 "Ready for your next set" = "Ready for your next set";
 "Timer complete" = "Timer complete";
 "Log your set when ready" = "Log your set when ready";
+"Warm-up %lld/%lld" = "Warm-up %lld/%lld";
+"Set %lld/%lld" = "Set %lld/%lld";
+"Next: %@" = "Next: %@";
+"Continue" = "Continue";
+"TIME" = "TIME";
+"SETS" = "SETS";
+"VOLUME %@" = "VOLUME %@";
+"Remove %lld seconds" = "Remove %lld seconds";
+"Add %lld seconds" = "Add %lld seconds";
+"Undo last set" = "Undo last set";
+"Open rest timer, %lld seconds remaining" = "Open rest timer, %lld seconds remaining";

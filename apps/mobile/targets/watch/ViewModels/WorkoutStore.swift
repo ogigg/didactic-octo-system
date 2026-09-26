@@ -94,7 +94,11 @@ final class WorkoutCoordinator {
             if let id = self.health.activeWorkoutID { self.send(.healthWorkoutFailed, workoutID: id) }
         }
         #if DEBUG
-        if isPreview { configurePreview() }
+        if isPreview {
+            // Fixtures render with default preferences, not the last synced ones.
+            watchSettings = .defaults
+            configurePreview()
+        }
         #endif
         seedEditor()
         if !isPreview, currentSet?.id == restoredDraftID { editedSetID = restoredDraftID }
@@ -173,6 +177,8 @@ final class WorkoutCoordinator {
     }
 
     func apply(_ envelope: WatchSyncEnvelope) {
+        // Layout fixtures must not be replaced by the paired phone's live workout.
+        guard !isPreview else { return }
         if let settings = envelope.settings, let settingsRevision = envelope.settingsRevision {
             applySettings(settings, revision: settingsRevision)
         }
@@ -344,6 +350,14 @@ final class WorkoutCoordinator {
     func skipRest() {
         if let rest = snapshot?.rest { perform(.skipRest, payload: ["restId": rest.id]) }
         screen = currentSet == nil ? .exerciseComplete : .activeSet
+    }
+
+    /// Finishes right away unless the synced settings ask for a confirmation.
+    /// Returns true when the caller should present its confirmation instead.
+    func finishOrRequestConfirmation() -> Bool {
+        if watchSettings.confirmEndWorkout { return true }
+        finishWorkout()
+        return false
     }
 
     func finishWorkout() {

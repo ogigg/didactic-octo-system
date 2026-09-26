@@ -2,9 +2,9 @@ import SwiftUI
 
 struct SetLoggerView: View {
     @Environment(WorkoutCoordinator.self) private var coordinator
-    @ScaledMetric(relativeTo: .title2) private var valueSize = 22.0
+    @ScaledMetric(relativeTo: .title2) private var valueSize = 30.0
     @ScaledMetric(relativeTo: .caption2) private var labelSize = 9.0
-    @ScaledMetric(relativeTo: .body) private var editorHeight = 38.0
+    @ScaledMetric(relativeTo: .body) private var editorHeight = 49.0
     @State private var metric: Metric = .reps
     @FocusState private var focusedMetric: Metric?
 
@@ -18,15 +18,19 @@ struct SetLoggerView: View {
     }
 
     var body: some View {
-        if isTimed {
-            timedEditor
-        } else {
-            weightEditor
+        Group {
+            if isTimed {
+                timedEditor
+            } else {
+                weightEditor
+            }
         }
+        // Numbers are already display-sized; cap growth so both wells stay on screen.
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
     private var weightEditor: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 3) {
             metricEditor(
                 .reps,
                 label: String(localized: "REPS"),
@@ -39,26 +43,30 @@ struct SetLoggerView: View {
             )
         }
         .frame(maxWidth: .infinity)
-        .frame(height: editorHeight)
+        .frame(minHeight: editorHeight)
         .accessibilityElement(children: .contain)
     }
 
     private var timedEditor: some View {
         metricEditor(
             .reps,
-            label: String(localized: "SECONDS"),
+            label: String(localized: "TIME"),
             value: timerValue,
             isDuration: true
         )
         .frame(maxWidth: .infinity)
-        .frame(height: editorHeight)
+        .frame(minHeight: editorHeight)
         .accessibilityElement(children: .contain)
     }
 
     private var timerValue: String {
-        coordinator.timedSetEnd == nil
-            ? String(coordinator.durationSeconds)
-            : String(coordinator.timedSetRemaining)
+        WatchSummary.duration(
+            TimeInterval(
+                coordinator.timedSetEnd == nil
+                    ? coordinator.durationSeconds
+                    : coordinator.timedSetRemaining
+            )
+        )
     }
 
     private var repsBinding: Binding<Double> {
@@ -88,30 +96,49 @@ struct SetLoggerView: View {
         value: String,
         isDuration: Bool = false
     ) -> some View {
-        Button {
+        let isSelected = metric == candidate
+        let isRunning = isDuration && coordinator.timedSetEnd != nil
+        let tint = isRunning ? WatchTheme.success : WatchTheme.primary
+        return Button {
             metric = candidate
             focusedMetric = candidate
         } label: {
-            HStack(spacing: 4) {
-                VStack(alignment: .leading, spacing: 0) {
+            // The value's line box carries its own top leading, so the label
+            // takes an inset from the border and the value tucks up under it.
+            VStack(alignment: .leading, spacing: -3) {
+                HStack(spacing: 3) {
                     Text(label)
-                        .font(.system(size: labelSize, weight: .semibold))
-                    Text(value)
-                        .font(.system(size: valueSize, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .font(.system(size: labelSize, weight: .bold))
+                        .foregroundStyle(isSelected ? tint : .secondary)
+                    Spacer(minLength: 0)
+                    if isSelected && !isRunning {
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: labelSize, weight: .bold))
+                            .foregroundStyle(tint)
+                            .accessibilityHidden(true)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
+                Text(value)
+                    .font(.system(size: valueSize, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .foregroundStyle(isSelected || isRunning ? Color.primary : Color.primary.opacity(0.55))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            .foregroundStyle(metric == candidate ? WatchTheme.primary : .secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 7)
+            .padding(.top, 4)
             .frame(maxWidth: .infinity, minHeight: editorHeight)
             .background(
-                metric == candidate ? WatchTheme.primary.opacity(0.2) : WatchTheme.surface,
-                in: RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: WatchLayout.dataRadius)
+                    .fill(isSelected ? tint.opacity(0.16) : WatchTheme.surface)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: WatchLayout.dataRadius)
+                    .strokeBorder(isSelected ? tint : .clear, lineWidth: 1.5)
+            )
+            .animation(.snappy(duration: 0.2), value: value)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

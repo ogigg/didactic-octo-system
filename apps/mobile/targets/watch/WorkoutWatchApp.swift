@@ -57,11 +57,16 @@ struct WorkoutWatchApp: App {
 }
 
 enum WatchTheme {
-    static let background = Color(red: 0.071, green: 0.078, blue: 0.086)
-    static let surface = Color(red: 0.102, green: 0.114, blue: 0.125)
+    // Pure black blends the app into the watch bezel on OLED displays.
+    static let background = Color.black
+    static let surface = Color(red: 0.110, green: 0.122, blue: 0.137)
+    // Input wells sit darker than the card that contains them.
+    static let inset = Color(red: 0.047, green: 0.055, blue: 0.063)
     static let primary = Color(red: 0.353, green: 0.682, blue: 0.878)
     static let success = Color(red: 0.188, green: 0.820, blue: 0.345)
     static let gold = Color(red: 1.0, green: 0.773, blue: 0.239)
+    static let danger = Color(red: 1.0, green: 0.388, blue: 0.353)
+    static let heart = Color(red: 1.0, green: 0.216, blue: 0.373)
 }
 
 @MainActor
