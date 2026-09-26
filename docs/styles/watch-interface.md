@@ -57,6 +57,11 @@ system owns the time-of-day clock.
 - Rest is a countdown ring. Tapping the ring pauses or resumes, rest-adjust
   buttons flank it (the synced watch-settings step, 15 s by default), and the
   line underneath shows live heart rate and the next set.
+- `WatchScreen` clips content only toward the primary action. Glows and ring
+  strokes at the top edge may bleed into the title row (drawn above them) and
+  side margins, so do not pad content down to make room for them. At larger
+  text sizes the shell's scroll view clips on its own and adds `glowInset`
+  at the top instead.
 - Completion screens summarize duration, completed sets, and volume.
 
 ## Workout interactions
@@ -82,8 +87,9 @@ screens, not only each screen in isolation.
 Debug builds accept `--watch-preview` followed by `active`, `timed`, `rest`,
 `heartRate`, `exerciseComplete`, `list`, `details`, `waiting`, or `complete`.
 Add `--large-text` to verify enlarged text with the same fixtures.
-These deterministic fixtures do not send commands, start HealthKit, overwrite
-persisted workouts, or accept snapshots from the paired phone. They are excluded from Release builds.
+These deterministic fixtures use the default watch settings. They do not send
+commands, start HealthKit, overwrite persisted workouts, or accept snapshots or
+settings from the paired phone. They are excluded from Release builds.
 
 For local commands and the physical-device connection checks, see the
 [mobile README](../../apps/mobile/README.md#apple-watch-companion).

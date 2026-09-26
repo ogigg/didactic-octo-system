@@ -36,29 +36,25 @@ struct ExerciseDetailView: View {
                     }
                     SetProgressBar(sets: exercise.sets, currentSetID: set.id)
                         .padding(.horizontal, 2)
-                    if coordinator.watchSettings.showPreviousPerformance,
-                       let previous = set.previousDisplay {
-                        Text(watchLocalizedFormat("Previous %@", previous))
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .padding(.horizontal, 2)
-                    }
+                    let previous = coordinator.watchSettings.showPreviousPerformance ? set.previousDisplay : nil
                     // With automatic rest presentation off, keep the running
                     // rest one tap away from the set logger.
-                    if !coordinator.watchSettings.autoShowRestTimer,
-                       let rest = coordinator.snapshot?.rest {
-                        let remaining = rest.remainingSeconds(at: coordinator.now)
-                        Button { coordinator.navigate(.rest) } label: {
-                            Label(String(format: "%d:%02d", remaining / 60, remaining % 60), systemImage: "timer")
-                                .font(.system(.caption2, design: .rounded).weight(.semibold))
-                                .monospacedDigit()
-                                .frame(maxWidth: .infinity)
+                    let rest = coordinator.watchSettings.autoShowRestTimer ? nil : coordinator.snapshot?.rest
+                    if previous != nil || rest != nil {
+                        // One shared row keeps the 40 mm screen free of scrolling.
+                        HStack(spacing: 4) {
+                            if let previous {
+                                Text(watchLocalizedFormat("Previous %@", previous))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            if let rest { restShortcut(rest) }
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(WatchTheme.primary)
-                        .accessibilityLabel(watchLocalizedFormat("Open rest timer, %lld seconds remaining", remaining))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .monospacedDigit()
+                        .padding(.horizontal, 2)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
@@ -68,6 +64,18 @@ struct ExerciseDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
+    }
+
+    private func restShortcut(_ rest: RestTimerState) -> some View {
+        let remaining = rest.remainingSeconds(at: coordinator.now)
+        return Button { coordinator.navigate(.rest) } label: {
+            Label(String(format: "%d:%02d", remaining / 60, remaining % 60), systemImage: "timer")
+                .fontWeight(.semibold)
+                .fixedSize()
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(WatchTheme.primary)
+        .accessibilityLabel(watchLocalizedFormat("Open rest timer, %lld seconds remaining", remaining))
     }
 
     private func exerciseTitle(_ exercise: WatchExercise) -> some View {
@@ -134,10 +142,8 @@ struct ExerciseCompleteView: View {
             onPrimary: {
                 if coordinator.hasNextExercise {
                     coordinator.showNextExercise()
-                } else if coordinator.watchSettings.confirmEndWorkout {
-                    finishConfirmation = true
                 } else {
-                    coordinator.finishWorkout()
+                    finishConfirmation = coordinator.finishOrRequestConfirmation()
                 }
             }
         ) {
@@ -169,17 +175,6 @@ struct ExerciseCompleteView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .confirmationDialog(
-            String(localized: "Finish workout?"),
-            isPresented: $finishConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "Finish workout"), role: .destructive) {
-                coordinator.finishWorkout()
-            }
-            Button(String(localized: "Cancel"), role: .cancel) {}
-        } message: {
-            Text("You can still review this workout on your iPhone")
-        }
+        .workoutEndConfirmation(isPresented: $finishConfirmation, isFinish: true)
     }
 }

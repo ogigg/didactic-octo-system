@@ -27,6 +27,38 @@ struct SetProgressBar: View {
     }
 }
 
+/// Confirms ending the workout. Once every set is done it reads as finishing
+/// rather than abandoning, on every screen that offers it.
+private struct WorkoutEndConfirmation: ViewModifier {
+    @Environment(WorkoutCoordinator.self) private var coordinator
+    @Binding var isPresented: Bool
+    let isFinish: Bool
+
+    func body(content: Content) -> some View {
+        content.confirmationDialog(
+            isFinish ? String(localized: "Finish workout?") : String(localized: "End workout?"),
+            isPresented: $isPresented,
+            titleVisibility: .visible
+        ) {
+            Button(
+                isFinish ? String(localized: "Finish workout") : String(localized: "End workout"),
+                role: .destructive
+            ) {
+                coordinator.finishWorkout()
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text("You can still review this workout on your iPhone")
+        }
+    }
+}
+
+extension View {
+    func workoutEndConfirmation(isPresented: Binding<Bool>, isFinish: Bool) -> some View {
+        modifier(WorkoutEndConfirmation(isPresented: isPresented, isFinish: isFinish))
+    }
+}
+
 /// A compact labelled number used on summary screens.
 struct WatchStat: View {
     let label: String

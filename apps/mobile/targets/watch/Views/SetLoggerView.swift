@@ -43,7 +43,7 @@ struct SetLoggerView: View {
             )
         }
         .frame(maxWidth: .infinity)
-        .frame(height: editorHeight)
+        .frame(minHeight: editorHeight)
         .accessibilityElement(children: .contain)
     }
 
@@ -55,7 +55,7 @@ struct SetLoggerView: View {
             isDuration: true
         )
         .frame(maxWidth: .infinity)
-        .frame(height: editorHeight)
+        .frame(minHeight: editorHeight)
         .accessibilityElement(children: .contain)
     }
 
@@ -103,7 +103,9 @@ struct SetLoggerView: View {
             metric = candidate
             focusedMetric = candidate
         } label: {
-            VStack(alignment: .leading, spacing: 0) {
+            // The value's line box carries its own top leading, so the label
+            // takes an inset from the border and the value tucks up under it.
+            VStack(alignment: .leading, spacing: -3) {
                 HStack(spacing: 3) {
                     Text(label)
                         .font(.system(size: labelSize, weight: .bold))
@@ -126,6 +128,7 @@ struct SetLoggerView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 7)
+            .padding(.top, 4)
             .frame(maxWidth: .infinity, minHeight: editorHeight)
             .background(
                 RoundedRectangle(cornerRadius: WatchLayout.dataRadius)

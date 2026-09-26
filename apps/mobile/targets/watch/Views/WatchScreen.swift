@@ -8,6 +8,7 @@ enum WatchLayout {
     static let footerHeight: CGFloat = 37
     static let cardRadius: CGFloat = 14
     static let dataRadius: CGFloat = 9
+    static let glowInset: CGFloat = 8
 }
 
 enum WatchHeaderAction {
@@ -77,17 +78,26 @@ struct WatchScreen<Content: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 2)
                     .frame(height: WatchLayout.titleHeight, alignment: .top)
+                    // Content glows may reach into this row; keep the title above them.
+                    .zIndex(1)
                     .accessibilityAddTraits(.isHeader)
                 Group {
                     if dynamicTypeSize > .large && !contentScrolls {
-                        ScrollView { content.padding(.vertical, 2) }
+                        // A scroll view clips its own content, so leave glow room at the top.
+                        ScrollView { content.padding(.top, WatchLayout.glowInset).padding(.bottom, 2) }
                     } else {
                         content
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: bodyHeight, alignment: .top)
-                .clipped()
+                // Clip overflow only toward the primary action. Glows and ring
+                // strokes at the top edge may bleed into the title row and margins.
+                .mask {
+                    Rectangle()
+                        .padding(.top, -WatchLayout.titleHeight)
+                        .padding(.horizontal, -WatchLayout.horizontalPadding)
+                }
 
                 if let primaryTitle, let onPrimary {
                     Button(role: primaryRole, action: onPrimary) {

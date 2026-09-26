@@ -74,18 +74,7 @@ private struct ExerciseListView: View {
                 }
             }
         }
-        .confirmationDialog(
-            String(localized: "End workout?"),
-            isPresented: $endConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "End workout"), role: .destructive) {
-                coordinator.finishWorkout()
-            }
-            Button(String(localized: "Cancel"), role: .cancel) {}
-        } message: {
-            Text("You can still review this workout on your iPhone")
-        }
+        .workoutEndConfirmation(isPresented: $endConfirmation, isFinish: primary == .finish)
     }
 
     private var primaryTitle: String {
@@ -106,11 +95,7 @@ private struct ExerciseListView: View {
     }
 
     private func requestEnd() {
-        if coordinator.watchSettings.confirmEndWorkout {
-            endConfirmation = true
-        } else {
-            coordinator.finishWorkout()
-        }
+        endConfirmation = coordinator.finishOrRequestConfirmation()
     }
 
     private func exerciseRow(_ exercise: WatchExercise) -> some View {
